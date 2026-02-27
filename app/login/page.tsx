@@ -102,9 +102,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-center mt-8 text-xs text-slate-400 font-medium">
-          StoreFlow ERP Pro v1.0 • Credenciais padrão: admin@storeflow.com / admin123
-        </p>
       </motion.div>
     </div>
   );
