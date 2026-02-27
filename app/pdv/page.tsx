@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useERP } from '@/lib/context';
 import { 
@@ -23,6 +23,11 @@ export default function PDVPage() {
   const [search, setSearch] = useState('');
   const [barcode, setBarcode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<any>('Dinheiro');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
 
   const filteredProducts = (search.length >= 3 || barcode.length > 0)
     ? products.filter(p => 
@@ -84,6 +89,7 @@ export default function PDVPage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
               <input 
+                ref={searchInputRef}
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-emerald-500 focus:border-emerald-500"
                 placeholder="Buscar Produto..."
                 value={search}
