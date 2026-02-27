@@ -261,7 +261,15 @@ export default function PDVPage() {
         <div className="flex flex-col items-end">
           <div className="flex gap-2 mb-1">
             <button className="size-6 bg-emerald-500 flex items-center justify-center font-bold text-xs">_</button>
-            <button className="size-6 bg-red-600 flex items-center justify-center font-bold text-xs">X</button>
+            <button 
+              onClick={() => setConfirmDialog({
+                message: 'Deseja sair do PDV?',
+                onConfirm: () => router.push('/dashboard')
+              })}
+              className="size-6 bg-red-600 flex items-center justify-center font-bold text-xs"
+            >
+              X
+            </button>
           </div>
           <div className="bg-[#B22222] px-4 py-1 border border-white/20 rounded">
             <span className="text-sm font-bold">{formatDate(currentTime)}</span>
