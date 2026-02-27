@@ -24,6 +24,7 @@ export default function PDVPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -157,6 +158,19 @@ export default function PDVPage() {
     }
   }, [selectedIndex]);
 
+  const handleQuantityKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentProduct) {
+        addToCart(currentProduct, quantity);
+        setBarcode('');
+        setQuantity(1);
+        setCurrentProduct(null);
+        barcodeInputRef.current?.focus();
+      }
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -173,10 +187,8 @@ export default function PDVPage() {
       e.preventDefault();
       if (selectedIndex >= 0 && searchResults.length > 0) {
         const selected = searchResults[selectedIndex];
-        addToCart(selected, quantity);
-        setBarcode('');
-        setQuantity(1);
-        setCurrentProduct(null);
+        setCurrentProduct(selected);
+        setBarcode(selected.name);
         setSearchResults([]);
         setSelectedIndex(-1);
       } else if (currentProduct) {
@@ -187,6 +199,12 @@ export default function PDVPage() {
         setSearchResults([]);
         setSelectedIndex(-1);
       }
+    } else if (e.key === '*') {
+      e.preventDefault();
+      if (currentProduct) {
+        quantityInputRef.current?.focus();
+        quantityInputRef.current?.select();
+      }
     } else if (e.key === 'Escape') {
       setSearchResults([]);
       setSelectedIndex(-1);
@@ -194,10 +212,8 @@ export default function PDVPage() {
   };
 
   const selectProduct = (product: Product) => {
-    addToCart(product, quantity);
-    setBarcode('');
-    setQuantity(1);
-    setCurrentProduct(null);
+    setCurrentProduct(product);
+    setBarcode(product.name);
     setSearchResults([]);
     setSelectedIndex(-1);
     barcodeInputRef.current?.focus();
@@ -271,15 +287,15 @@ export default function PDVPage() {
       {/* Main Content */}
       <main className="flex-1 p-6 flex gap-6 overflow-hidden">
         {/* Middle: Inputs */}
-        <div className="w-[50%] flex flex-col gap-6">
+        <div className="w-[50%] flex flex-col gap-3">
           <div className="space-y-1 relative">
-            <label className="text-3xl font-bold italic">Código de Barras - [</label>
+            <label className="text-2xl font-bold italic">Código de Barras - [</label>
             <input 
               ref={barcodeInputRef}
               value={barcode}
               onChange={handleBarcodeChange}
               onKeyDown={handleKeyDown}
-              className="w-full bg-black border-2 border-white/20 rounded-xl px-4 py-4 text-4xl font-black focus:border-emerald-500 outline-none transition-all"
+              className="w-full bg-black border-2 border-white/20 rounded-xl px-3 py-2 text-3xl font-black focus:border-emerald-500 outline-none transition-all"
             />
             
             {/* Search Results Dropdown */}
@@ -291,7 +307,7 @@ export default function PDVPage() {
                     id={`search-result-${index}`}
                     onClick={() => selectProduct(product)}
                     className={cn(
-                      "px-4 py-3 cursor-pointer border-b border-white/10 last:border-0 flex justify-between items-center transition-colors",
+                      "px-4 py-2 cursor-pointer border-b border-white/10 last:border-0 flex justify-between items-center transition-colors",
                       index === selectedIndex ? "bg-emerald-600 text-white" : "hover:bg-emerald-900/50"
                     )}
                   >
@@ -307,31 +323,37 @@ export default function PDVPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-4xl font-bold italic">Quantidade</label>
-            <div className="bg-black border-2 border-white/20 rounded-xl px-4 py-4 text-right">
-              <span className="text-5xl font-black">{formatCurrency(quantity)}</span>
+            <label className="text-2xl font-bold italic">Quantidade</label>
+            <input 
+              ref={quantityInputRef}
+              type="number"
+              step="0.001"
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              onKeyDown={handleQuantityKeyDown}
+              className="w-full bg-black border-2 border-white/20 rounded-xl px-3 py-2 text-3xl font-black text-right focus:border-emerald-500 outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-2xl font-bold italic">Valor Unitario</label>
+            <div className="bg-black border-2 border-white/20 rounded-xl px-3 py-2 text-right">
+              <span className="text-3xl font-black">{formatCurrency(currentProduct?.salePrice || 0)}</span>
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-4xl font-bold italic">Valor Unitario</label>
-            <div className="bg-black border-2 border-white/20 rounded-xl px-4 py-4 text-right">
-              <span className="text-5xl font-black">{formatCurrency(currentProduct?.salePrice || 0)}</span>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-4xl font-bold italic">Valor Total</label>
-            <div className="bg-black border-2 border-white/20 rounded-xl px-4 py-4 text-right">
-              <span className="text-5xl font-black">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
+            <label className="text-2xl font-bold italic">Valor Total</label>
+            <div className="bg-black border-2 border-white/20 rounded-xl px-3 py-2 text-right">
+              <span className="text-3xl font-black">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
             </div>
           </div>
         </div>
 
         {/* Right: Cupom */}
         <div className="w-[50%] flex flex-col bg-emerald-800 rounded-xl overflow-hidden shadow-2xl border border-white/20">
-          <div className="py-2 text-center border-b border-white/20">
-            <h3 className="text-3xl font-black italic tracking-widest">CUPOM</h3>
+          <div className="py-1 text-center border-b border-white/20">
+            <h3 className="text-2xl font-black italic tracking-widest">CUPOM</h3>
           </div>
           
           <div className="flex-1 bg-white text-black overflow-y-auto">
