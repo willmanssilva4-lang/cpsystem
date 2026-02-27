@@ -10,6 +10,13 @@ export interface Product {
   stock: number;
   minStock: number;
   image: string;
+  brand?: string;
+  unit?: string;
+  supplier?: string;
+  group?: string;
+  subgroup?: string;
+  profit?: number;
+  profitPercentage?: number;
 }
 
 export interface SaleItem {

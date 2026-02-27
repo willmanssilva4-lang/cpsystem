@@ -11,6 +11,7 @@ interface ERPContextType {
   user: { name: string; email: string; role: string } | null;
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
+  deleteProduct: (id: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id'>) => void;
   addCustomer: (customer: Customer) => void;
   login: (email: string, password: string) => Promise<boolean>;
@@ -167,6 +168,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteProduct = async (id: string) => {
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (!error) {
+      await fetchData();
+    }
+  };
+
   const addSale = async (sale: Omit<Sale, 'id'>) => {
     const { data: saleData, error: saleError } = await supabase.from('sales').insert([{
       customer_id: sale.customerId,
@@ -229,6 +237,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       user,
       addProduct, 
       updateProduct, 
+      deleteProduct,
       addSale, 
       addCustomer,
       login,

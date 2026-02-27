@@ -12,14 +12,20 @@ import {
   AlertCircle,
   Package,
   TrendingUp,
-  X
+  X,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProductForm } from '@/components/ProductForm';
+import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct } = useERP();
   const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -29,15 +35,65 @@ export default function ProductsPage() {
   const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
 
+  const handleSaveProduct = (formData: any) => {
+    if (editingProduct) {
+      updateProduct({
+        ...editingProduct,
+        ...formData,
+        costPrice: Number(formData.costPrice),
+        salePrice: Number(formData.salePrice),
+        stock: Number(formData.stock),
+        minStock: Number(formData.minStock),
+      });
+    } else {
+      addProduct({
+        id: Math.random().toString(36).substr(2, 9),
+        name: formData.name,
+        sku: formData.sku,
+        category: formData.category,
+        costPrice: Number(formData.costPrice),
+        salePrice: Number(formData.salePrice),
+        stock: Number(formData.stock),
+        minStock: Number(formData.minStock),
+        image: formData.image,
+        brand: formData.brand,
+        unit: formData.unit,
+        supplier: formData.supplier,
+        group: formData.group,
+        subgroup: formData.subgroup,
+        profit: Number(formData.profit),
+        profitPercentage: Number(formData.profitPercentage)
+      });
+    }
+    setShowModal(false);
+    setEditingProduct(null);
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setShowModal(true);
+    setActiveMenuId(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este produto?')) {
+      await deleteProduct(id);
+      setActiveMenuId(null);
+    }
+  };
+
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8" onClick={() => setActiveMenuId(null)}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Gestão de Produtos</h1>
           <p className="text-slate-500 dark:text-slate-400">Controle total do seu catálogo e inventário.</p>
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingProduct(null);
+            setShowModal(true);
+          }}
           className="flex items-center gap-2 px-6 h-12 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
         >
           <Plus size={20} />
@@ -120,10 +176,35 @@ export default function ProductsPage() {
                       {product.stock <= product.minStock ? 'Estoque Baixo' : 'Em Estoque'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
+                  <td className="px-6 py-4 text-right relative">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuId(activeMenuId === product.id ? null : product.id);
+                      }}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"
+                    >
                       <MoreVertical size={18} />
                     </button>
+
+                    {activeMenuId === product.id && (
+                      <div className="absolute right-6 top-12 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 z-50 overflow-hidden">
+                        <button 
+                          onClick={() => handleEdit(product)}
+                          className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                        >
+                          <Edit size={16} />
+                          Editar Produto
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(product.id)}
+                          className="w-full px-4 py-3 text-left text-sm font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-2"
+                        >
+                          <Trash2 size={16} />
+                          Excluir Produto
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -133,48 +214,14 @@ export default function ProductsPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-8 py-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white">Novo Produto</h2>
-              <button onClick={() => setShowModal(false)} className="size-10 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold mb-2">Nome do Produto</label>
-                  <input className="w-full px-4 py-2 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" placeholder="Ex: Mouse Gamer" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">SKU</label>
-                  <input className="w-full px-4 py-2 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" placeholder="SKU-001" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">Categoria</label>
-                  <select className="w-full px-4 py-2 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800">
-                    <option>Eletrônicos</option>
-                    <option>Periféricos</option>
-                    <option>Acessórios</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">Preço de Venda (R$)</label>
-                  <input type="number" className="w-full px-4 py-2 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" placeholder="0,00" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">Estoque Inicial</label>
-                  <input type="number" className="w-full px-4 py-2 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" placeholder="0" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-6">
-                <button onClick={() => setShowModal(false)} className="px-6 py-2 rounded-lg border border-slate-200 font-bold">Cancelar</button>
-                <button className="px-6 py-2 rounded-lg bg-blue-600 text-white font-bold">Salvar Produto</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ProductForm 
+          initialData={editingProduct || undefined}
+          onClose={() => {
+            setShowModal(false);
+            setEditingProduct(null);
+          }} 
+          onSave={handleSaveProduct} 
+        />
       )}
     </div>
   );

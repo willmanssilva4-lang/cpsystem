@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'mercadinhosupernice.com.br',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   output: 'standalone',
