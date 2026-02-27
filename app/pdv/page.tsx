@@ -22,6 +22,7 @@ export default function PDVPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
   
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
@@ -63,6 +64,18 @@ export default function PDVPage() {
     barcodeInputRef.current?.focus();
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (confirmDialog) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setConfirmDialog(null);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          confirmDialog.onConfirm();
+          setConfirmDialog(null);
+        }
+        return;
+      }
+
       // F1 - Ajuda
       if (e.key === 'F1') {
         e.preventDefault();
@@ -83,9 +96,10 @@ export default function PDVPage() {
       // F6 - Cancelar Venda
       if (e.key === 'F6') {
         e.preventDefault();
-        if (confirm('Deseja cancelar a venda atual?')) {
-          setCart([]);
-        }
+        setConfirmDialog({
+          message: 'Deseja cancelar a venda atual?',
+          onConfirm: () => setCart([])
+        });
       }
       // F7 - Excluir último item
       if (e.key === 'F7') {
@@ -103,9 +117,10 @@ export default function PDVPage() {
         } else if (showPaymentModal) {
           setShowPaymentModal(false);
         } else {
-          if (confirm('Deseja sair do PDV?')) {
-            router.push('/dashboard');
-          }
+          setConfirmDialog({
+            message: 'Deseja sair do PDV?',
+            onConfirm: () => router.push('/dashboard')
+          });
         }
       }
       // Ctrl + N - Novo Produto
@@ -120,7 +135,7 @@ export default function PDVPage() {
       clearInterval(timer);
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, router, handleCheckout]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, confirmDialog, router, handleCheckout]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -499,6 +514,32 @@ export default function PDVPage() {
           onClose={() => setShowPaymentModal(false)}
           onFinalize={finalizeSale}
         />
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+          <div className="bg-[#1a1a1a] border-2 border-emerald-500 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
+            <h3 className="text-2xl font-black italic mb-8 text-white">{confirmDialog.message}</h3>
+            <div className="flex gap-4 justify-center">
+              <button 
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(null);
+                }}
+                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors"
+              >
+                SIM (Enter)
+              </button>
+              <button 
+                onClick={() => setConfirmDialog(null)}
+                className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-colors"
+              >
+                NÃO (Esc)
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
