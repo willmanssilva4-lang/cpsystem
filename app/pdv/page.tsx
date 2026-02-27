@@ -138,7 +138,7 @@ export default function PDVPage() {
         const filtered = products.filter(p => 
           p.name.toLowerCase().includes(value.toLowerCase()) ||
           p.sku.toLowerCase().includes(value.toLowerCase())
-        ).slice(0, 10); // Limit results
+        ).slice(0, 50); // Limit results
         setSearchResults(filtered);
         setSelectedIndex(filtered.length > 0 ? 0 : -1);
       } else {
@@ -148,10 +148,24 @@ export default function PDVPage() {
     }
   };
 
+  useEffect(() => {
+    if (selectedIndex >= 0) {
+      const element = document.getElementById(`search-result-${selectedIndex}`);
+      if (element) {
+        element.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [selectedIndex]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));
+      if (searchResults.length === 0 && barcode.length === 0) {
+        setSearchResults(products.slice(0, 50));
+        setSelectedIndex(0);
+      } else {
+        setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
@@ -204,7 +218,7 @@ export default function PDVPage() {
       <header className="bg-emerald-950 px-4 py-2 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-4">
           <div className="bg-black p-1 rounded">
-            <div className="text-emerald-500 font-black text-2xl italic leading-none">SYS</div>
+            <div className="text-emerald-500 font-black text-2xl italic leading-none">Cp Sister</div>
             <div className="text-orange-500 font-black text-xl leading-none">PDV</div>
           </div>
           <div className="text-center">
@@ -270,10 +284,11 @@ export default function PDVPage() {
             
             {/* Search Results Dropdown */}
             {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 w-full bg-emerald-950 border-2 border-white/20 rounded-xl mt-2 shadow-2xl z-[100] overflow-hidden">
+              <div className="absolute top-full left-0 w-full max-h-64 bg-emerald-950 border-2 border-white/20 rounded-xl mt-2 shadow-2xl z-[100] overflow-y-auto">
                 {searchResults.map((product, index) => (
                   <div 
                     key={product.id}
+                    id={`search-result-${index}`}
                     onClick={() => selectProduct(product)}
                     className={cn(
                       "px-4 py-3 cursor-pointer border-b border-white/10 last:border-0 flex justify-between items-center transition-colors",

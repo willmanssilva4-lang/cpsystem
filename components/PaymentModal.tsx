@@ -18,6 +18,9 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const [secondPaymentAmount, setSecondPaymentAmount] = useState(0);
   
   const moneyRef = useRef<HTMLInputElement>(null);
+  const cardTypeRef = useRef<HTMLSelectElement>(null);
+  const cardBrandRef = useRef<HTMLSelectElement>(null);
+  const secondPaymentMethodRef = useRef<HTMLSelectElement>(null);
   const secondPaymentRef = useRef<HTMLInputElement>(null);
 
   const finalTotal = total;
@@ -38,21 +41,17 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const inputs = [moneyRef, secondPaymentRef];
-      const activeElement = document.activeElement as HTMLInputElement;
+      const inputs = [moneyRef, cardTypeRef, cardBrandRef, secondPaymentMethodRef, secondPaymentRef];
+      const activeElement = document.activeElement as HTMLElement;
       const currentIndex = inputs.findIndex(ref => ref.current === activeElement);
 
-      if (e.key === 'ArrowDown') {
+      if (e.key === 'Enter') {
         e.preventDefault();
         const nextIndex = (currentIndex + 1) % inputs.length;
         inputs[nextIndex].current?.focus();
-        inputs[nextIndex].current?.select();
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIndex = (currentIndex - 1 + inputs.length) % inputs.length;
-        inputs[prevIndex].current?.focus();
-        inputs[prevIndex].current?.select();
+        if ('select' in (inputs[nextIndex].current || {})) {
+          (inputs[nextIndex].current as HTMLInputElement)?.select();
+        }
       }
       if (e.key === 'F2') {
         e.preventDefault();
@@ -163,7 +162,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           <div className="w-[30%] space-y-6">
             <div className="space-y-1">
               <label className="text-sm font-black italic uppercase text-white/80">Tipo Cartão</label>
-              <select className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none">
+              <select 
+                ref={cardTypeRef}
+                className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500"
+              >
                 <option>Selecione...</option>
                 <option>Crédito</option>
                 <option>Débito</option>
@@ -173,7 +175,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             <div className="space-y-1">
               <label className="text-sm font-black italic uppercase text-white/80">Bandeira</label>
               <div className="flex gap-2">
-                <select className="flex-1 bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none">
+                <select 
+                  ref={cardBrandRef}
+                  className="flex-1 bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500"
+                >
                   <option>Selecione...</option>
                   <option>Visa</option>
                   <option>Mastercard</option>
@@ -188,7 +193,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             <div className="space-y-1">
               <label className="text-sm font-black italic uppercase text-white/80">2º Forma Pgto</label>
               <div className="flex gap-2">
-                <select className="flex-1 bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none">
+                <select 
+                  ref={secondPaymentMethodRef}
+                  className="flex-1 bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500"
+                >
                   <option>Selecione...</option>
                 </select>
                 <button className="bg-emerald-500 p-2 rounded-lg hover:bg-emerald-600 transition-colors">
