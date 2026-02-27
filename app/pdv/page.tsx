@@ -119,7 +119,7 @@ export default function PDVPage() {
         } else {
           setConfirmDialog({
             message: 'Deseja sair do PDV?',
-            onConfirm: () => router.push('/dashboard')
+            onConfirm: () => router.push('/')
           });
         }
       }
@@ -264,7 +264,7 @@ export default function PDVPage() {
             <button 
               onClick={() => setConfirmDialog({
                 message: 'Deseja sair do PDV?',
-                onConfirm: () => router.push('/dashboard')
+                onConfirm: () => router.push('/')
               })}
               className="size-6 bg-red-600 flex items-center justify-center font-bold text-xs"
             >
