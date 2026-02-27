@@ -21,12 +21,15 @@ export default function PDVPage() {
   const { products, addSale } = useERP();
   const [cart, setCart] = useState<{ product: Product, quantity: number }[]>([]);
   const [search, setSearch] = useState('');
+  const [barcode, setBarcode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<any>('Dinheiro');
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredProducts = (search.length >= 3 || barcode.length > 0)
+    ? products.filter(p => 
+        (search.length >= 3 && p.name.toLowerCase().includes(search.toLowerCase())) || 
+        (barcode.length > 0 && p.sku.toLowerCase().includes(barcode.toLowerCase()))
+      )
+    : [];
 
   const addToCart = (product: Product) => {
     const existing = cart.find(item => item.product.id === product.id);
@@ -76,7 +79,7 @@ export default function PDVPage() {
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       {/* Product Selection */}
       <section className="flex-[1.8] flex flex-col border-r border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 space-y-4">
+        <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
           <div className="flex gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -92,56 +95,56 @@ export default function PDVPage() {
               <input 
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-emerald-500 focus:border-emerald-500"
                 placeholder="Código de Barras"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
               />
             </div>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {['Todos', 'Bebidas', 'Lanches', 'Eletrônicos', 'Hortifruti'].map((cat, idx) => (
-              <button 
-                key={cat}
-                className={cn(
-                  "shrink-0 px-5 py-2 rounded-full text-sm font-bold transition-all",
-                  idx === 0 ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-50"
-                )}
-              >
-                {cat}
-              </button>
-            ))}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredProducts.map((product) => (
-              <div 
-                key={product.id}
-                onClick={() => addToCart(product)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-emerald-500/50 transition-all cursor-pointer group"
-              >
-                <div className="h-32 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
-                  <Image 
-                    src={product.image} 
-                    alt={product.name}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm font-bold">
-                    Estoque: {product.stock}
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredProducts.map((product) => (
+                <div 
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-emerald-500/50 transition-all cursor-pointer group"
+                >
+                  <div className="h-32 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
+                    <Image 
+                      src={product.image} 
+                      alt={product.name}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm font-bold">
+                      Estoque: {product.stock}
+                    </div>
                   </div>
-                </div>
-                <div className="p-3">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1 line-clamp-1">{product.name}</h3>
-                  <div className="flex justify-between items-center">
-                    <span className="text-emerald-600 font-black">R$ {product.salePrice.toLocaleString()}</span>
-                    <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                      <Plus size={16} />
+                  <div className="p-3">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1 line-clamp-1">{product.name}</h3>
+                    <div className="flex justify-between items-center">
+                      <span className="text-emerald-600 font-black">R$ {product.salePrice.toLocaleString()}</span>
+                      <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                        <Plus size={16} />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-40 py-20">
+              <Search size={48} className="mb-4" />
+              <p className="font-bold text-center">
+                {search.length > 0 && search.length < 3 
+                  ? "Digite pelo menos 3 caracteres..." 
+                  : "Aguardando busca ou código de barras..."}
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
