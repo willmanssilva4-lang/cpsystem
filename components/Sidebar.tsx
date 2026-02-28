@@ -16,6 +16,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
@@ -33,14 +34,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col h-screen sticky top-0">
-      <div className="p-6 flex items-center gap-3">
-        <div className="bg-emerald-500 rounded-lg p-2 text-white">
-          <Store size={24} />
-        </div>
-        <div>
-          <h1 className="font-bold text-lg leading-tight">StoreFlow</h1>
-          <p className="text-xs text-slate-500 font-medium">Gestão Administrativa</p>
-        </div>
+      <div className="p-6 flex items-center justify-center">
+        <Logo size="sm" hideText />
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">

@@ -4,8 +4,8 @@ import { ERPProvider } from '@/lib/context';
 import { AppLayout } from '@/components/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'StoreFlow ERP Pro',
-  description: 'Sistema de gestão empresarial completo',
+  title: 'Cpsystem',
+  description: 'Gestão Financeira Inteligente',
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

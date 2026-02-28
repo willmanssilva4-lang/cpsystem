@@ -5,6 +5,7 @@ import { useERP } from '@/lib/context';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, Loader2, Store } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Logo } from '@/components/Logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,12 +41,8 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center size-16 bg-emerald-500 text-white rounded-2xl shadow-xl shadow-emerald-500/20 mb-4">
-            <Store size={32} />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">StoreFlow ERP</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">Acesse sua conta para gerenciar seu negócio</p>
+        <div className="text-center mb-8 flex justify-center">
+          <Logo size="lg" />
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
@@ -65,8 +62,8 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
-                  placeholder="admin@storeflow.com"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#004785] focus:border-[#004785] transition-all outline-none"
+                  placeholder="admin@cpsystem.com"
                 />
               </div>
             </div>
@@ -80,7 +77,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#004785] focus:border-[#004785] transition-all outline-none"
                   placeholder="••••••••"
                 />
               </div>
@@ -89,7 +86,7 @@ export default function LoginPage() {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-lg shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-4 bg-[#004785] hover:bg-[#003366] text-white rounded-xl font-black text-lg shadow-lg shadow-[#004785]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? <Loader2 className="animate-spin" size={24} /> : 'Entrar no Sistema'}
             </button>
@@ -97,7 +94,7 @@ export default function LoginPage() {
 
           <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Esqueceu sua senha? <button className="text-emerald-500 font-bold hover:underline">Recuperar acesso</button>
+              Esqueceu sua senha? <button className="text-[#004785] font-bold hover:underline">Recuperar acesso</button>
             </p>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Product } from '@/lib/types';
 import { ProductForm } from '@/components/ProductForm';
 import { PaymentModal } from '@/components/PaymentModal';
+import { Logo } from '@/components/Logo';
 import { HelpCircle, X } from 'lucide-react';
 
 export default function PDVPage() {
@@ -248,8 +249,8 @@ export default function PDVPage() {
       {/* Top Header */}
       <header className="bg-emerald-950 px-4 py-2 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-4">
-          <div className="bg-black p-1 rounded">
-            <div className="text-emerald-500 font-black text-2xl italic leading-none">Cp Sister</div>
+          <div className="bg-black p-2 rounded flex items-center gap-2">
+            <Logo size="sm" hideText theme="dark" />
             <div className="text-orange-500 font-black text-xl leading-none">PDV</div>
           </div>
           <div className="text-center">
