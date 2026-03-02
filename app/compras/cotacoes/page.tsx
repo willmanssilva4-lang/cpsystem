@@ -1,0 +1,297 @@
+'use client';
+
+import React, { useState } from 'react';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Search, 
+  Filter, 
+  TrendingDown, 
+  TrendingUp, 
+  CheckCircle2, 
+  Clock, 
+  FileText,
+  Truck,
+  DollarSign,
+  ArrowRight,
+  MoreHorizontal,
+  ChevronDown
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import Link from 'next/link';
+
+const MOCK_COTATIONS = [
+  {
+    id: 'COT-2024-001',
+    title: 'Cotação Semanal - Bebidas',
+    date: '01/03/2024',
+    status: 'Em Aberto',
+    suppliers: ['Ambev', 'Coca-Cola', 'Heineken'],
+    items: 12,
+    bestPrice: 'R$ 15.400,00'
+  },
+  {
+    id: 'COT-2024-002',
+    title: 'Reposição Hortifruti',
+    date: '28/02/2024',
+    status: 'Finalizada',
+    suppliers: ['Distribuidora Sol', 'Horta Viva', 'Agro Campo'],
+    items: 8,
+    bestPrice: 'R$ 4.200,00'
+  },
+  {
+    id: 'COT-2024-003',
+    title: 'Limpeza e Higiene',
+    date: '25/02/2024',
+    status: 'Finalizada',
+    suppliers: ['Unilever', 'P&G', 'Limpa Tudo'],
+    items: 25,
+    bestPrice: 'R$ 8.900,00'
+  }
+];
+
+export default function CotacoesPage() {
+  const [view, setView] = useState<'list' | 'create'>('list');
+
+  return (
+    <div className="p-8 space-y-8 bg-white min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <Link href="/compras" className="flex items-center gap-2 text-emerald-600 font-black uppercase italic tracking-tight text-xs mb-2 hover:gap-3 transition-all">
+            <ArrowLeft size={14} />
+            Voltar para Compras
+          </Link>
+          <h1 className="text-3xl font-black tracking-tight text-emerald-950 italic uppercase">Cotações de Preços</h1>
+          <p className="text-emerald-600/60 font-medium">Compare preços entre fornecedores e garanta a melhor margem.</p>
+        </div>
+        <button 
+          onClick={() => setView('create')}
+          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+        >
+          <Plus size={20} />
+          Nova Cotação
+        </button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {view === 'list' ? (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            {/* Filters & Search */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-emerald-50/30 p-4 rounded-[24px] border border-emerald-100">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-900/30" size={20} />
+                <input 
+                  type="text" 
+                  placeholder="Buscar cotação por título ou ID..."
+                  className="w-full pl-12 pr-4 py-3 bg-white border border-emerald-100 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-white border border-emerald-100 rounded-xl text-sm font-bold text-emerald-900 hover:bg-emerald-50 transition-all">
+                  <Filter size={18} />
+                  Filtros
+                </button>
+                <select className="flex-1 md:flex-none px-4 py-3 bg-white border border-emerald-100 rounded-xl text-sm font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500 appearance-none">
+                  <option>Todas as Cotações</option>
+                  <option>Em Aberto</option>
+                  <option>Finalizadas</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Cotations Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {MOCK_COTATIONS.map((cot, index) => (
+                <motion.div
+                  key={cot.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="group bg-white border border-emerald-100 rounded-[32px] p-6 hover:border-emerald-500 hover:shadow-xl transition-all cursor-pointer"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase italic tracking-tight ${
+                      cot.status === 'Em Aberto' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {cot.status}
+                    </span>
+                    <button className="text-emerald-900/20 group-hover:text-emerald-600 transition-colors">
+                      <MoreHorizontal size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-1 mb-6">
+                    <h3 className="text-lg font-black text-emerald-950 uppercase italic tracking-tight leading-tight">{cot.title}</h3>
+                    <p className="text-xs font-bold text-emerald-900/40 uppercase italic tracking-widest">{cot.id} • {cot.date}</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg">
+                          <Truck size={16} />
+                        </div>
+                        <span className="text-xs font-bold text-emerald-900/60 uppercase italic">Fornecedores</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-950 italic">{cot.suppliers.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg">
+                          <DollarSign size={16} />
+                        </div>
+                        <span className="text-xs font-bold text-emerald-900/60 uppercase italic">Melhor Preço</span>
+                      </div>
+                      <span className="text-sm font-black text-emerald-600 italic">{cot.bestPrice}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-emerald-50 flex items-center justify-between">
+                    <div className="flex -space-x-2">
+                      {cot.suppliers.map((s, i) => (
+                        <div key={i} className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center text-[10px] font-black text-emerald-600 italic uppercase">
+                          {s[0]}
+                        </div>
+                      ))}
+                    </div>
+                    <button className="flex items-center gap-2 text-xs font-black text-emerald-600 uppercase italic tracking-widest hover:gap-3 transition-all">
+                      Detalhes
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="create"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            {/* Create Cotation UI */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                {/* Basic Info */}
+                <div className="p-8 rounded-[32px] border border-emerald-100 bg-emerald-50/30 space-y-6">
+                  <h2 className="text-xl font-black text-emerald-950 uppercase italic tracking-tight">Informações Básicas</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest ml-1">Título da Cotação</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Cotação Bebidas Março"
+                        className="w-full px-4 py-4 bg-white border border-emerald-100 rounded-2xl text-emerald-950 font-bold focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest ml-1">Data Limite</label>
+                      <input 
+                        type="date" 
+                        className="w-full px-4 py-4 bg-white border border-emerald-100 rounded-2xl text-emerald-950 font-bold focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items Selection */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-black text-emerald-950 uppercase italic tracking-tight">Produtos para Cotar</h2>
+                    <button className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-xs font-black uppercase italic tracking-tight hover:bg-emerald-200 transition-all">
+                      <Plus size={16} />
+                      Adicionar Produto
+                    </button>
+                  </div>
+                  
+                  <div className="bg-white rounded-[32px] border border-emerald-100 overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-emerald-50/50 border-b border-emerald-100">
+                          <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Produto</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Qtd. Estimada</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Último Custo</th>
+                          <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-emerald-50">
+                        {[
+                          { name: 'Arroz Agulhinha 5kg', qty: 500, lastCost: 'R$ 18,50' },
+                          { name: 'Feijão Carioca 1kg', qty: 1000, lastCost: 'R$ 6,20' },
+                          { name: 'Óleo de Soja 900ml', qty: 240, lastCost: 'R$ 5,80' },
+                        ].map((item, i) => (
+                          <tr key={i} className="hover:bg-emerald-50/30 transition-colors">
+                            <td className="px-6 py-4">
+                              <span className="text-sm font-bold text-emerald-950">{item.name}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-sm font-black text-emerald-950 italic">{item.qty} un.</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="text-sm font-bold text-emerald-900/60">{item.lastCost}</span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button className="text-rose-300 hover:text-rose-600 transition-colors">
+                                <Plus size={18} className="rotate-45" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Suppliers Selection */}
+              <div className="space-y-8">
+                <div className="p-8 rounded-[32px] border border-emerald-100 bg-white space-y-6">
+                  <h3 className="text-lg font-black text-emerald-950 uppercase italic tracking-tight">Fornecedores Participantes</h3>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-900/30" size={16} />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar fornecedor..."
+                        className="w-full pl-10 pr-4 py-3 bg-emerald-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      {['Ambev S.A.', 'Nestlé Brasil', 'Unilever', 'Coca-Cola FEMSA'].map((s) => (
+                        <label key={s} className="flex items-center gap-3 p-3 rounded-xl border border-emerald-50 hover:bg-emerald-50 transition-colors cursor-pointer group">
+                          <input type="checkbox" className="w-4 h-4 rounded border-emerald-200 text-emerald-600 focus:ring-emerald-500" />
+                          <span className="text-sm font-bold text-emerald-900 group-hover:text-emerald-600 transition-colors">{s}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setView('list')}
+                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase italic tracking-tight shadow-xl shadow-emerald-600/20 hover:bg-emerald-700 transition-all active:scale-95"
+                  >
+                    Lançar Cotação
+                  </button>
+                  <button 
+                    onClick={() => setView('list')}
+                    className="w-full py-4 bg-white border border-emerald-100 text-emerald-900 rounded-2xl font-black uppercase italic tracking-tight hover:bg-emerald-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

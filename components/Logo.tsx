@@ -37,22 +37,23 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
 
   const s = sizes[size];
 
-  const textColor = theme === 'dark' ? 'text-white' : 'text-[#004785]';
-  const dotColor = theme === 'dark' ? '#ffffff' : '#004785';
-  const rightBranchColor = theme === 'dark' ? '#ffffff' : '#004785';
+  const textColor = theme === 'dark' ? 'text-white' : 'text-emerald-900';
+  const dotColor = theme === 'dark' ? '#ffffff' : '#065f46';
+  const rightBranchColor = theme === 'dark' ? '#ffffff' : '#065f46';
+  const leftBranchColor = theme === 'dark' ? '#ffffff' : '#10b981';
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <div className="flex items-center">
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>Cps</span>
         <svg viewBox="0 0 40 40" className={`${s.svg} ${s.spacing}`} style={{ overflow: 'visible' }}>
-          {/* Green left branch */}
-          <path d="M 8 12 L 20 24" stroke="#22c55e" strokeWidth={s.stroke} strokeLinecap="round" />
-          {/* Green stem */}
-          <path d="M 20 24 L 12 38" stroke="#22c55e" strokeWidth={s.stroke} strokeLinecap="round" />
-          {/* Blue/White right branch */}
+          {/* Left branch */}
+          <path d="M 8 12 L 20 24" stroke={leftBranchColor} strokeWidth={s.stroke} strokeLinecap="round" />
+          {/* Stem */}
+          <path d="M 20 24 L 12 38" stroke={leftBranchColor} strokeWidth={s.stroke} strokeLinecap="round" />
+          {/* Right branch */}
           <path d="M 32 4 L 20 24" stroke={rightBranchColor} strokeWidth={s.stroke} strokeLinecap="round" />
-          {/* Blue/White dot */}
+          {/* Dot */}
           <circle cx="20" cy="24" r={s.dot} fill={dotColor} />
         </svg>
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>stem</span>

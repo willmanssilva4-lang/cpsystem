@@ -15,8 +15,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <div className="flex min-h-screen">
-        {!isLoginPage && !isPdvPage && user && <Sidebar />}
-        <main className="flex-1 flex flex-col min-w-0">
+        {!isLoginPage && !isPdvPage && <Sidebar />}
+        <main className={`flex-1 flex flex-col min-w-0 ${!isLoginPage && !isPdvPage ? 'bg-emerald-50/30' : ''}`}>
           {children}
         </main>
       </div>

@@ -93,16 +93,16 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-      <div className="bg-[#1a1a1a] w-full max-w-5xl rounded-3xl border-2 border-white/10 shadow-2xl overflow-hidden flex flex-col text-white font-sans">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-5xl rounded-3xl border-2 border-emerald-100 shadow-2xl overflow-hidden flex flex-col text-slate-900 font-sans">
         
         {/* Tabs */}
-        <div className="flex bg-[#333] p-1">
+        <div className="flex bg-emerald-50 p-1 border-b border-emerald-100">
           <button 
             onClick={() => setActiveMethod('AVISTA')}
             className={cn(
               "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'AVISTA' ? "bg-[#1a1a1a] text-white" : "text-white/60 hover:bg-white/5"
+              activeMethod === 'AVISTA' ? "bg-white text-emerald-700 shadow-sm" : "text-emerald-600/60 hover:bg-emerald-100/50"
             )}
           >
             Avista - F2
@@ -111,7 +111,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             onClick={() => setActiveMethod('PIX')}
             className={cn(
               "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'PIX' ? "bg-[#1a1a1a] text-white" : "text-white/60 hover:bg-white/5"
+              activeMethod === 'PIX' ? "bg-white text-emerald-700 shadow-sm" : "text-emerald-600/60 hover:bg-emerald-100/50"
             )}
           >
             PIX - F3
@@ -120,7 +120,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             onClick={() => setActiveMethod('CARTAO')}
             className={cn(
               "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'CARTAO' ? "bg-[#1a1a1a] text-white" : "text-white/60 hover:bg-white/5"
+              activeMethod === 'CARTAO' ? "bg-white text-emerald-700 shadow-sm" : "text-emerald-600/60 hover:bg-emerald-100/50"
             )}
           >
             Cartão - F5
@@ -129,7 +129,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             onClick={() => setActiveMethod('OUTROS')}
             className={cn(
               "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'OUTROS' ? "bg-[#1a1a1a] text-white" : "text-white/60 hover:bg-white/5"
+              activeMethod === 'OUTROS' ? "bg-white text-emerald-700 shadow-sm" : "text-emerald-600/60 hover:bg-emerald-100/50"
             )}
           >
             Outros - F6
@@ -140,20 +140,20 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           {/* Left Column */}
           <div className="w-[40%] space-y-6">
             <div className="space-y-1">
-              <label className="text-sm font-black italic uppercase text-white/80">Valor Cartão</label>
-              <div className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-2xl font-black text-right">
+              <label className="text-sm font-black italic uppercase text-emerald-900/60">Valor Cartão</label>
+              <div className="w-full bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3 text-2xl font-black text-right text-emerald-700">
                 {formatCurrency(cardValue)}
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-black italic uppercase text-white/80">Dinheiro</label>
+              <label className="text-sm font-black italic uppercase text-emerald-900/60">Dinheiro</label>
               <input 
                 ref={moneyRef}
                 type="number"
                 value={cashAmount}
                 onChange={(e) => setCashAmount(Number(e.target.value))}
-                className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-2xl font-black outline-none focus:border-emerald-500"
+                className="w-full bg-white border border-emerald-200 rounded-lg px-4 py-3 text-2xl font-black outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-emerald-950 transition-all"
               />
             </div>
           </div>
@@ -161,10 +161,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           {/* Middle Column */}
           <div className="w-[30%] space-y-6">
             <div className="space-y-1">
-              <label className="text-sm font-black italic uppercase text-white/80">Tipo Cartão</label>
+              <label className="text-sm font-black italic uppercase text-emerald-900/60">Tipo Cartão</label>
               <select 
                 ref={cardTypeRef}
-                className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500"
+                className="w-full bg-white border border-emerald-200 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-emerald-950 transition-all"
               >
                 <option>Selecione...</option>
                 <option>Crédito</option>
@@ -173,46 +173,46 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-black italic uppercase text-white/80">Bandeira</label>
+              <label className="text-sm font-black italic uppercase text-emerald-900/60">Bandeira</label>
               <div className="flex gap-2">
                 <select 
                   ref={cardBrandRef}
-                  className="flex-1 bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500"
+                  className="flex-1 bg-white border border-emerald-200 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-emerald-950 transition-all"
                 >
                   <option>Selecione...</option>
                   <option>Visa</option>
                   <option>Mastercard</option>
                   <option>Elo</option>
                 </select>
-                <button className="bg-emerald-500 p-2 rounded-lg hover:bg-emerald-600 transition-colors">
+                <button className="bg-emerald-500 p-2 rounded-lg hover:bg-emerald-600 text-white transition-colors">
                   <Plus size={20} />
                 </button>
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-black italic uppercase text-white/80">2º Forma Pgto</label>
+              <label className="text-sm font-black italic uppercase text-emerald-900/60">2º Forma Pgto</label>
               <div className="flex gap-2">
                 <select 
                   ref={secondPaymentMethodRef}
-                  className="flex-1 bg-black border border-white/20 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500"
+                  className="flex-1 bg-white border border-emerald-200 rounded-lg px-4 py-3 text-sm font-bold outline-none appearance-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-emerald-950 transition-all"
                 >
                   <option>Selecione...</option>
                 </select>
-                <button className="bg-emerald-500 p-2 rounded-lg hover:bg-emerald-600 transition-colors">
+                <button className="bg-emerald-500 p-2 rounded-lg hover:bg-emerald-600 text-white transition-colors">
                   <Plus size={20} />
                 </button>
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-black italic uppercase text-white/80">Valor 2º Pgto</label>
+              <label className="text-sm font-black italic uppercase text-emerald-900/60">Valor 2º Pgto</label>
               <input 
                 ref={secondPaymentRef}
                 type="number"
                 value={secondPaymentAmount}
                 onChange={(e) => setSecondPaymentAmount(Number(e.target.value))}
-                className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-2xl font-black outline-none focus:border-emerald-500"
+                className="w-full bg-white border border-emerald-200 rounded-lg px-4 py-3 text-2xl font-black outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-emerald-950 transition-all"
               />
             </div>
           </div>
@@ -220,21 +220,21 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           {/* Right Column */}
           <div className="flex-1 flex flex-col gap-6">
             <div className="flex items-center justify-end gap-4">
-              <span className="text-4xl font-black italic uppercase tracking-tighter">TOTAL</span>
-              <div className="bg-black border-2 border-white/20 rounded-xl px-6 py-4 text-4xl font-black min-w-[200px] text-right">
+              <span className="text-4xl font-black italic uppercase tracking-tighter text-emerald-900">TOTAL</span>
+              <div className="bg-emerald-50 border-2 border-emerald-100 rounded-xl px-6 py-4 text-4xl font-black min-w-[200px] text-right text-emerald-900">
                 {formatCurrency(finalTotal)}
               </div>
             </div>
 
-            <div className="flex-1 bg-black border border-white/20 rounded-xl overflow-hidden flex flex-col">
-              <div className="bg-emerald-800 px-4 py-1 flex text-[10px] font-black uppercase italic">
+            <div className="flex-1 bg-white border border-emerald-100 rounded-xl overflow-hidden flex flex-col shadow-sm">
+              <div className="bg-emerald-900 px-4 py-1 flex text-[10px] font-black uppercase italic text-white">
                 <span className="w-1/4">Parcela</span>
                 <span className="w-1/2">Validade</span>
                 <span className="w-1/4 text-right">Valor</span>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {/* Installment list would go here */}
-                <div className="px-4 py-2 text-xs font-bold flex border-b border-white/5">
+                <div className="px-4 py-2 text-xs font-bold flex border-b border-emerald-50 text-emerald-900">
                   <span className="w-1/4">01</span>
                   <span className="w-1/2">27/03/2026</span>
                   <span className="w-1/4 text-right">{formatCurrency(cardValue)}</span>
@@ -245,25 +245,25 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         </div>
 
         {/* Footer Buttons */}
-        <div className="p-8 flex justify-between items-center bg-black/20 border-t border-white/10">
+        <div className="p-8 flex justify-between items-center bg-emerald-50 border-t border-emerald-100">
           <div className="flex gap-4">
             <button 
               onClick={onClose}
-              className="bg-emerald-700 hover:bg-emerald-600 px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-white/20 transition-all active:scale-95"
+              className="bg-white hover:bg-emerald-50 text-emerald-700 px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-emerald-200 transition-all active:scale-95 shadow-sm"
             >
               <ArrowLeft size={32} />
               <span className="text-xl font-black italic uppercase">Voltar</span>
             </button>
             <button 
               onClick={handleFinalize}
-              className="bg-emerald-700 hover:bg-emerald-600 px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-white/20 transition-all active:scale-95"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-emerald-400 transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
             >
-              <CheckCircle size={32} className="text-emerald-400" />
+              <CheckCircle size={32} className="text-emerald-200" />
               <span className="text-xl font-black italic uppercase">Finalizar - F</span>
             </button>
           </div>
           
-          <button className="text-white/40 hover:text-white transition-colors">
+          <button className="text-emerald-900/40 hover:text-emerald-900 transition-colors">
             <Settings size={48} />
           </button>
         </div>
