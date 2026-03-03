@@ -12,17 +12,17 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
     sm: { 
       text: 'text-2xl', 
       svg: 'w-6 h-6', 
-      dot: '4', 
-      stroke: '4', 
-      sub: 'text-[6px] ml-4',
+      dot: '2.5', 
+      stroke: '3', 
+      sub: 'text-[6px]',
       spacing: 'mx-0'
     },
     md: { 
       text: 'text-4xl', 
       svg: 'w-10 h-10', 
-      dot: '5', 
-      stroke: '6', 
-      sub: 'text-[9px] ml-8',
+      dot: '4', 
+      stroke: '5', 
+      sub: 'text-[9px]',
       spacing: 'mx-0.5'
     },
     lg: { 
@@ -30,36 +30,34 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
       svg: 'w-16 h-16', 
       dot: '6', 
       stroke: '8', 
-      sub: 'text-[12px] ml-12',
+      sub: 'text-[12px]',
       spacing: 'mx-1'
     },
   };
 
   const s = sizes[size];
 
-  const textColor = theme === 'dark' ? 'text-white' : 'text-emerald-900';
-  const dotColor = theme === 'dark' ? '#ffffff' : '#065f46';
-  const rightBranchColor = theme === 'dark' ? '#ffffff' : '#065f46';
-  const leftBranchColor = theme === 'dark' ? '#ffffff' : '#10b981';
+  const textColor = theme === 'dark' ? 'text-white' : 'text-brand-blue';
+  const dotColor = theme === 'dark' ? '#2BB673' : '#123B6D';
+  const checkColor = '#2BB673'; // brand-green
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <div className="flex items-center">
-        <span className={`${textColor} font-black ${s.text} tracking-tight`}>Cps</span>
+        <span className={`${textColor} font-black ${s.text} tracking-tight`}>Cp</span>
         <svg viewBox="0 0 40 40" className={`${s.svg} ${s.spacing}`} style={{ overflow: 'visible' }}>
-          {/* Left branch */}
-          <path d="M 8 12 L 20 24" stroke={leftBranchColor} strokeWidth={s.stroke} strokeLinecap="round" />
-          {/* Stem */}
-          <path d="M 20 24 L 12 38" stroke={leftBranchColor} strokeWidth={s.stroke} strokeLinecap="round" />
-          {/* Right branch */}
-          <path d="M 32 4 L 20 24" stroke={rightBranchColor} strokeWidth={s.stroke} strokeLinecap="round" />
+          {/* Checkmark 'y' */}
+          <path d="M 12 16 L 20 28 L 36 4" fill="none" stroke={checkColor} strokeWidth={s.stroke} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Stem of 'y' */}
+          <path d="M 20 28 L 12 42" fill="none" stroke={checkColor} strokeWidth={s.stroke} strokeLinecap="round" />
           {/* Dot */}
-          <circle cx="20" cy="24" r={s.dot} fill={dotColor} />
+          <circle cx="20" cy="28" r={s.dot} fill={dotColor} />
         </svg>
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>stem</span>
+        <span className={`${textColor} font-black text-sm align-top ml-1`}>®</span>
       </div>
       {!hideText && (
-        <span className={`${textColor} font-bold tracking-[0.2em] ${s.sub} mt-[-4px]`}>
+        <span className={`${textColor} font-bold tracking-[0.2em] ${s.sub} mt-1`}>
           GESTÃO FINANCEIRA INTELIGENTE
         </span>
       )}

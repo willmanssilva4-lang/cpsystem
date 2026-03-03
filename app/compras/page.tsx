@@ -56,7 +56,7 @@ const SUPPLIER_PERFORMANCE = [
 // Mock data for the purchasing dashboard
 const STATS = [
   { label: 'Pedidos Pendentes', value: '12', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-  { label: 'Entradas (Mês)', value: 'R$ 45.200', icon: ArrowDownRight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  { label: 'Entradas (Mês)', value: 'R$ 45.200', icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
   { label: 'Abaixo do Estoque', value: '28', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
   { label: 'Fornecedores Ativos', value: '45', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
 ];
@@ -122,7 +122,7 @@ export default function PurchasingPage() {
 
         setStats([
           { label: 'Pedidos Pendentes', value: pendingCount?.toString() || '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Entradas (Mês)', value: `R$ ${monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownRight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Entradas (Mês)', value: `R$ ${monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
           { label: 'Abaixo do Estoque', value: belowStockCountActual.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
           { label: 'Fornecedores Ativos', value: activeSuppliersCount?.toString() || '0', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
         ]);
@@ -218,15 +218,15 @@ export default function PurchasingPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black tracking-tight text-emerald-950 italic uppercase">Central de Compras</h1>
-          <p className="text-emerald-600/60 font-medium">Gestão robusta de suprimentos e entradas de mercadorias.</p>
+          <h1 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Compras</h1>
+          <p className="text-brand-blue/60 font-medium">Gestão robusta de suprimentos e entradas de mercadorias.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/compras/novo-pedido" className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
+          <Link href="/compras/novo-pedido" className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95">
             <Plus size={20} />
             Novo Pedido
           </Link>
-          <Link href="/compras/importar-xml" className="flex items-center gap-2 px-6 py-3 bg-white border border-emerald-100 text-emerald-900 rounded-2xl font-black uppercase italic tracking-tight hover:bg-emerald-50 transition-all active:scale-95">
+          <Link href="/compras/importar-xml" className="flex items-center gap-2 px-6 py-3 bg-white border border-brand-border text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight hover:bg-slate-50 transition-all active:scale-95">
             <FileSearch size={20} />
             Importar XML
           </Link>
@@ -241,13 +241,13 @@ export default function PurchasingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="p-6 rounded-[32px] border border-emerald-100 bg-white hover:border-emerald-200 transition-all"
+            className="p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-border transition-all"
           >
             <div className={`${stat.bg} ${stat.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-4`}>
               <stat.icon size={24} />
             </div>
-            <div className="text-2xl font-black text-emerald-950 italic tracking-tight">{stat.value}</div>
-            <div className="text-xs text-emerald-900/40 font-bold uppercase italic tracking-wider">{stat.label}</div>
+            <div className="text-2xl font-black text-brand-text-main italic tracking-tight">{stat.value}</div>
+            <div className="text-xs text-brand-text-main/40 font-bold uppercase italic tracking-wider">{stat.label}</div>
           </motion.div>
         ))}
       </div>
@@ -258,13 +258,13 @@ export default function PurchasingPage() {
           <Link
             key={action.label}
             href={action.href}
-            className="group p-6 rounded-[32px] border border-emerald-100 bg-emerald-50/30 hover:bg-emerald-600 transition-all"
+            className="group p-6 rounded-[32px] border border-brand-border bg-slate-50/30 hover:bg-brand-blue transition-all"
           >
-            <div className="bg-white text-emerald-600 p-3 rounded-xl w-fit mb-4 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+            <div className="bg-white text-brand-blue p-3 rounded-xl w-fit mb-4 group-hover:bg-brand-blue-hover group-hover:text-white transition-colors">
               <action.icon size={24} />
             </div>
-            <div className="text-lg font-black text-emerald-950 uppercase italic tracking-tight group-hover:text-white">{action.label}</div>
-            <div className="text-xs text-emerald-900/40 font-bold uppercase italic leading-tight mt-1 group-hover:text-emerald-100">{action.description}</div>
+            <div className="text-lg font-black text-brand-text-main uppercase italic tracking-tight group-hover:text-white">{action.label}</div>
+            <div className="text-xs text-brand-text-main/40 font-bold uppercase italic leading-tight mt-1 group-hover:text-brand-border">{action.description}</div>
           </Link>
         ))}
       </div>
@@ -272,18 +272,18 @@ export default function PurchasingPage() {
       {/* Analytics Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Price History Chart */}
-        <div className="p-8 rounded-[32px] border border-emerald-100 bg-white space-y-6">
+        <div className="p-8 rounded-[32px] border border-brand-border bg-white space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+              <div className="p-3 bg-slate-50 text-brand-blue rounded-2xl">
                 <TrendingUp size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-emerald-950 uppercase italic tracking-tight">Evolução de Custos</h3>
-                <p className="text-xs font-bold text-emerald-900/40 uppercase italic">Média ponderada de itens básicos</p>
+                <h3 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Evolução de Custos</h3>
+                <p className="text-xs font-bold text-brand-text-main/40 uppercase italic">Média ponderada de itens básicos</p>
               </div>
             </div>
-            <select className="px-3 py-1 bg-emerald-50 border-none rounded-lg text-xs font-black uppercase italic text-emerald-900 focus:ring-0">
+            <select className="px-3 py-1 bg-slate-50 border-none rounded-lg text-xs font-black uppercase italic text-brand-text-main focus:ring-0">
               <option>Últimos 6 Meses</option>
               <option>Último Ano</option>
             </select>
@@ -329,18 +329,18 @@ export default function PurchasingPage() {
         </div>
 
         {/* Supplier Performance */}
-        <div className="p-8 rounded-[32px] border border-emerald-100 bg-white space-y-6">
+        <div className="p-8 rounded-[32px] border border-brand-border bg-white space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+              <div className="p-3 bg-slate-50 text-brand-blue rounded-2xl">
                 <BarChart3 size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-emerald-950 uppercase italic tracking-tight">Performance de Fornecedores</h3>
-                <p className="text-xs font-bold text-emerald-900/40 uppercase italic">Pontualidade e Qualidade (0-100)</p>
+                <h3 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Performance de Fornecedores</h3>
+                <p className="text-xs font-bold text-brand-text-main/40 uppercase italic">Pontualidade e Qualidade (0-100)</p>
               </div>
             </div>
-            <button className="p-2 bg-emerald-50 text-emerald-900 rounded-xl hover:bg-emerald-100 transition-colors">
+            <button className="p-2 bg-slate-50 text-brand-text-main rounded-xl hover:bg-brand-border transition-colors">
               <Filter size={18} />
             </button>
           </div>
@@ -377,60 +377,60 @@ export default function PurchasingPage() {
         {/* Recent Orders Table */}
         <div className="xl:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-emerald-950 uppercase italic tracking-tight">Pedidos Recentes</h2>
+            <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Pedidos Recentes</h2>
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-900/30" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/30" size={18} />
                 <input 
                   type="text" 
                   placeholder="Buscar pedido ou fornecedor..."
-                  className="pl-10 pr-4 py-2 bg-emerald-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 w-64"
+                  className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-brand-blue-hover w-64"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <button className="p-2 bg-emerald-50 text-emerald-900 rounded-xl hover:bg-emerald-100 transition-colors">
+              <button className="p-2 bg-slate-50 text-brand-text-main rounded-xl hover:bg-brand-border transition-colors">
                 <Filter size={18} />
               </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-[32px] border border-emerald-100 overflow-hidden">
+          <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-emerald-50/50 border-bottom border-emerald-100">
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">ID</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Fornecedor</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Data</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Itens</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Total</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-emerald-900/40 text-right">Ações</th>
+                <tr className="bg-slate-50/50 border-bottom border-brand-border">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">ID</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Fornecedor</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Data</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Itens</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Total</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-emerald-50">
+              <tbody className="divide-y divide-slate-50">
                 {recentOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-emerald-50/30 transition-colors group">
+                  <tr key={order.id} className="hover:bg-slate-50/30 transition-colors group">
                     <td className="px-6 py-4">
-                      <span className="text-sm font-black text-emerald-950 italic">{order.id}</span>
+                      <span className="text-sm font-black text-brand-text-main italic">{order.id}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold text-emerald-900">{order.supplier}</span>
+                        <span className="text-sm font-bold text-brand-text-main">{order.supplier}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-bold text-emerald-900/60">{order.date}</span>
+                      <span className="text-xs font-bold text-brand-text-main/60">{order.date}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-bold text-emerald-900/60">{order.items} un.</span>
+                      <span className="text-xs font-bold text-brand-text-main/60">{order.items} un.</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-black text-emerald-950 italic">{order.total}</span>
+                      <span className="text-sm font-black text-brand-text-main italic">{order.total}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase italic tracking-tight ${
-                        order.status === 'Recebido' ? 'bg-emerald-100 text-emerald-700' :
+                        order.status === 'Recebido' ? 'bg-brand-border text-brand-text-main' :
                         order.status === 'Pendente' ? 'bg-amber-100 text-amber-700' :
                         'bg-rose-100 text-rose-700'
                       }`}>
@@ -441,7 +441,7 @@ export default function PurchasingPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-emerald-900/40 hover:text-emerald-600 transition-colors">
+                      <button className="text-brand-text-main/40 hover:text-brand-blue transition-colors">
                         <ArrowUpRight size={18} />
                       </button>
                     </td>
@@ -449,8 +449,8 @@ export default function PurchasingPage() {
                 ))}
               </tbody>
             </table>
-            <div className="p-4 border-t border-emerald-50 text-center">
-              <button className="text-[10px] font-black uppercase italic tracking-widest text-emerald-600 hover:text-emerald-700 transition-colors">
+            <div className="p-4 border-t border-slate-50 text-center">
+              <button className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
                 Ver todos os pedidos
               </button>
             </div>
@@ -469,7 +469,7 @@ export default function PurchasingPage() {
               {stockAlerts.map((item, index) => (
                 <div key={item.id || item.name || index} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-rose-100 shadow-sm">
                   <div>
-                    <div className="text-sm font-bold text-emerald-950">{item.name}</div>
+                    <div className="text-sm font-bold text-brand-text-main">{item.name}</div>
                     <div className="text-[10px] font-black text-rose-500 uppercase italic">Estoque: {item.stock} / Mín: {item.min}</div>
                   </div>
                   <button className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
@@ -484,21 +484,21 @@ export default function PurchasingPage() {
           </div>
 
           {/* Top Suppliers */}
-          <div className="p-8 rounded-[32px] border border-emerald-100 bg-white space-y-6">
-            <h3 className="text-lg font-black text-emerald-950 uppercase italic tracking-tight">Principais Fornecedores</h3>
+          <div className="p-8 rounded-[32px] border border-brand-border bg-white space-y-6">
+            <h3 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Principais Fornecedores</h3>
             <div className="space-y-4">
               {topSuppliers.map((supplier) => (
                 <div key={supplier.name} className="flex items-center justify-between group cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 font-black italic">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-brand-blue font-black italic">
                       {supplier.name[0]}
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-emerald-950 group-hover:text-emerald-600 transition-colors">{supplier.name}</div>
-                      <div className="text-[10px] font-black text-emerald-900/40 uppercase italic">{supplier.orders} pedidos realizados</div>
+                      <div className="text-sm font-bold text-brand-text-main group-hover:text-brand-blue transition-colors">{supplier.name}</div>
+                      <div className="text-[10px] font-black text-brand-text-main/40 uppercase italic">{supplier.orders} pedidos realizados</div>
                     </div>
                   </div>
-                  <div className="text-sm font-black text-emerald-950 italic">{supplier.total}</div>
+                  <div className="text-sm font-black text-brand-text-main italic">{supplier.total}</div>
                 </div>
               ))}
             </div>

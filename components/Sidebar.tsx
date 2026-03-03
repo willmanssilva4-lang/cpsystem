@@ -12,64 +12,73 @@ import {
   BarChart3, 
   Settings,
   ClipboardList,
-  Truck
+  Truck,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
+import { useERP } from '@/lib/context';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-  { icon: ShoppingCart, label: 'Vendas/PDV', href: '/pdv' },
-  { icon: Truck, label: 'Compras', href: '/compras' },
-  { icon: Package, label: 'Produtos', href: '/produtos' },
-  { icon: ClipboardList, label: 'Cadastros', href: '/cadastros' },
-  { icon: Users, label: 'Clientes', href: '/clientes' },
   { icon: Wallet, label: 'Financeiro', href: '/financeiro' },
+  { icon: Package, label: 'Estoque', href: '/produtos' },
+  { icon: ShoppingCart, label: 'Vendas', href: '/pdv' },
+  { icon: Users, label: 'Clientes', href: '/clientes' },
   { icon: BarChart3, label: 'Relatórios', href: '/relatorios' },
+  { icon: Settings, label: 'Configurações', href: '/configuracoes' },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useERP();
 
   return (
-    <aside className="w-64 bg-white border-r border-emerald-100 flex flex-col h-screen sticky top-0">
-      <div className="p-6 flex items-center justify-center">
-        <Logo size="sm" hideText theme="light" />
+    <aside className="w-64 bg-[#0A1931] flex flex-col h-screen sticky top-0 text-white overflow-hidden">
+      <div className="p-8 flex items-center justify-start">
+        <Logo size="md" theme="dark" />
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-4 space-y-2 mt-4">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href === '/produtos' && pathname === '/produtos');
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-sm font-black uppercase italic tracking-tight",
+                "flex items-center gap-4 px-6 py-3 rounded-xl transition-all text-sm font-bold tracking-wide",
                 isActive 
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20" 
-                  : "text-emerald-900/60 hover:bg-emerald-50 hover:text-emerald-700"
+                  ? "bg-white/10 text-white" 
+                  : "text-white/60 hover:bg-white/5 hover:text-white"
               )}
             >
-              <item.icon size={20} className={isActive ? "text-emerald-200" : ""} />
+              <item.icon size={20} className={isActive ? "text-white" : "text-white/60"} />
               <span>{item.label}</span>
             </Link>
           );
         })}
-
-        <Link
-          href="/configuracoes"
-          className={cn(
-            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-sm font-black uppercase italic tracking-tight",
-            pathname === '/configuracoes'
-              ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20" 
-              : "text-emerald-900/60 hover:bg-emerald-50 hover:text-emerald-700"
-          )}
-        >
-          <Settings size={20} className={pathname === '/configuracoes' ? "text-emerald-200" : ""} />
-          <span>Configurações</span>
-        </Link>
       </nav>
+
+      {/* Bottom Graphic/Gradient */}
+      <div className="relative h-48 mt-auto">
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-blue to-transparent opacity-50"></div>
+        <div className="absolute bottom-0 left-0 right-0 p-6">
+          <div className="relative w-full h-32 opacity-20">
+            <div className="absolute bottom-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+            <div className="absolute bottom-4 left-4 w-12 h-12 bg-brand-blue rounded-full blur-2xl"></div>
+            <div className="absolute bottom-8 right-8 w-16 h-16 bg-brand-green rounded-full blur-3xl"></div>
+          </div>
+          <button
+            onClick={logout}
+            className="relative z-10 w-full flex items-center gap-3 px-6 py-3 rounded-xl transition-all text-sm font-bold text-white/60 hover:bg-rose-500/20 hover:text-rose-400"
+          >
+            <LogOut size={20} />
+            <span>Sair do Sistema</span>
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }
+

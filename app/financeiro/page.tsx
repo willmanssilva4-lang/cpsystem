@@ -137,15 +137,15 @@ export default function FinancePage() {
           <button className="flex items-center gap-2 px-4 h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm shadow-sm">
             <Download size={18} /> Exportar
           </button>
-          <button className="flex items-center gap-2 px-6 h-11 bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20">
+          <button className="flex items-center gap-2 px-6 h-11 bg-brand-blue-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-brand-blue-hover/20">
             <Plus size={18} /> Lançamento
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <FinanceStatCard title="Saldo em Caixa" value={formatCurrency(stats.saldo)} icon={Wallet} color="emerald" trend="Saldo Total Acumulado" />
-        <FinanceStatCard title="Entradas (Mês)" value={formatCurrency(stats.entradasMes)} icon={ArrowUpCircle} color="emerald" trend="Total de vendas no mês" />
+        <FinanceStatCard title="Saldo em Caixa" value={formatCurrency(stats.saldo)} icon={Wallet} color="brand-blue" trend="Saldo Total Acumulado" />
+        <FinanceStatCard title="Entradas (Mês)" value={formatCurrency(stats.entradasMes)} icon={ArrowUpCircle} color="brand-blue" trend="Total de vendas no mês" />
         <FinanceStatCard title="Saídas (Mês)" value={formatCurrency(stats.saidasMes)} icon={ArrowDownCircle} color="rose" trend="Total de despesas no mês" />
       </div>
 
@@ -207,7 +207,7 @@ export default function FinancePage() {
                       <td className="px-6 py-4">
                         <div className={cn(
                           "size-8 rounded-lg flex items-center justify-center",
-                          t.type === 'entrada' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                          t.type === 'entrada' ? "bg-brand-border text-brand-blue" : "bg-rose-100 text-rose-600"
                         )}>
                           {t.type === 'entrada' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
                         </div>
@@ -221,14 +221,14 @@ export default function FinancePage() {
                       </td>
                       <td className={cn(
                         "px-6 py-4 text-sm font-black",
-                        t.type === 'entrada' ? "text-emerald-600" : "text-rose-600"
+                        t.type === 'entrada' ? "text-brand-blue" : "text-rose-600"
                       )}>
                         {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={cn(
                           "px-2 py-0.5 rounded-full text-[10px] font-black uppercase",
-                          t.status === 'Confirmado' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          t.status === 'Confirmado' ? "bg-brand-border text-brand-text-main" : "bg-amber-100 text-amber-700"
                         )}>
                           {t.status}
                         </span>
@@ -256,8 +256,8 @@ export default function FinancePage() {
             <h3 className="text-lg font-bold mb-6">Contas a Pagar (Pendentes)</h3>
             <div className="space-y-4">
               {pendingExpenses.map((e) => (
-                <div key={e.id} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/30 transition-all cursor-pointer group">
-                  <div className="size-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                <div key={e.id} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-brand-blue-hover/30 transition-all cursor-pointer group">
+                  <div className="size-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-brand-blue-hover group-hover:text-white transition-colors">
                     <DollarSign size={20} />
                   </div>
                   <div className="flex-1">
@@ -270,7 +270,7 @@ export default function FinancePage() {
               {pendingExpenses.length === 0 && (
                 <p className="text-center py-4 text-xs text-slate-400 font-bold">Nenhuma conta pendente.</p>
               )}
-              <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs font-bold hover:border-emerald-500/50 hover:text-emerald-500 transition-all">
+              <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs font-bold hover:border-brand-blue-hover/50 hover:text-brand-blue-hover transition-all">
                 + ADICIONAR CONTA
               </button>
             </div>
@@ -310,7 +310,7 @@ export default function FinancePage() {
 
 function FinanceStatCard({ title, value, trend, icon: Icon, color }: any) {
   const colors: any = {
-    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20",
+    "brand-blue": "bg-slate-50 text-brand-blue dark:bg-brand-text-main/20",
     blue: "bg-blue-50 text-blue-600 dark:bg-blue-900/20",
     rose: "bg-rose-50 text-rose-600 dark:bg-rose-900/20",
   };

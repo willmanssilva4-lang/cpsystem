@@ -28,8 +28,8 @@ export default function RegistrationsPage() {
   return (
     <div className="p-8 space-y-8 bg-white min-h-screen">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-black tracking-tight text-emerald-950 italic uppercase">Central de Cadastros</h1>
-        <p className="text-emerald-600/60 font-medium">Gerencie as configurações base do seu sistema.</p>
+        <h1 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Cadastros</h1>
+        <p className="text-brand-blue/60 font-medium">Gerencie as configurações base do seu sistema.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -37,7 +37,7 @@ export default function RegistrationsPage() {
           <Link
             key={option.label}
             href={option.href}
-            className="group flex flex-col items-start gap-4 p-6 rounded-[32px] border border-emerald-100 bg-white hover:border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all text-left active:scale-[0.98]"
+            className="group flex flex-col items-start gap-4 p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-blue-hover hover:shadow-xl hover:-translate-y-1 transition-all text-left active:scale-[0.98]"
           >
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -45,12 +45,12 @@ export default function RegistrationsPage() {
               transition={{ delay: index * 0.05 }}
               className="w-full h-full flex flex-col gap-4"
             >
-              <div className="bg-emerald-50 text-emerald-600 p-4 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition-colors border border-emerald-100/50 w-fit">
+              <div className="bg-slate-50 text-brand-blue p-4 rounded-2xl group-hover:bg-brand-blue group-hover:text-white transition-colors border border-brand-border/50 w-fit">
                 <option.icon size={32} />
               </div>
               <div>
-                <div className="text-lg font-black text-emerald-950 uppercase italic tracking-tight">{option.label}</div>
-                <div className="text-xs text-emerald-900/40 font-bold uppercase italic leading-tight mt-2">{option.description}</div>
+                <div className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">{option.label}</div>
+                <div className="text-xs text-brand-text-main/40 font-bold uppercase italic leading-tight mt-2">{option.description}</div>
               </div>
             </motion.div>
           </Link>

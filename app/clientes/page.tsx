@@ -36,7 +36,7 @@ export default function CustomersPage() {
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-black text-slate-900 dark:text-white">Clientes</h1>
-            <button className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all">
+            <button className="p-2 bg-brand-blue-hover text-white rounded-lg hover:bg-brand-blue transition-all">
               <UserPlus size={20} />
             </button>
           </div>
@@ -58,7 +58,7 @@ export default function CustomersPage() {
               onClick={() => setSelectedCustomer(customer)}
               className={cn(
                 "p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50",
-                selectedCustomer?.id === customer.id ? "bg-emerald-50 dark:bg-emerald-900/10 border-r-4 border-emerald-500" : ""
+                selectedCustomer?.id === customer.id ? "bg-slate-50 dark:bg-brand-text-main/10 border-r-4 border-brand-blue-hover" : ""
               )}
             >
               <div className="size-12 rounded-full overflow-hidden relative border-2 border-white dark:border-slate-700 shadow-sm">
@@ -115,14 +115,14 @@ export default function CustomersPage() {
               </div>
               <div className="flex gap-2">
                 <button className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50">Editar</button>
-                <button className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600">Nova Venda</button>
+                <button className="px-4 py-2 bg-brand-blue-hover text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-blue-hover/20 hover:bg-brand-blue">Nova Venda</button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Gasto</p>
-                <p className="text-lg font-black text-emerald-600">R$ {selectedCustomer.totalSpent.toLocaleString()}</p>
+                <p className="text-lg font-black text-brand-blue">R$ {selectedCustomer.totalSpent.toLocaleString()}</p>
               </div>
               <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Última Compra</p>
@@ -143,7 +143,7 @@ export default function CustomersPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Histórico de Compras</h4>
-                <button className="text-xs font-bold text-emerald-600">Ver Tudo</button>
+                <button className="text-xs font-bold text-brand-blue">Ver Tudo</button>
               </div>
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (

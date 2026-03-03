@@ -34,6 +34,7 @@ export interface Product {
   profit?: number;
   profitPercentage?: number;
   composition?: CompositionItem[];
+  status?: 'Ativo' | 'Inativo';
 }
 
 export interface SaleItem {
@@ -69,6 +70,36 @@ export interface Expense {
   amount: number;
   date: string;
   status: 'Pago' | 'Pendente';
+}
+
+export interface PricingSettings {
+  defaultMethod: 'markup' | 'margin';
+  defaultMargin: number;
+  defaultMarkup: number;
+  allowEditOnProduct: boolean;
+  autoRounding: boolean;
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  type: 'ENTRADA' | 'SAÍDA' | 'AJUSTE';
+  quantity: number;
+  origin: string;
+  date: string;
+  userId: string;
+  userName?: string;
+  productName?: string;
+}
+
+export interface Inventory {
+  id: string;
+  date: string;
+  location: string;
+  itemsCounted: number;
+  divergenceValue: number;
+  status: 'Concluído' | 'Em Andamento';
+  notes?: string;
 }
 
 export const INITIAL_PRODUCTS: Product[] = [];

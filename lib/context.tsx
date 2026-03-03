@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Sale, Customer, Loss, Expense, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
+import { Product, Sale, Customer, Loss, Expense, PricingSettings, CompositionItem, StockMovement, Inventory, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
 import { supabase } from './supabase';
 
 interface ERPContextType {
@@ -10,6 +10,9 @@ interface ERPContextType {
   customers: Customer[];
   losses: Loss[];
   expenses: Expense[];
+  stockMovements: StockMovement[];
+  inventories: Inventory[];
+  pricingSettings: PricingSettings;
   user: { name: string; email: string; role: string } | null;
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
@@ -18,6 +21,9 @@ interface ERPContextType {
   addCustomer: (customer: Customer) => void;
   addLoss: (loss: Omit<Loss, 'id'>) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  addStockMovement: (movement: Omit<StockMovement, 'id'>) => Promise<void>;
+  addInventory: (inventory: Omit<Inventory, 'id'>) => Promise<void>;
+  updatePricingSettings: (settings: PricingSettings) => void;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
@@ -30,6 +36,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [losses, setLosses] = useState<Loss[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [inventories, setInventories] = useState<Inventory[]>([]);
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings>({
+    defaultMethod: 'markup',
+    defaultMargin: 30,
+    defaultMarkup: 50,
+    allowEditOnProduct: true,
+    autoRounding: false
+  });
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,9 +55,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const { data: salesData } = await supabase.from('sales').select('*, sale_items(*)');
       const { data: lossesData } = await supabase.from('losses').select('*');
       const { data: expensesData } = await supabase.from('expenses').select('*');
+      const { data: movementsData } = await supabase.from('stock_movements').select('*');
+      const { data: inventoriesData } = await supabase.from('inventories').select('*');
 
       if (productsData) {
-        setProducts(productsData.map(p => ({
+        const baseProducts = productsData.map(p => ({
           id: p.id,
           name: p.name,
           category: p.category,
@@ -52,8 +69,32 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           stock: p.stock,
           minStock: p.min_stock,
           image: p.image?.includes('mercadinhosupernice.com.br') ? 'https://picsum.photos/seed/product/200/200' : p.image,
-          composition: p.composition || []
-        })));
+          composition: p.composition || [],
+          status: p.status || 'Ativo'
+        }));
+
+        // Calculate virtual stock for kits
+        const finalProducts = baseProducts.map(p => {
+          if (p.composition && p.composition.length > 0) {
+            let possibleStock = Infinity;
+            p.composition.forEach((item: CompositionItem) => {
+              const component = baseProducts.find(bp => bp.id === item.productId);
+              if (component) {
+                const available = Math.floor(component.stock / item.quantity);
+                if (available < possibleStock) {
+                  possibleStock = available;
+                }
+              } else {
+                // If a component is missing, we can't form any kits
+                possibleStock = 0;
+              }
+            });
+            return { ...p, stock: possibleStock === Infinity ? 0 : possibleStock };
+          }
+          return p;
+        });
+
+        setProducts(finalProducts);
       }
 
       if (customersData) {
@@ -104,6 +145,38 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           date: e.date,
           status: e.status as 'Pago' | 'Pendente'
         })));
+      }
+
+      if (movementsData) {
+        setStockMovements(movementsData.map(m => ({
+          id: m.id,
+          productId: m.product_id,
+          type: m.type,
+          quantity: m.quantity,
+          origin: m.origin,
+          date: m.date,
+          userId: m.user_id,
+          userName: m.user_name,
+          productName: productsData?.find(p => p.id === m.product_id)?.name
+        })));
+      }
+
+      if (inventoriesData) {
+        setInventories(inventoriesData.map(i => ({
+          id: i.id,
+          date: i.date,
+          location: i.location,
+          itemsCounted: i.items_counted,
+          divergenceValue: Number(i.divergence_value),
+          status: i.status,
+          notes: i.notes
+        })));
+      }
+
+      // Load pricing settings from localStorage as fallback for now
+      const savedPricing = localStorage.getItem('pricing_settings');
+      if (savedPricing) {
+        setPricingSettings(JSON.parse(savedPricing));
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -181,20 +254,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       stock: product.stock,
       min_stock: product.minStock,
       image: product.image,
-      composition: product.composition
+      composition: product.composition,
+      status: product.status || 'Ativo'
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
-    // Fallback if composition column doesn't exist
-    if (error && error.message && error.message.includes('composition')) {
-      console.warn('Coluna composition não encontrada. Tentando salvar sem a composição...');
-      delete (insertData as any).composition;
+    // Fallback if composition or status column doesn't exist
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status'))) {
+      console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
+      if (error.message.includes('composition')) delete (insertData as any).composition;
+      if (error.message.includes('status')) delete (insertData as any).status;
+      
       const retry = await supabase.from('products').insert([insertData]).select();
       data = retry.data;
       error = retry.error;
+      
       if (!error) {
-        alert('Produto salvo, mas a composição do kit não foi salva porque a coluna "composition" (jsonb) não existe no banco de dados Supabase.');
+        alert('Produto salvo, mas alguns campos (como Status ou Composição) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, adicione as colunas "status" (text) e "composition" (jsonb) na tabela "products".');
       }
     }
 
@@ -216,19 +293,23 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       stock: updated.stock,
       min_stock: updated.minStock,
       image: updated.image,
-      composition: updated.composition
+      composition: updated.composition,
+      status: updated.status || 'Ativo'
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
 
-    // Fallback if composition column doesn't exist
-    if (error && error.message && error.message.includes('composition')) {
-      console.warn('Coluna composition não encontrada. Tentando salvar sem a composição...');
-      delete (updateData as any).composition;
+    // Fallback if composition or status column doesn't exist
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status'))) {
+      console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
+      if (error.message.includes('composition')) delete (updateData as any).composition;
+      if (error.message.includes('status')) delete (updateData as any).status;
+
       const retry = await supabase.from('products').update(updateData).eq('id', updated.id);
       error = retry.error;
+      
       if (!error) {
-        alert('Produto atualizado, mas a composição do kit não foi salva porque a coluna "composition" (jsonb) não existe no banco de dados Supabase.');
+        alert('Produto atualizado, mas alguns campos (como Status ou Composição) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, adicione as colunas "status" (text) e "composition" (jsonb) na tabela "products".');
       }
     }
 
@@ -241,12 +322,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteProduct = async (id: string) => {
+    console.log('Tentando excluir produto:', id);
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) {
         console.error('Error deleting product from Supabase:', error);
         throw error;
       }
+      console.log('Produto excluído com sucesso');
       await fetchData();
     } catch (error) {
       console.error('deleteProduct failed:', error);
@@ -277,7 +360,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       for (const item of sale.items) {
         const product = products.find(p => p.id === item.productId);
         if (product) {
-          await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', product.id);
+          // Record stock movement
+          await supabase.from('stock_movements').insert([{
+            product_id: item.productId,
+            type: 'SAÍDA',
+            quantity: -item.quantity,
+            origin: `Venda #${saleId.substring(0, 8)}`,
+            date: sale.date,
+            user_id: user?.email || 'system',
+            user_name: user?.name || 'Sistema'
+          }]);
+
+          if (product.composition && product.composition.length > 0) {
+            // It's a kit, deduct from components
+            for (const comp of product.composition) {
+              const componentProduct = products.find(p => p.id === comp.productId);
+              if (componentProduct) {
+                await supabase.from('products').update({ 
+                  stock: componentProduct.stock - (comp.quantity * item.quantity) 
+                }).eq('id', componentProduct.id);
+              }
+            }
+          } else {
+            // Regular product
+            await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', product.id);
+          }
         }
       }
 
@@ -320,9 +427,33 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       const product = products.find(p => p.id === loss.productId);
       if (product) {
-        await supabase.from('products').update({
-          stock: product.stock - loss.quantity
-        }).eq('id', product.id);
+        // Record stock movement
+        await supabase.from('stock_movements').insert([{
+          product_id: loss.productId,
+          type: 'SAÍDA',
+          quantity: -loss.quantity,
+          origin: `Perda: ${loss.reason}`,
+          date: loss.date,
+          user_id: user?.email || 'system',
+          user_name: user?.name || 'Sistema'
+        }]);
+
+        if (product.composition && product.composition.length > 0) {
+          // It's a kit, deduct from components
+          for (const comp of product.composition) {
+            const componentProduct = products.find(p => p.id === comp.productId);
+            if (componentProduct) {
+              await supabase.from('products').update({ 
+                stock: componentProduct.stock - (comp.quantity * loss.quantity) 
+              }).eq('id', componentProduct.id);
+            }
+          }
+        } else {
+          // Regular product
+          await supabase.from('products').update({
+            stock: product.stock - loss.quantity
+          }).eq('id', product.id);
+        }
       }
       await fetchData();
     }
@@ -342,6 +473,54 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addStockMovement = async (movement: Omit<StockMovement, 'id'>) => {
+    const { error } = await supabase.from('stock_movements').insert([{
+      product_id: movement.productId,
+      type: movement.type,
+      quantity: movement.quantity,
+      origin: movement.origin,
+      date: movement.date,
+      user_id: movement.userId,
+      user_name: movement.userName
+    }]);
+
+    if (!error) {
+      const product = products.find(p => p.id === movement.productId);
+      if (product) {
+        await supabase.from('products').update({
+          stock: product.stock + movement.quantity
+        }).eq('id', product.id);
+      }
+      await fetchData();
+    } else {
+      console.error('Error adding stock movement:', error);
+      alert('Erro ao registrar movimentação. Verifique se a tabela "stock_movements" existe no Supabase.');
+    }
+  };
+
+  const addInventory = async (inventory: Omit<Inventory, 'id'>) => {
+    const { error } = await supabase.from('inventories').insert([{
+      date: inventory.date,
+      location: inventory.location,
+      items_counted: inventory.itemsCounted,
+      divergence_value: inventory.divergenceValue,
+      status: inventory.status,
+      notes: inventory.notes
+    }]);
+
+    if (!error) {
+      await fetchData();
+    } else {
+      console.error('Error adding inventory:', error);
+      alert('Erro ao registrar inventário. Verifique se a tabela "inventories" existe no Supabase.');
+    }
+  };
+
+  const updatePricingSettings = (settings: PricingSettings) => {
+    setPricingSettings(settings);
+    localStorage.setItem('pricing_settings', JSON.stringify(settings));
+  };
+
   return (
     <ERPContext.Provider value={{ 
       products, 
@@ -349,6 +528,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       customers, 
       losses,
       expenses,
+      stockMovements,
+      inventories,
+      pricingSettings,
       user,
       addProduct, 
       updateProduct, 
@@ -357,6 +539,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       addCustomer,
       addLoss,
       addExpense,
+      addStockMovement,
+      addInventory,
+      updatePricingSettings,
       login,
       logout
     }}>

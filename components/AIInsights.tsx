@@ -29,39 +29,39 @@ export function AIInsights({ data }: { data: any }) {
   };
 
   return (
-    <div className="bg-white border border-emerald-100 rounded-3xl p-6 text-emerald-950 shadow-sm">
+    <div className="bg-brand-card border border-brand-border rounded-xl p-6 text-brand-text-main shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="text-emerald-500" size={20} />
-          <h3 className="font-black italic uppercase text-emerald-900">AI Business Insights</h3>
+          <Sparkles className="text-brand-blue" size={20} />
+          <h3 className="font-semibold text-brand-text-main">AI Business Insights</h3>
         </div>
         {!insight && !loading && (
           <button 
             onClick={generateInsight}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase italic transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20"
+            className="bg-brand-blue hover:bg-brand-blue-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-sm"
           >
-            Gerar Análise <Send size={12} />
+            Gerar Análise <Send size={14} />
           </button>
         )}
       </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-8 gap-3">
-          <Loader2 className="animate-spin text-emerald-600" size={32} />
-          <p className="text-sm font-black text-emerald-600/60 uppercase italic">Analisando tendências e métricas...</p>
+          <Loader2 className="animate-spin text-brand-blue" size={32} />
+          <p className="text-sm font-medium text-brand-text-sec">Analisando tendências e métricas...</p>
         </div>
       ) : insight ? (
-        <div className="prose prose-emerald prose-sm max-w-none">
+        <div className="prose prose-sm max-w-none text-brand-text-sec">
           <Markdown>{insight}</Markdown>
           <button 
             onClick={() => setInsight(null)}
-            className="mt-4 text-[10px] uppercase font-black italic tracking-widest text-emerald-600/40 hover:text-emerald-600 transition-colors"
+            className="mt-4 text-sm font-medium text-brand-blue hover:text-brand-blue-hover transition-colors"
           >
             Nova Análise
           </button>
         </div>
       ) : (
-        <p className="text-sm font-medium text-emerald-900/60 italic">
+        <p className="text-sm font-medium text-brand-text-sec">
           Clique no botão acima para que a inteligência artificial analise suas vendas, estoque e financeiro para sugerir melhorias.
         </p>
       )}

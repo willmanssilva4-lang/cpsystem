@@ -1,2 +1,28 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+@theme {
+  --color-brand-blue: #123B6D;
+  --color-brand-blue-hover: #0F2F57;
+  --color-brand-blue-support: #1E5AA8;
+  --color-brand-green: #2BB673;
+  --color-brand-green-hover: #239961;
+  
+  --color-brand-bg: #F4F6F9;
+  --color-brand-card: #FFFFFF;
+  --color-brand-text-main: #1F2D3D;
+  --color-brand-text-sec: #6B7C93;
+  --color-brand-border: #E1E5EA;
+
+  --color-brand-danger: #E53935;
+  --color-brand-warning: #F9A825;
+  --color-brand-info: #1E88E5;
+
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-text-main);
+  font-family: var(--font-sans);
+}

@@ -121,7 +121,7 @@ export default function ReportsPage() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-emerald-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-brand-text-main/60 backdrop-blur-sm"
             onClick={() => setSelectedReportView(null)}
           />
           <motion.div 
@@ -130,49 +130,49 @@ export default function ReportsPage() {
             className="relative w-full max-w-6xl h-[90vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Modal Header */}
-            <div className="p-8 border-b border-emerald-50 flex items-center justify-between bg-emerald-50/30 shrink-0">
+            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
               <div>
-                <h3 className="text-2xl font-black italic uppercase text-emerald-950">{selectedReportView}</h3>
-                <p className="text-sm font-medium text-emerald-600/60">Relatório gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+                <h3 className="text-2xl font-black italic uppercase text-brand-text-main">{selectedReportView}</h3>
+                <p className="text-sm font-medium text-brand-blue/60">Relatório gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
               </div>
               <div className="flex gap-3 items-center">
-                <div className="flex items-center bg-white border border-emerald-100 rounded-2xl p-1 shadow-sm">
-                  <div className="flex items-center gap-2 px-3 py-1.5 text-emerald-900 font-bold text-sm">
-                    <span className="text-[10px] uppercase italic text-emerald-900/40">De</span>
+                <div className="flex items-center bg-white border border-brand-border rounded-2xl p-1 shadow-sm">
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-brand-text-main font-bold text-sm">
+                    <span className="text-[10px] uppercase italic text-brand-text-main/40">De</span>
                     <input 
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 text-xs font-black italic uppercase text-emerald-900 cursor-pointer w-[110px]"
+                      className="bg-transparent border-none outline-none focus:ring-0 text-xs font-black italic uppercase text-brand-text-main cursor-pointer w-[110px]"
                     />
                   </div>
-                  <div className="w-px h-6 bg-emerald-100 mx-1"></div>
-                  <div className="flex items-center gap-2 px-3 py-1.5 text-emerald-900 font-bold text-sm">
-                    <span className="text-[10px] uppercase italic text-emerald-900/40">Até</span>
+                  <div className="w-px h-6 bg-brand-border mx-1"></div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-brand-text-main font-bold text-sm">
+                    <span className="text-[10px] uppercase italic text-brand-text-main/40">Até</span>
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 text-xs font-black italic uppercase text-emerald-900 cursor-pointer w-[110px]"
+                      className="bg-transparent border-none outline-none focus:ring-0 text-xs font-black italic uppercase text-brand-text-main cursor-pointer w-[110px]"
                     />
                   </div>
                 </div>
                 <button 
                   onClick={() => handleAction('Impressão do Relatório')}
-                  className="p-3 bg-white border border-emerald-100 text-emerald-600 rounded-2xl hover:bg-emerald-50 transition-all shadow-sm"
+                  className="p-3 bg-white border border-brand-border text-brand-blue rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
                 >
                   <Printer size={20} />
                 </button>
                 <button 
                   onClick={() => handleExport()}
-                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all"
+                  className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all"
                 >
                   <Download size={18} />
                   Baixar PDF
                 </button>
                 <button 
                   onClick={() => setSelectedReportView(null)}
-                  className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl hover:bg-emerald-200 transition-all ml-4 shadow-sm"
+                  className="p-3 bg-brand-border text-brand-blue rounded-2xl hover:bg-brand-border transition-all ml-4 shadow-sm"
                 >
                   <X size={20} />
                 </button>
@@ -181,8 +181,8 @@ export default function ReportsPage() {
 
             <div className="flex-1 flex overflow-hidden">
               {/* Sidebar Navigation inside Modal */}
-              <div className="w-72 border-r border-emerald-50 bg-emerald-50/10 flex flex-col p-6 hidden lg:flex">
-                <h4 className="text-[10px] font-black uppercase italic text-emerald-900/40 mb-4 tracking-widest">Navegação Rápida</h4>
+              <div className="w-72 border-r border-slate-50 bg-slate-50/10 flex flex-col p-6 hidden lg:flex">
+                <h4 className="text-[10px] font-black uppercase italic text-brand-text-main/40 mb-4 tracking-widest">Navegação Rápida</h4>
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-1">
                   {[
                     'Vendas & Faturamento', 'Fechamento de Caixa', 'Vendas por Produto', 
@@ -195,8 +195,8 @@ export default function ReportsPage() {
                       onClick={() => setSelectedReportView(report)}
                       className={`w-full p-3 rounded-xl text-left text-[11px] font-black uppercase italic transition-all ${
                         selectedReportView === report 
-                          ? 'bg-emerald-600 text-white shadow-md translate-x-1' 
-                          : 'text-emerald-900/60 hover:bg-emerald-50 hover:text-emerald-900'
+                          ? 'bg-brand-blue text-white shadow-md translate-x-1' 
+                          : 'text-brand-text-main/60 hover:bg-slate-50 hover:text-brand-text-main'
                       }`}
                     >
                       {report}
@@ -223,22 +223,22 @@ export default function ReportsPage() {
                 
                 {!['Vendas & Faturamento', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'ABC de Clientes', 'Comissões', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Faixa Horária', 'Curva ABC de Produtos', 'Perdas e Quebras', 'Vendas por Pagamento', 'Relatório de Validade'].includes(selectedReportView) && (
                   <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                    <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-300">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-brand-border">
                       <FileText size={40} />
                     </div>
-                    <h4 className="text-xl font-black text-emerald-950 uppercase italic">Relatório em Processamento</h4>
-                    <p className="text-emerald-600/60 max-w-md">Este relatório está sendo compilado com base nos dados mais recentes do sistema. Por favor, aguarde alguns instantes.</p>
+                    <h4 className="text-xl font-black text-brand-text-main uppercase italic">Relatório em Processamento</h4>
+                    <p className="text-brand-blue/60 max-w-md">Este relatório está sendo compilado com base nos dados mais recentes do sistema. Por favor, aguarde alguns instantes.</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-emerald-50 bg-white flex justify-between items-center">
-              <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-widest italic">Cp Sister PDV - Inteligência de Negócios</p>
+            <div className="p-6 border-t border-slate-50 bg-white flex justify-between items-center">
+              <p className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic">Cp Sister PDV - Inteligência de Negócios</p>
               <button 
                 onClick={() => setSelectedReportView(null)}
-                className="text-sm font-black text-emerald-600 uppercase italic hover:underline"
+                className="text-sm font-black text-brand-blue uppercase italic hover:underline"
               >
                 Fechar Visualização
               </button>
@@ -255,11 +255,11 @@ export default function ReportsPage() {
           exit={{ opacity: 0, y: -20 }}
           className={`fixed top-8 right-8 z-50 px-6 py-4 rounded-2xl shadow-2xl font-black uppercase italic text-sm flex items-center gap-3 border ${
             notification.type === 'success' 
-              ? 'bg-emerald-600 text-white border-emerald-500' 
-              : 'bg-emerald-950 text-emerald-400 border-emerald-800'
+              ? 'bg-brand-blue text-white border-brand-blue-hover' 
+              : 'bg-brand-text-main text-brand-text-sec border-brand-text-main'
           }`}
         >
-          <div className={`w-2 h-2 rounded-full animate-pulse ${notification.type === 'success' ? 'bg-emerald-200' : 'bg-emerald-400'}`}></div>
+          <div className={`w-2 h-2 rounded-full animate-pulse ${notification.type === 'success' ? 'bg-brand-border' : 'bg-brand-text-sec'}`}></div>
           {notification.message}
         </motion.div>
       )}
@@ -267,30 +267,30 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="flex flex-col gap-1">
-          <h2 className="text-3xl font-black tracking-tight text-emerald-950 italic uppercase">Relatórios & BI</h2>
-          <p className="text-emerald-600/60 font-medium">Inteligência de dados para decisões estratégicas.</p>
+          <h2 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Relatórios & BI</h2>
+          <p className="text-brand-blue/60 font-medium">Inteligência de dados para decisões estratégicas.</p>
         </div>
         
         <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-900 font-bold text-sm">
-            <Calendar size={16} className="text-emerald-500" />
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold text-sm">
+            <Calendar size={16} className="text-brand-blue-hover" />
             <span>Fevereiro 2026</span>
           </div>
           <button 
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 border rounded-2xl font-bold text-sm transition-all ${
               showFilters 
-                ? 'bg-emerald-950 text-white border-emerald-950' 
-                : 'bg-emerald-50 text-emerald-900 border-emerald-100 hover:bg-emerald-100'
+                ? 'bg-brand-text-main text-white border-brand-text-main' 
+                : 'bg-slate-50 text-brand-text-main border-brand-border hover:bg-brand-border'
             }`}
           >
-            <Filter size={16} className={showFilters ? 'text-emerald-400' : 'text-emerald-500'} />
+            <Filter size={16} className={showFilters ? 'text-brand-text-sec' : 'text-brand-blue-hover'} />
             <span>Filtros</span>
           </button>
           <button 
             onClick={handleExport}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-wait"
+            className="flex items-center gap-2 px-6 py-2 bg-brand-blue text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all disabled:opacity-50 disabled:cursor-not-wait"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -307,11 +307,11 @@ export default function ReportsPage() {
         <motion.div 
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
-          className="bg-emerald-50/50 border border-emerald-100 rounded-[2rem] p-6 grid grid-cols-1 md:grid-cols-4 gap-6"
+          className="bg-slate-50/50 border border-brand-border rounded-[2rem] p-6 grid grid-cols-1 md:grid-cols-4 gap-6"
         >
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase italic text-emerald-900/40 tracking-widest">Período</label>
-            <select className="w-full bg-white border border-emerald-100 rounded-xl px-3 py-2 text-sm font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+            <label className="text-[10px] font-black uppercase italic text-brand-text-main/40 tracking-widest">Período</label>
+            <select className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-bold text-brand-text-main focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20">
               <option>Hoje</option>
               <option>Últimos 7 dias</option>
               <option selected>Este Mês</option>
@@ -319,16 +319,16 @@ export default function ReportsPage() {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase italic text-emerald-900/40 tracking-widest">Categoria</label>
-            <select className="w-full bg-white border border-emerald-100 rounded-xl px-3 py-2 text-sm font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+            <label className="text-[10px] font-black uppercase italic text-brand-text-main/40 tracking-widest">Categoria</label>
+            <select className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-bold text-brand-text-main focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20">
               <option>Todas</option>
               <option>Eletrônicos</option>
               <option>Acessórios</option>
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase italic text-emerald-900/40 tracking-widest">Unidade</label>
-            <select className="w-full bg-white border border-emerald-100 rounded-xl px-3 py-2 text-sm font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+            <label className="text-[10px] font-black uppercase italic text-brand-text-main/40 tracking-widest">Unidade</label>
+            <select className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-bold text-brand-text-main focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20">
               <option>Matriz</option>
               <option>Filial 01</option>
             </select>
@@ -339,7 +339,7 @@ export default function ReportsPage() {
                 showToast('Filtros aplicados com sucesso!');
                 setShowFilters(false);
               }}
-              className="w-full py-2 bg-emerald-600 text-white rounded-xl font-black uppercase italic text-xs hover:bg-emerald-700 transition-all"
+              className="w-full py-2 bg-brand-blue text-white rounded-xl font-black uppercase italic text-xs hover:bg-brand-text-main transition-all"
             >
               Aplicar Filtros
             </button>
@@ -358,11 +358,11 @@ export default function ReportsPage() {
             }}
             className={`flex items-center gap-3 px-6 py-4 rounded-3xl transition-all whitespace-nowrap border ${
               activeReport === report.id 
-                ? "bg-emerald-950 text-white border-emerald-950 shadow-xl shadow-emerald-950/20" 
-                : "bg-white text-emerald-900/60 border-emerald-100 hover:border-emerald-300"
+                ? "bg-brand-text-main text-white border-brand-text-main shadow-xl shadow-brand-text-main/20" 
+                : "bg-white text-brand-text-main/60 border-brand-border hover:border-brand-border"
             }`}
           >
-            <report.icon size={20} className={activeReport === report.id ? "text-emerald-400" : "text-emerald-300"} />
+            <report.icon size={20} className={activeReport === report.id ? "text-brand-text-sec" : "text-brand-border"} />
             <span className="font-black uppercase italic tracking-tight text-sm">{report.label}</span>
           </button>
         ))}
@@ -375,15 +375,15 @@ export default function ReportsPage() {
         <div className="lg:col-span-2 space-y-8">
           
           {/* Main Chart Card */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-sm">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-black italic uppercase text-emerald-950">
+                <h3 className="text-xl font-black italic uppercase text-brand-text-main">
                   {activeReport === 'vendas' ? 'Desempenho de Vendas' : 
                    activeReport === 'financeiro' ? 'Fluxo de Caixa' :
                    activeReport === 'estoque' ? 'Movimentação de Estoque' : 'Atividade de Clientes'}
                 </h3>
-                <p className="text-xs font-medium text-emerald-600/60">
+                <p className="text-xs font-medium text-brand-blue/60">
                   {activeReport === 'vendas' ? 'Comparativo de faturamento e lucro bruto.' : 
                    activeReport === 'financeiro' ? 'Entradas e saídas financeiras do período.' :
                    activeReport === 'estoque' ? 'Entradas e saídas de produtos por dia.' : 'Novos clientes vs. Clientes recorrentes.'}
@@ -391,16 +391,16 @@ export default function ReportsPage() {
               </div>
               <div className="flex gap-2">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                  <span className="text-[10px] font-black uppercase italic text-emerald-900/40">
+                  <div className="w-3 h-3 rounded-full bg-brand-blue-hover"></div>
+                  <span className="text-[10px] font-black uppercase italic text-brand-text-main/40">
                     {activeReport === 'vendas' ? 'Vendas' : 
                      activeReport === 'financeiro' ? 'Entradas' :
                      activeReport === 'estoque' ? 'Entradas' : 'Novos'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-emerald-200"></div>
-                  <span className="text-[10px] font-black uppercase italic text-emerald-900/40">
+                  <div className="w-3 h-3 rounded-full bg-brand-border"></div>
+                  <span className="text-[10px] font-black uppercase italic text-brand-text-main/40">
                     {activeReport === 'vendas' ? 'Lucro' : 
                      activeReport === 'financeiro' ? 'Saídas' :
                      activeReport === 'estoque' ? 'Saídas' : 'Recorrentes'}
@@ -470,8 +470,8 @@ export default function ReportsPage() {
 
           {/* Secondary Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-sm">
-              <h4 className="text-lg font-black italic uppercase text-emerald-950 mb-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
+              <h4 className="text-lg font-black italic uppercase text-brand-text-main mb-6">
                 {activeReport === 'vendas' ? 'Vendas por Categoria' : 
                  activeReport === 'financeiro' ? 'Distribuição de Custos' :
                  activeReport === 'estoque' ? 'Status de Estoque' : 'Segmentação de Clientes'}
@@ -551,14 +551,14 @@ export default function ReportsPage() {
                   ]).map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-[10px] font-black text-emerald-900/60 uppercase italic truncate">{item.name}</span>
+                    <span className="text-[10px] font-black text-brand-text-main/60 uppercase italic truncate">{item.name}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-sm">
-              <h4 className="text-lg font-black italic uppercase text-emerald-950 mb-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
+              <h4 className="text-lg font-black italic uppercase text-brand-text-main mb-6">
                 {activeReport === 'vendas' ? 'Top Produtos' : 
                  activeReport === 'financeiro' ? 'Maiores Despesas' :
                  activeReport === 'estoque' ? 'Produtos Sem Giro' : 'Clientes VIP'}
@@ -582,14 +582,14 @@ export default function ReportsPage() {
                     { name: 'Pedro Santos', sales: '32 compras', revenue: 'R$ 9.200', growth: '+22%' },
                     { name: 'Ana Costa', sales: '28 compras', revenue: 'R$ 8.500', growth: '+5%' },
                   ]).map((product) => (
-                  <div key={product.name} className="flex items-center justify-between p-3 hover:bg-emerald-50 rounded-2xl transition-colors group">
+                  <div key={product.name} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-2xl transition-colors group">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-emerald-950 truncate uppercase italic">{product.name}</p>
-                      <p className="text-[10px] font-black text-emerald-600/40 uppercase tracking-widest">{product.sales}</p>
+                      <p className="text-sm font-black text-brand-text-main truncate uppercase italic">{product.name}</p>
+                      <p className="text-[10px] font-black text-brand-blue/40 uppercase tracking-widest">{product.sales}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-emerald-600">{product.revenue}</p>
-                      <p className={`text-[10px] font-black uppercase italic ${product.growth.startsWith('+') ? 'text-emerald-500' : product.growth === '0%' ? 'text-emerald-400' : 'text-rose-500'}`}>
+                      <p className="text-sm font-black text-brand-blue">{product.revenue}</p>
+                      <p className={`text-[10px] font-black uppercase italic ${product.growth.startsWith('+') ? 'text-brand-blue-hover' : product.growth === '0%' ? 'text-brand-text-sec' : 'text-rose-500'}`}>
                         {product.growth}
                       </p>
                     </div>
@@ -604,8 +604,8 @@ export default function ReportsPage() {
         <div className="space-y-8">
           
           {/* Key Metrics */}
-          <div className="bg-emerald-950 p-8 rounded-[2.5rem] text-white shadow-xl shadow-emerald-950/20">
-            <h4 className="text-lg font-black italic uppercase text-emerald-400 mb-6">Métricas de Conversão</h4>
+          <div className="bg-brand-text-main p-8 rounded-[2.5rem] text-white shadow-xl shadow-brand-text-main/20">
+            <h4 className="text-lg font-black italic uppercase text-brand-text-sec mb-6">Métricas de Conversão</h4>
             <div className="space-y-6">
               <MetricRow label="Ticket Médio" value="R$ 1.420" trend="+5.2%" positive />
               <MetricRow label="Taxa de Retorno" value="68%" trend="+2.1%" positive />
@@ -615,18 +615,18 @@ export default function ReportsPage() {
           </div>
 
           {/* Report Center */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-sm flex flex-col min-h-[600px]">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm flex flex-col min-h-[600px]">
             <div className="flex items-center justify-between mb-6 shrink-0">
-              <h4 className="text-lg font-black italic uppercase text-emerald-950">Central de Relatórios</h4>
-              <div className="flex gap-1 p-1 bg-emerald-50 rounded-xl">
+              <h4 className="text-lg font-black italic uppercase text-brand-text-main">Central de Relatórios</h4>
+              <div className="flex gap-1 p-1 bg-slate-50 rounded-xl">
                 {['vendas', 'estoque', 'financeiro'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveCentralTab(tab)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase italic transition-all ${
                       activeCentralTab === tab 
-                        ? 'bg-emerald-600 text-white shadow-sm' 
-                        : 'text-emerald-600/40 hover:text-emerald-600'
+                        ? 'bg-brand-blue text-white shadow-sm' 
+                        : 'text-brand-blue/40 hover:text-brand-blue'
                     }`}
                   >
                     {tab === 'vendas' ? 'Vendas' : tab === 'estoque' ? 'Estoque' : 'Fin.'}
@@ -667,7 +667,7 @@ export default function ReportsPage() {
             
             <button 
               onClick={() => handleAction('Carregando todos os relatórios')}
-              className="w-full mt-6 py-4 bg-emerald-50 text-emerald-600 rounded-2xl font-black uppercase italic text-xs hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 shrink-0"
+              className="w-full mt-6 py-4 bg-slate-50 text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-brand-border transition-all flex items-center justify-center gap-2 shrink-0"
             >
               <FileText size={14} />
               Ver Todos os Relatórios
@@ -675,8 +675,8 @@ export default function ReportsPage() {
           </div>
 
           {/* Export Options */}
-          <div className="bg-emerald-50 p-6 rounded-[2.5rem] border border-emerald-100">
-            <h4 className="text-xs font-black italic uppercase text-emerald-900/40 mb-4 tracking-widest">Ações Rápidas</h4>
+          <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-brand-border">
+            <h4 className="text-xs font-black italic uppercase text-brand-text-main/40 mb-4 tracking-widest">Ações Rápidas</h4>
             <div className="grid grid-cols-3 gap-2">
               <QuickActionButton icon={Printer} label="Imprimir" onClick={() => handleAction('Impressão')} />
               <QuickActionButton icon={Share2} label="Compartilhar" onClick={() => handleAction('Compartilhamento')} />
@@ -694,10 +694,10 @@ function MetricRow({ label, value, trend, positive }: { label: string, value: st
   return (
     <div className="flex items-center justify-between border-b border-white/10 pb-4 last:border-0 last:pb-0">
       <div>
-        <p className="text-[10px] font-black uppercase italic text-emerald-400/60 tracking-widest">{label}</p>
+        <p className="text-[10px] font-black uppercase italic text-brand-text-sec/60 tracking-widest">{label}</p>
         <h5 className="text-xl font-black">{value}</h5>
       </div>
-      <div className={`flex items-center gap-1 text-[10px] font-black uppercase italic px-2 py-1 rounded-full ${positive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+      <div className={`flex items-center gap-1 text-[10px] font-black uppercase italic px-2 py-1 rounded-full ${positive ? 'bg-brand-blue-hover/20 text-brand-text-sec' : 'bg-rose-500/20 text-rose-400'}`}>
         {positive ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
         {trend}
       </div>
@@ -709,13 +709,13 @@ function ReportLink({ title, description, onClick }: { title: string, descriptio
   return (
     <button 
       onClick={onClick}
-      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-emerald-50 transition-all text-left group"
+      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all text-left group"
     >
       <div className="min-w-0">
-        <h5 className="text-sm font-black text-emerald-950 uppercase italic group-hover:text-emerald-600 transition-colors">{title}</h5>
-        <p className="text-[10px] font-medium text-emerald-600/60 truncate">{description}</p>
+        <h5 className="text-sm font-black text-brand-text-main uppercase italic group-hover:text-brand-blue transition-colors">{title}</h5>
+        <p className="text-[10px] font-medium text-brand-blue/60 truncate">{description}</p>
       </div>
-      <ChevronRight size={16} className="text-emerald-200 group-hover:text-emerald-500 transition-colors" />
+      <ChevronRight size={16} className="text-brand-border group-hover:text-brand-blue-hover transition-colors" />
     </button>
   );
 }
@@ -724,10 +724,10 @@ function QuickActionButton({ icon: Icon, label, onClick }: { icon: any, label: s
   return (
     <button 
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-2 p-3 bg-white rounded-2xl border border-emerald-100 hover:border-emerald-300 transition-all group"
+      className="flex flex-col items-center justify-center gap-2 p-3 bg-white rounded-2xl border border-brand-border hover:border-brand-border transition-all group"
     >
-      <Icon size={18} className="text-emerald-300 group-hover:text-emerald-600 transition-colors" />
-      <span className="text-[8px] font-black uppercase italic text-emerald-900/40">{label}</span>
+      <Icon size={18} className="text-brand-border group-hover:text-brand-blue transition-colors" />
+      <span className="text-[8px] font-black uppercase italic text-brand-text-main/40">{label}</span>
     </button>
   );
 }
@@ -760,42 +760,42 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100">
-          <p className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Entradas Totais</p>
-          <h4 className="text-2xl font-black text-emerald-600">{formatCurrency(totalEntradas)}</h4>
+        <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Entradas Totais</p>
+          <h4 className="text-2xl font-black text-brand-blue">{formatCurrency(totalEntradas)}</h4>
         </div>
         <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100">
           <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest">Saídas Totais</p>
           <h4 className="text-2xl font-black text-rose-600">{formatCurrency(totalSaidas)}</h4>
         </div>
-        <div className="p-6 rounded-3xl bg-emerald-950 text-white shadow-xl shadow-emerald-950/20">
-          <p className="text-[10px] font-black text-emerald-400/60 uppercase italic tracking-widest">Saldo em Caixa</p>
-          <h4 className="text-2xl font-black text-emerald-400">{formatCurrency(saldo)}</h4>
+        <div className="p-6 rounded-3xl bg-brand-text-main text-white shadow-xl shadow-brand-text-main/20">
+          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest">Saldo em Caixa</p>
+          <h4 className="text-2xl font-black text-brand-text-sec">{formatCurrency(saldo)}</h4>
         </div>
       </div>
       
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-emerald-50">
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Data/Hora</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Descrição</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Categoria/Método</th>
-            <th className="py-4 text-right text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Valor</th>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data/Hora</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Descrição</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Categoria/Método</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Valor</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-emerald-50">
+        <tbody className="divide-y divide-slate-50">
           {transactions.length > 0 ? transactions.map((t) => (
-            <tr key={t.id} className="hover:bg-emerald-50/50 transition-colors">
-              <td className="py-4 text-sm font-bold text-emerald-900">{new Date(t.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-              <td className="py-4 text-sm font-bold text-emerald-950 uppercase italic">{t.description}</td>
-              <td className="py-4 text-xs font-black text-emerald-600/60 uppercase italic">{t.method}</td>
-              <td className={`py-4 text-right text-sm font-black ${t.type === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4 text-sm font-bold text-brand-text-main">{new Date(t.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+              <td className="py-4 text-sm font-bold text-brand-text-main uppercase italic">{t.description}</td>
+              <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">{t.method}</td>
+              <td className={`py-4 text-right text-sm font-black ${t.type === 'entrada' ? 'text-brand-blue' : 'text-rose-600'}`}>
                 {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
               </td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-sm font-medium text-emerald-600/60">Nenhuma movimentação no período selecionado.</td>
+              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma movimentação no período selecionado.</td>
             </tr>
           )}
         </tbody>
@@ -855,17 +855,17 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
       <div className="space-y-4">
         <DreRow label="Receita Bruta de Vendas" value={formatCurrency(receitaBruta)} bold />
         <DreRow label="(-) Impostos sobre Vendas" value={`(${formatCurrency(impostos)})`} negative />
-        <div className="h-px bg-emerald-100 my-2"></div>
+        <div className="h-px bg-brand-border my-2"></div>
         <DreRow label="Receita Líquida" value={formatCurrency(receitaLiquida)} highlight />
         <DreRow label="(-) Custo de Mercadorias (CMV)" value={`(${formatCurrency(cmv)})`} negative />
-        <div className="h-px bg-emerald-100 my-2"></div>
+        <div className="h-px bg-brand-border my-2"></div>
         <DreRow label="Lucro Bruto" value={formatCurrency(lucroBruto)} highlight />
         <DreRow label="(-) Despesas Operacionais (Reais)" value={`(${formatCurrency(despesasOp)})`} negative />
         <DreRow label="(-) Despesas Administrativas (Reais)" value={`(${formatCurrency(despesasAdm)})`} negative />
-        <div className="h-px bg-emerald-100 my-2"></div>
+        <div className="h-px bg-brand-border my-2"></div>
         <DreRow label="EBITDA" value={formatCurrency(ebitda)} highlight />
         <DreRow label="(-) Depreciação / Amortização" value={`(${formatCurrency(depreciacao)})`} negative />
-        <div className="h-px bg-emerald-100 my-2"></div>
+        <div className="h-px bg-brand-border my-2"></div>
         <DreRow label="Lucro Líquido do Exercício" value={formatCurrency(lucroLiquido)} final />
       </div>
     </div>
@@ -874,9 +874,9 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
 
 function DreRow({ label, value, bold, negative, highlight, final }: any) {
   return (
-    <div className={`flex justify-between items-center p-3 rounded-xl ${highlight ? 'bg-emerald-50' : ''} ${final ? 'bg-emerald-950 text-white' : ''}`}>
-      <span className={`text-sm uppercase italic tracking-tight ${bold || highlight || final ? 'font-black' : 'font-medium text-emerald-900/60'}`}>{label}</span>
-      <span className={`text-sm font-black ${negative ? 'text-rose-500' : final ? 'text-emerald-400' : 'text-emerald-950'}`}>{value}</span>
+    <div className={`flex justify-between items-center p-3 rounded-xl ${highlight ? 'bg-slate-50' : ''} ${final ? 'bg-brand-text-main text-white' : ''}`}>
+      <span className={`text-sm uppercase italic tracking-tight ${bold || highlight || final ? 'font-black' : 'font-medium text-brand-text-main/60'}`}>{label}</span>
+      <span className={`text-sm font-black ${negative ? 'text-rose-500' : final ? 'text-brand-text-sec' : 'text-brand-text-main'}`}>{value}</span>
     </div>
   );
 }
@@ -903,7 +903,7 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
       const turnover = stock > 0 ? (qty / stock).toFixed(1) : '0.0';
       let status = 'Médio Giro';
       let color = 'blue';
-      if (Number(turnover) > 2) { status = 'Alto Giro'; color = 'emerald'; }
+      if (Number(turnover) > 2) { status = 'Alto Giro'; color = 'brand-blue'; }
       else if (Number(turnover) < 0.5) { status = 'Baixo Giro'; color = 'rose'; }
       
       return {
@@ -920,18 +920,18 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.length > 0 ? data.map((item, i) => (
-          <div key={i} className="p-6 rounded-3xl border border-emerald-100 bg-white flex items-center justify-between shadow-sm">
+          <div key={i} className="p-6 rounded-3xl border border-brand-border bg-white flex items-center justify-between shadow-sm">
             <div>
-              <h5 className="text-sm font-black text-emerald-950 uppercase italic">{item.name}</h5>
-              <p className="text-[10px] font-black text-emerald-600/40 uppercase tracking-widest">{item.status}</p>
+              <h5 className="text-sm font-black text-brand-text-main uppercase italic">{item.name}</h5>
+              <p className="text-[10px] font-black text-brand-blue/40 uppercase tracking-widest">{item.status}</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-black text-emerald-600">{item.turnover}</p>
-              <p className="text-[10px] font-black text-emerald-900/20 uppercase italic">Giro no Período</p>
+              <p className="text-2xl font-black text-brand-blue">{item.turnover}</p>
+              <p className="text-[10px] font-black text-brand-text-main/20 uppercase italic">Giro no Período</p>
             </div>
           </div>
         )) : (
-          <div className="col-span-2 text-center py-8 text-emerald-600/60 font-medium">
+          <div className="col-span-2 text-center py-8 text-brand-blue/60 font-medium">
             Nenhuma venda registrada no período selecionado.
           </div>
         )}
@@ -986,17 +986,17 @@ function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate
   return (
     <div className="space-y-6">
       <div className="flex gap-4 mb-8">
-        <div className="flex-1 p-4 rounded-2xl bg-emerald-600 text-white text-center">
+        <div className="flex-1 p-4 rounded-2xl bg-brand-blue text-white text-center">
           <p className="text-[10px] font-black uppercase italic opacity-60">Classe A</p>
           <p className="text-xl font-black">Até 80%</p>
           <p className="text-[8px] font-black uppercase italic">do Faturamento</p>
         </div>
-        <div className="flex-1 p-4 rounded-2xl bg-emerald-400 text-white text-center">
+        <div className="flex-1 p-4 rounded-2xl bg-brand-text-sec text-white text-center">
           <p className="text-[10px] font-black uppercase italic opacity-60">Classe B</p>
           <p className="text-xl font-black">Até 95%</p>
           <p className="text-[8px] font-black uppercase italic">do Faturamento</p>
         </div>
-        <div className="flex-1 p-4 rounded-2xl bg-emerald-100 text-emerald-600 text-center">
+        <div className="flex-1 p-4 rounded-2xl bg-brand-border text-brand-blue text-center">
           <p className="text-[10px] font-black uppercase italic opacity-60">Classe C</p>
           <p className="text-xl font-black">Até 100%</p>
           <p className="text-[8px] font-black uppercase italic">do Faturamento</p>
@@ -1005,22 +1005,22 @@ function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate
       
       <div className="space-y-3">
         {data.length > 0 ? data.map((c, i) => (
-          <div key={i} className="flex items-center justify-between p-4 bg-emerald-50/50 rounded-2xl border border-emerald-50">
+          <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-50">
             <div className="flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${c.class === 'A' ? 'bg-emerald-600' : c.class === 'B' ? 'bg-emerald-400' : 'bg-emerald-200'}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${c.class === 'A' ? 'bg-brand-blue' : c.class === 'B' ? 'bg-brand-text-sec' : 'bg-brand-border'}`}>
                 {c.class}
               </div>
               <div>
-                <h5 className="text-sm font-black text-emerald-950 uppercase italic">{c.name}</h5>
+                <h5 className="text-sm font-black text-brand-text-main uppercase italic">{c.name}</h5>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-black text-emerald-950">{c.formattedTotal}</p>
-              <p className="text-[10px] font-black text-emerald-600/40 uppercase italic">Total Acumulado</p>
+              <p className="text-sm font-black text-brand-text-main">{c.formattedTotal}</p>
+              <p className="text-[10px] font-black text-brand-blue/40 uppercase italic">Total Acumulado</p>
             </div>
           </div>
         )) : (
-          <div className="text-center py-8 text-emerald-600/60 font-medium">
+          <div className="text-center py-8 text-brand-blue/60 font-medium">
             Nenhuma venda registrada no período selecionado.
           </div>
         )}
@@ -1045,26 +1045,26 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
     <div className="space-y-6">
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-emerald-50">
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Vendedor</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Vendas Totais</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Taxa (%)</th>
-            <th className="py-4 text-right text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Comissão</th>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendedor</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendas Totais</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Taxa (%)</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Comissão</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-emerald-50">
-          <tr className="hover:bg-emerald-50/50 transition-colors">
+        <tbody className="divide-y divide-slate-50">
+          <tr className="hover:bg-slate-50/50 transition-colors">
             <td className="py-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-black">
+                <div className="w-8 h-8 rounded-lg bg-brand-border text-brand-blue flex items-center justify-center text-xs font-black">
                   VP
                 </div>
-                <span className="text-sm font-black text-emerald-950 uppercase italic">Vendedor Padrão</span>
+                <span className="text-sm font-black text-brand-text-main uppercase italic">Vendedor Padrão</span>
               </div>
             </td>
-            <td className="py-4 text-sm font-bold text-emerald-900">{formatCurrency(totalVendas)}</td>
-            <td className="py-4 text-xs font-black text-emerald-600/60 uppercase italic">3%</td>
-            <td className="py-4 text-right text-sm font-black text-emerald-600">{formatCurrency(comissao)}</td>
+            <td className="py-4 text-sm font-bold text-brand-text-main">{formatCurrency(totalVendas)}</td>
+            <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">3%</td>
+            <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(comissao)}</td>
           </tr>
         </tbody>
       </table>
@@ -1111,24 +1111,24 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string, endDa
     <div className="space-y-6">
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-emerald-50">
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Produto</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Qtd Vendida</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Preço Médio</th>
-            <th className="py-4 text-right text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Total</th>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Qtd Vendida</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Preço Médio</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-emerald-50">
+        <tbody className="divide-y divide-slate-50">
           {data.length > 0 ? data.map((row, i) => (
-            <tr key={i} className="hover:bg-emerald-50/50 transition-colors">
-              <td className="py-4 text-sm font-black text-emerald-950 uppercase italic">{row.name}</td>
-              <td className="py-4 text-sm font-bold text-emerald-900">{row.qty} un</td>
-              <td className="py-4 text-xs font-black text-emerald-600/60 uppercase italic">{formatCurrency(row.price)}</td>
-              <td className="py-4 text-right text-sm font-black text-emerald-600">{formatCurrency(row.total)}</td>
+            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
+              <td className="py-4 text-sm font-bold text-brand-text-main">{row.qty} un</td>
+              <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">{formatCurrency(row.price)}</td>
+              <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.total)}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-sm font-medium text-emerald-600/60">Nenhuma venda registrada no período selecionado.</td>
+              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
             </tr>
           )}
         </tbody>
@@ -1183,21 +1183,21 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-          <p className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Vendas Brutas</p>
-          <p className="text-xl font-black text-emerald-950">{formatCurrency(totalRevenue)}</p>
+        <div className="p-4 rounded-2xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendas Brutas</p>
+          <p className="text-xl font-black text-brand-text-main">{formatCurrency(totalRevenue)}</p>
         </div>
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-          <p className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Ticket Médio</p>
-          <p className="text-xl font-black text-emerald-950">{formatCurrency(ticketMedio)}</p>
+        <div className="p-4 rounded-2xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Ticket Médio</p>
+          <p className="text-xl font-black text-brand-text-main">{formatCurrency(ticketMedio)}</p>
         </div>
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-          <p className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Total Pedidos</p>
-          <p className="text-xl font-black text-emerald-950">{totalOrders}</p>
+        <div className="p-4 rounded-2xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total Pedidos</p>
+          <p className="text-xl font-black text-brand-text-main">{totalOrders}</p>
         </div>
-        <div className="p-4 rounded-2xl bg-emerald-950 text-white">
-          <p className="text-[10px] font-black text-emerald-400/60 uppercase italic tracking-widest">Lucro Estimado</p>
-          <p className="text-xl font-black text-emerald-400">{formatCurrency(estimatedProfit)}</p>
+        <div className="p-4 rounded-2xl bg-brand-text-main text-white">
+          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest">Lucro Estimado</p>
+          <p className="text-xl font-black text-brand-text-sec">{formatCurrency(estimatedProfit)}</p>
         </div>
       </div>
       
@@ -1213,22 +1213,22 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-emerald-600/60 font-medium">
+          <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium">
             Nenhum dado para exibir no gráfico neste período.
           </div>
         )}
       </div>
 
       <div className="space-y-4">
-        <h5 className="text-sm font-black text-emerald-950 uppercase italic">Resumo por Canal</h5>
+        <h5 className="text-sm font-black text-brand-text-main uppercase italic">Resumo por Canal</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex justify-between items-center p-4 bg-emerald-50/50 rounded-2xl">
-            <span className="text-sm font-bold text-emerald-900 uppercase italic">Loja Física (PDV)</span>
-            <span className="text-sm font-black text-emerald-600">{formatCurrency(totalRevenue)} (100%)</span>
+          <div className="flex justify-between items-center p-4 bg-slate-50/50 rounded-2xl">
+            <span className="text-sm font-bold text-brand-text-main uppercase italic">Loja Física (PDV)</span>
+            <span className="text-sm font-black text-brand-blue">{formatCurrency(totalRevenue)} (100%)</span>
           </div>
-          <div className="flex justify-between items-center p-4 bg-emerald-50/50 rounded-2xl">
-            <span className="text-sm font-bold text-emerald-900 uppercase italic">Delivery / Online</span>
-            <span className="text-sm font-black text-emerald-600">R$ 0,00 (0%)</span>
+          <div className="flex justify-between items-center p-4 bg-slate-50/50 rounded-2xl">
+            <span className="text-sm font-bold text-brand-text-main uppercase italic">Delivery / Online</span>
+            <span className="text-sm font-black text-brand-blue">R$ 0,00 (0%)</span>
           </div>
         </div>
       </div>
@@ -1290,7 +1290,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-emerald-600/60 font-medium text-center">
+            <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">
               Nenhum dado para exibir no gráfico neste período.
             </div>
           )}
@@ -1300,11 +1300,11 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
             <div key={i} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
-                <span className="text-sm font-black text-emerald-950 uppercase italic">{cat.name}</span>
+                <span className="text-sm font-black text-brand-text-main uppercase italic">{cat.name}</span>
               </div>
               <div className="text-right">
-                <span className="text-sm font-black text-emerald-600">{cat.total}</span>
-                <span className="text-[10px] font-bold text-emerald-900/40 ml-2">({cat.percent})</span>
+                <span className="text-sm font-black text-brand-blue">{cat.total}</span>
+                <span className="text-[10px] font-bold text-brand-text-main/40 ml-2">({cat.percent})</span>
               </div>
             </div>
           ))}
@@ -1356,14 +1356,14 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-emerald-600/60 font-medium">
+          <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium">
             Nenhum dado para exibir no gráfico neste período.
           </div>
         )}
       </div>
-      <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100 text-center">
-        <p className="text-sm font-black text-emerald-950 uppercase italic">Horário de Pico: {peakHour !== 'N/A' ? `${peakHour.replace('h', ':00')} - ${String(Number(peakHour.replace('h', ''))+1).padStart(2, '0')}:00` : 'N/A'}</p>
-        <p className="text-xs font-medium text-emerald-600/60">Média de {peakSales} transações neste período.</p>
+      <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border text-center">
+        <p className="text-sm font-black text-brand-text-main uppercase italic">Horário de Pico: {peakHour !== 'N/A' ? `${peakHour.replace('h', ':00')} - ${String(Number(peakHour.replace('h', ''))+1).padStart(2, '0')}:00` : 'N/A'}</p>
+        <p className="text-xs font-medium text-brand-blue/60">Média de {peakSales} transações neste período.</p>
       </div>
     </div>
   );
@@ -1417,17 +1417,17 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-emerald-600 text-white">
+        <div className="p-4 rounded-2xl bg-brand-blue text-white">
           <h5 className="text-[10px] font-black uppercase italic opacity-60">Curva A</h5>
           <p className="text-lg font-black">Até 80% do Faturamento</p>
           <p className="text-[8px] font-black uppercase italic">Alta Importância</p>
         </div>
-        <div className="p-4 rounded-2xl bg-emerald-400 text-white">
+        <div className="p-4 rounded-2xl bg-brand-text-sec text-white">
           <h5 className="text-[10px] font-black uppercase italic opacity-60">Curva B</h5>
           <p className="text-lg font-black">Até 95% do Faturamento</p>
           <p className="text-[8px] font-black uppercase italic">Média Importância</p>
         </div>
-        <div className="p-4 rounded-2xl bg-emerald-100 text-emerald-600">
+        <div className="p-4 rounded-2xl bg-brand-border text-brand-blue">
           <h5 className="text-[10px] font-black uppercase italic opacity-60">Curva C</h5>
           <p className="text-lg font-black">Até 100% do Faturamento</p>
           <p className="text-[8px] font-black uppercase italic">Baixa Importância</p>
@@ -1435,24 +1435,24 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
       </div>
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-emerald-50">
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Produto</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Classe</th>
-            <th className="py-4 text-right text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Acumulado</th>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Classe</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Acumulado</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-emerald-50">
+        <tbody className="divide-y divide-slate-50">
           {data.length > 0 ? data.map((row, i) => (
-            <tr key={i} className="hover:bg-emerald-50/50 transition-colors">
-              <td className="py-4 text-sm font-black text-emerald-950 uppercase italic">{row.name}</td>
+            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
               <td className="py-4">
-                <span className={`px-2 py-1 rounded-lg text-[10px] font-black text-white ${row.class === 'A' ? 'bg-emerald-600' : row.class === 'B' ? 'bg-emerald-400' : 'bg-emerald-200'}`}>{row.class}</span>
+                <span className={`px-2 py-1 rounded-lg text-[10px] font-black text-white ${row.class === 'A' ? 'bg-brand-blue' : row.class === 'B' ? 'bg-brand-text-sec' : 'bg-brand-border'}`}>{row.class}</span>
               </td>
-              <td className="py-4 text-right text-sm font-black text-emerald-600">{row.formattedTotal}</td>
+              <td className="py-4 text-right text-sm font-black text-brand-blue">{row.formattedTotal}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={3} className="py-8 text-center text-sm font-medium text-emerald-600/60">Nenhuma venda registrada no período selecionado.</td>
+              <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
             </tr>
           )}
         </tbody>
@@ -1494,29 +1494,29 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
           <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest">Total de Perdas (Período)</p>
           <h4 className="text-2xl font-black text-rose-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalLosses)}</h4>
         </div>
-        <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100">
-          <p className="text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Índice de Quebra</p>
-          <h4 className="text-2xl font-black text-emerald-600">{lossIndex.toFixed(1)}%</h4>
+        <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Índice de Quebra</p>
+          <h4 className="text-2xl font-black text-brand-blue">{lossIndex.toFixed(1)}%</h4>
         </div>
       </div>
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-emerald-50">
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Produto</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Motivo</th>
-            <th className="py-4 text-right text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Valor</th>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Motivo</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Valor</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-emerald-50">
+        <tbody className="divide-y divide-slate-50">
           {data.length > 0 ? data.map((row, i) => (
-            <tr key={i} className="hover:bg-emerald-50/50 transition-colors">
-              <td className="py-4 text-sm font-black text-emerald-950 uppercase italic">{row.name}</td>
+            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
               <td className="py-4 text-xs font-black text-rose-600/60 uppercase italic">{row.reason}</td>
               <td className="py-4 text-right text-sm font-black text-rose-600">{row.value}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={3} className="py-8 text-center text-sm font-medium text-emerald-600/60">Nenhuma perda registrada no período selecionado.</td>
+              <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma perda registrada no período selecionado.</td>
             </tr>
           )}
         </tbody>
@@ -1570,7 +1570,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-emerald-600/60 font-medium text-center">
+            <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">
               Nenhum dado para exibir no gráfico neste período.
             </div>
           )}
@@ -1580,9 +1580,9 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
             <div key={i} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pay.color }}></div>
-                <span className="text-sm font-black text-emerald-950 uppercase italic">{pay.name}</span>
+                <span className="text-sm font-black text-brand-text-main uppercase italic">{pay.name}</span>
               </div>
-              <span className="text-sm font-black text-emerald-600">{pay.total}</span>
+              <span className="text-sm font-black text-brand-blue">{pay.total}</span>
             </div>
           ))}
         </div>
@@ -1611,22 +1611,22 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
       </div>
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-emerald-50">
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Produto</th>
-            <th className="py-4 text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Estoque Mínimo</th>
-            <th className="py-4 text-right text-[10px] font-black text-emerald-900/40 uppercase italic tracking-widest">Estoque Atual</th>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Estoque Mínimo</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Estoque Atual</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-emerald-50">
+        <tbody className="divide-y divide-slate-50">
           {lowStockProducts.length > 0 ? lowStockProducts.map((row, i) => (
-            <tr key={i} className="hover:bg-emerald-50/50 transition-colors">
-              <td className="py-4 text-sm font-black text-emerald-950 uppercase italic">{row.name}</td>
-              <td className="py-4 text-sm font-bold text-emerald-900">{row.minStock} un</td>
+            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
+              <td className="py-4 text-sm font-bold text-brand-text-main">{row.minStock} un</td>
               <td className="py-4 text-right text-sm font-black text-rose-600">{row.stock} un</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={3} className="py-8 text-center text-sm font-medium text-emerald-600/60">Nenhum produto com estoque crítico.</td>
+              <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhum produto com estoque crítico.</td>
             </tr>
           )}
         </tbody>
