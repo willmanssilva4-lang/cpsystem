@@ -20,9 +20,11 @@ import {
 import { cn } from '@/lib/utils';
 
 export default function CustomersPage() {
-  const { customers, hasPermission } = useERP();
+  const { customers, sales, hasPermission } = useERP();
   const [search, setSearch] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState(customers[0]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(customers[0]?.id || null);
+
+  const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || customers[0];
 
   if (!hasPermission('Clientes', 'view')) {
     return (
@@ -39,13 +41,18 @@ export default function CustomersPage() {
     c.document.includes(search)
   );
 
+  const customerSales = sales.filter(s => s.customerId === selectedCustomer?.id);
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
       {/* Customer List */}
-      <section className="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
+      <section className={cn(
+        "flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900",
+        selectedCustomerId && "hidden lg:flex"
+      )}>
+        <div className="p-4 md:p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white">Clientes</h1>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase italic">Clientes</h1>
             <button className="p-2 bg-brand-blue-hover text-white rounded-lg hover:bg-brand-blue transition-all">
               <UserPlus size={20} />
             </button>
@@ -65,13 +72,13 @@ export default function CustomersPage() {
           {filteredCustomers.map((customer) => (
             <div 
               key={customer.id}
-              onClick={() => setSelectedCustomer(customer)}
+              onClick={() => setSelectedCustomerId(customer.id)}
               className={cn(
                 "p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50",
                 selectedCustomer?.id === customer.id ? "bg-slate-50 dark:bg-brand-text-main/10 border-r-4 border-brand-blue-hover" : ""
               )}
             >
-              <div className="size-12 rounded-full overflow-hidden relative border-2 border-white dark:border-slate-700 shadow-sm">
+              <div className="size-12 rounded-full overflow-hidden relative border-2 border-white dark:border-slate-700 shadow-sm shrink-0">
                 <Image 
                   src={customer.image || 'https://i.pravatar.cc/150'} 
                   alt={customer.name}
@@ -84,7 +91,7 @@ export default function CustomersPage() {
                 <div className="flex justify-between items-start">
                   <h3 className="font-bold text-slate-900 dark:text-slate-100 truncate">{customer.name}</h3>
                   <span className={cn(
-                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0",
                     customer.status === 'VIP' ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
                   )}>
                     {customer.status}
@@ -99,7 +106,20 @@ export default function CustomersPage() {
       </section>
 
       {/* Customer Detail Sidebar */}
-      <aside className="w-[450px] bg-slate-50 dark:bg-slate-950 overflow-y-auto p-8">
+      <aside className={cn(
+        "w-full lg:w-[450px] bg-slate-50 dark:bg-slate-950 overflow-y-auto p-4 md:p-8",
+        !selectedCustomerId && "hidden lg:block",
+        selectedCustomerId && "block"
+      )}>
+        {selectedCustomerId && (
+          <button 
+            onClick={() => setSelectedCustomerId(null)}
+            className="lg:hidden mb-6 flex items-center gap-2 text-brand-blue font-bold uppercase italic text-xs"
+          >
+            <ChevronRight size={16} className="rotate-180" />
+            Voltar para a lista
+          </button>
+        )}
         {selectedCustomer ? (
           <div className="space-y-8">
             <div className="flex flex-col items-center text-center space-y-4">
@@ -132,11 +152,15 @@ export default function CustomersPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Gasto</p>
-                <p className="text-lg font-black text-brand-blue">R$ {selectedCustomer.totalSpent.toLocaleString()}</p>
+                <p className="text-lg font-black text-brand-blue">R$ {customerSales.reduce((acc, s) => acc + s.total, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
               <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Última Compra</p>
-                <p className="text-lg font-black text-slate-900 dark:text-white">12 Out</p>
+                <p className="text-lg font-black text-slate-900 dark:text-white">
+                  {customerSales.length > 0 
+                    ? new Date(customerSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                    : 'N/A'}
+                </p>
               </div>
             </div>
 
@@ -156,18 +180,26 @@ export default function CustomersPage() {
                 <button className="text-xs font-bold text-brand-blue">Ver Tudo</button>
               </div>
               <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-                    <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                      <ShoppingBag size={20} />
+                {customerSales.length > 0 ? (
+                  customerSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((sale) => (
+                    <div key={sale.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+                      <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                        <ShoppingBag size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold">Venda #{sale.id.substring(0, 8)}</p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.items.length} itens
+                        </p>
+                      </div>
+                      <p className="text-sm font-black text-slate-900 dark:text-white">
+                        R$ {sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold">Venda #8492{i}</p>
-                      <p className="text-xs text-slate-500">12/10/2023 • 3 itens</p>
-                    </div>
-                    <p className="text-sm font-black text-slate-900 dark:text-white">R$ 450,00</p>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-center py-4 text-xs text-slate-400 font-bold">Nenhuma compra registrada.</p>
+                )}
               </div>
             </div>
           </div>

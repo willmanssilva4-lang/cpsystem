@@ -26,10 +26,10 @@ const REGISTRATION_OPTIONS = [
 
 export default function RegistrationsPage() {
   return (
-    <div className="p-8 space-y-8 bg-white min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-white min-h-screen">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Cadastros</h1>
-        <p className="text-brand-blue/60 font-medium">Gerencie as configurações base do seu sistema.</p>
+        <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Cadastros</h1>
+        <p className="text-brand-blue/60 font-medium text-sm">Gerencie as configurações base do seu sistema.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

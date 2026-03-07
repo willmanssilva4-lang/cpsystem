@@ -33,22 +33,50 @@ import {
 } from 'recharts';
 
 export default function DashboardPage() {
-  const { products, sales, customers, hasPermission } = useERP();
+  const { products, sales, customers, expenses, cashMovements, activeRegister, hasPermission } = useERP();
 
-  const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0);
+  const today = new Date().toISOString().split('T')[0];
+  
+  const salesToday = sales.filter(s => s.date.startsWith(today));
+  const expensesToday = expenses.filter(e => e.date.startsWith(today));
+  
+  const revenueToday = salesToday.reduce((acc, sale) => acc + sale.total, 0);
+  const expensesTodayTotal = expensesToday.reduce((acc, exp) => acc + exp.amount, 0);
+  const profitToday = revenueToday - expensesTodayTotal;
+
+  // Calculate current cash balance
+  const currentCashBalance = (activeRegister?.openingBalance || 0) + 
+    cashMovements
+      .filter(m => m.cashRegisterId === activeRegister?.id)
+      .reduce((acc, m) => acc + (m.type === 'suprimento' ? m.amount : -m.amount), 0) +
+    sales
+      .filter(s => s.cashRegisterId === activeRegister?.id && s.paymentMethod === 'Dinheiro')
+      .reduce((acc, s) => acc + s.total, 0);
+
   const lowStockItems = products.filter(p => p.stock <= p.minStock);
 
   const [chartData, setChartData] = React.useState<any[]>([]);
 
   React.useEffect(() => {
-    const days = ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'];
-    const data = days.map(day => ({
-      name: day,
-      receita: Math.floor(Math.random() * 150) + 50,
-      despesa: Math.floor(Math.random() * 100) + 20,
-    }));
+    // Generate last 30 days data from real sales and expenses
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      return d.toISOString().split('T')[0];
+    });
+
+    const data = last30Days.map(date => {
+      const daySales = sales.filter(s => s.date.startsWith(date));
+      const dayExpenses = expenses.filter(e => e.date.startsWith(date));
+      
+      return {
+        name: date.split('-')[2], // Just the day number
+        receita: daySales.reduce((acc, s) => acc + s.total, 0),
+        despesa: dayExpenses.reduce((acc, e) => acc + e.amount, 0),
+      };
+    });
     setChartData(data);
-  }, []);
+  }, [sales, expenses]);
 
   if (!hasPermission('Dashboard', 'view')) {
     return (
@@ -60,17 +88,36 @@ export default function DashboardPage() {
     );
   }
 
-  const pieData = [
-    { name: 'Dinheiro', value: 19.9, color: '#F9A825' },
-    { name: 'Cartão', value: 56.6, color: '#1E88E5' },
-    { name: 'Pix', value: 18.2, color: '#2BB673' },
-    { name: 'Outros', value: 5.3, color: '#E53935' },
+  // Calculate payment method distribution
+  const paymentMethods = ['Dinheiro', 'Cartão', 'Pix', 'Outros'];
+  const methodColors: any = {
+    'Dinheiro': '#F9A825',
+    'Cartão': '#1E88E5',
+    'Pix': '#2BB673',
+    'Outros': '#E53935'
+  };
+
+  const pieData = paymentMethods.map(method => {
+    const methodSales = sales.filter(s => s.paymentMethod === method);
+    const totalMethod = methodSales.reduce((acc, s) => acc + s.total, 0);
+    const percentage = sales.length > 0 ? (totalMethod / sales.reduce((acc, s) => acc + s.total, 0)) * 100 : 0;
+    
+    return {
+      name: method,
+      value: Number(percentage.toFixed(1)),
+      color: methodColors[method]
+    };
+  }).filter(d => d.value > 0);
+
+  // If no sales, show placeholder pie data so it's not empty
+  const displayPieData = pieData.length > 0 ? pieData : [
+    { name: 'Sem Vendas', value: 100, color: '#E1E5EA' }
   ];
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen overflow-x-hidden">
       <div className="flex flex-col gap-1">
         <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Dashboard</h2>
       </div>
@@ -78,31 +125,31 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard 
           title="Receita do Dia" 
-          value="R$ 12.450,00" 
-          trend="8% em relação a ontem" 
+          value={formatCurrency(revenueToday)} 
+          trend="Dados reais do sistema" 
           positive 
           icon={TrendingUp} 
           color="green"
         />
         <StatCard 
           title="Despesas do Dia" 
-          value="R$ 2.300,00" 
-          trend="5% em relação a ontem" 
+          value={formatCurrency(expensesTodayTotal)} 
+          trend="Dados reais do sistema" 
           positive={false} 
           icon={CreditCard} 
           color="red"
         />
         <StatCard 
           title="Lucro do Dia" 
-          value="R$ 10.150,00" 
-          trend="25% em relação a ontem" 
-          positive 
+          value={formatCurrency(profitToday)} 
+          trend="Dados reais do sistema" 
+          positive={profitToday >= 0} 
           icon={BarChart} 
-          color="green"
+          color={profitToday >= 0 ? "green" : "red"}
         />
         <StatCard 
           title="Saldo Atual em Caixa" 
-          value="R$ 78.920,35" 
+          value={formatCurrency(currentCashBalance)} 
           icon={Wallet} 
           color="blue"
         />
@@ -117,7 +164,7 @@ export default function DashboardPage() {
               <button className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold bg-brand-blue text-white rounded-lg shadow-sm">30 dias</button>
             </div>
           </div>
-          <div className="h-64 md:h-72 w-full">
+          <div className="h-64 md:h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -153,13 +200,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
+        <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Pagamento</h4>
-          <div className="h-48 w-full relative">
+          <div className="h-48 md:h-56 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={pieData}
+                  data={displayPieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
@@ -168,7 +215,7 @@ export default function DashboardPage() {
                   dataKey="value"
                   stroke="none"
                 >
-                  {pieData.map((entry, index) => (
+                  {displayPieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -176,14 +223,14 @@ export default function DashboardPage() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="grid grid-cols-2 gap-y-4 mt-6">
-            {pieData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between pr-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-sm font-medium text-brand-text-sec">{item.name}</span>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-4 mt-6">
+            {displayPieData.map((item) => (
+              <div key={item.name} className="flex items-center justify-between pr-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
+                  <span className="text-[10px] sm:text-xs font-medium text-brand-text-sec truncate">{item.name}</span>
                 </div>
-                <span className="text-sm font-semibold text-brand-text-main">{item.value}%</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-brand-text-main shrink-0">{item.value}%</span>
               </div>
             ))}
           </div>
@@ -209,30 +256,20 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-brand-border/50">
-                  <td className="py-3 text-sm font-medium text-brand-text-main">Café em Pó</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">10</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">20</td>
-                  <td className="py-3 text-right"><ChevronUp size={16} className="text-brand-text-sec inline-block" /></td>
-                </tr>
-                <tr className="border-b border-brand-border/50">
-                  <td className="py-3 text-sm font-medium text-brand-text-main">Detergente</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">15</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">30</td>
-                  <td className="py-3 text-right"><ChevronUp size={16} className="text-brand-text-sec inline-block" /></td>
-                </tr>
-                <tr className="border-b border-brand-border/50">
-                  <td className="py-3 text-sm font-medium text-brand-text-main">Arroz</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">30</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">50</td>
-                  <td className="py-3 text-right"><ChevronUp size={16} className="text-brand-text-sec inline-block" /></td>
-                </tr>
-                <tr>
-                  <td className="py-3 text-sm font-medium text-brand-text-main">Papel Higiênico</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">40</td>
-                  <td className="py-3 text-sm text-brand-text-main text-center">50</td>
-                  <td className="py-3 text-right"><ChevronUp size={16} className="text-brand-text-sec inline-block" /></td>
-                </tr>
+                {lowStockItems.length > 0 ? (
+                  lowStockItems.slice(0, 5).map(product => (
+                    <tr key={product.id} className="border-b border-brand-border/50">
+                      <td className="py-3 text-sm font-medium text-brand-text-main">{product.name}</td>
+                      <td className="py-3 text-sm text-brand-text-main text-center">{product.stock}</td>
+                      <td className="py-3 text-sm text-brand-text-main text-center">{product.minStock}</td>
+                      <td className="py-3 text-right"><ChevronUp size={16} className="text-brand-text-sec inline-block" /></td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-sm text-slate-400 italic">Nenhum item com estoque baixo</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -261,30 +298,23 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-brand-border/50">
-                  <td className="py-3 text-sm font-medium text-brand-text-main">#0003453</td>
-                  <td className="py-3 text-sm text-brand-text-sec">Joao Almeida</td>
-                  <td className="py-3 text-sm font-medium text-brand-text-main">R$ 119,53</td>
-                  <td className="py-3 text-center"><span className="bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded">Pago</span></td>
-                </tr>
-                <tr className="border-b border-brand-border/50">
-                  <td className="py-3 text-sm font-medium text-brand-text-main">#0003452</td>
-                  <td className="py-3 text-sm text-brand-text-sec">Thiago Souza</td>
-                  <td className="py-3 text-sm font-medium text-brand-text-main">R$ 45,95</td>
-                  <td className="py-3 text-center"><span className="bg-brand-warning text-white text-[10px] font-bold px-2 py-1 rounded">Pendente</span></td>
-                </tr>
-                <tr className="border-b border-brand-border/50">
-                  <td className="py-3 text-sm font-medium text-brand-text-main">#0003451</td>
-                  <td className="py-3 text-sm text-brand-text-sec">Antonio Pereira</td>
-                  <td className="py-3 text-sm font-medium text-brand-text-main">R$ 29,95</td>
-                  <td className="py-3 text-center"><span className="bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded">Pago</span></td>
-                </tr>
-                <tr>
-                  <td className="py-3 text-sm font-medium text-brand-text-main">#0003450</td>
-                  <td className="py-3 text-sm text-brand-text-sec">Novo Cliente</td>
-                  <td className="py-3 text-sm font-medium text-brand-text-main">R$ 56,99</td>
-                  <td className="py-3 text-center"><span className="bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded">Pago</span></td>
-                </tr>
+                {sales.length > 0 ? (
+                  sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map(sale => {
+                    const customer = customers.find(c => c.id === sale.customerId);
+                    return (
+                      <tr key={sale.id} className="border-b border-brand-border/50">
+                        <td className="py-3 text-sm font-medium text-brand-text-main">#{sale.id.substring(0, 8)}</td>
+                        <td className="py-3 text-sm text-brand-text-sec">{customer?.name || 'Consumidor Final'}</td>
+                        <td className="py-3 text-sm font-medium text-brand-text-main">{formatCurrency(sale.total)}</td>
+                        <td className="py-3 text-center"><span className="bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded">Pago</span></td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-sm text-slate-400 italic">Nenhuma venda realizada</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -298,20 +328,36 @@ export default function DashboardPage() {
         <div className="bg-[#FFFDF5] p-4 md:p-6 rounded-2xl border border-[#FDE68A] shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Alertas</h4>
           <div className="space-y-4 flex-1">
-            <div className="flex gap-3">
-              <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
-              <p className="text-sm text-brand-text-main">4 produtos estão vencendo nos próximos dias</p>
-            </div>
-            <div className="w-full h-px bg-[#FDE68A]/50"></div>
-            <div className="flex gap-3">
-              <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
-              <p className="text-sm text-brand-text-main">Saldo em caixa está negativo</p>
-            </div>
-            <div className="w-full h-px bg-[#FDE68A]/50"></div>
-            <div className="flex gap-3">
-              <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
-              <p className="text-sm text-brand-text-main">Meta de vendas do mês está abaixo do esperado</p>
-            </div>
+            {lowStockItems.length > 0 && (
+              <>
+                <div className="flex gap-3">
+                  <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
+                  <p className="text-sm text-brand-text-main">{lowStockItems.length} produtos estão com estoque baixo</p>
+                </div>
+                <div className="w-full h-px bg-[#FDE68A]/50"></div>
+              </>
+            )}
+            {currentCashBalance < 0 && (
+              <>
+                <div className="flex gap-3">
+                  <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
+                  <p className="text-sm text-brand-text-main">Saldo em caixa está negativo</p>
+                </div>
+                <div className="w-full h-px bg-[#FDE68A]/50"></div>
+              </>
+            )}
+            {salesToday.length === 0 && (
+              <div className="flex gap-3">
+                <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
+                <p className="text-sm text-brand-text-main">Nenhuma venda registrada hoje até o momento</p>
+              </div>
+            )}
+            {lowStockItems.length === 0 && currentCashBalance >= 0 && salesToday.length > 0 && (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <TrendingUp size={32} className="text-brand-green mb-2 opacity-20" />
+                <p className="text-sm text-brand-text-sec italic">Tudo sob controle!</p>
+              </div>
+            )}
           </div>
           <div className="mt-6 flex justify-end">
             <button className="bg-white border border-[#FDE68A] hover:bg-[#FEF3C7] text-brand-text-main px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">

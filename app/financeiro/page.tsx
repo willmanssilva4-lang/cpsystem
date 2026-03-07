@@ -137,44 +137,44 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Financeiro</h1>
-          <p className="text-slate-500 dark:text-slate-400">Controle de fluxo de caixa, contas a pagar e receber.</p>
+          <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Financeiro</h1>
+          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Controle de fluxo de caixa, contas a pagar e receber.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm shadow-sm">
+          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-xs uppercase italic tracking-widest shadow-sm">
             <Download size={18} /> Exportar
           </button>
-          <button className="flex items-center gap-2 px-6 h-11 bg-brand-blue-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-brand-blue-hover/20">
+          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 h-11 bg-brand-blue-hover text-white rounded-xl font-bold text-xs uppercase italic tracking-widest shadow-lg shadow-brand-blue-hover/20">
             <Plus size={18} /> Lançamento
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <FinanceStatCard title="Saldo em Caixa" value={formatCurrency(stats.saldo)} icon={Wallet} color="brand-blue" trend="Saldo Total Acumulado" />
         <FinanceStatCard title="Entradas (Mês)" value={formatCurrency(stats.entradasMes)} icon={ArrowUpCircle} color="brand-blue" trend="Total de vendas no mês" />
         <FinanceStatCard title="Saídas (Mês)" value={formatCurrency(stats.saidasMes)} icon={ArrowDownCircle} color="rose" trend="Total de despesas no mês" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-lg font-bold">Fluxo de Caixa Mensal</h3>
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                <button className="px-3 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-700 shadow-sm">6 Meses</button>
-                <button className="px-3 py-1 text-xs font-bold text-slate-500">1 Ano</button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+        <div className="lg:col-span-2 space-y-6 md:space-y-8">
+          <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <h3 className="text-lg font-black uppercase italic tracking-tight">Fluxo de Caixa Mensal</h3>
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
+                <button className="px-3 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-slate-700 shadow-sm uppercase">6 Meses</button>
+                <button className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase">1 Ano</button>
               </div>
             </div>
-            <div className="h-80 w-full">
+            <div className="h-64 md:h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
                   <Tooltip 
                     cursor={{fill: 'transparent'}}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
@@ -187,12 +187,12 @@ export default function FinancePage() {
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="text-lg font-bold">Últimas Transações</h3>
-              <div className="relative w-64">
+            <div className="p-4 md:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h3 className="text-lg font-black uppercase italic tracking-tight">Últimas Transações</h3>
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input 
-                  className="w-full pl-9 pr-4 h-9 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs" 
+                  className="w-full pl-9 pr-4 h-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium" 
                   placeholder="Buscar transação..." 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -200,7 +200,7 @@ export default function FinancePage() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left min-w-[600px]">
                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                   <tr>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>

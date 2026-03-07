@@ -349,7 +349,7 @@ export default function NovaCompraPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 no-scrollbar">
+      <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
         <div className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl font-black uppercase italic tracking-tight transition-all shrink-0 ${activeTab === 1 ? 'bg-brand-blue text-white' : 'text-slate-400 bg-slate-50'}`}>
           <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] ${activeTab === 1 ? 'bg-white text-brand-blue' : 'bg-slate-200 text-slate-500'}`}>1</div>
           <span className="text-xs md:text-sm">Fornecedor</span>
@@ -381,13 +381,13 @@ export default function NovaCompraPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-8 max-w-4xl"
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Fornecedor *</label>
                     <div className="relative">
                       <Truck className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
                       <select 
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover appearance-none"
+                        className="w-full pl-12 pr-4 py-3 md:py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover appearance-none text-sm md:text-base"
                         value={supplierId}
                         onChange={(e) => setSupplierId(e.target.value)}
                       >
@@ -408,7 +408,7 @@ export default function NovaCompraPage() {
                         placeholder="Ex: 123456"
                         value={invoiceNumber}
                         onChange={(e) => setInvoiceNumber(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
+                        className="w-full pl-12 pr-4 py-3 md:py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover text-sm md:text-base"
                       />
                     </div>
                   </div>
@@ -507,8 +507,8 @@ export default function NovaCompraPage() {
                 {/* Add Product Form */}
                 <div className="bg-slate-50 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border border-brand-border space-y-4">
                   <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Adicionar Produto</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 items-end">
-                    <div className="sm:col-span-2 md:col-span-4 space-y-2 relative">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                    <div className="sm:col-span-2 lg:col-span-4 space-y-2 relative">
                       <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Produto (Nome ou SKU)</label>
                       <div className="relative">
                         <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-blue" size={18} />
@@ -555,7 +555,7 @@ export default function NovaCompraPage() {
                         )}
                       </AnimatePresence>
                     </div>
-                    <div className="col-span-1 md:col-span-1 space-y-2">
+                    <div className="col-span-1 lg:col-span-1 space-y-2">
                       <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Qtd</label>
                       <input 
                         ref={qtyInputRef}
@@ -573,7 +573,7 @@ export default function NovaCompraPage() {
                         className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover text-center"
                       />
                     </div>
-                    <div className="col-span-1 md:col-span-2 space-y-2">
+                    <div className="col-span-1 lg:col-span-2 space-y-2">
                       <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Custo Unitário</label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
@@ -595,7 +595,7 @@ export default function NovaCompraPage() {
                         />
                       </div>
                     </div>
-                    <div className="col-span-1 md:col-span-2 space-y-2">
+                    <div className="col-span-1 lg:col-span-2 space-y-2">
                       <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Preço Venda</label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
@@ -616,7 +616,7 @@ export default function NovaCompraPage() {
                         />
                       </div>
                     </div>
-                    <div className="col-span-1 md:col-span-2 space-y-2">
+                    <div className="col-span-1 lg:col-span-2 space-y-2">
                       <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Validade</label>
                       <input 
                         ref={expirationInputRef}
@@ -632,7 +632,7 @@ export default function NovaCompraPage() {
                         className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
                       />
                     </div>
-                    <div className="col-span-1 md:col-span-1">
+                    <div className="col-span-1 lg:col-span-1">
                       <button 
                         onClick={handleAddProduct}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-blue text-white rounded-xl text-sm font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all active:scale-95"

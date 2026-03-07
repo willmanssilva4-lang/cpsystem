@@ -174,11 +174,11 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => setActiveMenuId(null)}>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => setActiveMenuId(null)}>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-brand-text-main">Gestão de Produtos</h1>
-          <p className="text-brand-text-sec text-sm">Controle total do seu catálogo e inventário.</p>
+          <h1 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Gestão de Produtos</h1>
+          <p className="text-brand-text-sec text-xs md:text-sm font-bold uppercase tracking-widest">Controle total do seu catálogo e inventário.</p>
         </div>
         <div className="flex items-center gap-3">
           {hasPermission('Configurações', 'view') && (
@@ -196,7 +196,7 @@ export default function ProductsPage() {
                 setEditingProduct(null);
                 setShowModal(true);
               }}
-              className="flex items-center gap-2 px-4 h-10 bg-brand-blue text-white rounded-lg text-sm font-medium hover:bg-brand-blue-hover transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 h-10 bg-brand-blue text-white rounded-lg text-sm font-bold uppercase italic tracking-widest hover:bg-brand-blue-hover transition-all shadow-sm"
             >
               <Plus size={18} />
               <span>Novo Produto</span>
@@ -206,18 +206,18 @@ export default function ProductsPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-brand-border gap-8">
+      <div className="flex border-b border-brand-border gap-4 md:gap-8 overflow-x-auto no-scrollbar">
         {[
           { id: 'produtos', label: 'Produtos', icon: Package },
           { id: 'movimentacoes', label: 'Movimentações', icon: History },
-          { id: 'ajustes', label: 'Ajustes de Estoque', icon: ArrowLeftRight },
+          { id: 'ajustes', label: 'Ajustes', icon: ArrowLeftRight },
           { id: 'inventario', label: 'Inventário', icon: ClipboardList },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 py-4 border-b-2 transition-all font-black uppercase italic text-xs tracking-widest",
+              "flex items-center gap-2 py-4 border-b-2 transition-all font-black uppercase italic text-[10px] md:text-xs tracking-widest whitespace-nowrap",
               activeTab === tab.id 
                 ? "border-brand-blue text-brand-blue" 
                 : "border-transparent text-brand-text-main/40 hover:text-brand-text-main/60"
@@ -231,7 +231,7 @@ export default function ProductsPage() {
 
       {activeTab === 'produtos' && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <SummaryCard title="Total de Produtos" value={products.length.toString()} icon={Package} color="green" />
             <SummaryCard title="Estoque Baixo" value={lowStockCount.toString()} icon={AlertCircle} color="red" />
             <SummaryCard title="Quantidade Total" value={products.reduce((acc, p) => acc + p.stock, 0).toLocaleString()} icon={Package} color="blue" />
@@ -239,16 +239,18 @@ export default function ProductsPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between bg-white">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm cursor-pointer hover:bg-slate-100 transition-colors">
-                  <Package size={16} />
-                  <span>Todas as Categorias</span>
+            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white">
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors w-full md:w-auto justify-between md:justify-start">
+                  <div className="flex items-center gap-2">
+                    <Package size={16} />
+                    <span>Categorias</span>
+                  </div>
                   <ChevronDown size={14} />
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="relative w-80">
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="relative w-full md:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input 
                     className="w-full pl-10 pr-4 h-10 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue text-sm font-medium text-slate-700 transition-all outline-none"
@@ -256,10 +258,6 @@ export default function ProductsPage() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-slate-400">
-                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
-                    <BarChart3 size={16} />
-                  </div>
                 </div>
               </div>
             </div>
@@ -305,11 +303,11 @@ export default function ProductsPage() {
                       <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue" />
                     </th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Produto</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
+                    <th className="hidden md:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estoque</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Preço de Custo</th>
+                    <th className="hidden lg:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Preço de Custo</th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Preço de Venda</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="w-12 px-6 py-3"></th>
                   </tr>
                 </thead>
@@ -321,17 +319,20 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                          <div className="hidden sm:flex w-8 h-8 rounded bg-slate-100 items-center justify-center text-slate-400">
                             <Package size={16} />
                           </div>
-                          <span className="font-bold text-slate-700">{product.name}</span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-700 text-sm md:text-base">{product.name}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase md:hidden">{product.category}</span>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{product.category}</td>
+                      <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{product.category}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">{product.stock}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4">
+                      <td className="hidden sm:table-cell px-6 py-4">
                         <StatusBadge status={product.stock <= product.minStock ? 'Estoque Baixo' : (product.status === 'Inativo' ? 'Indisponivel' : 'Disponivel')} />
                       </td>
                       <td className="px-6 py-4 text-right">

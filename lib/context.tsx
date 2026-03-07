@@ -463,6 +463,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    let productsSubscription: any;
+    let salesSubscription: any;
+    let customersSubscription: any;
+    let expensesSubscription: any;
+    let registersSubscription: any;
+    let movementsSubscription: any;
+
     const init = async () => {
       try {
         // Check Supabase session first
@@ -508,6 +515,38 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
 
         await fetchData();
+
+        // Set up real-time subscriptions
+        productsSubscription = supabase
+          .channel('products-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData())
+          .subscribe();
+
+        salesSubscription = supabase
+          .channel('sales-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData())
+          .subscribe();
+
+        customersSubscription = supabase
+          .channel('customers-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData())
+          .subscribe();
+
+        expensesSubscription = supabase
+          .channel('expenses-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData())
+          .subscribe();
+
+        registersSubscription = supabase
+          .channel('registers-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => fetchData())
+          .subscribe();
+
+        movementsSubscription = supabase
+          .channel('movements-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_movements' }, () => fetchData())
+          .subscribe();
+
       } catch (error) {
         console.error('Initialization error:', error);
       } finally {
@@ -515,6 +554,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     };
     init();
+
+    return () => {
+      if (productsSubscription) supabase.removeChannel(productsSubscription);
+      if (salesSubscription) supabase.removeChannel(salesSubscription);
+      if (customersSubscription) supabase.removeChannel(customersSubscription);
+      if (expensesSubscription) supabase.removeChannel(expensesSubscription);
+      if (registersSubscription) supabase.removeChannel(registersSubscription);
+      if (movementsSubscription) supabase.removeChannel(movementsSubscription);
+    };
   }, []);
 
   const login = async (username: string, password: string) => {

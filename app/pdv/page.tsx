@@ -696,18 +696,18 @@ export default function PDVPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-hidden">
+      <main className="flex-1 p-3 md:p-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-y-auto lg:overflow-hidden">
         {/* Middle: Inputs */}
-        <div className="w-full lg:w-[50%] flex flex-col gap-3">
+        <div className="w-full lg:w-[50%] flex flex-col gap-3 shrink-0">
           <div className="space-y-1 relative">
-            <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Código de Barras</label>
+            <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Código de Barras</label>
             <input 
               ref={barcodeInputRef}
               value={barcode}
               onChange={handleBarcodeChange}
               onKeyDown={handleKeyDown}
               disabled={!activeRegister}
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-2xl md:text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
+              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-xl md:text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
             />
             
             {/* Search Results Dropdown */}
@@ -736,42 +736,42 @@ export default function PDVPage() {
 
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
             <div className="space-y-1">
-              <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Quantidade</label>
+              <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Quantidade</label>
               <input 
                 ref={quantityInputRef}
-                type="number"
+                type="number" 
                 step="0.001"
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
                 onKeyDown={handleQuantityKeyDown}
-                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-2xl md:text-3xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-xl md:text-3xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Valor Unitário</label>
+              <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Valor Unitário</label>
               <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
-                <span className="text-2xl md:text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+                <span className="text-xl md:text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
               </div>
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Valor Total</label>
+            <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Valor Total</label>
             <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
-              <span className="text-3xl md:text-4xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
+              <span className="text-2xl md:text-4xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
             </div>
           </div>
         </div>
 
         {/* Right: Cupom */}
-        <div className="w-full lg:w-[50%] flex flex-col bg-white rounded-xl overflow-hidden shadow-2xl border border-brand-border min-h-[300px]">
+        <div className="w-full lg:w-[50%] flex flex-col bg-white rounded-xl overflow-hidden shadow-2xl border border-brand-border min-h-[400px] lg:min-h-0">
           <div className="py-1 text-center border-b border-brand-border bg-slate-50">
-            <h3 className="text-xl md:text-2xl font-black italic tracking-widest text-brand-text-main uppercase">Cupom Fiscal</h3>
+            <h3 className="text-lg md:text-2xl font-black italic tracking-widest text-brand-text-main uppercase">Cupom Fiscal</h3>
           </div>
           
           <div className="flex-1 bg-white text-slate-900 overflow-y-auto">
-            <div className="min-w-[400px]">
+            <div className="min-w-full">
               <table className="w-full text-[10px] font-bold">
               <thead className="bg-brand-text-main text-white sticky top-0">
                 <tr>
