@@ -20,6 +20,7 @@ export interface Product {
   id: string;
   name: string;
   category: string;
+  categoryId?: string;
   sku: string;
   costPrice: number;
   salePrice: number;
@@ -37,10 +38,69 @@ export interface Product {
   status?: 'Ativo' | 'Inativo';
 }
 
+export interface CashRegister {
+  id: string;
+  companyId?: string;
+  storeId?: string;
+  terminalId?: string;
+  operatorId: string;
+  openingBalance: number;
+  status: 'open' | 'closed' | 'blocked' | 'suspended';
+  openedAt: string;
+  closedAt?: string;
+  closedBy?: string;
+  observation?: string;
+}
+
+export interface CashMovement {
+  id: string;
+  cashRegisterId: string;
+  type: 'sangria' | 'suprimento' | 'ajuste';
+  amount: number;
+  reason: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CashSalesSummary {
+  id: string;
+  cashRegisterId: string;
+  paymentMethod: string;
+  systemTotal: number;
+  informedTotal: number;
+  difference: number;
+}
+
+export interface CashClosing {
+  id: string;
+  cashRegisterId: string;
+  totalSystem: number;
+  totalInformed: number;
+  totalDifference: number;
+  approvedBy?: string;
+  justification?: string;
+  closedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  action: string;
+  module: string;
+  entityId?: string;
+  oldData?: any;
+  newData?: any;
+  ip?: string;
+  terminal?: string;
+  createdAt: string;
+}
+
 export interface SaleItem {
   productId: string;
   quantity: number;
   price: number;
+  discount?: number; // Valor do desconto aplicado ao item
+  originalPrice?: number; // Preço original antes do desconto
 }
 
 export interface Sale {
@@ -48,8 +108,26 @@ export interface Sale {
   date: string;
   items: SaleItem[];
   total: number;
-  paymentMethod: 'Dinheiro' | 'Pix' | 'Crédito' | 'Débito' | 'Fiado';
+  subtotal?: number; // Total antes dos descontos
+  discount?: number; // Desconto total na venda
+  paymentMethod: 'Dinheiro' | 'Pix' | 'Crédito' | 'Débito' | 'Fiado' | 'Voucher';
   customerId?: string;
+  userId?: string; // Usuário que realizou a venda
+  cashRegisterId?: string; // ID do caixa
+}
+
+export interface DiscountLog {
+  id: string;
+  saleId: string;
+  productId?: string;
+  type: 'item' | 'sale';
+  method: 'percentage' | 'value';
+  percentage?: number;
+  value: number; // Valor do desconto em R$
+  appliedBy: string;
+  authorizedBy?: string;
+  reason: string;
+  date: string;
 }
 
 export interface Customer {
@@ -80,16 +158,44 @@ export interface PricingSettings {
   autoRounding: boolean;
 }
 
+export interface CompanySettings {
+  tradeName: string;
+  legalName: string;
+  cnpj: string;
+  stateRegistration: string;
+  address: {
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+  };
+}
+
 export interface StockMovement {
   id: string;
   productId: string;
-  type: 'ENTRADA' | 'SAÍDA' | 'AJUSTE';
+  loteId?: string;
+  type: 'ENTRADA' | 'SAÍDA' | 'AJUSTE' | 'COMPRA';
   quantity: number;
+  cost?: number;
   origin: string;
   date: string;
   userId: string;
   userName?: string;
   productName?: string;
+}
+
+export interface ProductLote {
+  id: string;
+  productId: string;
+  numeroLote: string;
+  dataEntrada: string;
+  validade: string;
+  custoUnit: number;
+  quantidadeInicial: number;
+  saldoAtual: number;
+  fornecedorId: string;
 }
 
 export interface Inventory {
@@ -99,7 +205,60 @@ export interface Inventory {
   itemsCounted: number;
   divergenceValue: number;
   status: 'Concluído' | 'Em Andamento';
+  type: 'Geral' | 'Rotativo' | 'Categoria';
+  responsible: string;
   notes?: string;
+}
+
+export interface Employee {
+  id: string;
+  fullName: string;
+  cpf: string;
+  phone: string;
+  role: string;
+  admissionDate: string;
+  salary?: number;
+  status: 'Ativo' | 'Inativo';
+}
+
+export interface AccessProfile {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface SystemUser {
+  id: string;
+  username: string;
+  email?: string;
+  employeeId?: string;
+  profileId?: string;
+  storeId?: string;
+  status: 'Ativo' | 'Inativo';
+  supervisorCode?: string;
+}
+
+export interface Permission {
+  id: string;
+  profileId: string;
+  module: string;
+  canView: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface SystemSettings {
+  theme: 'light' | 'dark' | 'system';
+  language: 'pt-BR' | 'en-US';
+  currency: 'BRL' | 'USD';
+  timezone: string;
+  dateFormat: string;
+  notifications: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
 }
 
 export const INITIAL_PRODUCTS: Product[] = [];

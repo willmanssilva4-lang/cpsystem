@@ -29,10 +29,11 @@ import {
 import { cn } from '@/lib/utils';
 import { ProductForm } from '@/components/ProductForm';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
+import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -41,6 +42,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('produtos');
+  const [showInventorySession, setShowInventorySession] = useState(false);
 
   // Adjustment form state
   const [adjustmentProductId, setAdjustmentProductId] = useState('');
@@ -48,6 +50,11 @@ export default function ProductsPage() {
   const [adjustmentQty, setAdjustmentQty] = useState(0);
   const [adjustmentReason, setAdjustmentReason] = useState('Correção de Saldo');
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [inventoryFilter, setInventoryFilter] = useState({
+    date: '',
+    category: '',
+    status: ''
+  });
 
   const filteredProducts = products.filter(p => 
     (p.name && p.name.toLowerCase().includes(search.toLowerCase())) || 
@@ -153,22 +160,18 @@ export default function ProductsPage() {
   };
 
   const handleStartInventory = async () => {
-    if (window.confirm('Deseja iniciar um novo inventário geral?')) {
-      try {
-        await addInventory({
-          date: new Date().toISOString(),
-          location: 'Loja Principal',
-          itemsCounted: products.length,
-          divergenceValue: 0,
-          status: 'Em Andamento',
-          notes: 'Inventário iniciado via painel de gestão.'
-        });
-        alert('Novo inventário iniciado!');
-      } catch (error) {
-        console.error('Inventory error:', error);
-      }
-    }
+    setShowInventorySession(true);
   };
+
+  if (!hasPermission('Estoque', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <AlertCircle size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para visualizar o módulo de Estoque.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => setActiveMenuId(null)}>
@@ -178,23 +181,27 @@ export default function ProductsPage() {
           <p className="text-brand-text-sec text-sm">Controle total do seu catálogo e inventário.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowPricingSettings(true)}
-            className="flex items-center justify-center w-10 h-10 bg-white border border-brand-border text-brand-text-sec rounded-lg hover:bg-slate-50 transition-all shadow-sm"
-            title="Configurações de Precificação"
-          >
-            <Settings2 size={18} />
-          </button>
-          <button 
-            onClick={() => {
-              setEditingProduct(null);
-              setShowModal(true);
-            }}
-            className="flex items-center gap-2 px-4 h-10 bg-brand-blue text-white rounded-lg text-sm font-medium hover:bg-brand-blue-hover transition-all shadow-sm"
-          >
-            <Plus size={18} />
-            <span>Novo Produto</span>
-          </button>
+          {hasPermission('Configurações', 'view') && (
+            <button 
+              onClick={() => setShowPricingSettings(true)}
+              className="flex items-center justify-center w-10 h-10 bg-white border border-brand-border text-brand-text-sec rounded-lg hover:bg-slate-50 transition-all shadow-sm"
+              title="Configurações de Precificação"
+            >
+              <Settings2 size={18} />
+            </button>
+          )}
+          {hasPermission('Estoque', 'create') && (
+            <button 
+              onClick={() => {
+                setEditingProduct(null);
+                setShowModal(true);
+              }}
+              className="flex items-center gap-2 px-4 h-10 bg-brand-blue text-white rounded-lg text-sm font-medium hover:bg-brand-blue-hover transition-all shadow-sm"
+            >
+              <Plus size={18} />
+              <span>Novo Produto</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -540,73 +547,143 @@ export default function ProductsPage() {
       )}
 
       {activeTab === 'inventario' && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="p-8 space-y-8">
-            <div className="flex justify-between items-end">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-lg font-black text-slate-700 uppercase italic tracking-tight">Inventário Geral</h3>
-                <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Gestão de contagens físicas</p>
+        <div className="space-y-6">
+          {/* Header & Filters */}
+          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-8">
+            <div className="flex flex-wrap items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
+                  <ClipboardList size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Inventário de Estoque</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Gestão e Reconciliação de Contagens Físicas</p>
+                </div>
               </div>
+
               <button 
                 onClick={handleStartInventory}
-                className="bg-brand-blue hover:bg-brand-blue-hover text-white px-6 py-3 rounded-2xl font-black uppercase italic text-xs tracking-widest transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
+                className="bg-brand-blue hover:bg-brand-blue-hover text-white px-8 py-4 rounded-2xl font-black uppercase italic text-sm tracking-widest transition-all shadow-xl shadow-brand-blue/20 active:scale-95 flex items-center gap-3"
               >
-                Iniciar Novo Inventário
+                <Plus size={20} />
+                Novo Inventário
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-200 shadow-sm flex flex-col items-center text-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center text-brand-blue shadow-sm">
-                  <ClipboardList size={32} />
-                </div>
-                {inventories.length > 0 ? (
-                  <>
-                    <div>
-                      <h4 className="text-sm font-black text-slate-700 uppercase italic">Último Inventário</h4>
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
-                        {new Date(inventories[0].date).toLocaleDateString('pt-BR')} - {inventories[0].location}
-                      </p>
-                    </div>
-                    <div className="w-full h-px bg-slate-200" />
-                    <div className="grid grid-cols-2 w-full gap-4">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Itens Contados</p>
-                        <p className="text-lg font-black text-slate-700">{inventories[0].itemsCounted}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Divergência</p>
-                        <p className={cn(
-                          "text-lg font-black",
-                          inventories[0].divergenceValue < 0 ? "text-rose-500" : "text-emerald-500"
-                        )}>
-                          R$ {inventories[0].divergenceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <h4 className="text-sm font-black text-slate-400 uppercase italic">Nenhum Inventário Realizado</h4>
-                  </div>
-                )}
-                <button className="w-full py-3 rounded-xl border border-slate-200 text-slate-600 text-xs font-black uppercase italic hover:bg-white transition-all">
-                  Ver Relatório Detalhado
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-6 border-t border-slate-100">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Data</label>
+                <input 
+                  type="date" 
+                  value={inventoryFilter.date}
+                  onChange={(e) => setInventoryFilter(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Categoria</label>
+                <select 
+                  value={inventoryFilter.category}
+                  onChange={(e) => setInventoryFilter(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                >
+                  <option value="">Todas as Categorias</option>
+                  {Array.from(new Set(products.map(p => p.category))).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Status</label>
+                <select 
+                  value={inventoryFilter.status}
+                  onChange={(e) => setInventoryFilter(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                >
+                  <option value="">Todos os Status</option>
+                  <option value="Concluído">Finalizado</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button 
+                  onClick={() => setInventoryFilter({ date: '', category: '', status: '' })}
+                  className="w-full py-3 text-slate-400 hover:text-brand-blue text-[10px] font-black uppercase tracking-widest transition-all"
+                >
+                  Limpar Filtros
                 </button>
               </div>
+            </div>
+          </div>
 
-              <div className="md:col-span-2 bg-slate-50 p-8 rounded-[32px] border border-slate-200 border-dashed flex flex-col items-center justify-center text-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-slate-300 shadow-sm">
-                  <History size={40} />
-                </div>
-                <div>
-                  <h4 className="text-lg font-black text-slate-400 uppercase italic">Histórico de Inventários</h4>
-                  <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Visualize contagens passadas e reconciliações</p>
-                </div>
-                <button className="px-6 py-2 rounded-xl bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-brand-blue transition-all">
-                  Acessar Histórico
-                </button>
-              </div>
+          {/* Main Table */}
+          <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nº</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsável</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {inventories.length > 0 ? (
+                    inventories
+                      .filter(inv => {
+                        if (inventoryFilter.date && !inv.date.startsWith(inventoryFilter.date)) return false;
+                        if (inventoryFilter.status && inv.status !== inventoryFilter.status) return false;
+                        return true;
+                      })
+                      .map((inv, idx) => (
+                      <tr key={inv.id} className="hover:bg-slate-50/50 transition-all group">
+                        <td className="px-8 py-5">
+                          <span className="text-xs font-black text-slate-400">#{inventories.length - idx}</span>
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black text-slate-700">{new Date(inv.date).toLocaleDateString('pt-BR')}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{inv.location}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className="text-sm font-bold text-slate-600">{inv.responsible || 'Sistema'}</span>
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+                            {inv.type || 'Geral'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                            inv.status === 'Concluído' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                          )}>
+                            {inv.status === 'Concluído' ? 'Finalizado' : 'Em Andamento'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5 text-right">
+                          <button className="p-2 text-slate-400 hover:text-brand-blue transition-all">
+                            <Settings2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center gap-4 text-slate-300">
+                          <ClipboardList size={48} className="opacity-20" />
+                          <p className="text-sm font-black uppercase tracking-widest">Nenhum inventário registrado</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -614,6 +691,15 @@ export default function ProductsPage() {
 
       {showPricingSettings && (
         <PricingSettingsModal onClose={() => setShowPricingSettings(false)} />
+      )}
+
+      {showInventorySession && (
+        <InventorySessionModal 
+          onClose={() => setShowInventorySession(false)} 
+          onComplete={() => {
+            setShowInventorySession(false);
+          }}
+        />
       )}
 
       {showModal && (

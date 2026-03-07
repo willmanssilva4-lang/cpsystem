@@ -44,7 +44,7 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <div className="flex items-center">
-        <span className={`${textColor} font-black ${s.text} tracking-tight`}>Cp</span>
+        <span className={`${textColor} font-black ${s.text} tracking-tight`}>Cps</span>
         <svg viewBox="0 0 40 40" className={`${s.svg} ${s.spacing}`} style={{ overflow: 'visible' }}>
           {/* Checkmark 'y' */}
           <path d="M 12 16 L 20 28 L 36 4" fill="none" stroke={checkColor} strokeWidth={s.stroke} strokeLinecap="round" strokeLinejoin="round" />

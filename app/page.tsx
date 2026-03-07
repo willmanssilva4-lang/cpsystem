@@ -33,7 +33,7 @@ import {
 } from 'recharts';
 
 export default function DashboardPage() {
-  const { products, sales, customers } = useERP();
+  const { products, sales, customers, hasPermission } = useERP();
 
   const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0);
   const lowStockItems = products.filter(p => p.stock <= p.minStock);
@@ -50,6 +50,16 @@ export default function DashboardPage() {
     setChartData(data);
   }, []);
 
+  if (!hasPermission('Dashboard', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <BarChart size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para visualizar o Dashboard.</p>
+      </div>
+    );
+  }
+
   const pieData = [
     { name: 'Dinheiro', value: 19.9, color: '#F9A825' },
     { name: 'Cartão', value: 56.6, color: '#1E88E5' },
@@ -60,12 +70,12 @@ export default function DashboardPage() {
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="p-8 space-y-6 bg-brand-bg min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen">
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold text-brand-text-main">Dashboard</h2>
+        <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Dashboard</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard 
           title="Receita do Dia" 
           value="R$ 12.450,00" 
@@ -99,15 +109,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-brand-card p-6 rounded-xl border border-brand-border shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h4 className="text-lg font-semibold text-brand-text-main">Receita vs Despesas</h4>
-            <div className="flex bg-slate-100 rounded-lg p-1">
-              <button className="px-4 py-1.5 text-sm font-medium text-brand-text-sec hover:text-brand-text-main rounded-md transition-colors">Últimos 7 dias</button>
-              <button className="px-4 py-1.5 text-sm font-medium bg-brand-blue text-white rounded-md shadow-sm">Últimos 30 dias</button>
+        <div className="lg:col-span-2 bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+            <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Receita vs Despesas</h4>
+            <div className="flex bg-slate-100 rounded-xl p-1 w-fit">
+              <button className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold text-brand-text-sec hover:text-brand-text-main rounded-lg transition-colors">7 dias</button>
+              <button className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold bg-brand-blue text-white rounded-lg shadow-sm">30 dias</button>
             </div>
           </div>
-          <div className="h-72 w-full">
+          <div className="h-64 md:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -143,8 +153,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-brand-card p-6 rounded-xl border border-brand-border shadow-sm">
-          <h4 className="text-lg font-semibold text-brand-text-main mb-6">Vendas por Forma de Pagamento</h4>
+        <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Pagamento</h4>
           <div className="h-48 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -181,15 +191,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-brand-card p-6 rounded-xl border border-brand-border shadow-sm">
+        <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h4 className="text-lg font-semibold text-brand-text-main">Produtos com Estoque Baixo</h4>
-            <button className="text-sm font-medium text-brand-text-sec hover:text-brand-blue flex items-center gap-1">
+            <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Estoque Baixo</h4>
+            <button className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic">
               Ver todos <ChevronDown size={14} />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <table className="w-full text-left border-collapse min-w-[300px]">
               <thead>
                 <tr className="border-b border-brand-border">
                   <th className="pb-3 text-sm font-medium text-brand-text-sec">Produto</th>
@@ -233,15 +243,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-brand-card p-6 rounded-xl border border-brand-border shadow-sm">
+        <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h4 className="text-lg font-semibold text-brand-text-main">Últimas Vendas</h4>
-            <button className="text-sm font-medium text-brand-text-sec hover:text-brand-blue flex items-center gap-1">
+            <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Últimas Vendas</h4>
+            <button className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic">
               Ver todas <ChevronDown size={14} />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <table className="w-full text-left border-collapse min-w-[400px]">
               <thead>
                 <tr className="border-b border-brand-border">
                   <th className="pb-3 text-sm font-medium text-brand-text-sec">Venda</th>
@@ -285,8 +295,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-[#FFFDF5] p-6 rounded-xl border border-[#FDE68A] shadow-sm flex flex-col">
-          <h4 className="text-lg font-semibold text-brand-text-main mb-6">Alertas Inteligentes</h4>
+        <div className="bg-[#FFFDF5] p-4 md:p-6 rounded-2xl border border-[#FDE68A] shadow-sm flex flex-col">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Alertas</h4>
           <div className="space-y-4 flex-1">
             <div className="flex gap-3">
               <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />

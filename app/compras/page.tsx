@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useERP } from '@/lib/context';
 import { 
   Truck, 
   Plus, 
@@ -20,7 +21,7 @@ import {
   TrendingUp,
   BarChart3
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { 
   AreaChart, 
@@ -76,6 +77,7 @@ const QUICK_ACTIONS = [
 ];
 
 export default function PurchasingPage() {
+  const { hasPermission } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState(STATS);
   const [recentOrders, setRecentOrders] = useState<any[]>(RECENT_ORDERS);
@@ -212,6 +214,16 @@ export default function PurchasingPage() {
 
     fetchData();
   }, []);
+
+  if (!hasPermission('Compras', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Truck size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para visualizar o módulo de Compras.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8 bg-white min-h-screen">

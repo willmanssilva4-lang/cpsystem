@@ -27,7 +27,7 @@ import {
 import { useERP } from '@/lib/context';
 
 export default function FinancePage() {
-  const { sales, expenses } = useERP();
+  const { sales, expenses, hasPermission } = useERP();
   const [activeTab, setActiveTab] = useState('fluxo');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -125,6 +125,16 @@ export default function FinancePage() {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
   }, [expenses]);
+
+  if (!hasPermission('Financeiro', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <DollarSign size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para visualizar o módulo Financeiro.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8">

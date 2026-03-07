@@ -37,46 +37,15 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
 
-const SALES_DATA = [
-  { date: '01/02', total: 4500, profit: 1200 },
-  { date: '05/02', total: 5200, profit: 1500 },
-  { date: '10/02', total: 3800, profit: 900 },
-  { date: '15/02', total: 6100, profit: 2100 },
-  { date: '20/02', total: 4900, profit: 1300 },
-  { date: '25/02', total: 7200, profit: 2400 },
-  { date: '28/02', total: 5800, profit: 1800 },
-];
-
-const CATEGORY_DATA = [
-  { name: 'Eletrônicos', value: 45, color: '#10b981' },
-  { name: 'Acessórios', value: 25, color: '#059669' },
-  { name: 'Periféricos', value: 20, color: '#34d399' },
-  { name: 'Serviços', value: 10, color: '#6ee7b7' },
-];
-
-const TOP_PRODUCTS = [
-  { name: 'iPhone 15 Pro Max', sales: 42, revenue: 'R$ 320.000', growth: '+12%' },
-  { name: 'MacBook Air M2', sales: 28, revenue: 'R$ 210.000', growth: '+8%' },
-  { name: 'AirPods Pro 2', sales: 65, revenue: 'R$ 95.000', growth: '+24%' },
-  { name: 'Apple Watch S9', sales: 34, revenue: 'R$ 82.000', growth: '-3%' },
-];
-
 export default function ReportsPage() {
-  const { sales, products, customers } = useERP();
+  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses } = useERP();
   const [activeReport, setActiveReport] = useState('vendas');
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
-
-  const reportTypes = [
-    { id: 'vendas', label: 'Vendas & Faturamento', icon: TrendingUp },
-    { id: 'financeiro', label: 'Fluxo de Caixa', icon: BarChart3 },
-    { id: 'estoque', label: 'Estoque & Produtos', icon: ShoppingBag },
-    { id: 'clientes', label: 'Análise de Clientes', icon: Users },
-  ];
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
@@ -86,6 +55,112 @@ export default function ReportsPage() {
     return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Dynamic Data Calculations for Dashboard
+  const filteredSales = sales.filter(s => {
+    const d = s.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  const filteredExpenses = expenses.filter(e => {
+    const d = e.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  // Sales Chart Data
+  const chartDataMap = new Map();
+  filteredSales.forEach(sale => {
+    const d = sale.date.split('T')[0];
+    const dateObj = new Date(d);
+    dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
+    const dateStr = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}`;
+    
+    if (!chartDataMap.has(dateStr)) {
+      chartDataMap.set(dateStr, { date: dateStr, total: 0, profit: 0 });
+    }
+    
+    let profit = 0;
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const cost = product ? product.costPrice : 0;
+      profit += (item.price - cost) * item.quantity;
+    });
+
+    const current = chartDataMap.get(dateStr);
+    current.total += sale.total;
+    current.profit += profit;
+  });
+
+  const dynamicSalesData = Array.from(chartDataMap.values()).sort((a, b) => {
+    const [d1, m1] = a.date.split('/');
+    const [d2, m2] = b.date.split('/');
+    return new Date(2020, Number(m1)-1, Number(d1)).getTime() - new Date(2020, Number(m2)-1, Number(d2)).getTime();
+  });
+
+  // Category Data
+  const categoryTotals: Record<string, number> = {};
+  let totalRevenue = 0;
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const category = product ? product.category : 'Outros';
+      const itemTotal = item.price * item.quantity;
+      categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
+      totalRevenue += itemTotal;
+    });
+  });
+
+  const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#a7f3d0', '#047857', '#064e3b'];
+  const dynamicCategoryData = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value], index) => ({
+      name,
+      value,
+      color: colors[index % colors.length]
+    }));
+
+  // Top Products Data
+  const productStats: Record<string, { qty: number, total: number }> = {};
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      if (!productStats[item.productId]) {
+        productStats[item.productId] = { qty: 0, total: 0 };
+      }
+      productStats[item.productId].qty += item.quantity;
+      productStats[item.productId].total += item.price * item.quantity;
+    });
+  });
+
+  const dynamicTopProducts = Object.entries(productStats)
+    .map(([productId, stats]) => {
+      const product = products.find(p => p.id === productId);
+      return {
+        name: product ? product.name : 'Produto Desconhecido',
+        sales: `${stats.qty} un`,
+        revenue: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.total),
+        growth: '-',
+        total: stats.total
+      };
+    })
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  const reportTypes = [
+    { id: 'vendas', label: 'Vendas & Faturamento', icon: TrendingUp },
+    { id: 'financeiro', label: 'Fluxo de Caixa', icon: BarChart3 },
+    { id: 'estoque', label: 'Estoque & Produtos', icon: ShoppingBag },
+    { id: 'clientes', label: 'Análise de Clientes', icon: Users },
+  ];
+
+  if (!hasPermission('Relatórios', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <BarChart3 size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para visualizar os Relatórios.</p>
+      </div>
+    );
+  }
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
     setNotification({ message, type });
@@ -130,51 +205,53 @@ export default function ReportsPage() {
             className="relative w-full max-w-6xl h-[90vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Modal Header */}
-            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
+            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
               <div>
-                <h3 className="text-2xl font-black italic uppercase text-brand-text-main">{selectedReportView}</h3>
-                <p className="text-sm font-medium text-brand-blue/60">Relatório gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+                <h3 className="text-xl font-black italic uppercase text-brand-text-main">{selectedReportView}</h3>
+                <p className="text-[10px] font-bold text-brand-blue/60 uppercase italic">
+                  Relatório gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}
+                </p>
               </div>
-              <div className="flex gap-3 items-center">
-                <div className="flex items-center bg-white border border-brand-border rounded-2xl p-1 shadow-sm">
-                  <div className="flex items-center gap-2 px-3 py-1.5 text-brand-text-main font-bold text-sm">
-                    <span className="text-[10px] uppercase italic text-brand-text-main/40">De</span>
+              <div className="flex gap-2 items-center">
+                <div className="flex items-center bg-white border border-brand-border rounded-xl p-1 shadow-sm">
+                  <div className="flex items-center gap-1 px-2 py-1">
+                    <span className="text-[9px] uppercase italic text-brand-text-main/40 font-black">De</span>
                     <input 
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 text-xs font-black italic uppercase text-brand-text-main cursor-pointer w-[110px]"
+                      className="bg-transparent border-none outline-none focus:ring-0 text-[10px] font-black italic uppercase text-brand-text-main cursor-pointer w-[90px]"
                     />
                   </div>
-                  <div className="w-px h-6 bg-brand-border mx-1"></div>
-                  <div className="flex items-center gap-2 px-3 py-1.5 text-brand-text-main font-bold text-sm">
-                    <span className="text-[10px] uppercase italic text-brand-text-main/40">Até</span>
+                  <div className="w-px h-4 bg-brand-border"></div>
+                  <div className="flex items-center gap-1 px-2 py-1">
+                    <span className="text-[9px] uppercase italic text-brand-text-main/40 font-black">Até</span>
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 text-xs font-black italic uppercase text-brand-text-main cursor-pointer w-[110px]"
+                      className="bg-transparent border-none outline-none focus:ring-0 text-[10px] font-black italic uppercase text-brand-text-main cursor-pointer w-[90px]"
                     />
                   </div>
                 </div>
                 <button 
                   onClick={() => handleAction('Impressão do Relatório')}
-                  className="p-3 bg-white border border-brand-border text-brand-blue rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
+                  className="p-2.5 bg-white border border-brand-border text-brand-blue rounded-xl hover:bg-slate-50 transition-all shadow-sm"
                 >
-                  <Printer size={20} />
+                  <Printer size={16} />
                 </button>
                 <button 
                   onClick={() => handleExport()}
-                  className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue text-white rounded-xl font-black uppercase italic text-[11px] shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all"
                 >
-                  <Download size={18} />
-                  Baixar PDF
+                  <Download size={14} />
+                  PDF
                 </button>
                 <button 
                   onClick={() => setSelectedReportView(null)}
-                  className="p-3 bg-brand-border text-brand-blue rounded-2xl hover:bg-brand-border transition-all ml-4 shadow-sm"
+                  className="p-2.5 bg-brand-border text-brand-blue rounded-xl hover:bg-brand-border transition-all ml-2 shadow-sm"
                 >
-                  <X size={20} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
@@ -182,25 +259,30 @@ export default function ReportsPage() {
             <div className="flex-1 flex overflow-hidden">
               {/* Sidebar Navigation inside Modal */}
               <div className="w-72 border-r border-slate-50 bg-slate-50/10 flex flex-col p-6 hidden lg:flex">
-                <h4 className="text-[10px] font-black uppercase italic text-brand-text-main/40 mb-4 tracking-widest">Navegação Rápida</h4>
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-1">
+                <h4 className="text-[10px] font-black uppercase italic text-brand-text-main/40 mb-4 tracking-widest">Categorias</h4>
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
                   {[
-                    'Vendas & Faturamento', 'Fechamento de Caixa', 'Vendas por Produto', 
-                    'Vendas por Categoria', 'Vendas por Faixa Horária', 'Giro de Estoque', 
-                    'Curva ABC de Produtos', 'ABC de Clientes', 'DRE Gerencial', 
-                    'Perdas e Quebras', 'Vendas por Pagamento', 'Comissões', 'Relatório de Validade'
-                  ].map((report) => (
-                    <button
-                      key={report}
-                      onClick={() => setSelectedReportView(report)}
-                      className={`w-full p-3 rounded-xl text-left text-[11px] font-black uppercase italic transition-all ${
-                        selectedReportView === report 
-                          ? 'bg-brand-blue text-white shadow-md translate-x-1' 
-                          : 'text-brand-text-main/60 hover:bg-slate-50 hover:text-brand-text-main'
-                      }`}
-                    >
-                      {report}
-                    </button>
+                    { title: 'Vendas', reports: ['Vendas & Faturamento', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Faixa Horária', 'Vendas por Pagamento', 'Comissões', 'Auditoria de Descontos'] },
+                    { title: 'Financeiro', reports: ['Fechamento de Caixa', 'DRE Gerencial'] },
+                    { title: 'Estoque', reports: ['Giro de Estoque', 'Curva ABC de Produtos', 'Perdas e Quebras', 'Relatório de Validade'] },
+                    { title: 'Clientes', reports: ['ABC de Clientes'] },
+                  ].map((category) => (
+                    <div key={category.title} className="space-y-2">
+                      <h5 className="text-[9px] font-black uppercase italic text-brand-blue/40 tracking-widest">{category.title}</h5>
+                      {category.reports.map((report) => (
+                        <button
+                          key={report}
+                          onClick={() => setSelectedReportView(report)}
+                          className={`w-full p-2.5 rounded-xl text-left text-[11px] font-bold uppercase italic transition-all ${
+                            selectedReportView === report 
+                              ? 'bg-brand-blue text-white shadow-md' 
+                              : 'text-brand-text-main/60 hover:bg-slate-50 hover:text-brand-text-main'
+                          }`}
+                        >
+                          {report}
+                        </button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -209,6 +291,7 @@ export default function ReportsPage() {
               <div className="flex-1 overflow-y-auto p-8">
                 {selectedReportView === 'Vendas & Faturamento' && <SalesReport startDate={startDate} endDate={endDate} />}
                 {selectedReportView === 'Fechamento de Caixa' && <CashClosingReport startDate={startDate} endDate={endDate} />}
+                {selectedReportView === 'Auditoria de Descontos' && <DiscountAuditReport startDate={startDate} endDate={endDate} />}
                 {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
                 {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
                 {selectedReportView === 'ABC de Clientes' && <AbcCustomersReport startDate={startDate} endDate={endDate} />}
@@ -221,7 +304,7 @@ export default function ReportsPage() {
                 {selectedReportView === 'Vendas por Pagamento' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
                 {selectedReportView === 'Relatório de Validade' && <ExpiryReport startDate={startDate} endDate={endDate} />}
                 
-                {!['Vendas & Faturamento', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'ABC de Clientes', 'Comissões', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Faixa Horária', 'Curva ABC de Produtos', 'Perdas e Quebras', 'Vendas por Pagamento', 'Relatório de Validade'].includes(selectedReportView) && (
+                {!['Vendas & Faturamento', 'Fechamento de Caixa', 'Auditoria de Descontos', 'DRE Gerencial', 'Giro de Estoque', 'ABC de Clientes', 'Comissões', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Faixa Horária', 'Curva ABC de Produtos', 'Perdas e Quebras', 'Vendas por Pagamento', 'Relatório de Validade'].includes(selectedReportView) && (
                   <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-brand-border">
                       <FileText size={40} />
@@ -235,7 +318,7 @@ export default function ReportsPage() {
 
             {/* Modal Footer */}
             <div className="p-6 border-t border-slate-50 bg-white flex justify-between items-center">
-              <p className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic">Cp Sister PDV - Inteligência de Negócios</p>
+              <p className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic">{companySettings.tradeName || 'Cp Sister PDV'} - Inteligência de Negócios</p>
               <button 
                 onClick={() => setSelectedReportView(null)}
                 className="text-sm font-black text-brand-blue uppercase italic hover:underline"
@@ -412,33 +495,9 @@ export default function ReportsPage() {
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={
-                  activeReport === 'vendas' ? SALES_DATA :
-                  activeReport === 'financeiro' ? [
-                    { date: '01/02', total: 3000, profit: 2500 },
-                    { date: '05/02', total: 4500, profit: 3000 },
-                    { date: '10/02', total: 2800, profit: 3200 },
-                    { date: '15/02', total: 5500, profit: 4000 },
-                    { date: '20/02', total: 4200, profit: 3500 },
-                    { date: '25/02', total: 6800, profit: 5000 },
-                    { date: '28/02', total: 5200, profit: 4500 },
-                  ] :
-                  activeReport === 'estoque' ? [
-                    { date: '01/02', total: 120, profit: 80 },
-                    { date: '05/02', total: 150, profit: 110 },
-                    { date: '10/02', total: 90, profit: 130 },
-                    { date: '15/02', total: 200, profit: 150 },
-                    { date: '20/02', total: 140, profit: 120 },
-                    { date: '25/02', total: 250, profit: 180 },
-                    { date: '28/02', total: 180, profit: 160 },
-                  ] : [
-                    { date: '01/02', total: 15, profit: 45 },
-                    { date: '05/02', total: 22, profit: 55 },
-                    { date: '10/02', total: 18, profit: 48 },
-                    { date: '15/02', total: 30, profit: 70 },
-                    { date: '20/02', total: 25, profit: 65 },
-                    { date: '25/02', total: 40, profit: 90 },
-                    { date: '28/02', total: 35, profit: 85 },
-                  ]
+                  activeReport === 'vendas' ? dynamicSalesData :
+                  activeReport === 'financeiro' ? dynamicSalesData :
+                  activeReport === 'estoque' ? dynamicSalesData : dynamicSalesData
                 }>
                   <defs>
                     <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="100%">
@@ -481,23 +540,9 @@ export default function ReportsPage() {
                   <PieChart>
                     <Pie
                       data={
-                        activeReport === 'vendas' ? CATEGORY_DATA :
-                        activeReport === 'financeiro' ? [
-                          { name: 'Fornecedores', value: 50, color: '#10b981' },
-                          { name: 'Pessoal', value: 25, color: '#059669' },
-                          { name: 'Impostos', value: 15, color: '#34d399' },
-                          { name: 'Outros', value: 10, color: '#6ee7b7' },
-                        ] :
-                        activeReport === 'estoque' ? [
-                          { name: 'Em Estoque', value: 70, color: '#10b981' },
-                          { name: 'Baixo Estoque', value: 15, color: '#f59e0b' },
-                          { name: 'Sem Estoque', value: 10, color: '#ef4444' },
-                          { name: 'Vencendo', value: 5, color: '#6366f1' },
-                        ] : [
-                          { name: 'Ativos', value: 60, color: '#10b981' },
-                          { name: 'Inativos', value: 25, color: '#94a3b8' },
-                          { name: 'Novos', value: 15, color: '#34d399' },
-                        ]
+                        activeReport === 'vendas' ? dynamicCategoryData :
+                        activeReport === 'financeiro' ? dynamicCategoryData :
+                        activeReport === 'estoque' ? dynamicCategoryData : dynamicCategoryData
                       }
                       cx="50%"
                       cy="50%"
@@ -507,23 +552,9 @@ export default function ReportsPage() {
                       dataKey="value"
                       stroke="none"
                     >
-                      {(activeReport === 'vendas' ? CATEGORY_DATA :
-                        activeReport === 'financeiro' ? [
-                          { name: 'Fornecedores', value: 50, color: '#10b981' },
-                          { name: 'Pessoal', value: 25, color: '#059669' },
-                          { name: 'Impostos', value: 15, color: '#34d399' },
-                          { name: 'Outros', value: 10, color: '#6ee7b7' },
-                        ] :
-                        activeReport === 'estoque' ? [
-                          { name: 'Em Estoque', value: 70, color: '#10b981' },
-                          { name: 'Baixo Estoque', value: 15, color: '#f59e0b' },
-                          { name: 'Sem Estoque', value: 10, color: '#ef4444' },
-                          { name: 'Vencendo', value: 5, color: '#6366f1' },
-                        ] : [
-                          { name: 'Ativos', value: 60, color: '#10b981' },
-                          { name: 'Inativos', value: 25, color: '#94a3b8' },
-                          { name: 'Novos', value: 15, color: '#34d399' },
-                        ]).map((entry, index) => (
+                      {(activeReport === 'vendas' ? dynamicCategoryData :
+                        activeReport === 'financeiro' ? dynamicCategoryData :
+                        activeReport === 'estoque' ? dynamicCategoryData : dynamicCategoryData).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -532,23 +563,9 @@ export default function ReportsPage() {
                 </ResponsiveContainer>
               </div>
               <div className="grid grid-cols-2 gap-4 mt-4">
-                {(activeReport === 'vendas' ? CATEGORY_DATA :
-                  activeReport === 'financeiro' ? [
-                    { name: 'Fornecedores', value: 50, color: '#10b981' },
-                    { name: 'Pessoal', value: 25, color: '#059669' },
-                    { name: 'Impostos', value: 15, color: '#34d399' },
-                    { name: 'Outros', value: 10, color: '#6ee7b7' },
-                  ] :
-                  activeReport === 'estoque' ? [
-                    { name: 'Em Estoque', value: 70, color: '#10b981' },
-                    { name: 'Baixo Estoque', value: 15, color: '#f59e0b' },
-                    { name: 'Sem Estoque', value: 10, color: '#ef4444' },
-                    { name: 'Vencendo', value: 5, color: '#6366f1' },
-                  ] : [
-                    { name: 'Ativos', value: 60, color: '#10b981' },
-                    { name: 'Inativos', value: 25, color: '#94a3b8' },
-                    { name: 'Novos', value: 15, color: '#34d399' },
-                  ]).map((item) => (
+                {(activeReport === 'vendas' ? dynamicCategoryData :
+                  activeReport === 'financeiro' ? dynamicCategoryData :
+                  activeReport === 'estoque' ? dynamicCategoryData : dynamicCategoryData).map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
                     <span className="text-[10px] font-black text-brand-text-main/60 uppercase italic truncate">{item.name}</span>
@@ -564,24 +581,9 @@ export default function ReportsPage() {
                  activeReport === 'estoque' ? 'Produtos Sem Giro' : 'Clientes VIP'}
               </h4>
               <div className="space-y-4">
-                {(activeReport === 'vendas' ? TOP_PRODUCTS :
-                  activeReport === 'financeiro' ? [
-                    { name: 'Fornecedor AMBEV', sales: 'Bebidas', revenue: 'R$ 15.400', growth: '+5%' },
-                    { name: 'Aluguel Imóvel', sales: 'Fixo', revenue: 'R$ 8.000', growth: '0%' },
-                    { name: 'Energia Elétrica', sales: 'Variável', revenue: 'R$ 3.200', growth: '+12%' },
-                    { name: 'Folha Pagamento', sales: 'Pessoal', revenue: 'R$ 22.000', growth: '+2%' },
-                  ] :
-                  activeReport === 'estoque' ? [
-                    { name: 'Vinho Importado X', sales: '90 dias', revenue: 'R$ 4.500', growth: '-100%' },
-                    { name: 'Azeite Especial Y', sales: '60 dias', revenue: 'R$ 2.100', growth: '-100%' },
-                    { name: 'Kit Churrasco Z', sales: '45 dias', revenue: 'R$ 1.200', growth: '-100%' },
-                    { name: 'Tempero Premium', sales: '30 dias', revenue: 'R$ 800', growth: '-100%' },
-                  ] : [
-                    { name: 'João da Silva', sales: '45 compras', revenue: 'R$ 12.400', growth: '+15%' },
-                    { name: 'Maria Oliveira', sales: '38 compras', revenue: 'R$ 10.800', growth: '+8%' },
-                    { name: 'Pedro Santos', sales: '32 compras', revenue: 'R$ 9.200', growth: '+22%' },
-                    { name: 'Ana Costa', sales: '28 compras', revenue: 'R$ 8.500', growth: '+5%' },
-                  ]).map((product) => (
+                {(activeReport === 'vendas' ? dynamicTopProducts :
+                  activeReport === 'financeiro' ? dynamicTopProducts :
+                  activeReport === 'estoque' ? dynamicTopProducts : dynamicTopProducts).map((product) => (
                   <div key={product.name} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-2xl transition-colors group">
                     <div className="min-w-0">
                       <p className="text-sm font-black text-brand-text-main truncate uppercase italic">{product.name}</p>
@@ -639,6 +641,7 @@ export default function ReportsPage() {
               {activeCentralTab === 'vendas' && (
                 <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
                   <ReportLink title="Vendas & Faturamento" description="Visão geral completa de vendas." onClick={() => handleReportClick('Vendas & Faturamento')} />
+                  <ReportLink title="Auditoria de Descontos" description="Log de segurança e autorizações." onClick={() => handleReportClick('Auditoria de Descontos')} />
                   <ReportLink title="Vendas por Produto" description="Ranking de itens mais vendidos." onClick={() => handleReportClick('Vendas por Produto')} />
                   <ReportLink title="Vendas por Categoria" description="Desempenho por grupo de produtos." onClick={() => handleReportClick('Vendas por Categoria')} />
                   <ReportLink title="Vendas por Faixa Horária" description="Picos de movimento na loja." onClick={() => handleReportClick('Vendas por Faixa Horária')} />
@@ -734,68 +737,76 @@ function QuickActionButton({ icon: Icon, label, onClick }: { icon: any, label: s
 
 // Mock Report Components
 function CashClosingReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, expenses } = useERP();
+  const { cashRegisters, cashClosings } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+  const filteredRegisters = cashRegisters.filter(r => {
+    const d = r.openedAt.split('T')[0];
     return d >= startDate && d <= endDate;
   });
-
-  const filteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
-
-  const totalEntradas = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  const totalSaidas = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const saldo = totalEntradas - totalSaidas;
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-
-  const transactions = [
-    ...filteredSales.map(s => ({ id: s.id, date: s.date, type: 'entrada', description: `Venda PDV #${s.id.slice(0, 6)}`, method: s.paymentMethod, amount: s.total })),
-    ...filteredExpenses.map(e => ({ id: e.id, date: e.date, type: 'saida', description: e.description, method: e.category, amount: e.amount }))
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50);
 
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border">
-          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Entradas Totais</p>
-          <h4 className="text-2xl font-black text-brand-blue">{formatCurrency(totalEntradas)}</h4>
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Caixas Abertos</p>
+          <h4 className="text-2xl font-black text-brand-blue">{filteredRegisters.length}</h4>
         </div>
         <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100">
-          <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest">Saídas Totais</p>
-          <h4 className="text-2xl font-black text-rose-600">{formatCurrency(totalSaidas)}</h4>
+          <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest">Caixas Fechados</p>
+          <h4 className="text-2xl font-black text-rose-600">{filteredRegisters.filter(r => r.status === 'closed').length}</h4>
         </div>
         <div className="p-6 rounded-3xl bg-brand-text-main text-white shadow-xl shadow-brand-text-main/20">
-          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest">Saldo em Caixa</p>
-          <h4 className="text-2xl font-black text-brand-text-sec">{formatCurrency(saldo)}</h4>
+          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest">Total em Caixa (Abertos)</p>
+          <h4 className="text-2xl font-black text-brand-text-sec">
+            {formatCurrency(filteredRegisters.filter(r => r.status === 'open').reduce((acc, r) => acc + r.openingBalance, 0))}
+          </h4>
         </div>
       </div>
       
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="border-b border-slate-50">
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data/Hora</th>
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Descrição</th>
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Categoria/Método</th>
-            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Valor</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Abertura</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Operador</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Status</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Fundo Inicial</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Diferença</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-          {transactions.length > 0 ? transactions.map((t) => (
-            <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
-              <td className="py-4 text-sm font-bold text-brand-text-main">{new Date(t.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-              <td className="py-4 text-sm font-bold text-brand-text-main uppercase italic">{t.description}</td>
-              <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">{t.method}</td>
-              <td className={`py-4 text-right text-sm font-black ${t.type === 'entrada' ? 'text-brand-blue' : 'text-rose-600'}`}>
-                {t.type === 'entrada' ? '+' : '-'} {formatCurrency(t.amount)}
-              </td>
-            </tr>
-          )) : (
+          {filteredRegisters.length > 0 ? filteredRegisters.map((r) => {
+            const closing = cashClosings.find(c => c.cashRegisterId === r.id);
+            return (
+              <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="py-4 text-sm font-bold text-brand-text-main">
+                  {new Date(r.openedAt).toLocaleString('pt-BR')}
+                </td>
+                <td className="py-4 text-sm font-bold text-brand-text-main uppercase italic">
+                  {r.operatorId?.slice(0, 8) || 'SISTEMA'}
+                </td>
+                <td className="py-4">
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                    r.status === 'open' ? 'bg-emerald-100 text-emerald-700' : 
+                    r.status === 'closed' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {r.status === 'open' ? 'Aberto' : r.status === 'closed' ? 'Fechado' : r.status}
+                  </span>
+                </td>
+                <td className="py-4 text-sm font-black text-brand-blue">
+                  {formatCurrency(r.openingBalance)}
+                </td>
+                <td className={`py-4 text-right text-sm font-black ${
+                  !closing ? 'text-slate-400' : closing.totalDifference === 0 ? 'text-emerald-500' : 'text-rose-500'
+                }`}>
+                  {closing ? formatCurrency(closing.totalDifference) : '---'}
+                </td>
+              </tr>
+            );
+          }) : (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma movimentação no período selecionado.</td>
+              <td colSpan={5} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhum registro de caixa no período selecionado.</td>
             </tr>
           )}
         </tbody>
@@ -1030,15 +1041,56 @@ function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate
 }
 
 function CommissionsReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales } = useERP();
+  const { sales, systemUsers, employees } = useERP();
   
   const filteredSales = sales.filter(s => {
     const d = s.date.split('T')[0];
     return d >= startDate && d <= endDate;
   });
 
-  const totalVendas = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  const comissao = totalVendas * 0.03; // Mock flat 3%
+  const salesByUser: Record<string, number> = {};
+  filteredSales.forEach(sale => {
+    const userId = sale.userId || 'unknown';
+    salesByUser[userId] = (salesByUser[userId] || 0) + sale.total;
+  });
+
+  const data = Object.entries(salesByUser).map(([userId, total]) => {
+    let sellerName = 'Vendedor Desconhecido';
+    let initials = 'VD';
+    
+    if (userId !== 'unknown') {
+      const user = systemUsers.find(u => u.id === userId);
+      if (user) {
+        if (user.employeeId) {
+          const employee = employees.find(e => e.id === user.employeeId);
+          if (employee) {
+            sellerName = employee.fullName;
+          } else {
+            sellerName = user.username;
+          }
+        } else {
+          sellerName = user.username;
+        }
+      }
+    }
+
+    const nameParts = sellerName.split(' ');
+    if (nameParts.length >= 2) {
+      initials = `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+    } else if (nameParts.length === 1 && nameParts[0].length > 0) {
+      initials = nameParts[0].substring(0, 2).toUpperCase();
+    }
+
+    const commission = total * 0.03; // Mock flat 3%
+    return {
+      userId,
+      sellerName,
+      initials,
+      total,
+      commission
+    };
+  }).sort((a, b) => b.total - a.total);
+
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
@@ -1053,19 +1105,25 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-brand-border text-brand-blue flex items-center justify-center text-xs font-black">
-                  VP
+          {data.length > 0 ? data.map((row, i) => (
+            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-brand-border text-brand-blue flex items-center justify-center text-xs font-black">
+                    {row.initials}
+                  </div>
+                  <span className="text-sm font-black text-brand-text-main uppercase italic">{row.sellerName}</span>
                 </div>
-                <span className="text-sm font-black text-brand-text-main uppercase italic">Vendedor Padrão</span>
-              </div>
-            </td>
-            <td className="py-4 text-sm font-bold text-brand-text-main">{formatCurrency(totalVendas)}</td>
-            <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">3%</td>
-            <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(comissao)}</td>
-          </tr>
+              </td>
+              <td className="py-4 text-sm font-bold text-brand-text-main">{formatCurrency(row.total)}</td>
+              <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">3%</td>
+              <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.commission)}</td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -1521,6 +1579,109 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function DiscountAuditReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { discountLogs, products } = useERP();
+  
+  const filteredLogs = discountLogs.filter(log => {
+    const d = log.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  return (
+    <div className="space-y-6">
+      <div className="p-4 rounded-2xl bg-brand-text-main text-white flex items-center gap-4 shadow-lg shadow-brand-text-main/10">
+        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+          <Search size={20} />
+        </div>
+        <div>
+          <h5 className="text-sm font-black uppercase italic">Auditoria de Descontos (Caixa Preta)</h5>
+          <p className="text-[10px] font-medium text-brand-text-sec/60 uppercase">Rastreamento de todas as concessões de desconto e autorizações.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 rounded-2xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic">Total de Ocorrências</p>
+          <h4 className="text-xl font-black text-brand-text-main">{filteredLogs.length}</h4>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-50 border border-brand-border">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic">Valor Total Concedido</p>
+          <h4 className="text-xl font-black text-brand-blue">
+            {formatCurrency(filteredLogs.reduce((acc, log) => acc + log.value, 0))}
+          </h4>
+        </div>
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100">
+          <p className="text-[10px] font-black text-rose-900/40 uppercase italic">Média de Desconto</p>
+          <h4 className="text-xl font-black text-rose-600">
+            {filteredLogs.length > 0 
+              ? `${(filteredLogs.reduce((acc, log) => acc + (log.percentage || 0), 0) / filteredLogs.filter(l => l.percentage).length || 0).toFixed(1)}%`
+              : '0%'}
+          </h4>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-50">
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data/Hora</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tipo</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto/Venda</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Operador</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Supervisor</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Motivo</th>
+              <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Valor</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filteredLogs.length > 0 ? filteredLogs.map((log) => {
+              const product = products.find(p => p.id === log.productId);
+              return (
+                <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="py-4 text-[11px] font-bold text-brand-text-main">
+                    {new Date(log.date).toLocaleString('pt-BR')}
+                  </td>
+                  <td className="py-4">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                      log.type === 'item' ? 'bg-brand-blue/10 text-brand-blue' : 'bg-brand-text-main/10 text-brand-text-main'
+                    }`}>
+                      {log.type === 'item' ? 'Item' : 'Venda'}
+                    </span>
+                  </td>
+                  <td className="py-4 text-[11px] font-bold text-brand-text-main uppercase italic">
+                    {log.type === 'item' ? (product?.name || 'Produto Removido') : `Venda #${log.saleId.slice(0, 8)}`}
+                  </td>
+                  <td className="py-4 text-[11px] font-medium text-brand-text-main/60">
+                    {log.appliedBy}
+                  </td>
+                  <td className="py-4 text-[11px] font-black text-brand-blue uppercase italic">
+                    {log.authorizedBy || 'Auto-Aprovado'}
+                  </td>
+                  <td className="py-4 text-[11px] font-medium text-brand-text-main/40 italic">
+                    &quot;{log.reason}&quot;
+                  </td>
+                  <td className="py-4 text-right">
+                    <div className="text-[11px] font-black text-rose-600">{formatCurrency(log.value)}</div>
+                    {log.percentage && <div className="text-[9px] font-bold text-brand-text-main/40">-{log.percentage}%</div>}
+                  </td>
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-sm font-medium text-brand-blue/60">
+                  Nenhum log de desconto encontrado no período.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

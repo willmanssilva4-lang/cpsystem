@@ -20,9 +20,19 @@ import {
 import { cn } from '@/lib/utils';
 
 export default function CustomersPage() {
-  const { customers } = useERP();
+  const { customers, hasPermission } = useERP();
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0]);
+
+  if (!hasPermission('Clientes', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Users size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para visualizar o módulo de Clientes.</p>
+      </div>
+    );
+  }
 
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 

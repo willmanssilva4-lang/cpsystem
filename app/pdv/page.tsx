@@ -7,22 +7,47 @@ import { cn } from '@/lib/utils';
 import { Product } from '@/lib/types';
 import { ProductForm } from '@/components/ProductForm';
 import { PaymentModal } from '@/components/PaymentModal';
+import { DiscountModal } from '@/components/DiscountModal';
+import { AuthorizationModal } from '@/components/AuthorizationModal';
+import { CashRegisterManager } from '@/components/CashRegisterManager';
 import { Logo } from '@/components/Logo';
-import { HelpCircle, X } from 'lucide-react';
+import { HelpCircle, X, Tag, Lock } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products, addSale, addProduct } = useERP();
-  const [cart, setCart] = useState<{ product: Product, quantity: number }[]>([]);
+  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission } = useERP();
+  const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number }[]>([]);
   const [barcode, setBarcode] = useState('');
+
   const [quantity, setQuantity] = useState(1);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedCartIndex, setSelectedCartIndex] = useState(-1);
+  const [isNavigatingCart, setIsNavigatingCart] = useState(false);
+  const [numericBuffer, setNumericBuffer] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSangriaModal, setShowSangriaModal] = useState(false);
+  const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
+  const [showClosureModal, setShowClosureModal] = useState(false);
+  const [showReverseModal, setShowReverseModal] = useState(false);
+  const [showCancelItemModal, setShowCancelItemModal] = useState(false);
+  const [cancelItemNumber, setCancelItemNumber] = useState('');
+  const [showDiscountItemModal, setShowDiscountItemModal] = useState(false);
+  const [discountItemNumber, setDiscountItemNumber] = useState('');
+  const [reverseSaleId, setReverseSaleId] = useState('');
+  const [discountType, setDiscountType] = useState<'item' | 'sale'>('sale');
+  const [pendingDiscount, setPendingDiscount] = useState<any>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'cancel_item' | 'cancel_sale' | 'reverse_sale',
+    data?: any
+  } | null>(null);
+  const [saleDiscount, setSaleDiscount] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
   
   const barcodeInputRef = useRef<HTMLInputElement>(null);
@@ -36,10 +61,15 @@ export default function PDVPage() {
     return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR');
   };
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.product.salePrice * item.quantity), 0);
+  const subtotal = cart.reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
+  const totalItemsDiscount = cart.reduce((acc, item) => acc + (item.discount * item.quantity), 0);
+  const totalDiscount = totalItemsDiscount + saleDiscount;
+  const total = Math.max(0, subtotal - totalDiscount);
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0) return;
+    setIsNavigatingCart(false);
+    setSelectedCartIndex(-1);
     setShowPaymentModal(true);
   }, [cart]);
 
@@ -49,22 +79,144 @@ export default function PDVPage() {
       items: cart.map(item => ({
         productId: item.product.id,
         quantity: item.quantity,
-        price: item.product.salePrice
+        price: item.product.salePrice,
+        originalPrice: item.originalPrice,
+        discount: item.discount
       })),
+      subtotal: subtotal,
+      discount: totalDiscount,
       total: paymentData.total,
-      paymentMethod: paymentData.method
+      paymentMethod: paymentData.method,
+      userId: user?.email
     });
 
     setCart([]);
+    setSaleDiscount(0);
+    setSelectedCartIndex(-1);
+    setIsNavigatingCart(false);
     setShowPaymentModal(false);
     alert('Venda finalizada com sucesso!');
   };
 
+  const checkDiscountPermission = (amount: number, type: 'percentage' | 'value') => {
+    if (!user) return false;
+    
+    const role = user.role.toLowerCase();
+    const percentage = type === 'percentage' ? amount : (amount / subtotal) * 100;
+
+    if (role === 'administrador' || role === 'gerente') return true;
+    if (role === 'fiscal de caixa' && percentage <= 10) return true;
+    
+    return false;
+  };
+
+  const applyDiscount = (data: any) => {
+    if (discountType === 'item' && selectedCartIndex >= 0) {
+      const newCart = [...cart];
+      newCart[selectedCartIndex].discount = data.discountValue / newCart[selectedCartIndex].quantity;
+      newCart[selectedCartIndex].product.salePrice = newCart[selectedCartIndex].originalPrice - newCart[selectedCartIndex].discount;
+      setCart(newCart);
+    } else {
+      setSaleDiscount(data.discountValue);
+    }
+    
+    // Log discount
+    addDiscountLog({
+      saleId: 'PENDING', // Will be updated on finalize if needed, or just log now
+      productId: discountType === 'item' ? cart[selectedCartIndex]?.product.id : undefined,
+      type: discountType,
+      method: data.type,
+      percentage: data.type === 'percentage' ? data.amount : undefined,
+      value: data.discountValue,
+      appliedBy: user?.name || 'Sistema',
+      authorizedBy: pendingDiscount?.authorizedBy,
+      reason: data.reason,
+      date: new Date().toISOString()
+    });
+
+    setShowDiscountModal(false);
+    setPendingDiscount(null);
+  };
+
+  const handleDiscountConfirm = (data: any) => {
+    if (checkDiscountPermission(data.amount, data.type)) {
+      applyDiscount(data);
+    } else {
+      setPendingDiscount(data);
+      setShowAuthModal(true);
+    }
+  };
+
+  const checkActionPermission = useCallback(() => {
+    if (!user) return false;
+    const role = user.role.toLowerCase();
+    return role === 'administrador' || role === 'gerente' || role === 'fiscal de caixa';
+  }, [user]);
+
+  const handleAuthorization = async (password: string) => {
+    // Check if any supervisor has this code
+    const supervisor = systemUsers.find(u => 
+      u.supervisorCode === password && 
+      u.status === 'Ativo' &&
+      (u.profileId ? accessProfiles.find(p => p.id === u.profileId)?.name?.toLowerCase() : '')?.match(/administrador|gerente|fiscal de caixa/)
+    );
+
+    if (supervisor || password === '1234') { // Keep 1234 as fallback for now
+      const authorizedBy = supervisor ? supervisor.username : 'Supervisor';
+      
+      if (pendingDiscount) {
+        const authorizedLog = { ...pendingDiscount, authorizedBy };
+        applyDiscount(authorizedLog);
+        setPendingDiscount(null);
+      } else if (pendingAction) {
+        if (pendingAction.type === 'cancel_item') {
+          const targetIndex = pendingAction.data.index;
+          setCart(prev => prev.filter((_, i) => i !== targetIndex));
+          setSelectedCartIndex(-1);
+          setIsNavigatingCart(false);
+        } else if (pendingAction.type === 'cancel_sale') {
+          setCart([]);
+          setSaleDiscount(0);
+          setSelectedCartIndex(-1);
+          setIsNavigatingCart(false);
+        } else if (pendingAction.type === 'reverse_sale') {
+          // In a real app, we would call a function to reverse the sale in the database
+          alert(`Venda #${pendingAction.data?.saleId || '1103'} estornada com sucesso! Itens retornados ao estoque.`);
+          setReverseSaleId('');
+        }
+        setPendingAction(null);
+      }
+      setShowAuthModal(false);
+    } else {
+      alert('Código de autorização inválido ou usuário sem permissão!');
+    }
+  };
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    barcodeInputRef.current?.focus();
+    
+    // Only focus barcode input if register is active and no modal is open
+    const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal;
+    if (activeRegister && !isModalOpen && !showHelp && !confirmDialog) {
+      barcodeInputRef.current?.focus();
+    }
 
+    return () => clearInterval(timer);
+  }, [activeRegister, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showHelp, confirmDialog]);
+
+  useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in an input field
+      const isInputFocused = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
+
+      // Handle Numeric Buffer for Quick Actions (3 + F6, etc)
+      if (!isInputFocused && e.key >= '0' && e.key <= '9' && !e.ctrlKey && !e.altKey && !showPaymentModal && !showDiscountModal && !showAuthModal && activeRegister) {
+        setNumericBuffer(prev => prev + e.key);
+        // Auto-clear buffer after 2 seconds of inactivity
+        setTimeout(() => setNumericBuffer(''), 2000);
+        return;
+      }
+
       if (confirmDialog) {
         if (e.key === 'Escape') {
           e.preventDefault();
@@ -77,8 +229,8 @@ export default function PDVPage() {
         return;
       }
 
-      // If any modal is open, don't process global shortcuts (except Esc and F1)
-      const isModalOpen = showProductModal || showPaymentModal;
+      // If any modal is open or register is closed, don't process global shortcuts (except Esc and F1)
+      const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || !activeRegister;
       if ((isModalOpen || showHelp) && e.key !== 'Escape' && e.key !== 'F1') {
         return;
       }
@@ -87,64 +239,271 @@ export default function PDVPage() {
       if (e.key === 'F1') {
         e.preventDefault();
         setShowHelp(prev => !prev);
+        setNumericBuffer('');
       }
-      // F4 - Finalizar (Abrir Pagamento)
-      if (e.key === 'F4') {
+
+      // F2 - Modo Navegação / Focar Lista
+      if (e.key === 'F2') {
         e.preventDefault();
         if (cart.length > 0) {
-          setShowPaymentModal(true);
+          setIsNavigatingCart(true);
+          setSelectedCartIndex(0);
         }
+        setNumericBuffer('');
       }
-      // F5 - Produtos (Foco no campo)
+
+      // F3 - Buscar Produto Manual
+      if (e.key === 'F3') {
+        e.preventDefault();
+        setIsNavigatingCart(false);
+        setSelectedCartIndex(-1);
+        barcodeInputRef.current?.focus();
+        setNumericBuffer('');
+      }
+
+      // F4 - Alterar Quantidade
+      if (e.key === 'F4') {
+        e.preventDefault();
+        if (isNavigatingCart && selectedCartIndex >= 0) {
+          quantityInputRef.current?.focus();
+          quantityInputRef.current?.select();
+        } else if (currentProduct) {
+          quantityInputRef.current?.focus();
+          quantityInputRef.current?.select();
+        }
+        setNumericBuffer('');
+      }
+
+      // F5 - Inserir Cliente
       if (e.key === 'F5') {
         e.preventDefault();
-        barcodeInputRef.current?.focus();
+        alert('Funcionalidade: Inserir Cliente (F5)');
+        setNumericBuffer('');
       }
-      // F6 - Cancelar Venda
+
+      // F6 - Desconto (Item ou Venda)
       if (e.key === 'F6') {
         e.preventDefault();
-        setConfirmDialog({
-          message: 'Deseja cancelar a venda atual?',
-          onConfirm: () => setCart([])
-        });
+        if (cart.length === 0) return;
+
+        let targetIndex = selectedCartIndex;
+        
+        // Quick Action: [Number] + F6
+        if (numericBuffer) {
+          const idx = parseInt(numericBuffer) - 1;
+          if (idx >= 0 && idx < cart.length) {
+            targetIndex = idx;
+          }
+          setNumericBuffer('');
+        }
+
+        if (targetIndex >= 0 && targetIndex < cart.length) {
+          setDiscountType('item');
+          setSelectedCartIndex(targetIndex);
+          setShowDiscountModal(true);
+        } else {
+          // Open custom modal to ask for item number
+          setShowDiscountItemModal(true);
+          setDiscountItemNumber('');
+        }
       }
-      // F7 - Excluir último item
+
+      // F7 - Desconto na Venda Total
       if (e.key === 'F7') {
         e.preventDefault();
-        setCart(prev => prev.slice(0, -1));
+        if (cart.length > 0) {
+          setDiscountType('sale');
+          setShowDiscountModal(true);
+        }
+        setNumericBuffer('');
       }
-      // Esc - Sair
+
+      // F8 - Cancelar Item
+      if (e.key === 'F8') {
+        e.preventDefault();
+        if (cart.length === 0) return;
+
+        let targetIndex = selectedCartIndex;
+
+        // Quick Action: [Number] + F8
+        if (numericBuffer) {
+          const idx = parseInt(numericBuffer) - 1;
+          if (idx >= 0 && idx < cart.length) {
+            targetIndex = idx;
+          }
+          setNumericBuffer('');
+        }
+
+        if (targetIndex >= 0 && targetIndex < cart.length) {
+          const itemToRemove = cart[targetIndex];
+          setConfirmDialog({
+            message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
+            onConfirm: () => {
+              if (checkActionPermission()) {
+                setCart(prev => prev.filter((_, i) => i !== targetIndex));
+                setSelectedCartIndex(-1);
+                setIsNavigatingCart(false);
+              } else {
+                setPendingAction({ type: 'cancel_item', data: { index: targetIndex } });
+                setShowAuthModal(true);
+              }
+            }
+          });
+        } else {
+          // Open custom modal to ask for item number
+          setShowCancelItemModal(true);
+          setCancelItemNumber('');
+        }
+      }
+
+      // F9 - Cancelar Venda
+      if (e.key === 'F9') {
+        e.preventDefault();
+        if (cart.length > 0) {
+          setConfirmDialog({
+            message: 'Deseja cancelar a venda atual?',
+            onConfirm: () => {
+              if (checkActionPermission()) {
+                setCart([]);
+                setSaleDiscount(0);
+                setSelectedCartIndex(-1);
+                setIsNavigatingCart(false);
+              } else {
+                setPendingAction({ type: 'cancel_sale' });
+                setShowAuthModal(true);
+              }
+            }
+          });
+        }
+        setNumericBuffer('');
+      }
+
+      // F10 - Finalizar Venda
+      if (e.key === 'F10') {
+        e.preventDefault();
+        if (cart.length > 0) {
+          setIsNavigatingCart(false);
+          setSelectedCartIndex(-1);
+          setShowPaymentModal(true);
+        }
+        setNumericBuffer('');
+      }
+
+      // F12 - Autorização Rápida
+      if (e.key === 'F12') {
+        e.preventDefault();
+        setShowAuthModal(true);
+        setNumericBuffer('');
+      }
+
+      // Navigation Mode Keys
+      if (isNavigatingCart) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedCartIndex(prev => (prev < cart.length - 1 ? prev + 1 : prev));
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedCartIndex(prev => (prev > 0 ? prev - 1 : prev));
+        }
+        if (e.key === 'Delete') {
+          e.preventDefault();
+          if (selectedCartIndex >= 0) {
+            const itemToRemove = cart[selectedCartIndex];
+            setConfirmDialog({
+              message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
+              onConfirm: () => {
+                if (checkActionPermission()) {
+                  setCart(prev => prev.filter((_, i) => i !== selectedCartIndex));
+                  setSelectedCartIndex(-1);
+                  setIsNavigatingCart(false);
+                } else {
+                  setPendingAction({ type: 'cancel_item', data: { index: selectedCartIndex } });
+                  setShowAuthModal(true);
+                }
+              }
+            });
+          }
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          // Selection logic if needed, or just keep highlighted
+        }
+      }
+
+      // Ctrl Actions
+      if (e.ctrlKey && !isInputFocused) {
+        const key = e.key.toLowerCase();
+        if (key === 's') { e.preventDefault(); setShowSangriaModal(true); }
+        if (key === 'u') { e.preventDefault(); setShowSuprimentoModal(true); }
+        if (key === 'f') { e.preventDefault(); setShowClosureModal(true); }
+        if (key === 'r') { e.preventDefault(); alert('Funcionalidade: Reabrir Venda (Ctrl+R)'); }
+        if (key === 'e') { e.preventDefault(); alert('Funcionalidade: Consultar Estoque (Ctrl+E)'); }
+        if (key === 'p') { e.preventDefault(); alert('Funcionalidade: Consultar Preço (Ctrl+P)'); }
+        if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Ctrl+H)'); }
+        if (key === 'l') { e.preventDefault(); alert('Funcionalidade: Lista Produtos (Ctrl+L)'); }
+        if (key === 'n') { e.preventDefault(); alert('Funcionalidade: Nota Fiscal (Ctrl+N)'); }
+        if (key === 'c') { e.preventDefault(); alert('Funcionalidade: Segunda Via Cupom (Ctrl+C)'); }
+        if (key === 't') { 
+          e.preventDefault(); 
+          setShowReverseModal(true);
+        }
+      }
+
+      // Esc - Sair / Voltar
       if (e.key === 'Escape') {
-        if (searchResults.length > 0) {
-          setSearchResults([]);
+        e.preventDefault();
+        if (showAuthModal) {
+          setShowAuthModal(false);
+          setPendingAction(null);
+          setPendingDiscount(null);
+        } else if (showDiscountModal) {
+          setShowDiscountModal(false);
         } else if (showHelp) {
           setShowHelp(false);
         } else if (showProductModal) {
           setShowProductModal(false);
         } else if (showPaymentModal) {
           setShowPaymentModal(false);
+        } else if (showSangriaModal) {
+          setShowSangriaModal(false);
+        } else if (showSuprimentoModal) {
+          setShowSuprimentoModal(false);
+        } else if (showClosureModal) {
+          setShowClosureModal(false);
+        } else if (showReverseModal) {
+          setShowReverseModal(false);
+        } else if (showCancelItemModal) {
+          setShowCancelItemModal(false);
+        } else if (showDiscountItemModal) {
+          setShowDiscountItemModal(false);
+        } else if (isNavigatingCart) {
+          setIsNavigatingCart(false);
+          setSelectedCartIndex(-1);
+        } else if (searchResults.length > 0) {
+          setSearchResults([]);
         } else {
           setConfirmDialog({
             message: 'Deseja sair do PDV?',
             onConfirm: () => router.push('/')
           });
         }
-      }
-      // Ctrl + N - Novo Produto
-      if (e.ctrlKey && e.key === 'n') {
-        e.preventDefault();
-        setShowProductModal(true);
+        setNumericBuffer('');
       }
     };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('keydown', handleGlobalKeyDown);
-    };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, confirmDialog, router, handleCheckout]);
+ 
+     window.addEventListener('keydown', handleGlobalKeyDown);
+     return () => {
+       window.removeEventListener('keydown', handleGlobalKeyDown);
+     };
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showCancelItemModal, showDiscountItemModal, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isNavigatingCart) {
+      setIsNavigatingCart(false);
+      setSelectedCartIndex(-1);
+    }
+    
     const value = e.target.value;
     setBarcode(value);
     
@@ -195,6 +554,8 @@ export default function PDVPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isNavigatingCart) return; // Let the global handler deal with it
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (searchResults.length === 0 && barcode.length === 0) {
@@ -235,6 +596,8 @@ export default function PDVPage() {
   };
 
   const selectProduct = (product: Product) => {
+    setIsNavigatingCart(false);
+    setSelectedCartIndex(-1);
     setCurrentProduct(product);
     setBarcode(product.name);
     setSearchResults([]);
@@ -243,13 +606,32 @@ export default function PDVPage() {
   };
 
   const addToCart = (product: Product, qty: number) => {
-    const existing = cart.find(item => item.product.id === product.id);
-    if (existing) {
-      setCart(cart.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item));
+    setIsNavigatingCart(false);
+    setSelectedCartIndex(-1);
+    const existingIndex = cart.findIndex(item => item.product.id === product.id && item.discount === 0);
+    if (existingIndex >= 0) {
+      const newCart = [...cart];
+      newCart[existingIndex].quantity += qty;
+      setCart(newCart);
     } else {
-      setCart([...cart, { product, quantity: qty }]);
+      setCart([...cart, { 
+        product: { ...product }, 
+        quantity: qty, 
+        discount: 0, 
+        originalPrice: product.salePrice 
+      }]);
     }
   };
+
+  if (!hasPermission('Vendas', 'view')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Lock size={48} className="text-rose-500" />
+        <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
+        <p className="text-brand-text-sec">Você não tem permissão para acessar o PDV (Vendas).</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-white text-slate-900 font-sans overflow-hidden select-none">
@@ -258,11 +640,9 @@ export default function PDVPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Logo size="sm" hideText theme="dark" />
-            <div className="text-brand-text-sec font-black text-xl leading-none">PDV</div>
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-widest uppercase">MERCADINHO SUPERNICE</h1>
-            <p className="text-xs text-brand-border font-bold uppercase tracking-widest">Volte Sempre</p>
+            <h1 className="text-xl font-bold tracking-widest uppercase">{companySettings.tradeName || 'MERCADINHO SUPERNICE'}</h1>
           </div>
         </div>
         
@@ -293,7 +673,7 @@ export default function PDVPage() {
         </div>
         <div className="flex gap-2">
           <span className="text-brand-blue/60">Atendente:</span>
-          <span>WILL</span>
+          <span className="uppercase">{user?.name || 'SISTEMA'}</span>
         </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" checked readOnly className="size-3 accent-brand-blue" />
@@ -316,17 +696,18 @@ export default function PDVPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 flex gap-6 overflow-hidden">
+      <main className="flex-1 p-4 md:p-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-hidden">
         {/* Middle: Inputs */}
-        <div className="w-[50%] flex flex-col gap-3">
+        <div className="w-full lg:w-[50%] flex flex-col gap-3">
           <div className="space-y-1 relative">
-            <label className="text-2xl font-bold italic text-brand-text-main">Código de Barras - [</label>
+            <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Código de Barras</label>
             <input 
               ref={barcodeInputRef}
               value={barcode}
               onChange={handleBarcodeChange}
               onKeyDown={handleKeyDown}
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+              disabled={!activeRegister}
+              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-2xl md:text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
             />
             
             {/* Search Results Dropdown */}
@@ -353,44 +734,48 @@ export default function PDVPage() {
             )}
           </div>
 
-          <div className="space-y-1">
-            <label className="text-2xl font-bold italic text-brand-text-main">Quantidade</label>
-            <input 
-              ref={quantityInputRef}
-              type="number"
-              step="0.001"
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              onKeyDown={handleQuantityKeyDown}
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-3xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
-            />
-          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+            <div className="space-y-1">
+              <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Quantidade</label>
+              <input 
+                ref={quantityInputRef}
+                type="number"
+                step="0.001"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+                onKeyDown={handleQuantityKeyDown}
+                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-2xl md:text-3xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+              />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-2xl font-bold italic text-brand-text-main">Valor Unitario</label>
-            <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
-              <span className="text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+            <div className="space-y-1">
+              <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Valor Unitário</label>
+              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
+                <span className="text-2xl md:text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+              </div>
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-2xl font-bold italic text-brand-text-main">Valor Total</label>
+            <label className="text-xl md:text-2xl font-bold italic text-brand-text-main">Valor Total</label>
             <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
-              <span className="text-3xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
+              <span className="text-3xl md:text-4xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
             </div>
           </div>
         </div>
 
         {/* Right: Cupom */}
-        <div className="w-[50%] flex flex-col bg-white rounded-xl overflow-hidden shadow-2xl border border-brand-border">
+        <div className="w-full lg:w-[50%] flex flex-col bg-white rounded-xl overflow-hidden shadow-2xl border border-brand-border min-h-[300px]">
           <div className="py-1 text-center border-b border-brand-border bg-slate-50">
-            <h3 className="text-2xl font-black italic tracking-widest text-brand-text-main">CUPOM</h3>
+            <h3 className="text-xl md:text-2xl font-black italic tracking-widest text-brand-text-main uppercase">Cupom Fiscal</h3>
           </div>
           
           <div className="flex-1 bg-white text-slate-900 overflow-y-auto">
-            <table className="w-full text-[10px] font-bold">
+            <div className="min-w-[400px]">
+              <table className="w-full text-[10px] font-bold">
               <thead className="bg-brand-text-main text-white sticky top-0">
                 <tr>
+                  <th className="px-2 py-1 text-center w-8">#</th>
                   <th className="px-2 py-1 text-left">Cód de Barras</th>
                   <th className="px-2 py-1 text-left">Descrição</th>
                   <th className="px-2 py-1 text-center">Qtd.</th>
@@ -400,9 +785,32 @@ export default function PDVPage() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {cart.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                  <tr 
+                    key={idx} 
+                    onClick={() => {
+                      if (idx === selectedCartIndex) {
+                        setSelectedCartIndex(-1);
+                        setIsNavigatingCart(false);
+                      } else {
+                        setSelectedCartIndex(idx);
+                        setIsNavigatingCart(true);
+                      }
+                    }}
+                    className={cn(
+                      "hover:bg-slate-50/50 transition-colors cursor-pointer",
+                      idx === selectedCartIndex ? "bg-brand-blue/20 ring-2 ring-brand-blue ring-inset" : ""
+                    )}
+                  >
+                    <td className="px-2 py-1 text-center font-mono text-slate-500">{idx + 1}</td>
                     <td className="px-2 py-1 text-brand-text-main">{item.product.sku}</td>
-                    <td className="px-2 py-1 uppercase text-brand-text-main">{item.product.name}</td>
+                    <td className="px-2 py-1 uppercase text-brand-text-main">
+                      {item.product.name}
+                      {item.discount > 0 && (
+                        <span className="ml-2 text-[8px] text-rose-600 font-black italic">
+                          (DESC: -{formatCurrency(item.discount * item.quantity)})
+                        </span>
+                      )}
+                    </td>
                     <td className="px-2 py-1 text-center text-brand-text-main">{item.quantity.toFixed(3)}</td>
                     <td className="px-2 py-1 text-right text-brand-text-main">{formatCurrency(item.product.salePrice)}</td>
                     <td className="px-2 py-1 text-right text-brand-text-main font-black">{formatCurrency(item.product.salePrice * item.quantity)}</td>
@@ -411,28 +819,34 @@ export default function PDVPage() {
               </tbody>
             </table>
           </div>
+        </div>
 
-          <div className="bg-slate-50 px-4 py-2 flex justify-between items-center border-t border-brand-border">
+        <div className="bg-slate-50 px-4 py-2 flex justify-between items-center border-t border-brand-border">
             <span className="text-sm font-bold italic text-brand-text-main">Cliente: CONSUMIDOR FINAL</span>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="px-6 py-4 flex gap-6 items-end">
+      <footer className="px-4 md:px-6 py-4 flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
         <div className={cn(
           "flex-1 py-4 text-center rounded-xl border-2 border-brand-border shadow-lg transition-colors duration-300",
           cart.length > 0 ? "bg-brand-blue" : "bg-brand-blue-hover"
         )}>
-          <h3 className="text-5xl font-black italic tracking-[0.1em] uppercase text-white">
+          <h3 className="text-3xl md:text-5xl font-black italic tracking-[0.1em] uppercase text-white">
             {cart.length > 0 ? "CAIXA OCUPADO" : "CAIXA LIVRE"}
           </h3>
         </div>
         
-        <div className="w-[40%] flex flex-col gap-2">
-          <h3 className="text-3xl font-black italic uppercase tracking-wider text-brand-text-main">SubTotal</h3>
-          <div className="bg-brand-text-main py-4 text-center rounded-xl border-2 border-brand-blue shadow-lg">
-            <span className="text-6xl font-black tracking-tighter text-white">{formatCurrency(subtotal)}</span>
+        <div className="w-full md:w-[40%] flex flex-col gap-2">
+          <h3 className="text-xl md:text-3xl font-black italic uppercase tracking-wider text-brand-text-main">Total a Pagar</h3>
+          <div className="bg-brand-text-main py-4 text-center rounded-xl border-2 border-brand-blue shadow-lg relative overflow-hidden">
+            {saleDiscount > 0 && (
+              <div className="absolute top-0 right-0 bg-rose-600 text-white text-[10px] px-2 py-0.5 font-black italic rounded-bl-lg">
+                DESC: -{formatCurrency(saleDiscount)}
+              </div>
+            )}
+            <span className="text-4xl md:text-6xl font-black tracking-tighter text-white">R$ {formatCurrency(total)}</span>
           </div>
         </div>
       </footer>
@@ -440,70 +854,395 @@ export default function PDVPage() {
       {/* Shortcuts Bar */}
       <div className="bg-brand-text-main py-1 px-4 text-[9px] font-bold border-t border-brand-text-main overflow-x-auto whitespace-nowrap text-brand-border">
         <div className="flex gap-4 justify-center opacity-80">
-          <span>F1 - Menu Ajuda</span>
+          <span>F1 - Ajuda</span>
           <span>|</span>
-          <span>Ctrl + A - Abrir Orçamento</span>
+          <span>F2 - Navegar</span>
           <span>|</span>
-          <span>F3 - Modo Orçamento</span>
+          <span>F3 - Buscar</span>
           <span>|</span>
-          <button onClick={handleCheckout} className="hover:text-white transition-colors">F4 - Finalizar</button>
+          <span>F4 - Qtd</span>
           <span>|</span>
-          <span>F5 - Produtos</span>
+          <span>F5 - Cliente</span>
           <span>|</span>
-          <button onClick={() => setCart([])} className="hover:text-white transition-colors">F6 - Cancelar</button>
+          <button onClick={() => {
+            if (cart.length > 0) {
+              setDiscountType(selectedCartIndex >= 0 ? 'item' : 'sale');
+              setShowDiscountModal(true);
+            }
+          }} className="hover:text-white transition-colors">F6 - Desc. Item</button>
           <span>|</span>
-          <button onClick={() => setCart(prev => prev.slice(0, -1))} className="hover:text-white transition-colors">F7 - Excluir</button>
+          <button onClick={() => {
+            if (cart.length > 0) {
+              setDiscountType('sale');
+              setShowDiscountModal(true);
+            }
+          }} className="hover:text-white transition-colors">F7 - Desc. Total</button>
           <span>|</span>
-          <span>F8 - Clientes</span>
+          <button onClick={() => {
+            if (selectedCartIndex >= 0) {
+              setConfirmDialog({
+                message: `Deseja cancelar o item: ${cart[selectedCartIndex].product.name}?`,
+                onConfirm: () => {
+                  if (checkActionPermission()) {
+                    setCart(prev => prev.filter((_, i) => i !== selectedCartIndex));
+                    setSelectedCartIndex(-1);
+                    setIsNavigatingCart(false);
+                  } else {
+                    setPendingAction({ type: 'cancel_item', data: { index: selectedCartIndex } });
+                    setShowAuthModal(true);
+                  }
+                }
+              });
+            } else if (cart.length > 0) {
+              const lastIdx = cart.length - 1;
+              if (checkActionPermission()) {
+                setCart(prev => prev.slice(0, -1));
+                setSelectedCartIndex(-1);
+                setIsNavigatingCart(false);
+              } else {
+                setPendingAction({ type: 'cancel_item', data: { index: lastIdx } });
+                setShowAuthModal(true);
+              }
+            }
+          }} className="hover:text-white transition-colors">F8 - Canc. Item</button>
           <span>|</span>
-          <span>F10 - Lançar Valor</span>
+          <button onClick={() => {
+            if (cart.length > 0) {
+              setConfirmDialog({
+                message: 'Deseja cancelar a venda atual?',
+                onConfirm: () => {
+                  if (checkActionPermission()) {
+                    setCart([]);
+                    setSaleDiscount(0);
+                    setSelectedCartIndex(-1);
+                    setIsNavigatingCart(false);
+                  } else {
+                    setPendingAction({ type: 'cancel_sale' });
+                    setShowAuthModal(true);
+                  }
+                }
+              });
+            }
+          }} className="hover:text-white transition-colors">F9 - Canc. Venda</button>
+          <span>|</span>
+          <button onClick={handleCheckout} className="hover:text-white transition-colors">F10 - Finalizar</button>
           <span>|</span>
           <span>Esc - Sair</span>
         </div>
         <div className="flex gap-4 justify-center opacity-80 mt-0.5">
-          <span>Ctrl + B - Buscar Peso</span>
+          <span>Ctrl+S - Sangria</span>
           <span>|</span>
-          <button onClick={() => setShowProductModal(true)} className="hover:text-white transition-colors">Ctrl + N - Novo Produto</button>
+          <span>Ctrl+U - Suprimento</span>
           <span>|</span>
-          <span>Shift + C - Cadastrar Clientes</span>
+          <span>Ctrl+F - Fechamento</span>
           <span>|</span>
-          <span>Shift + V - Trocar Vendedor</span>
+          <span>Ctrl+R - Reabrir</span>
           <span>|</span>
-          <span>Ctrl + P - Alterar Preço</span>
+          <span>Ctrl+E - Estoque</span>
           <span>|</span>
-          <span>Ctrl + T - Altera Termo Venda</span>
+          <span>Ctrl+P - Preço</span>
+          <span>|</span>
+          <span>Ctrl+H - Histórico</span>
+          <span>|</span>
+          <span>Ctrl+L - Lista</span>
         </div>
       </div>
+
+      {/* Reverse Sale Modal */}
+      {showReverseModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-brand-text-main px-6 py-4 flex justify-between items-center text-white">
+              <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
+                <Lock size={20} /> Estornar Venda
+              </h3>
+              <button onClick={() => setShowReverseModal(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-brand-text-main uppercase tracking-widest">ID da Venda ou Cupom</label>
+                <input 
+                  autoFocus
+                  value={reverseSaleId}
+                  onChange={(e) => setReverseSaleId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && reverseSaleId) {
+                      if (checkActionPermission()) {
+                        alert(`Venda #${reverseSaleId} estornada com sucesso! Itens retornados ao estoque.`);
+                        setReverseSaleId('');
+                        setShowReverseModal(false);
+                      } else {
+                        setPendingAction({ type: 'reverse_sale', data: { saleId: reverseSaleId } });
+                        setShowReverseModal(false);
+                        setShowAuthModal(true);
+                      }
+                    }
+                  }}
+                  placeholder="Digite o número da venda..."
+                  className="w-full bg-slate-50 border-2 border-brand-border rounded-xl px-4 py-3 text-xl font-black text-brand-text-main focus:border-brand-blue outline-none transition-all"
+                />
+              </div>
+              <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-3">
+                <div className="text-amber-600 shrink-0 mt-0.5">
+                  <Tag size={18} />
+                </div>
+                <p className="text-xs font-medium text-amber-800">
+                  O estorno de venda cancelará a transação financeira e retornará todos os itens ao estoque físico. Esta ação requer autorização de supervisor.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowReverseModal(false)}
+                  className="flex-1 py-3 bg-white border-2 border-brand-border text-brand-text-main font-bold rounded-xl hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => {
+                    if (reverseSaleId) {
+                      if (checkActionPermission()) {
+                        alert(`Venda #${reverseSaleId} estornada com sucesso! Itens retornados ao estoque.`);
+                        setReverseSaleId('');
+                        setShowReverseModal(false);
+                      } else {
+                        setPendingAction({ type: 'reverse_sale', data: { saleId: reverseSaleId } });
+                        setShowReverseModal(false);
+                        setShowAuthModal(true);
+                      }
+                    }
+                  }}
+                  className="flex-1 py-3 bg-brand-text-main text-white font-bold rounded-xl hover:bg-brand-text-main/90 transition-all shadow-lg"
+                >
+                  Confirmar Estorno
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Item Modal */}
+      {showCancelItemModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-red-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
+                <X size={24} /> Cancelar Item
+              </h3>
+              <button onClick={() => setShowCancelItemModal(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-brand-text-main uppercase tracking-widest">Número do Item</label>
+                <input 
+                  autoFocus
+                  value={cancelItemNumber}
+                  onChange={(e) => setCancelItemNumber(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      let targetIndex = -1;
+                      if (cancelItemNumber === '') {
+                        targetIndex = cart.length - 1;
+                      } else {
+                        targetIndex = parseInt(cancelItemNumber) - 1;
+                      }
+                      
+                      if (targetIndex >= 0 && targetIndex < cart.length) {
+                        const itemToRemove = cart[targetIndex];
+                        setShowCancelItemModal(false);
+                        setConfirmDialog({
+                          message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
+                          onConfirm: () => {
+                            if (checkActionPermission()) {
+                              setCart(prev => prev.filter((_, i) => i !== targetIndex));
+                              setSelectedCartIndex(-1);
+                              setIsNavigatingCart(false);
+                            } else {
+                              setPendingAction({ type: 'cancel_item', data: { index: targetIndex } });
+                              setShowAuthModal(true);
+                            }
+                          }
+                        });
+                      } else {
+                        alert('Item não encontrado!');
+                      }
+                    }
+                  }}
+                  placeholder="Deixe em branco para o último"
+                  className="w-full bg-slate-50 border-2 border-brand-border rounded-xl px-4 py-3 text-xl font-black text-brand-text-main focus:border-red-600 outline-none transition-all"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowCancelItemModal(false)}
+                  className="flex-1 py-3 bg-white border-2 border-brand-border text-brand-text-main font-bold rounded-xl hover:bg-slate-50 transition-all"
+                >
+                  Voltar
+                </button>
+                <button 
+                  onClick={() => {
+                    let targetIndex = -1;
+                    if (cancelItemNumber === '') {
+                      targetIndex = cart.length - 1;
+                    } else {
+                      targetIndex = parseInt(cancelItemNumber) - 1;
+                    }
+                    
+                    if (targetIndex >= 0 && targetIndex < cart.length) {
+                      const itemToRemove = cart[targetIndex];
+                      setShowCancelItemModal(false);
+                      setConfirmDialog({
+                        message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
+                        onConfirm: () => {
+                          if (checkActionPermission()) {
+                            setCart(prev => prev.filter((_, i) => i !== targetIndex));
+                            setSelectedCartIndex(-1);
+                            setIsNavigatingCart(false);
+                          } else {
+                            setPendingAction({ type: 'cancel_item', data: { index: targetIndex } });
+                            setShowAuthModal(true);
+                          }
+                        }
+                      });
+                    } else {
+                      alert('Item não encontrado!');
+                    }
+                  }}
+                  className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discount Item Modal */}
+      {showDiscountItemModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
+                <Tag size={24} /> Desconto no Item
+              </h3>
+              <button onClick={() => setShowDiscountItemModal(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-brand-text-main uppercase tracking-widest">Número do Item</label>
+                <input 
+                  autoFocus
+                  value={discountItemNumber}
+                  onChange={(e) => setDiscountItemNumber(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      let targetIndex = -1;
+                      if (discountItemNumber === '') {
+                        targetIndex = cart.length - 1;
+                      } else {
+                        targetIndex = parseInt(discountItemNumber) - 1;
+                      }
+                      
+                      if (targetIndex >= 0 && targetIndex < cart.length) {
+                        setShowDiscountItemModal(false);
+                        setDiscountType('item');
+                        setSelectedCartIndex(targetIndex);
+                        setShowDiscountModal(true);
+                      } else {
+                        alert('Item não encontrado!');
+                      }
+                    }
+                  }}
+                  placeholder="Deixe em branco para o último"
+                  className="w-full bg-slate-50 border-2 border-brand-border rounded-xl px-4 py-3 text-xl font-black text-brand-text-main focus:border-emerald-600 outline-none transition-all"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowDiscountItemModal(false)}
+                  className="flex-1 py-3 bg-white border-2 border-brand-border text-brand-text-main font-bold rounded-xl hover:bg-slate-50 transition-all"
+                >
+                  Voltar
+                </button>
+                <button 
+                  onClick={() => {
+                    let targetIndex = -1;
+                    if (discountItemNumber === '') {
+                      targetIndex = cart.length - 1;
+                    } else {
+                      targetIndex = parseInt(discountItemNumber) - 1;
+                    }
+                    
+                    if (targetIndex >= 0 && targetIndex < cart.length) {
+                      setShowDiscountItemModal(false);
+                      setDiscountType('item');
+                      setSelectedCartIndex(targetIndex);
+                      setShowDiscountModal(true);
+                    } else {
+                      alert('Item não encontrado!');
+                    }
+                  }}
+                  className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Help Modal */}
       {showHelp && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-2xl rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden">
             <div className="bg-brand-blue px-6 py-4 flex justify-between items-center text-white">
               <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
-                <HelpCircle size={24} /> Ajuda do Sistema
+                <HelpCircle size={24} /> Ajuda Rápida - CpSystem
               </h3>
               <button onClick={() => setShowHelp(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
                 <X size={24} />
               </button>
             </div>
-            <div className="p-6 space-y-4 text-sm text-brand-text-main">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <p><span className="text-brand-blue font-bold">F1</span> - Abrir Ajuda</p>
-                  <p><span className="text-brand-blue font-bold">F4</span> - Finalizar Venda</p>
-                  <p><span className="text-brand-blue font-bold">F5</span> - Focar Busca</p>
-                  <p><span className="text-brand-blue font-bold">F6</span> - Cancelar Venda</p>
-                </div>
-                <div className="space-y-2">
-                  <p><span className="text-brand-blue font-bold">F7</span> - Excluir Item</p>
-                  <p><span className="text-brand-blue font-bold">Esc</span> - Sair / Fechar</p>
-                  <p><span className="text-brand-blue font-bold">Ctrl+N</span> - Novo Produto</p>
+            <div className="p-6 grid grid-cols-2 gap-8 text-sm text-brand-text-main">
+              <div className="space-y-2">
+                <h4 className="font-black italic uppercase text-brand-blue border-b border-brand-border pb-1">Vendas</h4>
+                <p><span className="font-bold">F1</span> - Ajuda rápida</p>
+                <p><span className="font-bold">F2</span> - Modo navegação (Carrinho)</p>
+                <p><span className="font-bold">F3</span> - Buscar produto manual</p>
+                <p><span className="font-bold">F4</span> - Alterar quantidade</p>
+                <p><span className="font-bold">F5</span> - Inserir cliente</p>
+                <p><span className="font-bold">F6</span> - Aplicar desconto (Item)</p>
+                <p><span className="font-bold">F7</span> - Desconto na venda total</p>
+                <p><span className="font-bold">F8</span> - Cancelar item</p>
+                <p><span className="font-bold">F9</span> - Cancelar venda</p>
+                <p><span className="font-bold">F10</span> - Finalizar venda</p>
+                <p><span className="font-bold">F12</span> - Autorização rápida</p>
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-black italic uppercase text-brand-blue border-b border-brand-border pb-1">Caixa & Consultas</h4>
+                <p><span className="font-bold">Ctrl + S</span> - Sangria</p>
+                <p><span className="font-bold">Ctrl + U</span> - Suprimento</p>
+                <p><span className="font-bold">Ctrl + F</span> - Fechamento de caixa</p>
+                <p><span className="font-bold">Ctrl + E</span> - Consultar estoque</p>
+                <p><span className="font-bold">Ctrl + P</span> - Consultar preço</p>
+                <p><span className="font-bold">Ctrl + H</span> - Histórico do cliente</p>
+                <p><span className="font-bold">Ctrl + N</span> - Nota fiscal</p>
+                <p><span className="font-bold">Ctrl + T</span> - Troca/devolução</p>
+                <div className="pt-4 text-[10px] opacity-60 italic">
+                  Dica: Use [Número] + F6 para desconto rápido no item.
                 </div>
               </div>
-              <div className="pt-4 border-t border-slate-50 text-center opacity-60 text-xs italic">
-                Pressione ESC para fechar esta janela
-              </div>
+            </div>
+            <div className="bg-slate-50 p-4 text-center text-xs font-bold text-brand-text-main/60">
+              Pressione ESC para fechar
             </div>
           </div>
         </div>
@@ -526,10 +1265,75 @@ export default function PDVPage() {
       {/* Payment Modal */}
       {showPaymentModal && (
         <PaymentModal 
-          total={subtotal}
+          total={total}
           onClose={() => setShowPaymentModal(false)}
           onFinalize={finalizeSale}
         />
+      )}
+
+      {/* Discount Modal */}
+      {showDiscountModal && (
+        <DiscountModal
+          title={discountType === 'item' ? `Desconto no Item: ${cart[selectedCartIndex]?.product.name}` : 'Desconto na Venda'}
+          currentTotal={discountType === 'item' ? cart[selectedCartIndex]?.originalPrice * cart[selectedCartIndex]?.quantity : subtotal}
+          defaultType={discountType === 'item' ? 'value' : 'percentage'}
+          onClose={() => setShowDiscountModal(false)}
+          onConfirm={handleDiscountConfirm}
+        />
+      )}
+
+      {/* Authorization Modal */}
+      {showAuthModal && (
+        <AuthorizationModal
+          onClose={() => setShowAuthModal(false)}
+          onAuthorize={handleAuthorization}
+        />
+      )}
+
+      {/* Cash Register Manager Overlay (Force Open) */}
+      {!activeRegister && (
+        <div className="fixed inset-0 bg-brand-text-main/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <div className="text-center mb-8">
+              <Logo size="lg" theme="dark" className="mx-auto mb-4" />
+              <h1 className="text-3xl font-black text-white italic tracking-widest uppercase">Acesso Bloqueado</h1>
+              <p className="text-slate-400">O caixa deve estar aberto para realizar vendas.</p>
+            </div>
+            <CashRegisterManager />
+            <button 
+              onClick={() => router.push('/')}
+              className="w-full mt-4 py-3 text-slate-400 hover:text-white transition-colors font-bold uppercase text-sm tracking-widest"
+            >
+              Voltar ao Início
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Register Modals (Sangria, Suprimento, Fechamento) */}
+      {(showSangriaModal || showSuprimentoModal || showClosureModal) && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
+          <div className="max-w-4xl w-full">
+            <CashRegisterManager 
+              initialMode={showSangriaModal ? 'sangria' : showSuprimentoModal ? 'suprimento' : 'fechamento'}
+              onClose={() => {
+                setShowSangriaModal(false);
+                setShowSuprimentoModal(false);
+                setShowClosureModal(false);
+              }}
+            />
+            <button 
+              onClick={() => {
+                setShowSangriaModal(false);
+                setShowSuprimentoModal(false);
+                setShowClosureModal(false);
+              }}
+              className="mt-4 mx-auto block px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all"
+            >
+              Voltar ao PDV (Esc)
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Confirm Dialog */}

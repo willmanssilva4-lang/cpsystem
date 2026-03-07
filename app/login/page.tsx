@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useERP } from '@/lib/context';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import { 
   Lock, 
   User, 
@@ -17,7 +18,7 @@ import {
   Users, 
   LayoutDashboard 
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 
 function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
@@ -28,7 +29,7 @@ function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
   return (
     <div className="flex flex-col items-center justify-center">
       <div className="flex items-center">
-        <span className={`${textColor} font-black text-5xl tracking-tight`}>Cp</span>
+        <span className={`${textColor} font-black text-5xl tracking-tight`}>Cps</span>
         <svg viewBox="0 0 40 40" className="w-12 h-12 mx-0.5" style={{ overflow: 'visible' }}>
           {/* Checkmark 'y' */}
           <path d="M 12 16 L 20 28 L 36 4" fill="none" stroke={checkColor} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
@@ -64,6 +65,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [setupMessage, setSetupMessage] = useState('');
   const { login } = useERP();
   const router = useRouter();
 
@@ -81,6 +83,43 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError('Ocorreu um erro ao tentar fazer login.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAdmin = async () => {
+    setLoading(true);
+    setSetupMessage('');
+    try {
+      const email = 'suporte@cpsstem.com.br';
+      const password = 'admin123';
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        setSetupMessage(`Erro ao criar admin: ${error.message}`);
+      } else if (data.user) {
+        // Tentar login automático
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (!loginError) {
+          setSetupMessage('Usuário criado e logado com sucesso! Redirecionando...');
+          setTimeout(() => {
+            router.push('/');
+          }, 1500);
+        } else {
+          setSetupMessage('Usuário criado! Senha: admin123. Faça login agora.');
+        }
+      }
+    } catch (err) {
+      setSetupMessage('Erro inesperado ao criar admin.');
     } finally {
       setLoading(false);
     }
@@ -156,6 +195,12 @@ export default function LoginPage() {
                     {error}
                   </div>
                 )}
+                
+                {setupMessage && (
+                  <div className="p-3 bg-brand-green/10 border border-brand-green/20 rounded-xl text-brand-green text-sm font-medium text-center">
+                    {setupMessage}
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-sm font-medium text-brand-text-main ml-1">
@@ -221,6 +266,15 @@ export default function LoginPage() {
                   <Lock size={20} />
                   {loading ? 'Entrando...' : 'Entrar no Sistema'}
                 </button>
+                
+                <button
+                  type="button"
+                  onClick={handleCreateAdmin}
+                  disabled={loading}
+                  className="w-full py-2 mt-2 text-xs text-brand-text-sec hover:text-brand-blue underline transition-colors"
+                >
+                  Primeiro acesso? Clique aqui para registrar o Admin
+                </button>
               </form>
 
               <div className="mt-8 relative">
@@ -269,4 +323,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

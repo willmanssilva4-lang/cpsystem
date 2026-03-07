@@ -6,6 +6,7 @@ import { X, Plus, Image as ImageIcon, HelpCircle, Upload, Trash2, Search, Packag
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
+import { InventorySessionModal } from './InventorySessionModal';
 
 interface ProductFormProps {
   onClose: () => void;
@@ -16,13 +17,26 @@ interface ProductFormProps {
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=200&h=200&auto=format&fit=crop';
 
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
-  const { products, pricingSettings } = useERP();
+  const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, categories } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'geral' | 'movimentacoes' | 'ajustes' | 'inventario'>('geral');
   const [showCompositionModal, setShowCompositionModal] = useState(false);
   const [kitTab, setKitTab] = useState<'info' | 'products' | 'financial'>('info');
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>(pricingSettings.defaultMethod);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Adjustment form state
+  const [adjustmentType, setAdjustmentType] = useState<'ENTRADA' | 'SAÍDA'>('ENTRADA');
+  const [adjustmentQty, setAdjustmentQty] = useState(0);
+  const [adjustmentReason, setAdjustmentReason] = useState('Correção de Saldo');
+  const [adjustmentNotes, setAdjustmentNotes] = useState('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [inventoryFilter, setInventoryFilter] = useState({
+    date: '',
+    status: ''
+  });
+  const [showInventorySession, setShowInventorySession] = useState(false);
+
   const [formData, setFormData] = useState<{
     sku: string;
     name: string;
@@ -41,6 +55,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     subgroup: string;
     size: string;
     category: string;
+    categoryId: string;
     profit: string | number;
     profitPercentage: string | number;
     image: string;
@@ -65,6 +80,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     subgroup: initialData?.subgroup || 'PADRAO',
     size: 'PADRAO',
     category: initialData?.category || 'PADRAO',
+    categoryId: initialData?.categoryId || '',
     profit: initialData?.profit ?? '',
     profitPercentage: initialData?.profitPercentage ?? (pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin),
     image: initialData?.image || DEFAULT_IMAGE,
@@ -146,6 +162,43 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     fileInputRef.current?.click();
   };
 
+  const handleStockAdjustment = async () => {
+    if (!initialData || adjustmentQty <= 0) {
+      alert('Informe uma quantidade válida.');
+      return;
+    }
+
+    setIsAdjusting(true);
+    try {
+      await addStockMovement({
+        productId: initialData.id,
+        type: 'AJUSTE',
+        quantity: adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty,
+        origin: `Ajuste: ${adjustmentReason}${adjustmentNotes ? ` - ${adjustmentNotes}` : ''}`,
+        date: new Date().toISOString(),
+        userId: user?.email || 'system',
+        userName: user?.name || 'Sistema'
+      });
+      
+      alert('Ajuste realizado com sucesso!');
+      setAdjustmentQty(0);
+      setAdjustmentNotes('');
+      // Update local stock display
+      setFormData(prev => ({
+        ...prev,
+        stock: prev.stock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)
+      }));
+    } catch (error) {
+      console.error('Adjustment error:', error);
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
+  const handleStartInventory = async () => {
+    setShowInventorySession(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalData = {
@@ -210,10 +263,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         <div className="bg-slate-50 px-8 flex gap-8 border-b border-slate-100">
           {[
             { id: 'geral', label: 'Dados Gerais', icon: Package },
-            { id: 'movimentacoes', label: 'Movimentações', icon: History },
-            { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2 },
-            { id: 'inventario', label: 'Inventário', icon: ClipboardList },
-          ].map((tab) => (
+            { id: 'movimentacoes', label: 'Movimentações', icon: History, hidden: !initialData },
+            { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2, hidden: !initialData },
+            { id: 'inventario', label: 'Inventário', icon: ClipboardList, hidden: !initialData },
+          ].filter(t => !t.hidden).map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -529,16 +582,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
                   <div className="flex gap-2">
                     <select 
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
+                      name="categoryId"
+                      value={formData.categoryId}
+                      onChange={(e) => {
+                        const catId = e.target.value;
+                        const catName = categories.find(c => c.id === catId)?.name || 'PADRAO';
+                        setFormData(prev => ({ ...prev, categoryId: catId, category: catName }));
+                      }}
                       className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
-                      <option value="PADRAO">PADRAO</option>
-                      <option value="Alimentos">Alimentos</option>
-                      <option value="Limpeza e Higiene">Limpeza e Higiene</option>
-                      <option value="Cuidados Pessoais">Cuidados Pessoais</option>
-                      <option value="Mercearia">Mercearia</option>
+                      <option value="">Selecione uma categoria...</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -751,33 +807,41 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {[
-                      { date: '03/03/2024 10:15', type: 'ENTRADA', origin: 'Compra #452', qty: 10, balance: 25, user: 'Admin' },
-                      { date: '02/03/2024 15:30', type: 'SAÍDA', origin: 'Venda #1024', qty: -2, balance: 15, user: 'Caixa 01' },
-                      { date: '01/03/2024 09:00', type: 'AJUSTE', origin: 'Inventário Geral', qty: 5, balance: 17, user: 'Gerente' },
-                    ].map((mov, i) => (
-                      <tr key={i} className="hover:bg-white transition-colors">
-                        <td className="px-6 py-4 text-xs font-bold text-slate-600">{mov.date}</td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
-                            mov.type === 'ENTRADA' ? "bg-emerald-100 text-emerald-600" : 
-                            mov.type === 'SAÍDA' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                    {stockMovements
+                      .filter(m => m.productId === initialData?.id)
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((mov) => (
+                        <tr key={mov.id} className="hover:bg-white transition-colors">
+                          <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                            {new Date(mov.date).toLocaleString('pt-BR')}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn(
+                              "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
+                              mov.type === 'ENTRADA' ? "bg-emerald-100 text-emerald-600" : 
+                              mov.type === 'SAÍDA' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                            )}>
+                              {mov.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500">{mov.origin}</td>
+                          <td className={cn(
+                            "px-6 py-4 text-xs font-black text-center",
+                            mov.quantity > 0 ? "text-emerald-500" : "text-rose-500"
                           )}>
-                            {mov.type}
-                          </span>
+                            {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
+                          </td>
+                          <td className="px-6 py-4 text-xs font-black text-slate-700 text-center">-</td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-400">{mov.userName || mov.userId}</td>
+                        </tr>
+                      ))}
+                    {stockMovements.filter(m => m.productId === initialData?.id).length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest italic">
+                          Nenhuma movimentação para este produto
                         </td>
-                        <td className="px-6 py-4 text-xs font-bold text-slate-500">{mov.origin}</td>
-                        <td className={cn(
-                          "px-6 py-4 text-xs font-black text-center",
-                          mov.qty > 0 ? "text-emerald-500" : "text-rose-500"
-                        )}>
-                          {mov.qty > 0 ? `+${mov.qty}` : mov.qty}
-                        </td>
-                        <td className="px-6 py-4 text-xs font-black text-slate-700 text-center">{mov.balance}</td>
-                        <td className="px-6 py-4 text-xs font-bold text-slate-400">{mov.user}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -797,11 +861,25 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <div>
                       <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Ajuste:</label>
                       <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-                        <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-emerald-600 shadow-sm font-black uppercase italic text-xs">
+                        <button 
+                          type="button"
+                          onClick={() => setAdjustmentType('ENTRADA')}
+                          className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black uppercase italic text-xs transition-all",
+                            adjustmentType === 'ENTRADA' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                          )}
+                        >
                           <TrendingUp size={16} />
                           Entrada
                         </button>
-                        <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-slate-400 font-black uppercase italic text-xs hover:text-rose-500 transition-all">
+                        <button 
+                          type="button"
+                          onClick={() => setAdjustmentType('SAÍDA')}
+                          className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black uppercase italic text-xs transition-all",
+                            adjustmentType === 'SAÍDA' ? "bg-white text-rose-600 shadow-sm" : "text-slate-400 hover:text-rose-500"
+                          )}
+                        >
                           <TrendingDown size={16} />
                           Saída
                         </button>
@@ -811,6 +889,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Quantidade:</label>
                       <input 
                         type="number"
+                        value={adjustmentQty}
+                        onChange={(e) => setAdjustmentQty(Number(e.target.value))}
                         className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-xl font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                         placeholder="0"
                       />
@@ -819,25 +899,36 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
 
                   <div>
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Motivo do Ajuste:</label>
-                    <select className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all">
-                      <option>Correção de Saldo</option>
-                      <option>Avaria / Quebra</option>
-                      <option>Vencimento</option>
-                      <option>Bonificação</option>
-                      <option>Outros</option>
+                    <select 
+                      value={adjustmentReason}
+                      onChange={(e) => setAdjustmentReason(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="Correção de Saldo">Correção de Saldo</option>
+                      <option value="Avaria / Quebra">Avaria / Quebra</option>
+                      <option value="Vencimento">Vencimento</option>
+                      <option value="Bonificação">Bonificação</option>
+                      <option value="Outros">Outros</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Observações:</label>
                     <textarea 
+                      value={adjustmentNotes}
+                      onChange={(e) => setAdjustmentNotes(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all h-32 resize-none"
                       placeholder="Descreva o motivo detalhado do ajuste..."
                     />
                   </div>
 
-                  <button className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl shadow-brand-blue/20 transition-all active:scale-95">
-                    Confirmar Ajuste
+                  <button 
+                    type="button"
+                    onClick={handleStockAdjustment}
+                    disabled={isAdjusting}
+                    className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isAdjusting ? 'Processando...' : 'Confirmar Ajuste'}
                   </button>
                 </div>
 
@@ -851,12 +942,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-500">Ajuste:</span>
-                        <span className="text-sm font-black text-emerald-500">+0 UN</span>
+                        <span className={cn(
+                          "text-sm font-black",
+                          adjustmentType === 'ENTRADA' ? "text-emerald-500" : "text-rose-500"
+                        )}>
+                          {adjustmentType === 'ENTRADA' ? `+${adjustmentQty}` : `-${adjustmentQty}`} UN
+                        </span>
                       </div>
                       <div className="h-px bg-slate-200" />
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-700">Novo Saldo:</span>
-                        <span className="text-lg font-black text-brand-blue">{formData.stock} UN</span>
+                        <span className="text-lg font-black text-brand-blue">
+                          {formData.stock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)} UN
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -866,47 +964,130 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           )}
 
           {activeTab === 'inventario' && (
-            <div className="p-8 space-y-8">
-              <div className="flex justify-between items-end">
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-lg font-black text-slate-700 uppercase italic tracking-tight">Inventário de Estoque</h3>
-                  <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Contagem física e reconciliação</p>
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
+                    <ClipboardList size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Inventário de Estoque</h3>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Gestão e Reconciliação de Contagens Físicas</p>
+                  </div>
                 </div>
-                <button className="bg-brand-blue hover:bg-brand-blue-hover text-white px-6 py-3 rounded-2xl font-black uppercase italic text-xs tracking-widest transition-all shadow-lg shadow-brand-blue/20 active:scale-95">
-                  Iniciar Nova Contagem
+
+                <button 
+                  type="button"
+                  onClick={handleStartInventory}
+                  className="bg-brand-blue hover:bg-brand-blue-hover text-white px-8 py-4 rounded-2xl font-black uppercase italic text-sm tracking-widest transition-all shadow-xl shadow-brand-blue/20 active:scale-95 flex items-center gap-3"
+                >
+                  <Plus size={20} />
+                  Novo Inventário
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm flex flex-col items-center text-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
-                    <ClipboardList size={32} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-700 uppercase italic">Último Inventário</h4>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Realizado em 15/02/2024</p>
-                  </div>
-                  <div className="w-full h-px bg-slate-100" />
-                  <div className="grid grid-cols-2 w-full gap-4">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Divergência</p>
-                      <p className="text-lg font-black text-rose-500">-2.4%</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acuracidade</p>
-                      <p className="text-lg font-black text-emerald-500">97.6%</p>
-                    </div>
-                  </div>
+              {/* Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-slate-100">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Data</label>
+                  <input 
+                    type="date" 
+                    value={inventoryFilter.date}
+                    onChange={(e) => setInventoryFilter(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                  />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Status</label>
+                  <select 
+                    value={inventoryFilter.status}
+                    onChange={(e) => setInventoryFilter(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                  >
+                    <option value="">Todos os Status</option>
+                    <option value="Concluído">Finalizado</option>
+                    <option value="Em Andamento">Em Andamento</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button 
+                    type="button"
+                    onClick={() => setInventoryFilter({ date: '', status: '' })}
+                    className="w-full py-3 text-slate-400 hover:text-brand-blue text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Limpar Filtros
+                  </button>
+                </div>
+              </div>
 
-                <div className="md:col-span-2 bg-slate-50 p-8 rounded-[32px] border border-slate-200 border-dashed flex flex-col items-center justify-center text-center gap-4">
-                  <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-slate-300 shadow-sm">
-                    <History size={40} />
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-black text-slate-400 uppercase italic">Nenhum Inventário em Aberto</h4>
-                    <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Inicie uma contagem para reconciliar seu estoque</p>
-                  </div>
+              {/* Table */}
+              <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nº</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsável</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {inventories.length > 0 ? (
+                        inventories
+                          .filter(inv => {
+                            if (inventoryFilter.date && !inv.date.startsWith(inventoryFilter.date)) return false;
+                            if (inventoryFilter.status && inv.status !== inventoryFilter.status) return false;
+                            return true;
+                          })
+                          .map((inv, idx) => (
+                          <tr key={inv.id} className="hover:bg-slate-50/50 transition-all group">
+                            <td className="px-8 py-5">
+                              <span className="text-xs font-black text-slate-400">#{inventories.length - idx}</span>
+                            </td>
+                            <td className="px-8 py-5">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-black text-slate-700">{new Date(inv.date).toLocaleDateString('pt-BR')}</span>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{inv.location}</span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-5">
+                              <span className="text-sm font-bold text-slate-600">{inv.responsible || 'Sistema'}</span>
+                            </td>
+                            <td className="px-8 py-5">
+                              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                {inv.type || 'Geral'}
+                              </span>
+                            </td>
+                            <td className="px-8 py-5">
+                              <span className={cn(
+                                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                                inv.status === 'Concluído' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                              )}>
+                                {inv.status === 'Concluído' ? 'Finalizado' : 'Em Andamento'}
+                              </span>
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                              <button type="button" className="p-2 text-slate-400 hover:text-brand-blue transition-all">
+                                <Settings2 size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-8 py-20 text-center">
+                            <div className="flex flex-col items-center gap-4 text-slate-300">
+                              <ClipboardList size={48} className="opacity-20" />
+                              <p className="text-sm font-black uppercase tracking-widest">Nenhum inventário registrado</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -1386,6 +1567,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           </div>
         )}
       </div>
+      {showInventorySession && (
+        <InventorySessionModal 
+          onClose={() => setShowInventorySession(false)}
+          onComplete={() => {
+            setShowInventorySession(false);
+            onClose(); // Close the product form as well to refresh data
+          }}
+        />
+      )}
     </div>
   );
 }

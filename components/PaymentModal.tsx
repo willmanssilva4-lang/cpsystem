@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, CheckCircle, ArrowLeft, Settings, Plus } from 'lucide-react';
+import { X, CheckCircle, ArrowLeft, Settings, Plus, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useERP } from '@/lib/context';
 
 interface PaymentModalProps {
   total: number;
@@ -10,10 +11,11 @@ interface PaymentModalProps {
   onFinalize: (paymentData: any) => void;
 }
 
-type PaymentMethod = 'AVISTA' | 'PIX' | 'CARTAO' | 'OUTROS';
+type PaymentMethod = 'Dinheiro' | 'Pix' | 'Crédito' | 'Débito' | 'Voucher' | 'Fiado';
 
 export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) {
-  const [activeMethod, setActiveMethod] = useState<PaymentMethod>('CARTAO');
+  const { user } = useERP();
+  const [activeMethod, setActiveMethod] = useState<PaymentMethod>('Crédito');
   const [cashAmount, setCashAmount] = useState(0);
   const [secondPaymentAmount, setSecondPaymentAmount] = useState(0);
   
@@ -55,19 +57,23 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       }
       if (e.key === 'F2') {
         e.preventDefault();
-        setActiveMethod('AVISTA');
+        setActiveMethod('Dinheiro');
       }
       if (e.key === 'F3') {
         e.preventDefault();
-        setActiveMethod('PIX');
+        setActiveMethod('Pix');
       }
       if (e.key === 'F5') {
         e.preventDefault();
-        setActiveMethod('CARTAO');
+        setActiveMethod('Crédito');
       }
       if (e.key === 'F6') {
         e.preventDefault();
-        setActiveMethod('OUTROS');
+        setActiveMethod('Voucher');
+      }
+      if (e.key === 'F7') {
+        e.preventDefault();
+        setActiveMethod('Fiado');
       }
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -97,42 +103,60 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       <div className="bg-white w-full max-w-5xl rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden flex flex-col text-slate-900 font-sans">
         
         {/* Tabs */}
-        <div className="flex bg-slate-50 p-1 border-b border-brand-border">
+        <div className="flex bg-slate-50 p-1 border-b border-brand-border overflow-x-auto">
           <button 
-            onClick={() => setActiveMethod('AVISTA')}
+            onClick={() => setActiveMethod('Dinheiro')}
             className={cn(
-              "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'AVISTA' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
+              "flex-1 py-4 px-4 text-xl font-black italic uppercase transition-all rounded-t-xl whitespace-nowrap",
+              activeMethod === 'Dinheiro' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
             )}
           >
-            Avista - F2
+            Dinheiro - F2
           </button>
           <button 
-            onClick={() => setActiveMethod('PIX')}
+            onClick={() => setActiveMethod('Pix')}
             className={cn(
-              "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'PIX' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
+              "flex-1 py-4 px-4 text-xl font-black italic uppercase transition-all rounded-t-xl whitespace-nowrap",
+              activeMethod === 'Pix' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
             )}
           >
             PIX - F3
           </button>
           <button 
-            onClick={() => setActiveMethod('CARTAO')}
+            onClick={() => setActiveMethod('Crédito')}
             className={cn(
-              "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'CARTAO' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
+              "flex-1 py-4 px-4 text-xl font-black italic uppercase transition-all rounded-t-xl whitespace-nowrap",
+              activeMethod === 'Crédito' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
             )}
           >
-            Cartão - F5
+            Crédito - F5
           </button>
           <button 
-            onClick={() => setActiveMethod('OUTROS')}
+            onClick={() => setActiveMethod('Débito')}
             className={cn(
-              "flex-1 py-4 text-xl font-black italic uppercase transition-all rounded-t-xl",
-              activeMethod === 'OUTROS' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
+              "flex-1 py-4 px-4 text-xl font-black italic uppercase transition-all rounded-t-xl whitespace-nowrap",
+              activeMethod === 'Débito' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
             )}
           >
-            Outros - F6
+            Débito
+          </button>
+          <button 
+            onClick={() => setActiveMethod('Voucher')}
+            className={cn(
+              "flex-1 py-4 px-4 text-xl font-black italic uppercase transition-all rounded-t-xl whitespace-nowrap",
+              activeMethod === 'Voucher' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
+            )}
+          >
+            Voucher - F6
+          </button>
+          <button 
+            onClick={() => setActiveMethod('Fiado')}
+            className={cn(
+              "flex-1 py-4 px-4 text-xl font-black italic uppercase transition-all rounded-t-xl whitespace-nowrap",
+              activeMethod === 'Fiado' ? "bg-white text-brand-text-main shadow-sm" : "text-brand-blue/60 hover:bg-brand-border/50"
+            )}
+          >
+            Fiado - F7
           </button>
         </div>
 
@@ -246,21 +270,33 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
         {/* Footer Buttons */}
         <div className="p-8 flex justify-between items-center bg-slate-50 border-t border-brand-border">
-          <div className="flex gap-4">
-            <button 
-              onClick={onClose}
-              className="bg-white hover:bg-slate-50 text-brand-text-main px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-brand-border transition-all active:scale-95 shadow-sm"
-            >
-              <ArrowLeft size={32} />
-              <span className="text-xl font-black italic uppercase">Voltar</span>
-            </button>
-            <button 
-              onClick={handleFinalize}
-              className="bg-brand-blue hover:bg-brand-blue-hover text-white px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-brand-text-sec transition-all active:scale-95 shadow-lg shadow-brand-blue/20"
-            >
-              <CheckCircle size={32} className="text-brand-border" />
-              <span className="text-xl font-black italic uppercase">Finalizar - F</span>
-            </button>
+          <div className="flex items-center gap-8">
+            <div className="flex gap-4">
+              <button 
+                onClick={onClose}
+                className="bg-white hover:bg-slate-50 text-brand-text-main px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-brand-border transition-all active:scale-95 shadow-sm"
+              >
+                <ArrowLeft size={32} />
+                <span className="text-xl font-black italic uppercase">Voltar</span>
+              </button>
+              <button 
+                onClick={handleFinalize}
+                className="bg-brand-blue hover:bg-brand-blue-hover text-white px-12 py-4 rounded-xl flex flex-col items-center gap-1 border-2 border-brand-text-sec transition-all active:scale-95 shadow-lg shadow-brand-blue/20"
+              >
+                <CheckCircle size={32} className="text-brand-border" />
+                <span className="text-xl font-black italic uppercase">Finalizar - F</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase italic text-brand-text-main/40">Atendente</span>
+              <div className="flex items-center gap-2 text-brand-text-main">
+                <div className="size-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
+                  <User size={16} className="text-brand-blue" />
+                </div>
+                <span className="text-lg font-black italic uppercase">{user?.name || 'SISTEMA'}</span>
+              </div>
+            </div>
           </div>
           
           <button className="text-brand-text-main/40 hover:text-brand-text-main transition-colors">
