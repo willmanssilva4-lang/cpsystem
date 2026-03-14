@@ -30,7 +30,7 @@ export default function ImportXmlPage() {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-white min-h-screen">
+    <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <Link href="/compras" className="flex items-center gap-2 text-brand-blue font-black uppercase italic tracking-tight text-xs mb-2 hover:gap-3 transition-all">

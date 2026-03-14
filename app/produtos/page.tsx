@@ -8,6 +8,7 @@ import {
   Plus, 
   MoreVertical, 
   Download, 
+  Upload,
   Filter,
   AlertCircle,
   Package,
@@ -26,6 +27,7 @@ import {
   ArrowLeftRight,
   ClipboardList
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { ProductForm } from '@/components/ProductForm';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
@@ -33,7 +35,7 @@ import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -43,6 +45,126 @@ export default function ProductsPage() {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('produtos');
   const [showInventorySession, setShowInventorySession] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+
+  const getSubcategoriaName = (product: Product) => {
+    if (!product.subcategoria_id) return 'Sem Subcategoria';
+    const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+    return sub ? sub.nome : 'Sem Subcategoria';
+  };
+
+  const getCategoryName = (product: Product) => {
+    if (!product.subcategoria_id) return 'Sem Categoria';
+    const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+    if (!sub) return 'Sem Categoria';
+    const cat = categorias.find(c => c.id === sub.categoria_id);
+    return cat ? cat.nome : 'Sem Categoria';
+  };
+
+  const getDepartamentoName = (product: Product) => {
+    if (!product.subcategoria_id) return 'Sem Departamento';
+    const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+    if (!sub) return 'Sem Departamento';
+    const cat = categorias.find(c => c.id === sub.categoria_id);
+    if (!cat) return 'Sem Departamento';
+    const dep = departamentos.find(d => d.id === cat.departamento_id);
+    return dep ? dep.nome : 'Sem Departamento';
+  };
+
+  const getCodigoMercadologico = (product: Product) => {
+    if (product.codigo_mercadologico) return product.codigo_mercadologico;
+    if (!product.subcategoria_id) return '';
+    const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+    if (!sub) return '';
+    const cat = categorias.find(c => c.id === sub.categoria_id);
+    if (!cat) return sub.codigo || '';
+    const dep = departamentos.find(d => d.id === cat.departamento_id);
+    if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
+    return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
+  };
+
+  const exportProducts = () => {
+    const worksheet = XLSX.utils.json_to_sheet(products.map(p => ({
+      Nome: p.name,
+      SKU: p.sku,
+      'Cód. Mercadológico': getCodigoMercadologico(p),
+      Departamento: getDepartamentoName(p),
+      Categoria: getCategoryName(p),
+      Subcategoria: getSubcategoriaName(p),
+      'Unidade de Medida': p.unit || 'UN',
+      'Preço de Custo': p.costPrice,
+      'Preço de Venda': p.salePrice,
+      Estoque: p.stock,
+      'Estoque Mínimo': p.minStock,
+      Status: p.status
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
+    XLSX.writeFile(workbook, 'produtos.xlsx');
+  };
+
+  const exportTemplate = () => {
+    const templateData = [{
+      Nome: 'Produto Exemplo',
+      SKU: 'PROD-001',
+      Departamento: 'Alimentos',
+      Categoria: 'Mercearia',
+      Subcategoria: 'Grãos',
+      'Unidade de Medida': 'UN',
+      'Preço de Custo': 10.50,
+      'Preço de Venda': 20.00,
+      Estoque: 100,
+      'Estoque Mínimo': 10,
+      Status: 'Ativo'
+    }];
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modelo');
+    XLSX.writeFile(workbook, 'modelo_importacao_produtos.xlsx');
+  };
+
+  const importProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = evt.target?.result;
+      const workbook = XLSX.read(data, { type: 'binary' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet);
+      
+      json.forEach((item: any) => {
+        let subcategoria_id = '';
+        if (item.Subcategoria) {
+          const sub = subcategorias.find(s => s.nome.toLowerCase() === String(item.Subcategoria).toLowerCase());
+          if (sub) {
+            subcategoria_id = sub.id;
+          }
+        }
+
+        addProduct({
+          id: Math.random().toString(36).substr(2, 9),
+          name: item.Nome,
+          sku: item.SKU,
+          unit: item['Unidade de Medida'] || 'UN',
+          subcategoria_id: subcategoria_id,
+          costPrice: Number(item['Preço de Custo']),
+          salePrice: Number(item['Preço de Venda']),
+          stock: Number(item.Estoque),
+          minStock: Number(item['Estoque Mínimo']),
+          status: item.Status || 'Ativo',
+          image: 'https://picsum.photos/seed/product/200/200'
+        } as Product);
+      });
+      alert('Produtos importados com sucesso!');
+    };
+    reader.readAsBinaryString(file);
+  };
+
 
   // Adjustment form state
   const [adjustmentProductId, setAdjustmentProductId] = useState('');
@@ -56,10 +178,21 @@ export default function ProductsPage() {
     status: ''
   });
 
-  const filteredProducts = products.filter(p => 
-    (p.name && p.name.toLowerCase().includes(search.toLowerCase())) || 
-    (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = (p.name && p.name.toLowerCase().includes(search.toLowerCase())) || 
+                          (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()));
+    
+    if (!matchesSearch) return false;
+
+    if (selectedCategory) {
+      if (!p.subcategoria_id) return false;
+      const sub = subcategorias.find(s => s.id === p.subcategoria_id);
+      if (!sub) return false;
+      return sub.categoria_id === selectedCategory;
+    }
+
+    return true;
+  });
 
   const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
@@ -76,14 +209,17 @@ export default function ProductsPage() {
         profit: Number(formData.profit),
         profitPercentage: Number(formData.profitPercentage),
         composition: formData.composition,
-        status: formData.status
+        status: formData.status,
+        subcategoria_id: formData.subcategoria_id,
+        category: formData.category || 'PADRAO',
+        subgroup: formData.subgroup || 'PADRAO'
       });
     } else {
       addProduct({
         id: Math.random().toString(36).substr(2, 9),
         name: formData.name,
         sku: formData.sku,
-        category: formData.category,
+        subcategoria_id: formData.subcategoria_id,
         costPrice: Number(formData.costPrice),
         salePrice: Number(formData.salePrice),
         stock: Number(formData.stock),
@@ -92,12 +228,12 @@ export default function ProductsPage() {
         brand: formData.brand,
         unit: formData.unit,
         supplier: formData.supplier,
-        group: formData.group,
-        subgroup: formData.subgroup,
         profit: Number(formData.profit),
         profitPercentage: Number(formData.profitPercentage),
         composition: formData.composition,
-        status: formData.status
+        status: formData.status,
+        category: formData.category || 'PADRAO',
+        subgroup: formData.subgroup || 'PADRAO'
       });
     }
     setShowModal(false);
@@ -174,7 +310,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => setActiveMenuId(null)}>
+    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => { setActiveMenuId(null); setShowCategoryMenu(false); }}>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Gestão de Produtos</h1>
@@ -240,14 +376,57 @@ export default function ProductsPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white">
-              <div className="flex items-center gap-4 w-full md:w-auto">
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors w-full md:w-auto justify-between md:justify-start">
+              <div className="flex items-center gap-4 w-full md:w-auto relative">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowCategoryMenu(!showCategoryMenu);
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
+                    selectedCategory ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  )}
+                >
                   <div className="flex items-center gap-2">
                     <Package size={16} />
-                    <span>Categorias</span>
+                    <span>{selectedCategory ? categorias.find(c => c.id === selectedCategory)?.nome : 'Categorias'}</span>
                   </div>
                   <ChevronDown size={14} />
-                </div>
+                </button>
+
+                {showCategoryMenu && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden">
+                    <div className="p-2 max-h-64 overflow-y-auto">
+                      <button
+                        onClick={() => {
+                          setSelectedCategory(null);
+                          setShowCategoryMenu(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
+                          !selectedCategory ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
+                        )}
+                      >
+                        Todas as Categorias
+                      </button>
+                      {categorias.map(cat => (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setSelectedCategory(cat.id);
+                            setShowCategoryMenu(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
+                            selectedCategory === cat.id ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          {cat.nome}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3 w-full md:w-auto">
                 <div className="relative w-full md:w-80">
@@ -269,28 +448,15 @@ export default function ProductsPage() {
                   <ChevronLeft size={18} className="cursor-pointer hover:text-slate-600" />
                   <ChevronRight size={18} className="cursor-pointer hover:text-slate-600" />
                 </div>
-                <div className="w-px h-4 bg-slate-200"></div>
-                <div className="flex items-center gap-2 text-slate-500 text-sm font-medium cursor-pointer hover:text-brand-blue">
-                  <Download size={16} />
-                  <span>Exportar</span>
-                  <ChevronDown size={14} />
-                </div>
-                <div className="w-px h-4 bg-slate-200"></div>
-                <div className="flex items-center gap-2 text-slate-500 text-sm font-medium cursor-pointer hover:text-brand-blue">
-                  <Package size={16} />
-                  <span>Todas as Categorias</span>
-                  <ChevronDown size={14} />
-                </div>
-                <div className="w-px h-4 bg-slate-200"></div>
-                <Trash2 size={16} className="text-slate-400 cursor-pointer hover:text-rose-500" />
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-                  <Download size={16} />
-                  <span>Exportar</span>
+                <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                  <Upload size={16} />
+                  <span>Importar Excel</span>
                 </button>
-                <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-                  <ChevronDown size={16} />
+                <button onClick={exportProducts} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                  <Download size={16} />
+                  <span>Exportar Excel</span>
                 </button>
               </div>
             </div>
@@ -324,11 +490,18 @@ export default function ProductsPage() {
                           </div>
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-700 text-sm md:text-base">{product.name}</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase md:hidden">{product.category}</span>
+                            <div className="flex items-center gap-2">
+                              {getCodigoMercadologico(product) && (
+                                <span className="text-[10px] text-brand-blue font-black tracking-widest bg-brand-blue/5 px-1.5 py-0.5 rounded">
+                                  {getCodigoMercadologico(product)}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-bold uppercase md:hidden">{getCategoryName(product)}</span>
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{product.category}</td>
+                      <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{getCategoryName(product)}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">{product.stock}</td>
                       <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -438,6 +611,20 @@ export default function ProductsPage() {
                   )}
                 </tbody>
               </table>
+              <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                <p className="text-sm text-slate-500 font-medium">
+                  Mostrando {stockMovements.length} movimentações
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1">
+                    <ChevronLeft size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                    <div className="flex items-center gap-1">
+                      <button className="w-8 h-8 rounded-lg text-sm font-bold transition-all bg-brand-blue text-white shadow-md shadow-brand-blue/20">1</button>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -589,8 +776,8 @@ export default function ProductsPage() {
                   className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
                 >
                   <option value="">Todas as Categorias</option>
-                  {Array.from(new Set(products.map(p => p.category))).map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                  {categorias.map(cat => (
+                    <option key={cat.id} value={cat.nome}>{cat.nome}</option>
                   ))}
                 </select>
               </div>
@@ -723,15 +910,50 @@ export default function ProductsPage() {
           }}
         />
       )}
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Importar Produtos</h3>
+              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <p className="text-sm text-slate-600 font-medium">1. Baixe o modelo de planilha em Excel.</p>
+                <button onClick={exportTemplate} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-blue/10 text-brand-blue rounded-xl font-bold hover:bg-brand-blue/20 transition-colors">
+                  <Download size={18} />
+                  Baixar Modelo Excel
+                </button>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-600 font-medium">2. Preencha os dados e faça o upload do arquivo.</p>
+                <label className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-blue text-white rounded-xl font-bold hover:bg-brand-blue-hover transition-colors cursor-pointer shadow-lg shadow-brand-blue/20">
+                  <Upload size={18} />
+                  Selecionar Arquivo e Importar
+                  <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => { importProducts(e); setShowImportModal(false); }} />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function LossModal({ product, onClose }: { product: Product, onClose: () => void }) {
-  const { addLoss } = useERP();
+  const { addLoss, lotes } = useERP();
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('Vencimento');
+  const [selectedLoteId, setSelectedLoteId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const productLotes = lotes
+    .filter(l => l.productId === product.id && l.saldoAtual > 0)
+    .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -739,6 +961,7 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
     try {
       await addLoss({
         productId: product.id,
+        loteId: selectedLoteId || undefined,
         quantity,
         reason,
         date: new Date().toISOString(),
@@ -772,18 +995,50 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="space-y-4">
+            {productLotes.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-brand-text-main mb-1.5">Lote Específico (Opcional)</label>
+                <select 
+                  value={selectedLoteId}
+                  onChange={(e) => {
+                    const loteId = e.target.value;
+                    setSelectedLoteId(loteId);
+                    if (loteId) {
+                      const lote = productLotes.find(l => l.id === loteId);
+                      if (lote && quantity > lote.saldoAtual) {
+                        setQuantity(lote.saldoAtual);
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-brand-border rounded-lg text-brand-text-main text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue transition-all"
+                >
+                  <option value="">Seguir PEPS (Automático)</option>
+                  {productLotes.map(lote => (
+                    <option key={lote.id} value={lote.id}>
+                      Lote: {lote.numeroLote} - Saldo: {lote.saldoAtual} {lote.validade ? `(Venc: ${new Date(lote.validade).toLocaleDateString('pt-BR')})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-brand-text-sec mt-1 font-bold uppercase tracking-widest">
+                  Se não selecionar, o sistema removerá dos lotes mais antigos primeiro.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-brand-text-main mb-1.5">Quantidade</label>
               <input 
                 type="number" 
                 min="1"
-                max={product.stock}
+                max={selectedLoteId ? productLotes.find(l => l.id === selectedLoteId)?.saldoAtual : product.stock}
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
                 className="w-full px-3 py-2 bg-white border border-brand-border rounded-lg text-brand-text-main text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-brand-blue transition-all"
                 required
               />
-              <p className="text-xs text-brand-text-sec mt-1.5">Estoque atual: {product.stock}</p>
+              <p className="text-xs text-brand-text-sec mt-1.5">
+                Disponível: {selectedLoteId ? productLotes.find(l => l.id === selectedLoteId)?.saldoAtual : product.stock} UN
+              </p>
             </div>
 
             <div>
@@ -838,7 +1093,7 @@ function SummaryCard({ title, value, icon: Icon, color }: any) {
     green: "bg-brand-green/10 text-brand-green",
     red: "bg-brand-danger/10 text-brand-danger",
     blue: "bg-brand-blue/10 text-brand-blue",
-    orange: "bg-amber-500/10 text-amber-500",
+    orange: "bg-brand-warning/10 text-brand-warning",
   };
 
   return (
@@ -850,7 +1105,7 @@ function SummaryCard({ title, value, icon: Icon, color }: any) {
         <p className="text-sm font-bold text-slate-400 mb-1">{title}</p>
         <p className={cn(
           "text-2xl font-black",
-          color === 'orange' ? "text-amber-500" : "text-slate-700"
+          color === 'orange' ? "text-brand-warning" : "text-slate-700"
         )}>{value}</p>
       </div>
     </div>

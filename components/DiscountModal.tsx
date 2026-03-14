@@ -19,19 +19,31 @@ interface DiscountModalProps {
 
 export function DiscountModal({ currentTotal, onClose, onConfirm, title = 'Aplicar Desconto', defaultType = 'percentage' }: DiscountModalProps) {
   const [type, setType] = useState<'percentage' | 'value'>(defaultType);
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<number | ''>('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const amountInputRef = React.useRef<HTMLInputElement>(null);
   const reasonInputRef = React.useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    // Small delay to ensure modal is fully rendered before focusing
+    const timer = setTimeout(() => {
+      amountInputRef.current?.focus();
+      amountInputRef.current?.select();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const numAmount = Number(amount) || 0;
+
   const discountValue = type === 'percentage' 
-    ? (currentTotal * amount) / 100 
-    : amount;
+    ? (currentTotal * numAmount) / 100 
+    : numAmount;
 
   const newTotal = Math.max(0, currentTotal - discountValue);
 
   const handleConfirm = () => {
-    if (amount <= 0) {
+    if (numAmount < 0) {
       setError('Informe um valor de desconto válido.');
       return;
     }
@@ -39,15 +51,15 @@ export function DiscountModal({ currentTotal, onClose, onConfirm, title = 'Aplic
       setError('O desconto não pode ser maior que o valor total.');
       return;
     }
-    if (!reason.trim()) {
+    if (numAmount > 0 && !reason.trim()) {
       setError('Informe o motivo do desconto.');
       return;
     }
 
     onConfirm({
       type,
-      amount,
-      reason,
+      amount: numAmount,
+      reason: numAmount > 0 ? reason : '',
       discountValue
     });
   };
@@ -157,11 +169,13 @@ export function DiscountModal({ currentTotal, onClose, onConfirm, title = 'Aplic
             </label>
             <div className="relative">
               <input
+                ref={amountInputRef}
                 type="number"
                 autoFocus
-                value={amount || ''}
+                value={amount === '' ? '' : amount}
                 onChange={(e) => {
-                  setAmount(Number(e.target.value));
+                  const val = e.target.value;
+                  setAmount(val === '' ? '' : Number(val));
                   setError(null);
                 }}
                 onKeyDown={handleAmountKeyDown}

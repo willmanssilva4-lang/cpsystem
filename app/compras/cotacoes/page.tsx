@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
   Plus, 
@@ -15,46 +15,232 @@ import {
   DollarSign,
   ArrowRight,
   MoreHorizontal,
-  ChevronDown
+  ChevronDown,
+  Trash2,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-
-const MOCK_COTATIONS = [
-  {
-    id: 'COT-2024-001',
-    title: 'Cotação Semanal - Bebidas',
-    date: '01/03/2024',
-    status: 'Em Aberto',
-    suppliers: ['Ambev', 'Coca-Cola', 'Heineken'],
-    items: 12,
-    bestPrice: 'R$ 15.400,00'
-  },
-  {
-    id: 'COT-2024-002',
-    title: 'Reposição Hortifruti',
-    date: '28/02/2024',
-    status: 'Finalizada',
-    suppliers: ['Distribuidora Sol', 'Horta Viva', 'Agro Campo'],
-    items: 8,
-    bestPrice: 'R$ 4.200,00'
-  },
-  {
-    id: 'COT-2024-003',
-    title: 'Limpeza e Higiene',
-    date: '25/02/2024',
-    status: 'Finalizada',
-    suppliers: ['Unilever', 'P&G', 'Limpa Tudo'],
-    items: 25,
-    bestPrice: 'R$ 8.900,00'
-  }
-];
+import { supabase } from '@/lib/supabase';
+import { useERP } from '@/lib/context';
+import { cn } from '@/lib/utils';
 
 export default function CotacoesPage() {
   const [view, setView] = useState<'list' | 'create'>('list');
+  const [isLoading, setIsLoading] = useState(false);
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
+  const [title, setTitle] = useState('');
+  const [limitDate, setLimitDate] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [listSearchTerm, setListSearchTerm] = useState('');
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  async function fetchInitialData() {
+    setIsLoading(true);
+    try {
+      // Fetch Products
+      const { data: products } = await supabase.from('products').select('id, name, sku, cost_price').order('name');
+      if (products) setProductsList(products);
+
+      // Fetch Suppliers
+      const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name');
+      if (suppliers) setSuppliersList(suppliers);
+
+      // Fetch Quotations
+      await fetchQuotations();
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function fetchQuotations() {
+    const { data: quotationsData } = await supabase
+      .from('quotations')
+      .select(`
+        *,
+        quotation_items ( id ),
+        quotation_suppliers ( 
+          suppliers ( name )
+        ),
+        quotation_responses ( price )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (quotationsData) {
+      const formatted = quotationsData.map(q => {
+        const prices = q.quotation_responses?.map((r: any) => Number(r.price)) || [];
+        const bestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+
+        return {
+          id: q.id.substring(0, 8).toUpperCase(),
+          realId: q.id,
+          title: q.title,
+          date: new Date(q.created_at).toLocaleDateString('pt-BR'),
+          status: q.status,
+          suppliers: q.quotation_suppliers?.map((s: any) => s.suppliers?.name).filter(Boolean) || [],
+          items: q.quotation_items?.length || 0,
+          bestPrice: bestPrice > 0 ? `R$ ${bestPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Pendente'
+        };
+      });
+      setQuotations(formatted);
+    }
+  }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    
+    if (value.length >= 2) {
+      const filtered = productsList.filter(p => 
+        p.name.toLowerCase().includes(value.toLowerCase()) ||
+        (p.sku && p.sku.toLowerCase().includes(value.toLowerCase()))
+      ).slice(0, 10);
+      setSearchResults(filtered);
+      setSelectedIndex(filtered.length > 0 ? 0 : -1);
+    } else {
+      setSearchResults([]);
+      setSelectedIndex(-1);
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault();
+      selectProduct(searchResults[selectedIndex]);
+    } else if (e.key === 'Escape') {
+      setSearchResults([]);
+      setSelectedIndex(-1);
+      setShowProductSearch(false);
+    }
+  };
+
+  const selectProduct = (product: any) => {
+    // Check if product already in items
+    if (items.some(i => i.id === product.id)) {
+      setSearchResults([]);
+      setSelectedIndex(-1);
+      setSearchTerm('');
+      setShowProductSearch(false);
+      return;
+    }
+
+    const newItem = {
+      id: product.id,
+      name: product.name,
+      qty: 1,
+      lastCost: product.cost_price || 0
+    };
+
+    setItems([...items, newItem]);
+    setSearchResults([]);
+    setSelectedIndex(-1);
+    setSearchTerm('');
+    setShowProductSearch(false);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setItems(items.filter(item => item.id !== id));
+  };
+
+  const handleUpdateQty = (id: string, qty: number) => {
+    setItems(items.map(item => item.id === id ? { ...item, qty: Math.max(1, qty) } : item));
+  };
+
+  const handleSave = async () => {
+    if (!title) {
+      alert('Informe um título para a cotação.');
+      return;
+    }
+    if (items.length === 0) {
+      alert('Adicione pelo menos um produto à cotação.');
+      return;
+    }
+    if (selectedSuppliers.length === 0) {
+      alert('Selecione pelo menos um fornecedor.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      // 1. Insert Quotation
+      const { data: quotation, error: qError } = await supabase
+        .from('quotations')
+        .insert({
+          title,
+          status: 'Em Aberto'
+        })
+        .select()
+        .single();
+
+      if (qError) throw qError;
+
+      // 2. Insert Items
+      const itemsToInsert = items.map(item => ({
+        quotation_id: quotation.id,
+        product_id: item.id,
+        quantity: item.qty
+      }));
+
+      const { error: iError } = await supabase.from('quotation_items').insert(itemsToInsert);
+      if (iError) throw iError;
+
+      // 3. Insert Suppliers
+      const suppliersToInsert = selectedSuppliers.map(sId => ({
+        quotation_id: quotation.id,
+        supplier_id: sId
+      }));
+
+      const { error: sError } = await supabase.from('quotation_suppliers').insert(suppliersToInsert);
+      if (sError) throw sError;
+
+      alert('Cotação lançada com sucesso!');
+      setView('list');
+      setItems([]);
+      setSelectedSuppliers([]);
+      setTitle('');
+      setLimitDate('');
+      await fetchQuotations();
+    } catch (error) {
+      console.error('Error saving quotation:', error);
+      alert('Erro ao salvar cotação.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleSupplier = (id: string) => {
+    setSelectedSuppliers(prev => 
+      prev.includes(id) ? prev.filter(sId => sId !== id) : [...prev, id]
+    );
+  };
+
+  const filteredQuotations = quotations.filter(q => 
+    q.title.toLowerCase().includes(listSearchTerm.toLowerCase()) ||
+    q.id.toLowerCase().includes(listSearchTerm.toLowerCase())
+  );
 
   return (
-    <div className="p-8 space-y-8 bg-white min-h-screen">
+    <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -90,6 +276,8 @@ export default function CotacoesPage() {
                 <input 
                   type="text" 
                   placeholder="Buscar cotação por título ou ID..."
+                  value={listSearchTerm}
+                  onChange={(e) => setListSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-white border border-brand-border rounded-xl text-sm focus:ring-2 focus:ring-brand-blue-hover"
                 />
               </div>
@@ -108,7 +296,16 @@ export default function CotacoesPage() {
 
             {/* Cotations Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {MOCK_COTATIONS.map((cot, index) => (
+              {filteredQuotations.length === 0 ? (
+                <div className="col-span-full py-20 text-center">
+                  <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText size={40} className="text-slate-300" />
+                  </div>
+                  <h3 className="text-lg font-black text-brand-text-main uppercase italic">Nenhuma cotação encontrada</h3>
+                  <p className="text-brand-text-sec">Crie uma nova cotação para começar a comparar preços.</p>
+                </div>
+              ) : (
+                filteredQuotations.map((cot, index) => (
                 <motion.div
                   key={cot.id}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -167,9 +364,10 @@ export default function CotacoesPage() {
                     </button>
                   </div>
                 </motion.div>
-              ))}
-            </div>
-          </motion.div>
+              ))
+            )}
+          </div>
+        </motion.div>
         ) : (
           <motion.div
             key="create"
@@ -190,6 +388,8 @@ export default function CotacoesPage() {
                       <input 
                         type="text" 
                         placeholder="Ex: Cotação Bebidas Março"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
                         className="w-full px-4 py-4 bg-white border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
                       />
                     </div>
@@ -197,6 +397,8 @@ export default function CotacoesPage() {
                       <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Data Limite</label>
                       <input 
                         type="date" 
+                        value={limitDate}
+                        onChange={(e) => setLimitDate(e.target.value)}
                         className="w-full px-4 py-4 bg-white border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
                       />
                     </div>
@@ -207,11 +409,63 @@ export default function CotacoesPage() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Produtos para Cotar</h2>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-brand-border text-brand-text-main rounded-xl text-xs font-black uppercase italic tracking-tight hover:bg-brand-border transition-all">
-                      <Plus size={16} />
+                    <button 
+                      onClick={() => setShowProductSearch(!showProductSearch)}
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-border text-brand-text-main rounded-xl text-xs font-black uppercase italic tracking-tight hover:bg-brand-border transition-all"
+                    >
+                      <Plus size={16} className={showProductSearch ? 'rotate-45 transition-transform' : 'transition-transform'} />
                       Adicionar Produto
                     </button>
                   </div>
+
+                  <AnimatePresence>
+                    {showProductSearch && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="relative"
+                      >
+                        <div className="relative">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
+                          <input 
+                            ref={searchInputRef}
+                            type="text" 
+                            placeholder="Buscar produto por nome ou SKU..."
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                            onKeyDown={handleSearchKeyDown}
+                            autoFocus
+                            className="w-full pl-12 pr-4 py-4 bg-white border-2 border-brand-blue rounded-2xl text-brand-text-main font-bold focus:ring-0"
+                          />
+                        </div>
+
+                        {/* Search Results Dropdown */}
+                        {searchResults.length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
+                            {searchResults.map((product, index) => (
+                              <button
+                                key={product.id}
+                                onClick={() => selectProduct(product)}
+                                className={cn(
+                                  "w-full flex items-center justify-between px-6 py-4 text-left transition-colors border-b border-brand-border last:border-0",
+                                  selectedIndex === index ? "bg-brand-blue/5 border-l-4 border-l-brand-blue" : "hover:bg-slate-50"
+                                )}
+                              >
+                                <div>
+                                  <div className="font-bold text-brand-text-main">{product.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{product.sku || 'Sem SKU'}</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-xs font-black text-brand-blue">Custo: R$ {Number(product.cost_price).toFixed(2)}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   
                   <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
                     <table className="w-full text-left border-collapse">
@@ -224,28 +478,41 @@ export default function CotacoesPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {[
-                          { name: 'Arroz Agulhinha 5kg', qty: 500, lastCost: 'R$ 18,50' },
-                          { name: 'Feijão Carioca 1kg', qty: 1000, lastCost: 'R$ 6,20' },
-                          { name: 'Óleo de Soja 900ml', qty: 240, lastCost: 'R$ 5,80' },
-                        ].map((item, i) => (
-                          <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                            <td className="px-6 py-4">
-                              <span className="text-sm font-bold text-brand-text-main">{item.name}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-sm font-black text-brand-text-main italic">{item.qty} un.</span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="text-sm font-bold text-brand-text-main/60">{item.lastCost}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <button className="text-rose-300 hover:text-rose-600 transition-colors">
-                                <Plus size={18} className="rotate-45" />
-                              </button>
+                        {items.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium italic">
+                              Nenhum produto adicionado à cotação.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          items.map((item) => (
+                            <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
+                              <td className="px-6 py-4">
+                                <span className="text-sm font-bold text-brand-text-main">{item.name}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <input 
+                                  type="number" 
+                                  min="1"
+                                  value={item.qty}
+                                  onChange={(e) => handleUpdateQty(item.id, Number(e.target.value))}
+                                  className="w-24 px-3 py-1 bg-slate-50 border border-brand-border rounded-lg text-sm font-black text-brand-text-main italic focus:ring-2 focus:ring-brand-blue-hover"
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="text-sm font-bold text-brand-text-main/60">R$ {Number(item.lastCost).toFixed(2).replace('.', ',')}</span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button 
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  className="text-rose-300 hover:text-rose-600 transition-colors"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -266,19 +533,28 @@ export default function CotacoesPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      {['Ambev S.A.', 'Nestlé Brasil', 'Unilever', 'Coca-Cola FEMSA'].map((s) => (
-                        <label key={s} className="flex items-center gap-3 p-3 rounded-xl border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group">
-                          <input type="checkbox" className="w-4 h-4 rounded border-brand-border text-brand-blue focus:ring-brand-blue-hover" />
-                          <span className="text-sm font-bold text-brand-text-main group-hover:text-brand-blue transition-colors">{s}</span>
+                      {suppliersList.map((s) => (
+                        <label key={s.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedSuppliers.includes(s.id)}
+                            onChange={() => toggleSupplier(s.id)}
+                            className="w-4 h-4 rounded border-brand-border text-brand-blue focus:ring-brand-blue-hover" 
+                          />
+                          <span className="text-sm font-bold text-brand-text-main group-hover:text-brand-blue transition-colors">{s.name}</span>
                         </label>
                       ))}
+                      {suppliersList.length === 0 && (
+                        <p className="text-xs text-slate-400 italic">Nenhum fornecedor cadastrado.</p>
+                      )}
                     </div>
                   </div>
                   <button 
-                    onClick={() => setView('list')}
-                    className="w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight shadow-xl shadow-brand-blue/20 hover:bg-brand-text-main transition-all active:scale-95"
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className="w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight shadow-xl shadow-brand-blue/20 hover:bg-brand-text-main transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Lançar Cotação
+                    {isLoading ? 'Lançando...' : 'Lançar Cotação'}
                   </button>
                   <button 
                     onClick={() => setView('list')}

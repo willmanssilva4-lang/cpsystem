@@ -47,12 +47,12 @@ export default function CustomersPage() {
     <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
       {/* Customer List */}
       <section className={cn(
-        "flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900",
+        "flex-1 flex flex-col border-r border-brand-border bg-brand-card",
         selectedCustomerId && "hidden lg:flex"
       )}>
-        <div className="p-4 md:p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
+        <div className="p-4 md:p-6 border-b border-brand-border space-y-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase italic">Clientes</h1>
+            <h1 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic">Clientes</h1>
             <button className="p-2 bg-brand-blue-hover text-white rounded-lg hover:bg-brand-blue transition-all">
               <UserPlus size={20} />
             </button>
@@ -60,7 +60,7 @@ export default function CustomersPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
-              className="w-full pl-10 pr-4 h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl text-sm"
+              className="w-full pl-10 pr-4 h-11 bg-slate-50 border-brand-border rounded-xl text-sm"
               placeholder="Buscar por nome ou CPF/CNPJ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -68,17 +68,17 @@ export default function CustomersPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
           {filteredCustomers.map((customer) => (
             <div 
               key={customer.id}
               onClick={() => setSelectedCustomerId(customer.id)}
               className={cn(
-                "p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50",
-                selectedCustomer?.id === customer.id ? "bg-slate-50 dark:bg-brand-text-main/10 border-r-4 border-brand-blue-hover" : ""
+                "p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-slate-50",
+                selectedCustomer?.id === customer.id ? "bg-slate-50 border-r-4 border-brand-blue" : ""
               )}
             >
-              <div className="size-12 rounded-full overflow-hidden relative border-2 border-white dark:border-slate-700 shadow-sm shrink-0">
+              <div className="size-12 rounded-full overflow-hidden relative border-2 border-white shadow-sm shrink-0">
                 <Image 
                   src={customer.image || 'https://i.pravatar.cc/150'} 
                   alt={customer.name}
@@ -89,7 +89,7 @@ export default function CustomersPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 truncate">{customer.name}</h3>
+                  <h3 className="font-bold text-brand-text-main truncate">{customer.name}</h3>
                   <span className={cn(
                     "text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0",
                     customer.status === 'VIP' ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
@@ -107,7 +107,7 @@ export default function CustomersPage() {
 
       {/* Customer Detail Sidebar */}
       <aside className={cn(
-        "w-full lg:w-[450px] bg-slate-50 dark:bg-slate-950 overflow-y-auto p-4 md:p-8",
+        "w-full lg:w-[450px] bg-brand-bg overflow-y-auto p-4 md:p-8",
         !selectedCustomerId && "hidden lg:block",
         selectedCustomerId && "block"
       )}>
@@ -124,7 +124,7 @@ export default function CustomersPage() {
           <div className="space-y-8">
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="relative">
-                <div className="size-32 rounded-3xl overflow-hidden relative shadow-xl border-4 border-white dark:border-slate-800">
+                <div className="size-32 rounded-3xl overflow-hidden relative shadow-xl border-4 border-white">
                   <Image 
                     src={selectedCustomer.image || 'https://i.pravatar.cc/150'} 
                     alt={selectedCustomer.name}
@@ -140,23 +140,23 @@ export default function CustomersPage() {
                 )}
               </div>
               <div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white">{selectedCustomer.name}</h2>
+                <h2 className="text-2xl font-black text-brand-text-main">{selectedCustomer.name}</h2>
                 <p className="text-slate-500 font-medium">{selectedCustomer.document}</p>
               </div>
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50">Editar</button>
+                <button className="px-4 py-2 bg-white border border-brand-border rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50">Editar</button>
                 <button className="px-4 py-2 bg-brand-blue-hover text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-blue-hover/20 hover:bg-brand-blue">Nova Venda</button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="bg-brand-card p-4 rounded-2xl border border-brand-border shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Gasto</p>
                 <p className="text-lg font-black text-brand-blue">R$ {customerSales.reduce((acc, s) => acc + s.total, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
-              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="bg-brand-card p-4 rounded-2xl border border-brand-border shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Última Compra</p>
-                <p className="text-lg font-black text-slate-900 dark:text-white">
+                <p className="text-lg font-black text-brand-text-main">
                   {customerSales.length > 0 
                     ? new Date(customerSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
                     : 'N/A'}
@@ -166,7 +166,7 @@ export default function CustomersPage() {
 
             <div className="space-y-4">
               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Informações de Contato</h4>
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="bg-brand-card rounded-2xl border border-brand-border divide-y divide-slate-100">
                 <ContactItem icon={Mail} label="Email" value={selectedCustomer.email} />
                 <ContactItem icon={Phone} label="Telefone" value={selectedCustomer.phone} />
                 <ContactItem icon={MapPin} label="Endereço" value="Rua das Flores, 123 - São Paulo, SP" />
@@ -182,8 +182,8 @@ export default function CustomersPage() {
               <div className="space-y-3">
                 {customerSales.length > 0 ? (
                   customerSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((sale) => (
-                    <div key={sale.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-                      <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                    <div key={sale.id} className="bg-brand-card p-4 rounded-2xl border border-brand-border flex items-center gap-4">
+                      <div className="size-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500">
                         <ShoppingBag size={20} />
                       </div>
                       <div className="flex-1">
@@ -192,7 +192,7 @@ export default function CustomersPage() {
                           {new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.items.length} itens
                         </p>
                       </div>
-                      <p className="text-sm font-black text-slate-900 dark:text-white">
+                      <p className="text-sm font-black text-brand-text-main">
                         R$ {sale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
@@ -217,12 +217,12 @@ export default function CustomersPage() {
 function ContactItem({ icon: Icon, label, value }: any) {
   return (
     <div className="p-4 flex items-center gap-4">
-      <div className="size-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+      <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
         <Icon size={16} />
       </div>
       <div>
         <p className="text-[10px] font-bold text-slate-400 uppercase">{label}</p>
-        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{value}</p>
+        <p className="text-sm font-medium text-brand-text-main">{value}</p>
       </div>
     </div>
   );

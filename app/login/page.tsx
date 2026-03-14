@@ -23,8 +23,8 @@ import Image from 'next/image';
 
 function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
   const textColor = theme === 'dark' ? 'text-white' : 'text-brand-blue';
-  const dotColor = theme === 'dark' ? '#2BB673' : '#123B6D';
-  const checkColor = '#2BB673';
+  const dotColor = theme === 'dark' ? '#00E676' : '#1E5EFF';
+  const checkColor = '#00E676';
 
   return (
     <div className="flex flex-col items-center justify-center">

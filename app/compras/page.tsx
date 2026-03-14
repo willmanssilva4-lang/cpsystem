@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   AreaChart, 
   Area, 
@@ -36,39 +37,7 @@ import {
   Cell
 } from 'recharts';
 
-// Mock data for charts
-const PRICE_HISTORY_DATA = [
-  { month: 'Set', price: 4.20 },
-  { month: 'Out', price: 4.50 },
-  { month: 'Nov', price: 4.30 },
-  { month: 'Dez', price: 4.80 },
-  { month: 'Jan', price: 5.10 },
-  { month: 'Fev', price: 4.90 },
-];
-
-const SUPPLIER_PERFORMANCE = [
-  { name: 'Ambev', rating: 95, color: '#10b981' },
-  { name: 'Nestlé', rating: 88, color: '#10b981' },
-  { name: 'Unilever', rating: 72, color: '#f59e0b' },
-  { name: 'Coca-Cola', rating: 92, color: '#10b981' },
-  { name: 'Distrib. Sol', rating: 45, color: '#ef4444' },
-];
-
-// Mock data for the purchasing dashboard
-const STATS = [
-  { label: 'Pedidos Pendentes', value: '12', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-  { label: 'Entradas (Mês)', value: 'R$ 45.200', icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
-  { label: 'Abaixo do Estoque', value: '28', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
-  { label: 'Fornecedores Ativos', value: '45', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
-];
-
-const RECENT_ORDERS = [
-  { id: 'PED-001', supplier: 'Ambev S.A.', date: '01/03/2024', total: 'R$ 12.450,00', status: 'Pendente', items: 15 },
-  { id: 'PED-002', supplier: 'Nestlé Brasil', date: '28/02/2024', total: 'R$ 8.900,00', status: 'Recebido', items: 24 },
-  { id: 'PED-003', supplier: 'Unilever', date: '27/02/2024', total: 'R$ 5.600,00', status: 'Cancelado', items: 8 },
-  { id: 'PED-004', supplier: 'Coca-Cola FEMSA', date: '26/02/2024', total: 'R$ 15.200,00', status: 'Recebido', items: 42 },
-];
-
+// Quick actions for the purchasing dashboard
 const QUICK_ACTIONS = [
   { label: 'Novo Pedido', icon: Plus, href: '/compras/novo-pedido', description: 'Criar ordem de compra manual' },
   { label: 'Importar XML', icon: FileSearch, href: '/compras/importar-xml', description: 'Entrada por nota fiscal (NF-e)' },
@@ -77,20 +46,21 @@ const QUICK_ACTIONS = [
 ];
 
 export default function PurchasingPage() {
+  const router = useRouter();
   const { hasPermission } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
-  const [stats, setStats] = useState(STATS);
-  const [recentOrders, setRecentOrders] = useState<any[]>(RECENT_ORDERS);
-  const [stockAlerts, setStockAlerts] = useState<any[]>([
-    { name: 'Arroz Agulhinha 5kg', stock: '2 un.', min: '10 un.' },
-    { name: 'Feijão Carioca 1kg', stock: '5 un.', min: '20 un.' },
-    { name: 'Óleo de Soja 900ml', stock: '0 un.', min: '12 un.' },
+  const [stats, setStats] = useState<any[]>([
+    { label: 'Pedidos Pendentes', value: '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Entradas (Mês)', value: 'R$ 0,00', icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
+    { label: 'Abaixo do Estoque', value: '0', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
+    { label: 'Fornecedores Ativos', value: '0', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
   ]);
-  const [topSuppliers, setTopSuppliers] = useState<any[]>([
-    { name: 'Ambev S.A.', orders: 12, total: 'R$ 85k' },
-    { name: 'Nestlé Brasil', orders: 8, total: 'R$ 62k' },
-    { name: 'Unilever', orders: 6, total: 'R$ 45k' },
-  ]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentQuotations, setRecentQuotations] = useState<any[]>([]);
+  const [stockAlerts, setStockAlerts] = useState<any[]>([]);
+  const [topSuppliers, setTopSuppliers] = useState<any[]>([]);
+  const [priceHistory, setPriceHistory] = useState<any[]>([]);
+  const [supplierPerformance, setSupplierPerformance] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -156,6 +126,31 @@ export default function PurchasingPage() {
           setRecentOrders([]);
         }
 
+        // Fetch recent quotations
+        const { data: quotationsData } = await supabase
+          .from('quotations')
+          .select(`
+            id,
+            title,
+            status,
+            created_at,
+            quotation_items ( id ),
+            quotation_suppliers ( id )
+          `)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (quotationsData) {
+          setRecentQuotations(quotationsData.map(q => ({
+            id: q.id.substring(0, 8).toUpperCase(),
+            title: q.title,
+            status: q.status,
+            date: new Date(q.created_at).toLocaleDateString('pt-BR'),
+            items: q.quotation_items?.length || 0,
+            suppliers: q.quotation_suppliers?.length || 0
+          })));
+        }
+
         // Fetch stock alerts
         if (allProducts && allProducts.length > 0) {
           const alerts = allProducts
@@ -201,8 +196,63 @@ export default function PurchasingPage() {
             }));
           
           setTopSuppliers(sortedSuppliers);
+
+          // Calculate supplier performance based on total amount
+          const colors = ['#00E676', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'];
+          const maxTotalRaw = Math.max(...Object.values(supplierStats).map(s => s.total));
+          const performanceData = Object.entries(supplierStats)
+            .sort((a, b) => b[1].total - a[1].total)
+            .slice(0, 5)
+            .map(([name, stats], index) => ({
+              name: name.length > 15 ? name.substring(0, 15) + '...' : name,
+              rating: maxTotalRaw > 0 ? Math.round((stats.total / maxTotalRaw) * 100) : 0,
+              color: colors[index % colors.length]
+            }));
+          setSupplierPerformance(performanceData);
         } else {
           setTopSuppliers([]);
+          setSupplierPerformance([]);
+        }
+
+        // Fetch price history (last 6 months total purchases)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
+
+        const { data: historyData } = await supabase
+          .from('purchase_orders')
+          .select('order_date, total_amount')
+          .eq('status', 'Recebido')
+          .gte('order_date', sixMonthsAgo.toISOString());
+
+        if (historyData) {
+          const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+          const historyMap: Record<string, number> = {};
+          
+          // Initialize last 6 months with 0
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const monthName = months[d.getMonth()];
+            historyMap[monthName] = 0;
+          }
+
+          historyData.forEach(order => {
+            const d = new Date(order.order_date);
+            const monthName = months[d.getMonth()];
+            if (historyMap[monthName] !== undefined) {
+              historyMap[monthName] += Number(order.total_amount);
+            }
+          });
+
+          const newPriceHistory = Object.entries(historyMap).map(([month, price]) => ({
+            month,
+            price: price / 1000 // Convert to thousands for chart
+          }));
+          setPriceHistory(newPriceHistory);
+        } else {
+          setPriceHistory([]);
         }
 
       } catch (error) {
@@ -226,7 +276,7 @@ export default function PurchasingPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-white min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -302,25 +352,25 @@ export default function PurchasingPage() {
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={PRICE_HISTORY_DATA}>
+              <AreaChart data={priceHistory}>
                 <defs>
                   <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#00E676" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#00E676" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0fdf4" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis 
                   dataKey="month" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 900, fill: '#064e3b', opacity: 0.4 }}
+                  tick={{ fontSize: 10, fontWeight: 900, fill: '#6B7C93', opacity: 0.8 }}
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 900, fill: '#064e3b', opacity: 0.4 }}
+                  tick={{ fontSize: 10, fontWeight: 900, fill: '#6B7C93', opacity: 0.8 }}
                   tickFormatter={(value) => `R$ ${value.toFixed(2).replace('.', ',')}`}
                 />
                 <Tooltip 
@@ -330,7 +380,7 @@ export default function PurchasingPage() {
                 <Area 
                   type="monotone" 
                   dataKey="price" 
-                  stroke="#10b981" 
+                  stroke="#00E676" 
                   strokeWidth={4}
                   fillOpacity={1} 
                   fill="url(#colorPrice)" 
@@ -358,15 +408,15 @@ export default function PurchasingPage() {
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={SUPPLIER_PERFORMANCE} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0fdf4" />
+              <BarChart data={supplierPerformance} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
                 <XAxis type="number" hide />
                 <YAxis 
                   dataKey="name" 
                   type="category" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 900, fill: '#064e3b', opacity: 0.8 }}
+                  tick={{ fontSize: 10, fontWeight: 900, fill: '#6B7C93', opacity: 0.8 }}
                   width={80}
                 />
                 <Tooltip 
@@ -374,7 +424,7 @@ export default function PurchasingPage() {
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 900, fontStyle: 'italic' }}
                 />
                 <Bar dataKey="rating" radius={[0, 10, 10, 0]} barSize={20}>
-                  {SUPPLIER_PERFORMANCE.map((entry, index) => (
+                  {supplierPerformance.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -458,9 +508,66 @@ export default function PurchasingPage() {
               </table>
             </div>
             <div className="p-4 border-t border-slate-50 text-center">
-              <button className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
+              <Link href="/compras/pedidos" className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
                 Ver todos os pedidos
-              </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Quotations Table */}
+        <div className="xl:col-span-2 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Cotações Ativas</h2>
+            <Link href="/compras/cotacoes" className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
+              Ver todas as cotações
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="bg-slate-50/50 border-bottom border-brand-border">
+                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Título</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Data</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Itens</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Fornecedores</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {recentQuotations.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400 italic">Nenhuma cotação ativa</td>
+                    </tr>
+                  ) : (
+                    recentQuotations.map((q) => (
+                      <tr key={q.id} className="hover:bg-slate-50/30 transition-colors group">
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-black text-brand-text-main italic">{q.title}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-brand-text-main/60">{q.date}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-brand-text-main/60">{q.items} itens</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-brand-text-main/60">{q.suppliers} fornecedores</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase italic tracking-tight ${
+                            q.status === 'Finalizada' ? 'bg-brand-border text-brand-text-main' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {q.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -486,7 +593,13 @@ export default function PurchasingPage() {
                 </div>
               ))}
             </div>
-            <button className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-xs md:text-sm hover:bg-rose-700 transition-all">
+            <button 
+              onClick={() => {
+                localStorage.setItem('replenishment_items', JSON.stringify(stockAlerts));
+                router.push('/compras/novo-pedido');
+              }}
+              className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-xs md:text-sm hover:bg-rose-700 transition-all"
+            >
               Gerar Pedido de Reposição
             </button>
           </div>

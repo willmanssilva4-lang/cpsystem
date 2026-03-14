@@ -100,6 +100,9 @@ CREATE TABLE IF NOT EXISTS sales (
     status TEXT DEFAULT 'completed' CHECK (status IN ('completed', 'reversed')),
     reversed_at TIMESTAMPTZ,
     reversed_by UUID REFERENCES system_users(id),
+    maquininha_id UUID REFERENCES maquininhas(id),
+    tax_amount DECIMAL(12,2) DEFAULT 0,
+    net_amount DECIMAL(12,2),
     date TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -131,6 +134,16 @@ CREATE TABLE IF NOT EXISTS discount_logs (
     date TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('Dinheiro', 'Pix', 'Crédito', 'Débito', 'Fiado', 'Voucher', 'Outro')),
+    tax_percentage DECIMAL(5,2) DEFAULT 0,
+    tax_fixed DECIMAL(10,2) DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 5. Financeiro e Outros
 CREATE TABLE IF NOT EXISTS expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -148,6 +161,16 @@ CREATE TABLE IF NOT EXISTS losses (
     quantity INTEGER NOT NULL,
     reason TEXT,
     date TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS maquininhas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nome TEXT NOT NULL,
+    taxa_debito DECIMAL(5,2) DEFAULT 0,
+    taxa_credito DECIMAL(5,2) DEFAULT 0,
+    taxa_credito_parcelado DECIMAL(5,2) DEFAULT 0,
+    ativo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Habilitar RLS (Opcional, mas recomendado)

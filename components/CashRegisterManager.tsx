@@ -18,10 +18,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export function CashRegisterManager({ 
   initialMode,
-  onClose 
+  onClose,
+  onSuccess
 }: { 
   initialMode?: 'sangria' | 'suprimento' | 'fechamento',
-  onClose?: () => void
+  onClose?: () => void,
+  onSuccess?: () => void
 }) {
   const { 
     activeRegister, 
@@ -148,6 +150,7 @@ export function CashRegisterManager({
     setIsAuthorized(false);
     setSupervisorCode('');
     alert('Caixa Fechado com Sucesso! O PDV será encerrado.');
+    onSuccess?.();
     onClose?.();
   };
 

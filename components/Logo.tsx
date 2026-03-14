@@ -38,8 +38,8 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
   const s = sizes[size];
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-brand-blue';
-  const dotColor = theme === 'dark' ? '#2BB673' : '#123B6D';
-  const checkColor = '#2BB673'; // brand-green
+  const dotColor = theme === 'dark' ? '#00E676' : '#1E5EFF';
+  const checkColor = '#00E676'; // brand-green
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>

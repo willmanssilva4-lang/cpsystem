@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Plus, Image as ImageIcon, HelpCircle, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download } from 'lucide-react';
+import { X, Plus, Image as ImageIcon, HelpCircle, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -17,9 +17,9 @@ interface ProductFormProps {
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=200&h=200&auto=format&fit=crop';
 
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
-  const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, categories } = useERP();
+  const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'geral' | 'movimentacoes' | 'ajustes' | 'inventario'>('geral');
+  const [activeTab, setActiveTab] = useState<'geral' | 'movimentacoes' | 'ajustes' | 'inventario' | 'lotes'>('geral');
   const [showCompositionModal, setShowCompositionModal] = useState(false);
   const [kitTab, setKitTab] = useState<'info' | 'products' | 'financial'>('info');
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>(pricingSettings.defaultMethod);
@@ -49,19 +49,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     stock: number;
     minStock: number;
     controlStock: string;
-    group: string;
+    subcategoria_id: string;
     brand: string;
     composition: CompositionItem[];
-    subgroup: string;
-    size: string;
-    category: string;
-    categoryId: string;
     profit: string | number;
     profitPercentage: string | number;
     image: string;
     barcode: string;
     status: string;
     store: string;
+    codigo_mercadologico?: string;
+    category?: string;
+    subgroup?: string;
+    departamento_id?: string;
   }>({
     sku: initialData?.sku || '',
     name: initialData?.name || '',
@@ -74,19 +74,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     stock: initialData?.stock || 0,
     minStock: initialData?.minStock || 1,
     controlStock: 'SIM',
-    group: initialData?.group || 'PADRAO',
+    subcategoria_id: initialData?.subcategoria_id || '',
     brand: initialData?.brand || 'PADRAO',
     composition: initialData?.composition || [] as CompositionItem[],
-    subgroup: initialData?.subgroup || 'PADRAO',
-    size: 'PADRAO',
-    category: initialData?.category || 'PADRAO',
-    categoryId: initialData?.categoryId || '',
     profit: initialData?.profit ?? '',
     profitPercentage: initialData?.profitPercentage ?? (pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin),
     image: initialData?.image || DEFAULT_IMAGE,
     barcode: '',
     status: 'Ativo',
-    store: 'Loja Principal'
+    store: 'Loja Principal',
+    codigo_mercadologico: initialData?.codigo_mercadologico || '',
+    category: 'PADRAO',
+    subgroup: 'PADRAO',
+    departamento_id: ''
   });
 
   const roundPrice = (price: number) => {
@@ -120,6 +120,22 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     });
     return minStock === Infinity ? 0 : minStock;
   }, [formData.composition, products]);
+
+  const [categoryId, setCategoryId] = useState('');
+  const [departamentoId, setDepartamentoId] = useState('');
+
+  useEffect(() => {
+    if (initialData?.subcategoria_id) {
+      const sub = subcategorias.find(s => s.id === initialData.subcategoria_id);
+      if (sub) {
+        setCategoryId(sub.categoria_id);
+        const cat = categorias.find(c => c.id === sub.categoria_id);
+        if (cat && cat.departamento_id) {
+          setDepartamentoId(cat.departamento_id);
+        }
+      }
+    }
+  }, [initialData, subcategorias, categorias]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -266,6 +282,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
             { id: 'movimentacoes', label: 'Movimentações', icon: History, hidden: !initialData },
             { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2, hidden: !initialData },
             { id: 'inventario', label: 'Inventário', icon: ClipboardList, hidden: !initialData },
+            { id: 'lotes', label: 'Lotes Ativos', icon: Package, hidden: !initialData },
           ].filter(t => !t.hidden).map((tab) => (
             <button
               key={tab.id}
@@ -327,9 +344,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                 </div>
               </div>
 
-              {/* Row 2: Supplier and Unit */}
+              {/* Row 2: Supplier, Brand and Unit */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div className="md:col-span-8">
+                <div className="md:col-span-5">
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor</label>
                   <select 
                     name="supplier"
@@ -342,6 +359,17 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   </select>
                 </div>
                 <div className="md:col-span-4">
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Marca:</label>
+                  <select 
+                    name="brand"
+                    value={formData.brand}
+                    onChange={handleChange}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                  >
+                    <option value="PADRAO">PADRAO</option>
+                  </select>
+                </div>
+                <div className="md:col-span-3">
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Unidade:</label>
                   <div className="flex gap-2 items-center">
                     <select 
@@ -459,8 +487,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                 </div>
               </div>
 
-              {/* Row 4: Stock and Group */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {/* Row 4: Stock */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Estoque Atual:</label>
                   <input 
@@ -500,36 +528,87 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <option value="NÃO">NÃO</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Row 5: Department, Category, Subcategory, Mercadological Code */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Grupo</label>
-                  <div className="flex gap-2">
-                    <select 
-                      name="group"
-                      value={formData.group}
-                      onChange={handleChange}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="PADRAO">PADRAO</option>
-                    </select>
-                  </div>
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Departamento:</label>
+                  <select 
+                    value={departamentoId}
+                    onChange={(e) => {
+                      setDepartamentoId(e.target.value);
+                      setCategoryId('');
+                      setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                  >
+                    <option value="">Selecione...</option>
+                    {departamentos.map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.codigo ? `${dept.codigo} - ` : ''}{dept.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
+                  <select 
+                    value={categoryId}
+                    onChange={(e) => {
+                      setCategoryId(e.target.value);
+                      setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                  >
+                    <option value="">Selecione...</option>
+                    {categorias
+                      .filter(cat => !departamentoId || cat.departamento_id === departamentoId)
+                      .map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.codigo ? `${cat.codigo} - ` : ''}{cat.nome}</option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Subcategoria:</label>
+                  <select 
+                    name="subcategoria_id"
+                    value={formData.subcategoria_id}
+                    onChange={handleChange}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                  >
+                    <option value="">Selecione...</option>
+                    {subcategorias
+                      .filter(sub => !categoryId || sub.categoria_id === categoryId)
+                      .map(sub => (
+                        <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Cód. Mercadológico:</label>
+                  <input 
+                    type="text"
+                    name="codigo_mercadologico"
+                    value={formData.codigo_mercadologico || ''}
+                    onChange={handleChange}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    placeholder={
+                      (() => {
+                        if (!formData.subcategoria_id) return 'Automático';
+                        const sub = subcategorias.find(s => s.id === formData.subcategoria_id);
+                        if (!sub) return 'Automático';
+                        const cat = categorias.find(c => c.id === sub.categoria_id);
+                        if (!cat) return sub.codigo || 'Automático';
+                        const dep = departamentos.find(d => d.id === cat.departamento_id);
+                        if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
+                        return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
+                      })()
+                    }
+                  />
                 </div>
               </div>
 
-              {/* Row 5: Brand and Composition */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Marca:</label>
-                  <div className="flex gap-2">
-                    <select 
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="PADRAO">PADRAO</option>
-                    </select>
-                  </div>
-                </div>
+              {/* Row 6: Composition */}
+              <div className="grid grid-cols-1 gap-6">
                 <div>
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Composição / Ingredientes:</label>
                   <div className="flex gap-2">
@@ -546,56 +625,6 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     >
                       <Plus size={16} />
                     </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 6: Subgroup and Size */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Subgrupo</label>
-                  <div className="flex gap-2">
-                    <select 
-                      name="subgroup"
-                      value={formData.subgroup}
-                      onChange={handleChange}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="PADRAO">PADRAO</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tamanho:</label>
-                  <input 
-                    name="size"
-                    value={formData.size}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
-                </div>
-              </div>
-
-              {/* Row 7: Category */}
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
-                  <div className="flex gap-2">
-                    <select 
-                      name="categoryId"
-                      value={formData.categoryId}
-                      onChange={(e) => {
-                        const catId = e.target.value;
-                        const catName = categories.find(c => c.id === catId)?.name || 'PADRAO';
-                        setFormData(prev => ({ ...prev, categoryId: catId, category: catName }));
-                      }}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="">Selecione uma categoria...</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               </div>
@@ -844,6 +873,20 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     )}
                   </tbody>
                 </table>
+                <div className="p-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
+                  <p className="text-sm text-slate-500 font-medium">
+                    Mostrando {stockMovements.filter(m => m.productId === initialData?.id).length} movimentações
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <ChevronLeft size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                      <div className="flex items-center gap-1">
+                        <button className="w-8 h-8 rounded-lg text-sm font-bold transition-all bg-brand-blue text-white shadow-md shadow-brand-blue/20">1</button>
+                      </div>
+                      <ChevronRight size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1082,6 +1125,85 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             <div className="flex flex-col items-center gap-4 text-slate-300">
                               <ClipboardList size={48} className="opacity-20" />
                               <p className="text-sm font-black uppercase tracking-widest">Nenhum inventário registrado</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'lotes' && (
+            <div className="space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
+                  <Package size={28} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Lotes em Estoque</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Controle de Lotes e Validades (PEPS)</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lote</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Validade</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Custo Unit.</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Qtd Inicial</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Saldo Atual</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {lotes.filter(l => l.productId === initialData?.id).length > 0 ? (
+                        lotes
+                          .filter(l => l.productId === initialData?.id)
+                          .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime())
+                          .map((lote) => (
+                            <tr key={lote.id} className="hover:bg-slate-50/50 transition-all group">
+                              <td className="px-8 py-5">
+                                <span className="text-sm font-black text-slate-700">{lote.numeroLote}</span>
+                              </td>
+                              <td className="px-8 py-5">
+                                <span className="text-sm font-bold text-slate-600">{new Date(lote.dataEntrada).toLocaleDateString('pt-BR')}</span>
+                              </td>
+                              <td className="px-8 py-5">
+                                <span className={cn(
+                                  "text-sm font-bold",
+                                  lote.validade && new Date(lote.validade) < new Date() ? "text-rose-500" : "text-slate-600"
+                                )}>
+                                  {lote.validade ? new Date(lote.validade).toLocaleDateString('pt-BR') : '-'}
+                                </span>
+                              </td>
+                              <td className="px-8 py-5">
+                                <span className="text-sm font-black text-brand-blue">R$ {lote.custoUnit.toFixed(2)}</span>
+                              </td>
+                              <td className="px-8 py-5 text-center">
+                                <span className="text-sm font-bold text-slate-500">{lote.quantidadeInicial}</span>
+                              </td>
+                              <td className="px-8 py-5 text-center">
+                                <span className={cn(
+                                  "text-sm font-black",
+                                  lote.saldoAtual > 0 ? "text-emerald-600" : "text-slate-400"
+                                )}>
+                                  {lote.saldoAtual}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-8 py-20 text-center">
+                            <div className="flex flex-col items-center gap-4 text-slate-300">
+                              <Package size={48} className="opacity-20" />
+                              <p className="text-sm font-black uppercase tracking-widest">Nenhum lote registrado para este produto</p>
                             </div>
                           </td>
                         </tr>

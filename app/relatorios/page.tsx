@@ -16,10 +16,45 @@ import {
   FileText,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Search,
   Printer,
   Share2,
-  X
+  X,
+  Package,
+  CreditCard,
+  Clock,
+  UserCheck,
+  History,
+  AlertCircle,
+  CalendarRange,
+  Activity,
+  Layers,
+  Target,
+  Zap,
+  PieChart as PieIcon,
+  LayoutGrid,
+  ShoppingCart,
+  DollarSign,
+  Percent,
+  GitBranch,
+  FileDown,
+  ArrowRightLeft,
+  ClipboardList,
+  Truck,
+  Calculator,
+  BarChartHorizontal,
+  Gauge,
+  TrendingDown,
+  MapPin,
+  Bell,
+  Settings,
+  LayoutDashboard,
+  Wallet,
+  UserCircle,
+  RefreshCw,
+  AlertTriangle,
+  FileBarChart,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -37,12 +72,13 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useERP } from '@/lib/context';
+import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
-  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses } = useERP();
-  const [activeReport, setActiveReport] = useState('vendas');
+  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods } = useERP();
+  const [activeReport, setActiveReport] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
@@ -103,14 +139,21 @@ export default function ReportsPage() {
   filteredSales.forEach(sale => {
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
-      const category = product ? product.category : 'Outros';
+      let category = 'Outros';
+      if (product && product.subcategoria_id) {
+        const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+        if (sub) {
+          const cat = categorias.find(c => c.id === sub.categoria_id);
+          if (cat) category = cat.nome;
+        }
+      }
       const itemTotal = item.price * item.quantity;
       categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
       totalRevenue += itemTotal;
     });
   });
 
-  const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#a7f3d0', '#047857', '#064e3b'];
+  const colors = ['#00E676', '#22C55E', '#10B981', '#34D399', '#6EE7B7', '#047857', '#064E3B'];
   const dynamicCategoryData = Object.entries(categoryTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value], index) => ({
@@ -145,17 +188,87 @@ export default function ReportsPage() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
 
-  const reportTypes = [
-    { id: 'vendas', label: 'Vendas & Faturamento', icon: TrendingUp },
-    { id: 'financeiro', label: 'Fluxo de Caixa', icon: BarChart3 },
-    { id: 'estoque', label: 'Estoque & Produtos', icon: ShoppingBag },
-    { id: 'clientes', label: 'Análise de Clientes', icon: Users },
+  // Dados reais por semana para o gráfico de projeção/histórico
+  const projectionData = [0, 1, 2, 3].map(i => {
+    const start = new Date(startDate);
+    start.setDate(start.getDate() + (i * 7));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    
+    const weekSales = filteredSales.filter(s => {
+      const d = new Date(s.date);
+      return d >= start && d < end;
+    }).reduce((acc, s) => acc + s.total, 0);
+    
+    const weekExpenses = filteredExpenses.filter(e => {
+      const d = new Date(e.date);
+      return d >= start && d < end;
+    }).reduce((acc, e) => acc + e.amount, 0);
+    
+    return {
+      name: `Semana ${i + 1}`,
+      inflows: weekSales,
+      outflows: weekExpenses,
+      balance: weekSales - weekExpenses
+    };
+  });
+
+  // Accounts Payable/Receivable
+  const accounts = [
+    ...filteredExpenses.slice(0, 3).map(e => ({
+      type: 'Pagar',
+      desc: e.description,
+      date: new Date(e.date).toLocaleDateString('pt-BR'),
+      value: e.amount,
+      status: 'Em Dia'
+    })),
+    ...filteredSales.slice(0, 3).map(s => ({
+      type: 'Receber',
+      desc: `Venda #${s.id.slice(0, 6)}`,
+      date: new Date(s.date).toLocaleDateString('pt-BR'),
+      value: s.total,
+      status: 'Próximo do Vencimento'
+    }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const [selectedCategory, setSelectedCategory] = useState('vendas');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const reportCategories = [
+    { id: 'vendas', label: 'Vendas', icon: TrendingUp },
+    { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
+    { id: 'estoque', label: 'Estoque', icon: Package },
+    { id: 'fiscal', label: 'Fiscal', icon: FileText },
+    { id: 'gerencial', label: 'Gerencial', icon: LayoutGrid },
   ];
+
+  const allReports = [
+    { id: 'dash_exec', category: 'gerencial', title: 'Dashboard Executivo', description: 'Visão geral de desempenho, lucro e KPIs principais.', icon: Gauge },
+    { id: 'vendas_periodo', category: 'vendas', title: 'Vendas por Período', description: 'Detalhamento de vendas brutas, líquidas e ticket médio.', icon: Calendar },
+    { id: 'vendas_produto', category: 'vendas', title: 'Vendas por Produto', description: 'Ranking de produtos mais vendidos por volume e receita.', icon: ShoppingCart },
+    { id: 'vendas_vendedor', category: 'vendas', title: 'Vendas por Vendedor', description: 'Ranking de performance e comissões da equipe.', icon: Users },
+    { id: 'vendas_categoria', category: 'vendas', title: 'Vendas por Categoria', description: 'Análise de mix de produtos e categorias mais vendidas.', icon: PieChartIcon },
+    { id: 'vendas_hora', category: 'vendas', title: 'Vendas por Hora', description: 'Identificação de horários de pico e fluxo de clientes.', icon: Clock },
+    { id: 'comissoes', category: 'vendas', title: 'Comissões de Vendedores', description: 'Cálculo detalhado de comissões por período.', icon: DollarSign },
+    { id: 'fluxo_caixa', category: 'financeiro', title: 'Fluxo de Caixa', description: 'Projeção de entradas e saídas para os próximos meses.', icon: Activity },
+    { id: 'contas_pagar', category: 'financeiro', title: 'Contas a Pagar', description: 'Relatório de compromissos financeiros e vencimentos.', icon: CreditCard },
+    { id: 'giro_estoque', category: 'estoque', title: 'Giro de Estoque', description: 'Velocidade de saída dos produtos e necessidade de reposição.', icon: RefreshCw },
+    { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
+    { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
+    { id: 'dre', category: 'gerencial', title: 'DRE Gerencial', description: 'Demonstrativo de resultados, impostos e lucro líquido.', icon: FileBarChart },
+    { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
+    { id: 'meios_pagamento', category: 'vendas', title: 'Relatório de Meios de Pagamento (Análise Profunda)', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
+  ];
+
+  const filteredReports = allReports.filter(r => 
+    r.category === selectedCategory && 
+    (r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   if (!hasPermission('Relatórios', 'view')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <BarChart3 size={48} className="text-rose-500" />
+        <BarChart3 size={48} className="text-brand-danger" />
         <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
         <p className="text-brand-text-sec">Você não tem permissão para visualizar os Relatórios.</p>
       </div>
@@ -189,146 +302,224 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-white min-h-screen relative">
+    <div className="min-h-screen bg-brand-bg">
       {/* Report Viewer Modal */}
       {selectedReportView && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-brand-text-main/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setSelectedReportView(null)}
           />
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative w-full max-w-6xl h-[90vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
+            className="relative w-full max-w-6xl h-[85vh] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 shrink-0">
-              <div>
-                <h3 className="text-xl font-black italic uppercase text-brand-text-main">{selectedReportView}</h3>
-                <p className="text-[10px] font-bold text-brand-blue/60 uppercase italic">
-                  Relatório gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}
-                </p>
-              </div>
-              <div className="flex gap-2 items-center">
-                <div className="flex items-center bg-white border border-brand-border rounded-xl p-1 shadow-sm">
-                  <div className="flex items-center gap-1 px-2 py-1">
-                    <span className="text-[9px] uppercase italic text-brand-text-main/40 font-black">De</span>
-                    <input 
-                      type="date" 
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 text-[10px] font-black italic uppercase text-brand-text-main cursor-pointer w-[90px]"
-                    />
-                  </div>
-                  <div className="w-px h-4 bg-brand-border"></div>
-                  <div className="flex items-center gap-1 px-2 py-1">
-                    <span className="text-[9px] uppercase italic text-brand-text-main/40 font-black">Até</span>
-                    <input 
-                      type="date" 
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none outline-none focus:ring-0 text-[10px] font-black italic uppercase text-brand-text-main cursor-pointer w-[90px]"
-                    />
-                  </div>
+            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-4">
+                {selectedReportView !== 'Catálogo' && (
+                  <button 
+                    onClick={() => setSelectedReportView('Catálogo')}
+                    className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all mr-2"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                )}
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <FileText size={24} />
                 </div>
-                <button 
-                  onClick={() => handleAction('Impressão do Relatório')}
-                  className="p-2.5 bg-white border border-brand-border text-brand-blue rounded-xl hover:bg-slate-50 transition-all shadow-sm"
-                >
-                  <Printer size={16} />
-                </button>
-                <button 
-                  onClick={() => handleExport()}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue text-white rounded-xl font-black uppercase italic text-[11px] shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all"
-                >
-                  <Download size={14} />
-                  PDF
-                </button>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800">
+                    {selectedReportView === 'Catálogo' ? 'Catálogo de Relatórios' : selectedReportView}
+                  </h3>
+                  <p className="text-xs font-medium text-slate-400">
+                    {selectedReportView === 'Catálogo' 
+                      ? 'Selecione um relatório para visualizar os dados detalhados' 
+                      : `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                {selectedReportView === 'Catálogo' && (
+                  <div className="relative">
+                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar relatório..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-64"
+                    />
+                  </div>
+                )}
                 <button 
                   onClick={() => setSelectedReportView(null)}
-                  className="p-2.5 bg-brand-border text-brand-blue rounded-xl hover:bg-brand-border transition-all ml-2 shadow-sm"
+                  className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-              {/* Sidebar Navigation inside Modal */}
-              <div className="w-72 border-r border-slate-50 bg-slate-50/10 flex flex-col p-6 hidden lg:flex">
-                <h4 className="text-[10px] font-black uppercase italic text-brand-text-main/40 mb-4 tracking-widest">Categorias</h4>
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
-                  {[
-                    { title: 'Vendas', reports: ['Vendas & Faturamento', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Faixa Horária', 'Vendas por Pagamento', 'Comissões', 'Auditoria de Descontos'] },
-                    { title: 'Financeiro', reports: ['Fechamento de Caixa', 'DRE Gerencial'] },
-                    { title: 'Estoque', reports: ['Giro de Estoque', 'Curva ABC de Produtos', 'Perdas e Quebras', 'Relatório de Validade'] },
-                    { title: 'Clientes', reports: ['ABC de Clientes'] },
-                  ].map((category) => (
-                    <div key={category.title} className="space-y-2">
-                      <h5 className="text-[9px] font-black uppercase italic text-brand-blue/40 tracking-widest">{category.title}</h5>
-                      {category.reports.map((report) => (
+              {selectedReportView === 'Catálogo' ? (
+                <>
+                  {/* Sidebar Categories */}
+                  <div className="w-64 border-r border-slate-100 bg-slate-50/50 p-6 space-y-2 overflow-y-auto">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 ml-2">Categorias</p>
+                    {reportCategories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                          selectedCategory === cat.id 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                            : 'text-slate-500 hover:bg-white hover:text-blue-600'
+                        }`}
+                      >
+                        <cat.icon size={18} />
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Reports Grid */}
+                  <div className="flex-1 p-10 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {filteredReports.map((report) => (
                         <button
-                          key={report}
-                          onClick={() => setSelectedReportView(report)}
-                          className={`w-full p-2.5 rounded-xl text-left text-[11px] font-bold uppercase italic transition-all ${
-                            selectedReportView === report 
-                              ? 'bg-brand-blue text-white shadow-md' 
-                              : 'text-brand-text-main/60 hover:bg-slate-50 hover:text-brand-text-main'
-                          }`}
+                          key={report.id}
+                          onClick={() => {
+                            if (report.id === 'dash_exec') {
+                              setSelectedReportView(null); // Already on dashboard
+                            } else {
+                              handleReportClick(report.title);
+                            }
+                          }}
+                          className="group p-6 rounded-3xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5 transition-all text-left flex flex-col gap-4"
                         >
-                          {report}
+                          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                            <report.icon size={24} />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{report.title}</h4>
+                            <p className="text-[11px] font-medium text-slate-400 mt-1 leading-relaxed">{report.description}</p>
+                          </div>
                         </button>
                       ))}
+                      {filteredReports.length === 0 && (
+                        <div className="col-span-full py-20 text-center">
+                          <p className="text-sm font-medium text-slate-400 italic">Nenhum relatório encontrado nesta categoria.</p>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Modal Content (Mock Data based on report type) */}
-              <div className="flex-1 overflow-y-auto p-8">
-                {selectedReportView === 'Vendas & Faturamento' && <SalesReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Fechamento de Caixa' && <CashClosingReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Auditoria de Descontos' && <DiscountAuditReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'ABC de Clientes' && <AbcCustomersReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Comissões' && <CommissionsReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Vendas por Produto' && <SalesByProductReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Vendas por Categoria' && <SalesByCategoryReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Vendas por Faixa Horária' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Curva ABC de Produtos' && <AbcProductsReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Perdas e Quebras' && <LossesReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Vendas por Pagamento' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
-                {selectedReportView === 'Relatório de Validade' && <ExpiryReport startDate={startDate} endDate={endDate} />}
-                
-                {!['Vendas & Faturamento', 'Fechamento de Caixa', 'Auditoria de Descontos', 'DRE Gerencial', 'Giro de Estoque', 'ABC de Clientes', 'Comissões', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Faixa Horária', 'Curva ABC de Produtos', 'Perdas e Quebras', 'Vendas por Pagamento', 'Relatório de Validade'].includes(selectedReportView) && (
-                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-brand-border">
-                      <FileText size={40} />
-                    </div>
-                    <h4 className="text-xl font-black text-brand-text-main uppercase italic">Relatório em Processamento</h4>
-                    <p className="text-brand-blue/60 max-w-md">Este relatório está sendo compilado com base nos dados mais recentes do sistema. Por favor, aguarde alguns instantes.</p>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-slate-50 bg-white flex justify-between items-center">
-              <p className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic">{companySettings.tradeName || 'Cp Sister PDV'} - Inteligência de Negócios</p>
-              <button 
-                onClick={() => setSelectedReportView(null)}
-                className="text-sm font-black text-brand-blue uppercase italic hover:underline"
-              >
-                Fechar Visualização
-              </button>
+                </>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-10">
+                  {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Curva ABC de Clientes' && <AbcCustomersReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Comissões de Vendedores' && <CommissionsReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Vendas por Produto' && <SalesByProductReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Vendas por Categoria' && <SalesByCategoryReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Vendas por Hora' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Meios de Pagamento (Análise Profunda)' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Fluxo de Caixa' && (
+                    <div className="space-y-6">
+                      <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
+                        <Activity size={48} className="mx-auto text-blue-600 mb-4" />
+                        <h4 className="text-xl font-bold text-slate-800">Fluxo de Caixa Detalhado</h4>
+                        <p className="text-sm text-slate-500 mt-2">Este relatório está sendo gerado com base nas projeções de vendas e despesas fixas.</p>
+                      </div>
+                      <div className="h-80 w-full bg-white rounded-3xl border border-slate-100 p-6">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={projectionData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
+                            <Tooltip />
+                            <Bar dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                  {selectedReportView === 'Contas a Pagar' && (
+                    <div className="space-y-6">
+                      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 text-center">
+                        <CreditCard size={48} className="mx-auto text-slate-400 mb-4" />
+                        <h4 className="text-xl font-bold text-slate-800">Contas a Pagar e Receber</h4>
+                        <p className="text-sm text-slate-500 mt-2">Listagem completa de títulos em aberto para os próximos 30 dias.</p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-slate-100">
+                              <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
+                              <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrição</th>
+                              <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
+                              <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor</th>
+                              <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {accounts.map((a, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-4 text-[11px] font-bold text-slate-700">{a.type}</td>
+                                <td className="py-4 text-[11px] font-bold text-slate-700">{a.desc}</td>
+                                <td className="py-4 text-[11px] font-bold text-slate-700">{a.date}</td>
+                                <td className="py-4 text-[11px] font-bold text-slate-700">R$ {a.value.toLocaleString('pt-BR')}</td>
+                                <td className="py-4 text-right">
+                                  <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${a.status === 'Em Dia' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+                                    {a.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar'].includes(selectedReportView) && (
+                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+                        <FileText size={40} />
+                      </div>
+                      <h4 className="text-xl font-bold text-slate-800">Relatório em Processamento</h4>
+                      <p className="text-slate-400 max-w-md">Este relatório está sendo compilado com base nos dados mais recentes do sistema.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
       )}
+
+      {/* Main Content: Advanced Performance Dashboard */}
+      <AdvancedPerformanceDashboard startDate={startDate} endDate={endDate} />
+
+      {/* Floating Action Button to open Report Catalog */}
+      <button 
+        onClick={() => setSelectedReportView('Catálogo')}
+        className="fixed bottom-8 right-8 p-5 bg-[#1E5EFF] text-white rounded-full shadow-2xl hover:scale-110 transition-all z-50 group"
+      >
+        <LayoutGrid size={28} />
+        <span className="absolute right-full mr-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
+          Catálogo de Relatórios
+        </span>
+      </button>
 
       {/* Toast Notification */}
       {notification && (
@@ -336,7 +527,7 @@ export default function ReportsPage() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className={`fixed top-8 right-8 z-50 px-6 py-4 rounded-2xl shadow-2xl font-black uppercase italic text-sm flex items-center gap-3 border ${
+          className={`fixed top-8 right-8 z-[100] px-6 py-4 rounded-2xl shadow-2xl font-black uppercase italic text-sm flex items-center gap-3 border ${
             notification.type === 'success' 
               ? 'bg-brand-blue text-white border-brand-blue-hover' 
               : 'bg-brand-text-main text-brand-text-sec border-brand-text-main'
@@ -346,349 +537,6 @@ export default function ReportsPage() {
           {notification.message}
         </motion.div>
       )}
-
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Relatórios & BI</h2>
-          <p className="text-brand-blue/60 font-medium">Inteligência de dados para decisões estratégicas.</p>
-        </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold text-sm">
-            <Calendar size={16} className="text-brand-blue-hover" />
-            <span>Fevereiro 2026</span>
-          </div>
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-2xl font-bold text-sm transition-all ${
-              showFilters 
-                ? 'bg-brand-text-main text-white border-brand-text-main' 
-                : 'bg-slate-50 text-brand-text-main border-brand-border hover:bg-brand-border'
-            }`}
-          >
-            <Filter size={16} className={showFilters ? 'text-brand-text-sec' : 'text-brand-blue-hover'} />
-            <span>Filtros</span>
-          </button>
-          <button 
-            onClick={handleExport}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-2 bg-brand-blue text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all disabled:opacity-50 disabled:cursor-not-wait"
-          >
-            {isLoading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <Download size={16} />
-            )}
-            {isLoading ? 'Processando...' : 'Exportar'}
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Panel (Animated) */}
-      {showFilters && (
-        <motion.div 
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          className="bg-slate-50/50 border border-brand-border rounded-[2rem] p-6 grid grid-cols-1 md:grid-cols-4 gap-6"
-        >
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase italic text-brand-text-main/40 tracking-widest">Período</label>
-            <select className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-bold text-brand-text-main focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20">
-              <option>Hoje</option>
-              <option>Últimos 7 dias</option>
-              <option selected>Este Mês</option>
-              <option>Personalizado</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase italic text-brand-text-main/40 tracking-widest">Categoria</label>
-            <select className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-bold text-brand-text-main focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20">
-              <option>Todas</option>
-              <option>Eletrônicos</option>
-              <option>Acessórios</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase italic text-brand-text-main/40 tracking-widest">Unidade</label>
-            <select className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-bold text-brand-text-main focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20">
-              <option>Matriz</option>
-              <option>Filial 01</option>
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button 
-              onClick={() => {
-                showToast('Filtros aplicados com sucesso!');
-                setShowFilters(false);
-              }}
-              className="w-full py-2 bg-brand-blue text-white rounded-xl font-black uppercase italic text-xs hover:bg-brand-text-main transition-all"
-            >
-              Aplicar Filtros
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Report Navigation */}
-      <div className="flex overflow-x-auto pb-2 gap-4 no-scrollbar">
-        {reportTypes.map((report) => (
-          <button
-            key={report.id}
-            onClick={() => {
-              setActiveReport(report.id);
-              showToast(`Visualizando: ${report.label}`, 'info');
-            }}
-            className={`flex items-center gap-3 px-6 py-4 rounded-3xl transition-all whitespace-nowrap border ${
-              activeReport === report.id 
-                ? "bg-brand-text-main text-white border-brand-text-main shadow-xl shadow-brand-text-main/20" 
-                : "bg-white text-brand-text-main/60 border-brand-border hover:border-brand-border"
-            }`}
-          >
-            <report.icon size={20} className={activeReport === report.id ? "text-brand-text-sec" : "text-brand-border"} />
-            <span className="font-black uppercase italic tracking-tight text-sm">{report.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: Charts & Detailed Stats */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          {/* Main Chart Card */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-xl font-black italic uppercase text-brand-text-main">
-                  {activeReport === 'vendas' ? 'Desempenho de Vendas' : 
-                   activeReport === 'financeiro' ? 'Fluxo de Caixa' :
-                   activeReport === 'estoque' ? 'Movimentação de Estoque' : 'Atividade de Clientes'}
-                </h3>
-                <p className="text-xs font-medium text-brand-blue/60">
-                  {activeReport === 'vendas' ? 'Comparativo de faturamento e lucro bruto.' : 
-                   activeReport === 'financeiro' ? 'Entradas e saídas financeiras do período.' :
-                   activeReport === 'estoque' ? 'Entradas e saídas de produtos por dia.' : 'Novos clientes vs. Clientes recorrentes.'}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-brand-blue-hover"></div>
-                  <span className="text-[10px] font-black uppercase italic text-brand-text-main/40">
-                    {activeReport === 'vendas' ? 'Vendas' : 
-                     activeReport === 'financeiro' ? 'Entradas' :
-                     activeReport === 'estoque' ? 'Entradas' : 'Novos'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-brand-border"></div>
-                  <span className="text-[10px] font-black uppercase italic text-brand-text-main/40">
-                    {activeReport === 'vendas' ? 'Lucro' : 
-                     activeReport === 'financeiro' ? 'Saídas' :
-                     activeReport === 'estoque' ? 'Saídas' : 'Recorrentes'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={
-                  activeReport === 'vendas' ? dynamicSalesData :
-                  activeReport === 'financeiro' ? dynamicSalesData :
-                  activeReport === 'estoque' ? dynamicSalesData : dynamicSalesData
-                }>
-                  <defs>
-                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="100%">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0fdf4" />
-                  <XAxis 
-                    dataKey="date" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fontSize: 11, fill: '#059669', fontWeight: 700}} 
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fontSize: 11, fill: '#059669', fontWeight: 700}} 
-                  />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '24px', border: '1px solid #dcfce7', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.05)', backgroundColor: '#fff' }}
-                  />
-                  <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorSales)" />
-                  <Area type="monotone" dataKey="profit" stroke="#34d399" strokeWidth={2} strokeDasharray="5 5" fill="none" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Secondary Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
-              <h4 className="text-lg font-black italic uppercase text-brand-text-main mb-6">
-                {activeReport === 'vendas' ? 'Vendas por Categoria' : 
-                 activeReport === 'financeiro' ? 'Distribuição de Custos' :
-                 activeReport === 'estoque' ? 'Status de Estoque' : 'Segmentação de Clientes'}
-              </h4>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={
-                        activeReport === 'vendas' ? dynamicCategoryData :
-                        activeReport === 'financeiro' ? dynamicCategoryData :
-                        activeReport === 'estoque' ? dynamicCategoryData : dynamicCategoryData
-                      }
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={8}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {(activeReport === 'vendas' ? dynamicCategoryData :
-                        activeReport === 'financeiro' ? dynamicCategoryData :
-                        activeReport === 'estoque' ? dynamicCategoryData : dynamicCategoryData).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {(activeReport === 'vendas' ? dynamicCategoryData :
-                  activeReport === 'financeiro' ? dynamicCategoryData :
-                  activeReport === 'estoque' ? dynamicCategoryData : dynamicCategoryData).map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-[10px] font-black text-brand-text-main/60 uppercase italic truncate">{item.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm">
-              <h4 className="text-lg font-black italic uppercase text-brand-text-main mb-6">
-                {activeReport === 'vendas' ? 'Top Produtos' : 
-                 activeReport === 'financeiro' ? 'Maiores Despesas' :
-                 activeReport === 'estoque' ? 'Produtos Sem Giro' : 'Clientes VIP'}
-              </h4>
-              <div className="space-y-4">
-                {(activeReport === 'vendas' ? dynamicTopProducts :
-                  activeReport === 'financeiro' ? dynamicTopProducts :
-                  activeReport === 'estoque' ? dynamicTopProducts : dynamicTopProducts).map((product) => (
-                  <div key={product.name} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-2xl transition-colors group">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-brand-text-main truncate uppercase italic">{product.name}</p>
-                      <p className="text-[10px] font-black text-brand-blue/40 uppercase tracking-widest">{product.sales}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-brand-blue">{product.revenue}</p>
-                      <p className={`text-[10px] font-black uppercase italic ${product.growth.startsWith('+') ? 'text-brand-blue-hover' : product.growth === '0%' ? 'text-brand-text-sec' : 'text-rose-500'}`}>
-                        {product.growth}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Quick Metrics & Report Center */}
-        <div className="space-y-8">
-          
-          {/* Key Metrics */}
-          <div className="bg-brand-text-main p-8 rounded-[2.5rem] text-white shadow-xl shadow-brand-text-main/20">
-            <h4 className="text-lg font-black italic uppercase text-brand-text-sec mb-6">Métricas de Conversão</h4>
-            <div className="space-y-6">
-              <MetricRow label="Ticket Médio" value="R$ 1.420" trend="+5.2%" positive />
-              <MetricRow label="Taxa de Retorno" value="68%" trend="+2.1%" positive />
-              <MetricRow label="CAC Médio" value="R$ 42,50" trend="-R$ 3,10" positive />
-              <MetricRow label="Churn Rate" value="1.8%" trend="+0.2%" positive={false} />
-            </div>
-          </div>
-
-          {/* Report Center */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-brand-border shadow-sm flex flex-col min-h-[600px]">
-            <div className="flex items-center justify-between mb-6 shrink-0">
-              <h4 className="text-lg font-black italic uppercase text-brand-text-main">Central de Relatórios</h4>
-              <div className="flex gap-1 p-1 bg-slate-50 rounded-xl">
-                {['vendas', 'estoque', 'financeiro'].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveCentralTab(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase italic transition-all ${
-                      activeCentralTab === tab 
-                        ? 'bg-brand-blue text-white shadow-sm' 
-                        : 'text-brand-blue/40 hover:text-brand-blue'
-                    }`}
-                  >
-                    {tab === 'vendas' ? 'Vendas' : tab === 'estoque' ? 'Estoque' : 'Fin.'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1 overflow-y-auto pr-2 custom-scrollbar flex-1">
-              {activeCentralTab === 'vendas' && (
-                <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
-                  <ReportLink title="Vendas & Faturamento" description="Visão geral completa de vendas." onClick={() => handleReportClick('Vendas & Faturamento')} />
-                  <ReportLink title="Auditoria de Descontos" description="Log de segurança e autorizações." onClick={() => handleReportClick('Auditoria de Descontos')} />
-                  <ReportLink title="Vendas por Produto" description="Ranking de itens mais vendidos." onClick={() => handleReportClick('Vendas por Produto')} />
-                  <ReportLink title="Vendas por Categoria" description="Desempenho por grupo de produtos." onClick={() => handleReportClick('Vendas por Categoria')} />
-                  <ReportLink title="Vendas por Faixa Horária" description="Picos de movimento na loja." onClick={() => handleReportClick('Vendas por Faixa Horária')} />
-                  <ReportLink title="Vendas por Pagamento" description="Pix, Cartão, Dinheiro e Convênio." onClick={() => handleReportClick('Vendas por Pagamento')} />
-                  <ReportLink title="Comissões" description="Cálculo de vendas por vendedor." onClick={() => handleReportClick('Comissões')} />
-                </motion.div>
-              )}
-              
-              {activeCentralTab === 'estoque' && (
-                <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
-                  <ReportLink title="Giro de Estoque" description="Análise de rotatividade de produtos." onClick={() => handleReportClick('Giro de Estoque')} />
-                  <ReportLink title="Curva ABC de Produtos" description="Itens mais importantes do estoque." onClick={() => handleReportClick('Curva ABC de Produtos')} />
-                  <ReportLink title="Perdas e Quebras" description="Relatório de produtos avariados/vencidos." onClick={() => handleReportClick('Perdas e Quebras')} />
-                  <ReportLink title="Relatório de Validade" description="Produtos próximos ao vencimento." onClick={() => handleReportClick('Relatório de Validade')} />
-                </motion.div>
-              )}
-
-              {activeCentralTab === 'financeiro' && (
-                <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
-                  <ReportLink title="Fechamento de Caixa" description="Resumo diário de entradas e saídas." onClick={() => handleReportClick('Fechamento de Caixa')} />
-                  <ReportLink title="DRE Gerencial" description="Demonstrativo de resultados simplificado." onClick={() => handleReportClick('DRE Gerencial')} />
-                  <ReportLink title="ABC de Clientes" description="Classificação por volume de compra." onClick={() => handleReportClick('ABC de Clientes')} />
-                </motion.div>
-              )}
-            </div>
-            
-            <button 
-              onClick={() => handleAction('Carregando todos os relatórios')}
-              className="w-full mt-6 py-4 bg-slate-50 text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-brand-border transition-all flex items-center justify-center gap-2 shrink-0"
-            >
-              <FileText size={14} />
-              Ver Todos os Relatórios
-            </button>
-          </div>
-
-          {/* Export Options */}
-          <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-brand-border">
-            <h4 className="text-xs font-black italic uppercase text-brand-text-main/40 mb-4 tracking-widest">Ações Rápidas</h4>
-            <div className="grid grid-cols-3 gap-2">
-              <QuickActionButton icon={Printer} label="Imprimir" onClick={() => handleAction('Impressão')} />
-              <QuickActionButton icon={Share2} label="Compartilhar" onClick={() => handleAction('Compartilhamento')} />
-              <QuickActionButton icon={Search} label="Auditoria" onClick={() => handleAction('Auditoria')} />
-            </div>
-          </div>
-
-        </div>
-      </div>
     </div>
   );
 }
@@ -700,11 +548,28 @@ function MetricRow({ label, value, trend, positive }: { label: string, value: st
         <p className="text-[10px] font-black uppercase italic text-brand-text-sec/60 tracking-widest">{label}</p>
         <h5 className="text-xl font-black">{value}</h5>
       </div>
-      <div className={`flex items-center gap-1 text-[10px] font-black uppercase italic px-2 py-1 rounded-full ${positive ? 'bg-brand-blue-hover/20 text-brand-text-sec' : 'bg-rose-500/20 text-rose-400'}`}>
+      <div className={`flex items-center gap-1 text-[10px] font-black uppercase italic px-2 py-1 rounded-full ${positive ? 'bg-brand-blue-hover/20 text-brand-text-sec' : 'bg-brand-danger/20 text-brand-danger'}`}>
         {positive ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
         {trend}
       </div>
     </div>
+  );
+}
+
+function ReportCard({ title, description, icon: Icon, onClick }: { title: string, description: string, icon: any, onClick?: () => void }) {
+  return (
+    <button 
+      onClick={onClick}
+      className="flex flex-col p-5 rounded-[2rem] bg-slate-50 border border-transparent hover:border-brand-blue/20 hover:bg-white hover:shadow-xl hover:shadow-brand-blue/5 transition-all text-left group"
+    >
+      <div className="size-12 rounded-2xl bg-white flex items-center justify-center text-brand-blue mb-4 shadow-sm group-hover:bg-brand-blue group-hover:text-white transition-all">
+        <Icon size={24} />
+      </div>
+      <div className="space-y-1">
+        <h5 className="text-xs font-black text-brand-text-main uppercase italic group-hover:text-brand-blue transition-colors leading-tight">{title}</h5>
+        <p className="text-[9px] font-medium text-brand-blue/60 line-clamp-2 leading-relaxed">{description}</p>
+      </div>
+    </button>
   );
 }
 
@@ -735,7 +600,500 @@ function QuickActionButton({ icon: Icon, label, onClick }: { icon: any, label: s
   );
 }
 
-// Mock Report Components
+// --- Advanced Performance Dashboard Component ---
+function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: initialEndDate }: { startDate: string, endDate: string }) {
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods } = useERP();
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
+  
+  // Filter data based on date range
+  const filteredSales = sales.filter(s => {
+    const d = s.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  const filteredExpenses = expenses.filter(e => {
+    const d = e.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  // Calculate Metrics
+  const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
+  
+  let totalCost = 0;
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const cost = product ? product.costPrice : item.price * 0.7; // Fallback to 30% margin
+      totalCost += cost * item.quantity;
+    });
+  });
+
+  const totalProfit = totalSales - totalCost;
+  const ticketMedio = totalSales / (filteredSales.length || 1);
+  const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+
+  // Category Data Calculation
+  const categoryTotals: Record<string, number> = {};
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      let catName = 'Outros';
+      if (product && product.subcategoria_id) {
+        const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+        if (sub) {
+          const cat = categorias.find(c => c.id === sub.categoria_id);
+          if (cat) catName = cat.nome;
+        }
+      }
+      categoryTotals[catName] = (categoryTotals[catName] || 0) + (item.price * item.quantity);
+    });
+  });
+
+  const colors = ['#1E5EFF', '#00E676', '#2F7BFF', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316', '#6B7C93'];
+  const categoryData = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name, value], index) => ({
+      name,
+      value,
+      color: colors[index % colors.length]
+    }));
+
+  // Payment Data Calculation
+  const paymentTotals: Record<string, number> = {};
+  filteredSales.forEach(sale => {
+    const methodName = sale.paymentMethod || 'Outros';
+    paymentTotals[methodName] = (paymentTotals[methodName] || 0) + sale.total;
+  });
+
+  const methodColors: Record<string, string> = {
+    'Dinheiro': '#10B981',
+    'Crédito': '#6366F1',
+    'Débito': '#0EA5E9',
+    'Pix': '#F43F5E',
+    'Fiado': '#8B5CF6',
+    'Voucher': '#F59E0B',
+    'Outros': '#64748B'
+  };
+
+  const paymentData = Object.entries(paymentTotals)
+    .map(([name, value]) => ({
+      name,
+      value: totalSales > 0 ? Number(((value / totalSales) * 100).toFixed(1)) : 0,
+      color: methodColors[name] || '#6B7C93'
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Sellers Ranking
+  const sellerStats: Record<string, { total: number, volume: number, margin: number }> = {};
+  filteredSales.forEach(sale => {
+    const sellerName = sale.operatorId || 'Sistema';
+    if (!sellerStats[sellerName]) {
+      sellerStats[sellerName] = { total: 0, volume: 0, margin: 0 };
+    }
+    sellerStats[sellerName].total += sale.total;
+    sellerStats[sellerName].volume += 1;
+    
+    let saleCost = 0;
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      saleCost += (product ? product.costPrice : item.price * 0.7) * item.quantity;
+    });
+    const saleMargin = sale.total > 0 ? ((sale.total - saleCost) / sale.total) * 100 : 0;
+    sellerStats[sellerName].margin = (sellerStats[sellerName].margin + saleMargin) / 2;
+  });
+
+  const sellers = Object.entries(sellerStats)
+    .map(([name, stats], index) => ({
+      id: index + 1,
+      name,
+      total: stats.total,
+      volume: stats.volume,
+      margin: Number(stats.margin.toFixed(1)),
+      trend: stats.total > 5000 ? 'up' : 'down'
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  // Dados reais por semana para o gráfico de projeção/histórico
+  const projectionData = [0, 1, 2, 3].map(i => {
+    const start = new Date(startDate);
+    start.setDate(start.getDate() + (i * 7));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    
+    const weekSales = filteredSales.filter(s => {
+      const d = new Date(s.date);
+      return d >= start && d < end;
+    }).reduce((acc, s) => acc + s.total, 0);
+    
+    const weekExpenses = filteredExpenses.filter(e => {
+      const d = new Date(e.date);
+      return d >= start && d < end;
+    }).reduce((acc, e) => acc + e.amount, 0);
+    
+    return {
+      name: `Semana ${i + 1}`,
+      inflows: weekSales,
+      outflows: weekExpenses,
+      balance: weekSales - weekExpenses
+    };
+  });
+
+  // Accounts Payable/Receivable
+  const accounts = [
+    ...filteredExpenses.slice(0, 3).map(e => ({
+      type: 'Pagar',
+      desc: e.description,
+      date: new Date(e.date).toLocaleDateString('pt-BR'),
+      value: e.amount,
+      status: 'Em Dia'
+    })),
+    ...filteredSales.slice(0, 3).map(s => ({
+      type: 'Receber',
+      desc: `Venda #${s.id.slice(0, 6)}`,
+      date: new Date(s.date).toLocaleDateString('pt-BR'),
+      value: s.total,
+      status: 'Próximo do Vencimento'
+    }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return (
+    <div className="space-y-6 bg-[#f8fafc] -m-8 p-8 min-h-full font-sans">
+      <div className="flex flex-col gap-6">
+        {/* Header with Filters */}
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold tracking-tight text-[#1e293b]">Relatórios Avançados de Desempenho</h2>
+            <div className="flex gap-3">
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                <Download size={14} className="text-blue-600" />
+                Exportar Excel
+              </button>
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                <Printer size={14} className="text-blue-600" />
+                Imprimir Dashboard
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-end gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Tipo de Relatório</label>
+              <div className="relative">
+                <select className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none">
+                  <option>Relatório de Vendas</option>
+                  <option>Relatório Financeiro</option>
+                  <option>Relatório de Estoque</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+            
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Data Início</label>
+              <div className="relative">
+                <input 
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Data Fim</label>
+              <div className="relative">
+                <input 
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            </div>
+ 
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Loja</label>
+              <div className="relative">
+                <select className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none">
+                  <option>Loja Central</option>
+                  <option>Filial Norte</option>
+                  <option>E-commerce</option>
+                </select>
+                <MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Metrics Row - 3 Cards like the image */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px]">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lucro Líquido Acumulado</p>
+            <div className="mt-2">
+              <h3 className="text-3xl font-bold text-[#1e293b]">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+              <div className="flex items-center gap-1 text-brand-green text-[11px] font-bold mt-2">
+                <TrendingUp size={14} />
+                <span>Tendência Alta</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px]">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ticket Médio por Venda</p>
+            <div className="mt-2">
+              <h3 className="text-3xl font-bold text-[#1e293b]">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+              <div className="flex items-center gap-1 text-brand-green text-[11px] font-bold mt-2">
+                <TrendingUp size={14} />
+                <span>Tendência Alta</span>
+              </div>
+            </div>
+          </div>
+ 
+          <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px]">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Margem de Lucro Bruta</p>
+            <div className="mt-2">
+              <h3 className="text-3xl font-bold text-[#1e293b]">{profitMargin.toFixed(1)}%</h3>
+              <div className="flex items-center gap-1 text-brand-danger text-[11px] font-bold mt-2">
+                <TrendingDown size={14} />
+                <span>Tendência</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts & Tables Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Vendas por Categoria - Left Column */}
+          <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h4 className="text-sm font-bold text-[#1e293b]">Vendas por Categoria e Subcategoria (Mês)</h4>
+              <PieIcon size={16} className="text-slate-300" />
+            </div>
+            <div className="flex-1 flex items-center justify-between gap-4">
+              <div className="h-64 w-1/2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex-1 space-y-2.5">
+                {categoryData.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                      <span className="text-[11px] font-bold text-slate-500 truncate max-w-[120px]">{item.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking de Vendedores - Right Column */}
+          <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Vendedores por Desempenho</h4>
+              <Users size={16} className="text-slate-300" />
+            </div>
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Vendas (R$)</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Vendas</th>
+                    <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem Média (%)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {sellers.map((s, idx) => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
+                      <td className="py-4 text-[11px] font-bold text-slate-700">{s.name}</td>
+                      <td className="py-4 text-[11px] font-bold text-slate-700">
+                        R$ {s.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <TrendingUp size={12} className="inline ml-1 text-brand-green" />
+                      </td>
+                      <td className="py-4 text-[11px] font-bold text-slate-700">{s.volume}</td>
+                      <td className="py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="text-[11px] font-bold text-slate-700">{s.margin}%</span>
+                          {s.margin > 25 ? <TrendingUp size={12} className="text-brand-green" /> : <TrendingDown size={12} className="text-brand-danger" />}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Projeção de Fluxo de Caixa - Full Width */}
+          <div className="lg:col-span-12 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h4 className="text-sm font-bold text-[#1e293b]">Projeção de Fluxo de Caixa Próximas 4 Semanas</h4>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#00E676]"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Entradas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#EF4444]"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saídas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-[#1E5EFF]"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Projeção</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full border-2 border-[#1E5EFF] bg-white"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo de Caixa</span>
+                </div>
+              </div>
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
+                  <Tooltip 
+                    cursor={{fill: '#F3F4F6'}} 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
+                  />
+                  <Bar name="Entradas" dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
+                  <Bar name="Saídas" dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={40} />
+                  <Line name="Saldo" type="monotone" dataKey="balance" stroke="#6366F1" strokeWidth={3} dot={{ r: 5, fill: '#fff', stroke: '#6366F1', strokeWidth: 2 }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Meios de Pagamento - Bottom Left */}
+          <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h4 className="text-sm font-bold text-[#1e293b]">Relatório de Meios de Pagamento (Análise Profunda)</h4>
+              <CreditCard size={16} className="text-slate-300" />
+            </div>
+            <div className="flex-1 flex items-center justify-between gap-6">
+              <div className="h-56 w-1/2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={paymentData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={0}
+                      outerRadius={85}
+                      dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
+                    >
+                      {paymentData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex-1 space-y-4">
+                {paymentData.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                      <span className="text-[11px] font-bold text-slate-500">{item.name}</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-center gap-6 mt-6">
+              {paymentData.map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">{item.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Contas a Pagar e Receber - Bottom Right */}
+          <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h4 className="text-sm font-bold text-[#1e293b]">Análise de Contas a Pagar e Receber (Próximos 30 Dias)</h4>
+              <Calendar size={16} className="text-slate-300" />
+            </div>
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrição/Fornecedor/Cliente</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor (R$)</th>
+                    <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {accounts.length > 0 ? accounts.map((a, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 text-[11px] font-bold text-slate-700">{a.type}</td>
+                      <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[180px]">{a.desc}</td>
+                      <td className="py-4 text-[11px] font-bold text-slate-700">{a.date}</td>
+                      <td className="py-4 text-[11px] font-bold text-slate-700">R$ {a.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 text-right">
+                        <span className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
+                          a.status === 'Em Dia' ? 'bg-brand-green text-white' : 'bg-brand-warning text-white'
+                        }`}>
+                          {a.status}
+                        </span>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-xs font-medium text-slate-400 italic">Nenhum lançamento encontrado para este período</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componentes de Relatórios Reais
 function CashClosingReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { cashRegisters, cashClosings } = useERP();
   
@@ -798,7 +1156,7 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
                   {formatCurrency(r.openingBalance)}
                 </td>
                 <td className={`py-4 text-right text-sm font-black ${
-                  !closing ? 'text-slate-400' : closing.totalDifference === 0 ? 'text-emerald-500' : 'text-rose-500'
+                  !closing ? 'text-slate-400' : closing.totalDifference === 0 ? 'text-brand-green' : 'text-brand-danger'
                 }`}>
                   {closing ? formatCurrency(closing.totalDifference) : '---'}
                 </td>
@@ -887,7 +1245,7 @@ function DreRow({ label, value, bold, negative, highlight, final }: any) {
   return (
     <div className={`flex justify-between items-center p-3 rounded-xl ${highlight ? 'bg-slate-50' : ''} ${final ? 'bg-brand-text-main text-white' : ''}`}>
       <span className={`text-sm uppercase italic tracking-tight ${bold || highlight || final ? 'font-black' : 'font-medium text-brand-text-main/60'}`}>{label}</span>
-      <span className={`text-sm font-black ${negative ? 'text-rose-500' : final ? 'text-brand-text-sec' : 'text-brand-text-main'}`}>{value}</span>
+      <span className={`text-sm font-black ${negative ? 'text-brand-danger' : final ? 'text-brand-text-sec' : 'text-brand-text-main'}`}>{value}</span>
     </div>
   );
 }
@@ -1081,7 +1439,8 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
       initials = nameParts[0].substring(0, 2).toUpperCase();
     }
 
-    const commission = total * 0.03; // Mock flat 3%
+    const commissionRate = 0.03; // Taxa padrão de 3% sobre o total de vendas
+    const commission = total * commissionRate;
     return {
       userId,
       sellerName,
@@ -1263,11 +1622,11 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0fdf4" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#059669', fontWeight: 700}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#059669', fontWeight: 700}} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
               <Tooltip formatter={(value: any) => formatCurrency(Number(value) || 0)} />
-              <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={4} fill="#10b981" fillOpacity={0.1} />
+              <Area name="Vendas" type="monotone" dataKey="total" stroke="#00E676" strokeWidth={4} fill="#00E676" fillOpacity={0.1} />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
@@ -1295,7 +1654,7 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
 }
 
 function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products } = useERP();
+  const { sales, products, subcategorias, categorias } = useERP();
   
   const filteredSales = sales.filter(s => {
     const d = s.date.split('T')[0];
@@ -1308,14 +1667,21 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
   filteredSales.forEach(sale => {
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
-      const category = product ? product.category : 'Outros';
+      let category = 'Outros';
+      if (product && product.subcategoria_id) {
+        const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+        if (sub) {
+          const cat = categorias.find(c => c.id === sub.categoria_id);
+          if (cat) category = cat.nome;
+        }
+      }
       const itemTotal = item.price * item.quantity;
       categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
       totalRevenue += itemTotal;
     });
   });
 
-  const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#a7f3d0', '#047857', '#064e3b'];
+  const colors = ['#00E676', '#22C55E', '#10B981', '#34D399', '#6EE7B7', '#047857', '#064E3B'];
   const data = Object.entries(categoryTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value], index) => ({
@@ -1406,11 +1772,11 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0fdf4" />
-              <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#059669', fontWeight: 700}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#059669', fontWeight: 700}} />
-              <Tooltip cursor={{fill: '#f0fdf4'}} contentStyle={{ borderRadius: '24px', border: '1px solid #dcfce7' }} />
-              <Bar dataKey="sales" fill="#10b981" radius={[10, 10, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+              <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
+              <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '24px', border: '1px solid #E5E7EB' }} />
+              <Bar name="Vendas" dataKey="sales" fill="#00E676" radius={[10, 10, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -1699,7 +2065,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
     paymentTotals[sale.paymentMethod] = (paymentTotals[sale.paymentMethod] || 0) + sale.total;
   });
 
-  const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7'];
+  const colors = ['#10B981', '#6366F1', '#0EA5E9', '#F43F5E', '#8B5CF6', '#F59E0B', '#64748B'];
   const data = Object.entries(paymentTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value], index) => ({
@@ -1752,7 +2118,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
   );
 }
 
-function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+function CriticalStockReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { products } = useERP();
   
   const lowStockProducts = products
@@ -1763,7 +2129,7 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
     <div className="space-y-6">
       <div className="p-4 rounded-2xl bg-orange-50 border border-orange-100 flex items-center gap-4">
         <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-          <Calendar size={20} />
+          <AlertTriangle size={20} />
         </div>
         <div>
           <h5 className="text-sm font-black text-orange-950 uppercase italic">Atenção: {lowStockProducts.length} Itens com Estoque Crítico</h5>
@@ -1788,6 +2154,106 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
           )) : (
             <tr>
               <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhum produto com estoque crítico.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { lotes, products } = useERP();
+  
+  const activeLotes = lotes
+    .filter(l => l.saldoAtual > 0 && l.validade)
+    .map(l => {
+      const product = products.find(p => p.id === l.productId);
+      const daysToExpiry = l.validade ? Math.ceil((new Date(l.validade).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 999;
+      
+      return {
+        ...l,
+        productName: product ? product.name : 'Produto Desconhecido',
+        daysToExpiry
+      };
+    })
+    .sort((a, b) => a.daysToExpiry - b.daysToExpiry);
+
+  const expiredCount = activeLotes.filter(l => l.daysToExpiry < 0).length;
+  const soonCount = activeLotes.filter(l => l.daysToExpiry >= 0 && l.daysToExpiry <= 30).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+            <AlertCircle size={20} />
+          </div>
+          <div>
+            <h5 className="text-sm font-black text-rose-950 uppercase italic">{expiredCount} Lotes Vencidos</h5>
+            <p className="text-[10px] font-medium text-rose-600/60 uppercase">Ação imediata recomendada.</p>
+          </div>
+        </div>
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+            <Clock size={20} />
+          </div>
+          <div>
+            <h5 className="text-sm font-black text-amber-950 uppercase italic">{soonCount} Lotes Vencendo em Breve</h5>
+            <p className="text-[10px] font-medium text-amber-600/60 uppercase">Vencimento nos próximos 30 dias.</p>
+          </div>
+        </div>
+      </div>
+
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-slate-50">
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto / Lote</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vencimento</th>
+            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Status</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Saldo</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {activeLotes.length > 0 ? activeLotes.map((lote, i) => (
+            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+              <td className="py-4">
+                <div className="flex flex-col">
+                  <span className="text-sm font-black text-brand-text-main uppercase italic">{lote.productName}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lote: {lote.numeroLote}</span>
+                </div>
+              </td>
+              <td className="py-4">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-brand-text-main">
+                    {lote.validade ? new Date(lote.validade).toLocaleDateString('pt-BR') : '-'}
+                  </span>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase italic",
+                    lote.daysToExpiry < 0 ? "text-brand-danger" : 
+                    lote.daysToExpiry <= 30 ? "text-brand-warning" : "text-brand-green"
+                  )}>
+                    {lote.daysToExpiry < 0 ? `Vencido há ${Math.abs(lote.daysToExpiry)} dias` : 
+                     lote.daysToExpiry === 0 ? 'Vence hoje' :
+                     `Vence em ${lote.daysToExpiry} dias`}
+                  </span>
+                </div>
+              </td>
+              <td className="py-4 text-center">
+                <span className={cn(
+                  "px-2 py-1 rounded-lg text-[9px] font-black uppercase italic",
+                  lote.daysToExpiry < 0 ? "bg-rose-100 text-rose-600" : 
+                  lote.daysToExpiry <= 30 ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+                )}>
+                  {lote.daysToExpiry < 0 ? 'Vencido' : 
+                   lote.daysToExpiry <= 30 ? 'Crítico' : 'Regular'}
+                </span>
+              </td>
+              <td className="py-4 text-right text-sm font-black text-brand-text-main">{lote.saldoAtual} un</td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhum lote com validade registrada em estoque.</td>
             </tr>
           )}
         </tbody>

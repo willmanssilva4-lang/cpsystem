@@ -2,23 +2,23 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, CreditCard, Percent, DollarSign } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, CreditCard, Percent, Smartphone } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
-import { PaymentMethod } from '@/lib/types';
+import { Maquininha } from '@/lib/types';
 
-export default function PagamentosPage() {
-  const { paymentMethods, addPaymentMethod, updatePaymentMethod, deletePaymentMethod, hasPermission } = useERP();
+export default function MaquininhasPage() {
+  const { maquininhas, addMaquininha, updateMaquininha, deleteMaquininha, hasPermission } = useERP();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'Dinheiro' as PaymentMethod['type'],
-    taxPercentage: '',
-    taxFixed: '',
-    active: true
+    nome: '',
+    taxa_debito: '',
+    taxa_credito: '',
+    taxa_credito_parcelado: '',
+    ativo: true
   });
 
   if (!hasPermission('Cadastros', 'view')) {
@@ -30,53 +30,51 @@ export default function PagamentosPage() {
     );
   }
 
-  const filteredMethods = paymentMethods.filter(m => 
-    m.name.toLowerCase().includes(search.toLowerCase()) || 
-    m.type.toLowerCase().includes(search.toLowerCase())
+  const filteredMaquininhas = maquininhas.filter(m => 
+    m.nome.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleEdit = (method: PaymentMethod) => {
+  const handleEdit = (maquininha: Maquininha) => {
     setFormData({
-      name: method.name,
-      type: method.type || 'Dinheiro',
-      taxPercentage: (method.taxPercentage || 0).toString(),
-      taxFixed: (method.taxFixed || 0).toString(),
-      active: method.active
+      nome: maquininha.nome,
+      taxa_debito: (maquininha.taxa_debito || 0).toString(),
+      taxa_credito: (maquininha.taxa_credito || 0).toString(),
+      taxa_credito_parcelado: (maquininha.taxa_credito_parcelado || 0).toString(),
+      ativo: maquininha.ativo
     });
-    setEditingId(method.id);
+    setEditingId(maquininha.id);
     setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    console.log('PagamentosPage: handleDelete called with ID:', id);
-    // Removed native confirm() because it's blocked in the iframe sandbox
-    console.log('PagamentosPage: Proceeding with deletion.');
-    await deletePaymentMethod(id);
+    if (confirm('Tem certeza que deseja excluir esta maquininha?')) {
+      await deleteMaquininha(id);
+    }
   };
 
-  const handleSave = () => {
-    if (!formData.name || !formData.type) {
-      alert('Preencha os campos obrigatórios (Nome e Tipo)');
+  const handleSave = async () => {
+    if (!formData.nome) {
+      alert('Preencha o nome da maquininha');
       return;
     }
 
     const payload = {
-      name: formData.name,
-      type: formData.type,
-      taxPercentage: Number(formData.taxPercentage) || 0,
-      taxFixed: Number(formData.taxFixed) || 0,
-      active: formData.active
+      nome: formData.nome,
+      taxa_debito: Number(formData.taxa_debito) || 0,
+      taxa_credito: Number(formData.taxa_credito) || 0,
+      taxa_credito_parcelado: Number(formData.taxa_credito_parcelado) || 0,
+      ativo: formData.ativo
     };
 
     if (editingId) {
-      updatePaymentMethod({ id: editingId, ...payload });
+      await updateMaquininha({ id: editingId, ...payload } as Maquininha);
     } else {
-      addPaymentMethod(payload);
+      await addMaquininha(payload);
     }
 
     setShowForm(false);
     setEditingId(null);
-    setFormData({ name: '', type: 'Dinheiro', taxPercentage: '', taxFixed: '', active: true });
+    setFormData({ nome: '', taxa_debito: '', taxa_credito: '', taxa_credito_parcelado: '', ativo: true });
   };
 
   if (showForm) {
@@ -91,9 +89,9 @@ export default function PagamentosPage() {
           </button>
           <div className="flex flex-col gap-1">
             <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">
-              {editingId ? 'Editar Forma de Pagamento' : 'Nova Forma de Pagamento'}
+              {editingId ? 'Editar Maquininha' : 'Nova Maquininha'}
             </h1>
-            <p className="text-brand-blue/60 font-medium text-sm">Configure as taxas e detalhes do método.</p>
+            <p className="text-brand-blue/60 font-medium text-sm">Configure as taxas da maquininha de cartão.</p>
           </div>
         </div>
 
@@ -101,73 +99,71 @@ export default function PagamentosPage() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Nome da Forma de Pagamento</label>
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Nome da Maquininha</label>
                 <input 
                   type="text"
-                  placeholder="Ex: Cartão de Crédito Master"
-                  value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  placeholder="Ex: Stone, PagSeguro, Cielo"
+                  value={formData.nome}
+                  onChange={e => setFormData({...formData, nome: e.target.value})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
               
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Tipo no Sistema</label>
-                <select 
-                  value={formData.type}
-                  onChange={e => setFormData({...formData, type: e.target.value as any})}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
-                >
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Pix">Pix</option>
-                  <option value="Crédito">Cartão de Crédito</option>
-                  <option value="Débito">Cartão de Débito</option>
-                  <option value="Voucher">Voucher / Vale</option>
-                  <option value="Fiado">Fiado / Crediário</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Status</label>
-                <select 
-                  value={formData.active ? 'true' : 'false'}
-                  onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
-                >
-                  <option value="true">Ativo (Visível no PDV)</option>
-                  <option value="false">Inativo</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Percentual (%)</label>
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Débito (%)</label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
                   <input 
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={formData.taxPercentage}
-                    onChange={e => setFormData({...formData, taxPercentage: e.target.value})}
+                    value={formData.taxa_debito}
+                    onChange={e => setFormData({...formData, taxa_debito: e.target.value})}
                     className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Fixa (R$)</label>
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Crédito à Vista (%)</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
                   <input 
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={formData.taxFixed}
-                    onChange={e => setFormData({...formData, taxFixed: e.target.value})}
+                    value={formData.taxa_credito}
+                    onChange={e => setFormData({...formData, taxa_credito: e.target.value})}
                     className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Crédito Parcelado (%)</label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
+                  <input 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.taxa_credito_parcelado}
+                    onChange={e => setFormData({...formData, taxa_credito_parcelado: e.target.value})}
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Status</label>
+                <select 
+                  value={formData.ativo ? 'true' : 'false'}
+                  onChange={e => setFormData({...formData, ativo: e.target.value === 'true'})}
+                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                >
+                  <option value="true">Ativo</option>
+                  <option value="false">Inativo</option>
+                </select>
               </div>
             </div>
 
@@ -177,7 +173,7 @@ export default function PagamentosPage() {
                 className="flex items-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover transition-all"
               >
                 <Save size={18} />
-                Salvar Método
+                Salvar Maquininha
               </button>
             </div>
           </div>
@@ -194,8 +190,8 @@ export default function PagamentosPage() {
             <ArrowLeft size={24} />
           </Link>
           <div className="flex flex-col gap-1">
-            <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Formas de Pagamento</h1>
-            <p className="text-brand-blue/60 font-medium text-sm">Configure métodos de recebimento e taxas.</p>
+            <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Maquininhas de Cartão</h1>
+            <p className="text-brand-blue/60 font-medium text-sm">Gerencie as taxas das operadoras de cartão.</p>
           </div>
         </div>
         
@@ -204,7 +200,7 @@ export default function PagamentosPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={18} />
             <input 
               type="text"
-              placeholder="Buscar método..."
+              placeholder="Buscar maquininha..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
@@ -212,14 +208,14 @@ export default function PagamentosPage() {
           </div>
           <button 
             onClick={() => {
-              setFormData({ name: '', type: 'Dinheiro', taxPercentage: '', taxFixed: '', active: true });
+              setFormData({ nome: '', taxa_debito: '', taxa_credito: '', taxa_credito_parcelado: '', ativo: true });
               setEditingId(null);
               setShowForm(true);
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue text-white rounded-xl font-black uppercase italic text-xs shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all shrink-0"
           >
             <Plus size={16} />
-            <span className="hidden sm:inline">Novo Método</span>
+            <span className="hidden sm:inline">Nova Maquininha</span>
           </button>
         </div>
       </div>
@@ -229,69 +225,62 @@ export default function PagamentosPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Método</th>
-                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxas</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Maquininha</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa Débito</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa Crédito</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa Parcelado</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredMethods.length === 0 ? (
+              {filteredMaquininhas.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-sm font-bold text-brand-text-main/40">
-                    Nenhuma forma de pagamento encontrada.
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm font-bold text-brand-text-main/40">
+                    Nenhuma maquininha encontrada.
                   </td>
                 </tr>
               ) : (
-                filteredMethods.map(method => (
-                  <tr key={method.id} className="hover:bg-slate-50/50 transition-all">
+                filteredMaquininhas.map(maquininha => (
+                  <tr key={maquininha.id} className="hover:bg-slate-50/50 transition-all">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
-                          <CreditCard size={20} />
+                          <Smartphone size={20} />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-black text-brand-text-main">{method.name}</span>
-                          <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest">Tipo: {method.type}</span>
+                          <span className="text-sm font-black text-brand-text-main">{maquininha.nome}</span>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        {method.taxPercentage > 0 && (
-                          <span className="text-xs font-bold text-brand-text-main/60">
-                            {method.taxPercentage}%
-                          </span>
-                        )}
-                        {method.taxFixed > 0 && (
-                          <span className="text-xs font-bold text-brand-text-main/60">
-                            R$ {method.taxFixed.toFixed(2)}
-                          </span>
-                        )}
-                        {method.taxPercentage === 0 && method.taxFixed === 0 && (
-                          <span className="text-xs text-brand-text-main/40 italic">Sem taxas</span>
-                        )}
-                      </div>
+                      <span className="text-sm font-bold text-brand-text-main/60">{maquininha.taxa_debito}%</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-brand-text-main/60">{maquininha.taxa_credito}%</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-brand-text-main/60">{maquininha.taxa_credito_parcelado}%</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                        method.active ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                        maquininha.ativo ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
                       )}>
-                        {method.active ? 'Ativo' : 'Inativo'}
+                        {maquininha.ativo ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button 
-                          onClick={() => handleEdit(method)} 
+                          onClick={() => handleEdit(maquininha)} 
                           className="p-2 text-brand-text-main/40 hover:text-brand-blue bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg transition-all"
                           title="Editar"
                         >
                           <Edit3 size={16} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(method.id)} 
+                          onClick={() => handleDelete(maquininha.id)} 
                           className="p-2 text-brand-text-main/40 hover:text-rose-500 bg-white hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all"
                           title="Excluir"
                         >

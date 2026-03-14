@@ -5,8 +5,6 @@ import {
   Truck, 
   UserSquare2, 
   CreditCard, 
-  Layers, 
-  FolderTree, 
   Tags, 
   LayoutGrid 
 } from 'lucide-react';
@@ -18,15 +16,13 @@ const REGISTRATION_OPTIONS = [
   { icon: Truck, label: 'Fornecedores', description: 'Gerencie seus fornecedores', href: '/cadastros/fornecedores' },
   { icon: UserSquare2, label: 'Funcionários', description: 'Cadastro de equipe e permissões', href: '/cadastros/funcionarios' },
   { icon: CreditCard, label: 'Forma de Pagamento', description: 'Configure métodos de recebimento', href: '/cadastros/pagamentos' },
-  { icon: LayoutGrid, label: 'Sessão/Departamento', description: 'Organize sua loja por setores', href: '/cadastros/departamentos' },
-  { icon: Layers, label: 'Grupo', description: 'Agrupamento principal de produtos', href: '/cadastros/grupos' },
-  { icon: FolderTree, label: 'Subgrupo', description: 'Subdivisões dos grupos', href: '/cadastros/subgrupos' },
-  { icon: Tags, label: 'Categoria', description: 'Categorização para relatórios', href: '/cadastros/categorias' },
+  { icon: LayoutGrid, label: 'Departamentos', description: 'Departamentos, Categorias e Subcategorias', href: '/cadastros/categorias' },
+  { icon: CreditCard, label: 'Maquininhas', description: 'Configure suas máquinas de cartão', href: '/cadastros/maquininhas' },
 ];
 
 export default function RegistrationsPage() {
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-white min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Cadastros</h1>
         <p className="text-brand-blue/60 font-medium text-sm">Gerencie as configurações base do seu sistema.</p>

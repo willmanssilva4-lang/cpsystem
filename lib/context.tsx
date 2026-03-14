@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Sale, Customer, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
+import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
 
@@ -9,9 +9,13 @@ interface ERPContextType {
   products: Product[];
   sales: Sale[];
   customers: Customer[];
+  suppliers: Supplier[];
   losses: Loss[];
   expenses: Expense[];
-  categories: { id: string; name: string; description: string }[];
+  departamentos: Departamento[];
+  categorias: Categoria[];
+  expenseCategories: ExpenseCategory[];
+  subcategorias: Subcategoria[];
   stockMovements: StockMovement[];
   inventories: Inventory[];
   employees: Employee[];
@@ -21,6 +25,8 @@ interface ERPContextType {
   pricingSettings: PricingSettings;
   companySettings: CompanySettings;
   systemSettings: SystemSettings;
+  paymentMethods: PaymentMethod[];
+  maquininhas: Maquininha[];
   user: { id: string; name: string; email: string; role: string; profileId?: string } | null;
   hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete') => boolean;
   discountLogs: DiscountLog[];
@@ -28,6 +34,7 @@ interface ERPContextType {
   cashMovements: CashMovement[];
   cashClosings: CashClosing[];
   activeRegister: CashRegister | null;
+  lotes: ProductLote[];
   openCashRegister: (openingBalance: number, observation?: string) => Promise<void>;
   closeCashRegister: (informedTotals: { method: string; informed: number; system: number }[], justification?: string) => Promise<void>;
   addCashMovement: (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => Promise<void>;
@@ -37,9 +44,14 @@ interface ERPContextType {
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => Promise<void>;
-  addSale: (sale: Omit<Sale, 'id'>) => void;
+  addSale: (sale: Omit<Sale, 'id'>) => Promise<boolean>;
   addDiscountLog: (log: Omit<DiscountLog, 'id'>) => Promise<void>;
   addCustomer: (customer: Customer) => void;
+  updateCustomer: (customer: Customer) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  addSupplier: (supplier: Supplier) => Promise<void>;
+  updateSupplier: (supplier: Supplier) => Promise<void>;
+  deleteSupplier: (id: string) => Promise<void>;
   addLoss: (loss: Omit<Loss, 'id'>) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   addStockMovement: (movement: Omit<StockMovement, 'id'>) => Promise<void>;
@@ -57,10 +69,11 @@ interface ERPContextType {
   updatePricingSettings: (settings: PricingSettings) => void;
   updateCompanySettings: (settings: CompanySettings) => void;
   updateSystemSettings: (settings: SystemSettings) => void;
+  addPaymentMethod: (method: Omit<PaymentMethod, 'id'>) => void;
+  updatePaymentMethod: (method: PaymentMethod) => void;
+  deletePaymentMethod: (id: string) => void;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  updateCustomer: (customer: Customer) => Promise<void>;
-  deleteCustomer: (id: string) => Promise<void>;
   updateSale: (sale: Sale) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
   updateLoss: (loss: Loss) => Promise<void>;
@@ -71,17 +84,38 @@ interface ERPContextType {
   deleteStockMovement: (id: string) => Promise<void>;
   updateInventory: (inventory: Inventory) => Promise<void>;
   deleteInventory: (id: string) => Promise<void>;
+  addCategoria: (categoria: Omit<Categoria, 'id'>) => Promise<void>;
+  updateCategoria: (categoria: Categoria) => Promise<void>;
+  deleteCategoria: (id: string) => Promise<void>;
+  addExpenseCategory: (categoria: Omit<ExpenseCategory, 'id'>) => Promise<void>;
+  addSubcategoria: (subcategoria: Omit<Subcategoria, 'id'>) => Promise<void>;
+  updateSubcategoria: (subcategoria: Subcategoria) => Promise<void>;
+  deleteSubcategoria: (id: string) => Promise<void>;
+  addDepartamento: (departamento: Omit<Departamento, 'id'>) => Promise<void>;
+  updateDepartamento: (departamento: Departamento) => Promise<void>;
+  deleteDepartamento: (id: string) => Promise<void>;
+  addMaquininha: (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => Promise<void>;
+  updateMaquininha: (maquininha: Maquininha) => Promise<void>;
+  deleteMaquininha: (id: string) => Promise<void>;
+  seedMercadologicalTree: () => Promise<void>;
+  seedExpenseCategories: () => Promise<void>;
 }
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
+
+import { DEFAULT_MERCADOLOGICAL_TREE } from './default-tree';
 
 export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [losses, setLosses] = useState<Loss[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [categories, setCategories] = useState<{ id: string; name: string; description: string }[]>([]);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -94,6 +128,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [cashClosings, setCashClosings] = useState<CashClosing[]>([]);
   const [activeRegister, setActiveRegister] = useState<CashRegister | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [lotes, setLotes] = useState<ProductLote[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [maquininhas, setMaquininhas] = useState<Maquininha[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     theme: 'system',
     language: 'pt-BR',
@@ -133,7 +170,25 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: productsData } = await supabase.from('products').select('*');
       const { data: customersData } = await supabase.from('customers').select('*');
-      const { data: salesData } = await supabase.from('sales').select('*, sale_items(*)');
+      const { data: suppliersData } = await supabase.from('suppliers').select('*');
+      let salesData, saleItemsData;
+      try {
+        const res = await supabase.from('sales').select('*, sale_items(*)');
+        if (res.error) throw res.error;
+        salesData = res.data;
+      } catch (e) {
+        console.warn('Failed to fetch sales with join, fetching separately...', e);
+        const [salesRes, itemsRes] = await Promise.all([
+          supabase.from('sales').select('*'),
+          supabase.from('sale_items').select('*')
+        ]);
+        if (salesRes.data) {
+          salesData = salesRes.data.map(s => ({
+            ...s,
+            sale_items: itemsRes.data ? itemsRes.data.filter(i => i.sale_id === s.id) : []
+          }));
+        }
+      }
       const { data: lossesData } = await supabase.from('losses').select('*');
       const { data: expensesData } = await supabase.from('expenses').select('*');
       const { data: movementsData } = await supabase.from('stock_movements').select('*');
@@ -142,19 +197,23 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const { data: systemUsersData } = await supabase.from('system_users').select('*');
       const { data: accessProfilesData } = await supabase.from('access_profiles').select('*');
       const { data: permissionsData } = await supabase.from('permissions').select('*');
+      const { data: departamentosData } = await supabase.from('departamentos').select('*');
+      const { data: categoriasData } = await supabase.from('categorias').select('*');
+      const { data: expenseCategoriesData } = await supabase.from('expense_categories').select('*');
+      const { data: subcategoriasData } = await supabase.from('subcategorias').select('*');
       const { data: discountLogsData } = await supabase.from('vendas_descontos').select('*');
       const { data: registersData } = await supabase.from('cash_registers').select('*');
       const { data: movementsData_cash } = await supabase.from('cash_movements').select('*');
       const { data: closingsData } = await supabase.from('cash_closings').select('*');
       const { data: auditLogsData } = await supabase.from('audit_logs').select('*');
-      const { data: categoriesData } = await supabase.from('categories').select('*').order('name');
+      const { data: lotesData } = await supabase.from('produto_lotes').select('*');
+      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
+      const { data: maquininhasData } = await supabase.from('maquininhas').select('*');
 
       if (productsData) {
         const baseProducts = productsData.map(p => ({
           id: p.id,
           name: p.name,
-          category: p.category,
-          categoryId: p.category_id,
           sku: p.sku,
           costPrice: Number(p.cost_price),
           salePrice: Number(p.sale_price),
@@ -162,7 +221,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           minStock: p.min_stock,
           image: p.image?.includes('mercadinhosupernice.com.br') ? 'https://picsum.photos/seed/product/200/200' : p.image,
           composition: p.composition || [],
-          status: p.status || 'Ativo'
+          status: p.status || 'Ativo',
+          codigo_mercadologico: p.codigo_mercadologico,
+          subcategoria_id: p.subcategoria_id
         }));
 
         // Calculate virtual stock for kits
@@ -177,7 +238,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
                   possibleStock = available;
                 }
               } else {
-                // If a component is missing, we can't form any kits
                 possibleStock = 0;
               }
             });
@@ -187,14 +247,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         });
 
         setProducts(finalProducts);
+        localStorage.setItem('erp_products', JSON.stringify(finalProducts));
       }
 
-      if (categoriesData) {
-        setCategories(categoriesData);
-      }
+      if (departamentosData) setDepartamentos(departamentosData);
+      if (categoriasData) setCategorias(categoriasData);
+      if (expenseCategoriesData) setExpenseCategories(expenseCategoriesData);
+      if (subcategoriasData) setSubcategorias(subcategoriasData);
 
       if (customersData) {
-        setCustomers(customersData.map(c => ({
+        const mappedCustomers = customersData.map(c => ({
           id: c.id,
           name: c.name,
           document: c.document,
@@ -203,22 +265,37 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           totalSpent: Number(c.total_spent),
           status: c.status,
           image: c.image?.includes('mercadinhosupernice.com.br') ? 'https://i.pravatar.cc/150' : c.image
+        }));
+        setCustomers(mappedCustomers);
+        localStorage.setItem('erp_customers', JSON.stringify(mappedCustomers));
+      }
+
+      if (suppliersData) {
+        setSuppliers(suppliersData.map(s => ({
+          id: s.id,
+          name: s.name,
+          document: s.document,
+          phone: s.phone,
+          email: s.email,
+          address: s.address
         })));
       }
 
       if (salesData) {
-        setSales(salesData.map(s => ({
+        const mappedSales = salesData.map(s => ({
           id: s.id,
           date: s.date,
           total: Number(s.total),
           paymentMethod: s.payment_method,
           customerId: s.customer_id,
-          items: s.sale_items.map((si: any) => ({
+          items: (s.sale_items || []).map((si: any) => ({
             productId: si.product_id,
             quantity: si.quantity,
             price: Number(si.price)
           }))
-        })));
+        }));
+        setSales(mappedSales);
+        localStorage.setItem('erp_sales', JSON.stringify(mappedSales));
       }
 
       if (lossesData) {
@@ -233,14 +310,41 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (expensesData) {
-        setExpenses(expensesData.map(e => ({
-          id: e.id,
-          description: e.description,
-          category: e.category,
-          amount: Number(e.amount),
-          date: e.date,
-          status: e.status as 'Pago' | 'Pendente'
-        })));
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        
+        const mappedExpenses = expensesData.map(e => {
+          let status = e.status as 'Pago' | 'Pendente' | 'Vencido';
+          
+          // If it's pending but the due date has passed, mark as overdue
+          if (status === 'Pendente' && e.due_date) {
+            const dueDate = new Date(e.due_date);
+            dueDate.setHours(0, 0, 0, 0);
+            if (dueDate.getTime() < now.getTime()) {
+              status = 'Vencido';
+            }
+          }
+
+          return {
+            id: e.id,
+            description: e.description,
+            category: e.category,
+            supplier: e.supplier,
+            amount: Number(e.amount),
+            issueDate: e.issue_date,
+            dueDate: e.due_date,
+            date: e.due_date || e.issue_date || e.date,
+            paymentDate: e.payment_date,
+            paymentMethod: e.payment_method,
+            financialAccount: e.financial_account,
+            observation: e.observation,
+            isRecurring: e.is_recurring,
+            frequency: e.frequency,
+            status: status
+          };
+        });
+        setExpenses(mappedExpenses);
+        localStorage.setItem('erp_expenses', JSON.stringify(mappedExpenses));
       }
 
       if (movementsData) {
@@ -434,6 +538,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         })));
       }
 
+      if (lotesData) {
+        setLotes(lotesData.map(l => ({
+          id: l.id,
+          productId: l.produto_id,
+          numeroLote: l.numero_lote,
+          dataEntrada: l.data_entrada,
+          validade: l.validade,
+          custoUnit: Number(l.custo_unit),
+          quantidadeInicial: Number(l.quantidade_inicial),
+          saldoAtual: Number(l.saldo_atual),
+          fornecedorId: l.fornecedor_id
+        })));
+      }
+
       // Load pricing settings from localStorage as fallback for now
       const savedPricing = localStorage.getItem('pricing_settings');
       if (savedPricing) {
@@ -451,14 +569,52 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (savedSystem) {
         setSystemSettings(JSON.parse(savedSystem));
       }
+
+      if (paymentMethodsData) {
+        setPaymentMethods(paymentMethodsData.map(m => ({
+          id: m.id,
+          name: m.name,
+          type: m.type,
+          taxPercentage: Number(m.tax_percentage),
+          taxFixed: Number(m.tax_value),
+          active: m.active
+        })));
+        localStorage.setItem('payment_methods', JSON.stringify(paymentMethodsData));
+      }
+
+      if (maquininhasData) {
+        setMaquininhas(maquininhasData.map(m => ({
+          id: m.id,
+          nome: m.nome,
+          taxa_debito: Number(m.taxa_debito),
+          taxa_credito: Number(m.taxa_credito),
+          taxa_credito_parcelado: Number(m.taxa_credito_parcelado),
+          ativo: m.ativo,
+          created_at: m.created_at
+        })));
+        localStorage.setItem('maquininhas', JSON.stringify(maquininhasData));
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Fallback to initial data if Supabase fails or is not configured
-      setProducts(INITIAL_PRODUCTS);
-      setCustomers(INITIAL_CUSTOMERS);
-      setSales(INITIAL_SALES);
+      // Fallback to localStorage if Supabase fails or is not configured
+      const savedProducts = localStorage.getItem('erp_products');
+      const savedCustomers = localStorage.getItem('erp_customers');
+      const savedSales = localStorage.getItem('erp_sales');
+      const savedExpenses = localStorage.getItem('erp_expenses');
+
+      if (savedProducts) setProducts(JSON.parse(savedProducts));
+      else setProducts(INITIAL_PRODUCTS);
+
+      if (savedCustomers) setCustomers(JSON.parse(savedCustomers));
+      else setCustomers(INITIAL_CUSTOMERS);
+
+      if (savedSales) setSales(JSON.parse(savedSales));
+      else setSales(INITIAL_SALES);
+
+      if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
+      else setExpenses(INITIAL_EXPENSES);
+
       setLosses(INITIAL_LOSSES);
-      setExpenses(INITIAL_EXPENSES);
     }
   };
 
@@ -466,9 +622,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let productsSubscription: any;
     let salesSubscription: any;
     let customersSubscription: any;
+    let suppliersSubscription: any;
     let expensesSubscription: any;
     let registersSubscription: any;
-    let movementsSubscription: any;
+    let movimentosSubscription: any;
+    let categoriasSubscription: any;
+    let subcategoriasSubscription: any;
+    let departamentosSubscription: any;
+    let paymentMethodsSubscription: any;
 
     const init = async () => {
       try {
@@ -532,6 +693,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData())
           .subscribe();
 
+        suppliersSubscription = supabase
+          .channel('suppliers-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => fetchData())
+          .subscribe();
+
         expensesSubscription = supabase
           .channel('expenses-changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData())
@@ -542,9 +708,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => fetchData())
           .subscribe();
 
-        movementsSubscription = supabase
+        movimentosSubscription = supabase
           .channel('movements-changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_movements' }, () => fetchData())
+          .subscribe();
+
+        categoriasSubscription = supabase
+          .channel('categorias-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, () => fetchData())
+          .subscribe();
+
+        subcategoriasSubscription = supabase
+          .channel('subcategorias-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategorias' }, () => fetchData())
+          .subscribe();
+
+        departamentosSubscription = supabase
+          .channel('departamentos-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'departamentos' }, () => fetchData())
+          .subscribe();
+
+        paymentMethodsSubscription = supabase
+          .channel('payment-methods-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_methods' }, () => fetchData())
           .subscribe();
 
       } catch (error) {
@@ -559,9 +745,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (productsSubscription) supabase.removeChannel(productsSubscription);
       if (salesSubscription) supabase.removeChannel(salesSubscription);
       if (customersSubscription) supabase.removeChannel(customersSubscription);
+      if (suppliersSubscription) supabase.removeChannel(suppliersSubscription);
       if (expensesSubscription) supabase.removeChannel(expensesSubscription);
       if (registersSubscription) supabase.removeChannel(registersSubscription);
-      if (movementsSubscription) supabase.removeChannel(movementsSubscription);
+      if (movimentosSubscription) supabase.removeChannel(movimentosSubscription);
+      if (categoriasSubscription) supabase.removeChannel(categoriasSubscription);
+      if (subcategoriasSubscription) supabase.removeChannel(subcategoriasSubscription);
+      if (departamentosSubscription) supabase.removeChannel(departamentosSubscription);
+      if (paymentMethodsSubscription) supabase.removeChannel(paymentMethodsSubscription);
     };
   }, []);
 
@@ -672,8 +863,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const addProduct = async (product: Product) => {
     let insertData = {
       name: product.name,
-      category: product.category,
-      category_id: product.categoryId,
+      subcategoria_id: product.subcategoria_id === '' ? null : product.subcategoria_id,
       sku: product.sku,
       cost_price: product.costPrice,
       sale_price: product.salePrice,
@@ -681,23 +871,25 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       min_stock: product.minStock,
       image: product.image,
       composition: product.composition,
-      status: product.status || 'Ativo'
+      status: product.status || 'Ativo',
+      codigo_mercadologico: product.codigo_mercadologico
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (insertData as any).composition;
       if (error.message.includes('status')) delete (insertData as any).status;
+      if (error.message.includes('codigo_mercadologico')) delete (insertData as any).codigo_mercadologico;
       
       const retry = await supabase.from('products').insert([insertData]).select();
       data = retry.data;
       error = retry.error;
       
       if (!error) {
-        alert('Produto salvo, mas alguns campos (como Status ou Composição) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, adicione as colunas "status" (text) e "composition" (jsonb) na tabela "products".');
+        alert('Produto salvo, mas alguns campos (como Status, Composição ou Cód. Mercadológico) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, adicione as colunas "status" (text), "composition" (jsonb) e "codigo_mercadologico" (text) na tabela "products".');
       }
     }
 
@@ -712,8 +904,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const updateProduct = async (updated: Product) => {
     let updateData = {
       name: updated.name,
-      category: updated.category,
-      category_id: updated.categoryId,
+      subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
       sku: updated.sku,
       cost_price: updated.costPrice,
       sale_price: updated.salePrice,
@@ -764,75 +955,223 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addSale = async (sale: Omit<Sale, 'id'>) => {
-    const { data: saleData, error: saleError } = await supabase.from('sales').insert([{
-      customer_id: sale.customerId,
-      total: sale.total,
-      subtotal: sale.subtotal,
-      discount: sale.discount,
-      payment_method: sale.paymentMethod,
-      date: sale.date,
-      user_id: user?.email || 'system',
-      cash_register_id: activeRegister?.id
-    }]).select();
+  const addSale = async (sale: Omit<Sale, 'id'>): Promise<boolean> => {
+    const tempId = Math.random().toString(36).substring(2, 9);
+    const newSale: Sale = { ...sale, id: tempId };
 
-    if (!saleError && saleData) {
-      const saleId = saleData[0].id;
+    try {
+      let saleData, saleError;
       
-      // Log Audit
-      await logAuditAction('venda', 'vendas', saleId, null, sale);
+      const insertPayload = {
+        customer_id: sale.customerId || null,
+        total: sale.total,
+        subtotal: sale.subtotal || sale.total,
+        discount: sale.discount || 0,
+        payment_method: sale.paymentMethod,
+        maquininha_id: sale.maquininhaId || null,
+        tax_amount: sale.taxAmount || 0,
+        net_amount: sale.netAmount || sale.total,
+        payments: sale.payments || null,
+        date: sale.date,
+        user_id: user?.id || null,
+        cash_register_id: activeRegister?.id || null
+      };
 
-      const itemsToInsert = sale.items.map(item => ({
-        sale_id: saleId,
-        product_id: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-        original_price: item.originalPrice,
-        discount: item.discount
-      }));
+      const res = await supabase.from('sales').insert([insertPayload]).select();
+      saleData = res.data;
+      saleError = res.error;
 
-      await supabase.from('sale_items').insert(itemsToInsert);
-      
-      // Update stock and customer total spent
-      for (const item of sale.items) {
-        const product = products.find(p => p.id === item.productId);
-        if (product) {
-          // Record stock movement
-          await supabase.from('stock_movements').insert([{
-            product_id: item.productId,
-            type: 'SAÍDA',
-            quantity: -item.quantity,
-            origin: `Venda #${saleId.substring(0, 8)}`,
-            date: sale.date,
-            user_id: user?.email || 'system',
-            user_name: user?.name || 'Sistema'
-          }]);
+      // If it fails, try a more robust fallback
+      if (saleError) {
+        console.warn('Sale insert failed, trying fallback...', { error: saleError, status: res.status });
 
-          if (product.composition && product.composition.length > 0) {
-            // It's a kit, deduct from components
-            for (const comp of product.composition) {
-              const componentProduct = products.find(p => p.id === comp.productId);
-              if (componentProduct) {
-                await supabase.from('products').update({ 
-                  stock: componentProduct.stock - (comp.quantity * item.quantity) 
-                }).eq('id', componentProduct.id);
-              }
-            }
-          } else {
-            // Regular product
-            await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', product.id);
+        const errorMsg = saleError.message?.toLowerCase() || '';
+        const safePayload: any = {
+          total: sale.total,
+          payment_method: ['Dinheiro', 'Pix', 'Crédito', 'Débito', 'Fiado'].includes(sale.paymentMethod) ? sale.paymentMethod : 'Dinheiro',
+          date: sale.date
+        };
+
+        if (!errorMsg.includes('user_id')) safePayload.user_id = user?.id || null;
+        if (!errorMsg.includes('cash_register_id')) safePayload.cash_register_id = activeRegister?.id || null;
+
+        if (!errorMsg.includes('subtotal')) safePayload.subtotal = sale.subtotal || sale.total;
+        if (!errorMsg.includes('discount')) safePayload.discount = sale.discount || 0;
+        if (!errorMsg.includes('tax_amount')) safePayload.tax_amount = sale.taxAmount || 0;
+        if (!errorMsg.includes('net_amount')) safePayload.net_amount = sale.netAmount || sale.total;
+        if (!errorMsg.includes('payments')) safePayload.payments = sale.payments || null;
+        if (!errorMsg.includes('maquininha_id')) safePayload.maquininha_id = sale.maquininhaId || null;
+
+        const fallbackRes = await supabase.from('sales').insert([safePayload]).select();
+        
+        if (!fallbackRes.error) {
+          saleData = fallbackRes.data;
+          saleError = null;
+        } else {
+          console.error('Fallback insert also failed:', fallbackRes.error);
+          const absoluteMinimal = {
+            total: sale.total,
+            payment_method: 'Dinheiro', // Use a guaranteed valid method for the absolute fallback
+            date: sale.date
+          };
+          const finalRes = await supabase.from('sales').insert([absoluteMinimal]).select();
+          if (!finalRes.error) {
+            saleData = finalRes.data;
+            saleError = null;
           }
         }
       }
 
-      if (sale.customerId) {
-        const customer = customers.find(c => c.id === sale.customerId);
-        if (customer) {
-          await supabase.from('customers').update({ total_spent: customer.totalSpent + sale.total }).eq('id', customer.id);
+      if (saleError) {
+        console.error('Final Supabase error inserting sale:', saleError);
+        try {
+          console.error('Detailed Error:', JSON.stringify(saleError, Object.getOwnPropertyNames(saleError)));
+        } catch (e) {
+          console.error('Could not stringify error object');
         }
+        const errorMsg = saleError.message || saleError.details || saleError.hint || saleError.code || JSON.stringify(saleError);
+        alert(`Erro ao salvar venda: ${errorMsg === '{}' ? `Erro de conexão, permissão ou restrição de banco de dados (Status: ${res.status})` : errorMsg}`);
+        return false;
+      } else if (!saleData || saleData.length === 0) {
+        console.warn('Sale inserted but no data returned. RLS might be preventing SELECT.');
+        alert('Venda salva, mas os itens não puderam ser salvos devido a permissões (RLS).');
+        return false;
       }
 
-      await fetchData();
+      if (!saleError && saleData && saleData.length > 0) {
+        const saleId = saleData[0].id;
+        
+        // Log Audit
+        await logAuditAction('venda', 'vendas', saleId, null, sale);
+
+        const itemsToInsert = sale.items.map(item => ({
+          sale_id: saleId,
+          product_id: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          original_price: item.originalPrice || item.price,
+          discount: item.discount || 0
+        }));
+
+        let { error: itemsError } = await supabase.from('sale_items').insert(itemsToInsert);
+        
+        if (itemsError && itemsError.message && itemsError.message.includes('column')) {
+          console.warn('Retrying sale_items insert without original_price/discount columns...');
+          const fallbackItems = sale.items.map(item => ({
+            sale_id: saleId,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price: item.price
+          }));
+          const fallbackRes = await supabase.from('sale_items').insert(fallbackItems);
+          itemsError = fallbackRes.error;
+        }
+
+        if (itemsError) {
+          console.error('Supabase error inserting sale items:', itemsError);
+          alert(`Aviso: A venda foi salva, mas ocorreu um erro ao salvar os itens: ${itemsError.message}`);
+        }
+        
+        // Update stock and customer total spent in Supabase
+        for (const item of sale.items) {
+          const product = products.find(p => p.id === item.productId);
+          if (product) {
+            // Record stock movement
+            const movePayload = {
+              product_id: item.productId,
+              type: 'SAÍDA',
+              quantity: -item.quantity,
+              origin: `Venda #${saleId.substring(0, 8)}`,
+              date: sale.date,
+              user_id: user?.id || 'Sistema',
+              user_name: user?.name || 'Sistema'
+            };
+            
+            let { error: moveError } = await supabase.from('stock_movements').insert([movePayload]);
+            
+            if (moveError) {
+              console.error('Supabase error inserting stock movement:', JSON.stringify(moveError));
+              alert(`Erro ao registrar movimentação de estoque: ${JSON.stringify(moveError)}`);
+            }
+
+            if (product.composition && product.composition.length > 0) {
+              // It's a kit, deduct from components
+              for (const comp of product.composition) {
+                const componentProduct = products.find(p => p.id === comp.productId);
+                if (componentProduct) {
+                  // FIFO for components
+                  const componentLotes = lotes
+                    .filter(l => l.productId === componentProduct.id && l.saldoAtual > 0)
+                    .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
+                  
+                  let qtyToDeduct = comp.quantity * item.quantity;
+                  for (const lote of componentLotes) {
+                    if (qtyToDeduct <= 0) break;
+                    const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
+                    await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+                    qtyToDeduct -= deduction;
+                  }
+
+                  await supabase.from('products').update({ 
+                    stock: componentProduct.stock - (comp.quantity * item.quantity) 
+                  }).eq('id', componentProduct.id);
+                }
+              }
+            } else {
+              // Regular product - FIFO
+              const productLotes = lotes
+                .filter(l => l.productId === product.id && l.saldoAtual > 0)
+                .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
+              
+              let qtyToDeduct = item.quantity;
+              for (const lote of productLotes) {
+                if (qtyToDeduct <= 0) break;
+                const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
+                await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+                qtyToDeduct -= deduction;
+              }
+
+              await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', product.id);
+            }
+          }
+        }
+
+        if (sale.customerId) {
+          const customer = customers.find(c => c.id === sale.customerId);
+          if (customer) {
+            await supabase.from('customers').update({ total_spent: customer.totalSpent + sale.total }).eq('id', customer.id);
+          }
+        }
+
+        await fetchData();
+        
+        // Optimistic update for local state AFTER successful DB insert
+        setSales(prev => {
+          const updated = [...prev, { ...newSale, id: saleId }];
+          localStorage.setItem('erp_sales', JSON.stringify(updated));
+          return updated;
+        });
+
+        // Update stock locally
+        setProducts(prev => {
+          const updated = prev.map(p => {
+            const item = sale.items.find(i => i.productId === p.id);
+            if (item) {
+              return { ...p, stock: p.stock - item.quantity };
+            }
+            return p;
+          });
+          localStorage.setItem('erp_products', JSON.stringify(updated));
+          return updated;
+        });
+        
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('Error in addSale Supabase sync:', err);
+      alert(`Erro inesperado ao salvar venda no banco de dados: ${err.message || JSON.stringify(err)}`);
+      return false;
     }
   };
 
@@ -872,9 +1211,42 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addSupplier = async (supplier: Supplier) => {
+    const { error } = await supabase.from('suppliers').insert([{
+      name: supplier.name,
+      document: supplier.document,
+      phone: supplier.phone,
+      email: supplier.email,
+      address: supplier.address
+    }]);
+
+    if (!error) {
+      await fetchData();
+    }
+  };
+
+  const updateSupplier = async (supplier: Supplier) => {
+    const { error } = await supabase.from('suppliers').update({
+      name: supplier.name,
+      document: supplier.document,
+      phone: supplier.phone,
+      email: supplier.email,
+      address: supplier.address
+    }).eq('id', supplier.id);
+    if (!error) await fetchData();
+    else console.error('Error updating supplier:', error);
+  };
+
+  const deleteSupplier = async (id: string) => {
+    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    if (!error) await fetchData();
+    else console.error('Error deleting supplier:', error);
+  };
+
   const addLoss = async (loss: Omit<Loss, 'id'>) => {
     const { error } = await supabase.from('losses').insert([{
       product_id: loss.productId,
+      lote_id: loss.loteId,
       quantity: loss.quantity,
       reason: loss.reason,
       date: loss.date,
@@ -889,7 +1261,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           product_id: loss.productId,
           type: 'SAÍDA',
           quantity: -loss.quantity,
-          origin: `Perda: ${loss.reason}`,
+          origin: `Perda: ${loss.reason}${loss.loteId ? ` (Lote: ${lotes.find(l => l.id === loss.loteId)?.numeroLote})` : ''}`,
           date: loss.date,
           user_id: user?.email || 'system',
           user_name: user?.name || 'Sistema'
@@ -900,6 +1272,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           for (const comp of product.composition) {
             const componentProduct = products.find(p => p.id === comp.productId);
             if (componentProduct) {
+              // FIFO for components
+              const componentLotes = lotes
+                .filter(l => l.productId === componentProduct.id && l.saldoAtual > 0)
+                .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
+              
+              let qtyToDeduct = comp.quantity * loss.quantity;
+              for (const lote of componentLotes) {
+                if (qtyToDeduct <= 0) break;
+                const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
+                await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+                qtyToDeduct -= deduction;
+              }
+
               await supabase.from('products').update({ 
                 stock: componentProduct.stock - (comp.quantity * loss.quantity) 
               }).eq('id', componentProduct.id);
@@ -907,6 +1292,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           // Regular product
+          if (loss.loteId) {
+            // Specific lote selected
+            const lote = lotes.find(l => l.id === loss.loteId);
+            if (lote) {
+              await supabase.from('produto_lotes').update({ 
+                saldo_atual: lote.saldoAtual - loss.quantity 
+              }).eq('id', lote.id);
+            }
+          } else {
+            // No specific lote, follow FIFO (PEPS)
+            const productLotes = lotes
+              .filter(l => l.productId === product.id && l.saldoAtual > 0)
+              .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
+            
+            let qtyToDeduct = loss.quantity;
+            for (const lote of productLotes) {
+              if (qtyToDeduct <= 0) break;
+              const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
+              await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+              qtyToDeduct -= deduction;
+            }
+          }
+
           await supabase.from('products').update({
             stock: product.stock - loss.quantity
           }).eq('id', product.id);
@@ -920,13 +1328,23 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.from('expenses').insert([{
       description: expense.description,
       category: expense.category,
+      supplier: expense.supplier,
       amount: expense.amount,
-      date: expense.date,
+      issue_date: expense.issueDate,
+      due_date: expense.dueDate,
+      payment_date: expense.paymentDate,
+      payment_method: expense.paymentMethod,
+      financial_account: expense.financialAccount,
+      observation: expense.observation,
+      is_recurring: expense.isRecurring,
+      frequency: expense.frequency,
       status: expense.status
     }]);
 
     if (!error) {
       await fetchData();
+    } else {
+      console.error('Error adding expense:', error);
     }
   };
 
@@ -1053,8 +1471,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.from('expenses').update({
       description: expense.description,
       category: expense.category,
+      supplier: expense.supplier,
       amount: expense.amount,
-      date: expense.date,
+      issue_date: expense.issueDate,
+      due_date: expense.dueDate,
+      payment_date: expense.paymentDate,
+      payment_method: expense.paymentMethod,
+      financial_account: expense.financialAccount,
+      observation: expense.observation,
+      is_recurring: expense.isRecurring,
+      frequency: expense.frequency,
       status: expense.status
     }).eq('id', expense.id);
     if (!error) await fetchData();
@@ -1358,6 +1784,193 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('system_settings', JSON.stringify(settings));
   };
 
+  const addPaymentMethod = async (method: Omit<PaymentMethod, 'id'>) => {
+    const { error } = await supabase.from('payment_methods').insert([{
+      name: method.name,
+      type: method.type,
+      tax_percentage: method.taxPercentage,
+      tax_value: method.taxFixed,
+      active: method.active
+    }]);
+    if (!error) {
+      await fetchData();
+    } else {
+      console.error('Error adding payment method details:', JSON.stringify(error, null, 2));
+      alert(`Erro ao adicionar forma de pagamento: ${error.message || 'Erro desconhecido'}`);
+      // Fallback
+      const newMethod = { ...method, id: Math.random().toString(36).substr(2, 9) };
+      const updated = [...paymentMethods, newMethod];
+      setPaymentMethods(updated);
+      localStorage.setItem('payment_methods', JSON.stringify(updated));
+    }
+  };
+
+  const updatePaymentMethod = async (method: PaymentMethod) => {
+    const { error } = await supabase.from('payment_methods').update({
+      name: method.name,
+      type: method.type,
+      tax_percentage: method.taxPercentage,
+      tax_value: method.taxFixed,
+      active: method.active
+    }).eq('id', method.id);
+    if (!error) {
+      await fetchData();
+    } else {
+      console.error('Error updating payment method:', error);
+      // Fallback
+      const updated = paymentMethods.map(m => m.id === method.id ? method : m);
+      setPaymentMethods(updated);
+      localStorage.setItem('payment_methods', JSON.stringify(updated));
+    }
+  };
+
+  const deletePaymentMethod = async (id: string) => {
+    console.log('Context: deletePaymentMethod called with ID:', id);
+    const { data, error } = await supabase.from('payment_methods').delete().eq('id', id);
+    
+    if (error) {
+      console.error('Context: Error deleting payment method from Supabase:', JSON.stringify(error, null, 2));
+      // Fallback to local deletion if table doesn't exist or other error
+      const updated = paymentMethods.filter(m => m.id !== id);
+      setPaymentMethods(updated);
+      localStorage.setItem('payment_methods', JSON.stringify(updated));
+      console.log('Context: Fallback to local deletion performed.');
+    } else {
+      console.log('Context: Payment method deleted successfully from Supabase. Data:', data);
+      await fetchData();
+    }
+  };
+
+  const addCategoria = async (categoria: Omit<Categoria, 'id'>) => {
+    const { error } = await supabase.from('categorias').insert([categoria]);
+    if (error) {
+      console.error('Error adding categoria:', error);
+      alert('Erro ao adicionar categoria');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const addExpenseCategory = async (categoria: Omit<ExpenseCategory, 'id'>) => {
+    const { error } = await supabase.from('expense_categories').insert([categoria]);
+    if (error) {
+      console.error('Error adding expense category:', error);
+      alert('Erro ao adicionar categoria de despesa');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const updateCategoria = async (categoria: Categoria) => {
+    const { error } = await supabase.from('categorias').update(categoria).eq('id', categoria.id);
+    if (error) {
+      console.error('Error updating categoria:', error);
+      alert('Erro ao atualizar categoria');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const deleteCategoria = async (id: string) => {
+    // First check if there are linked subcategories
+    const { data: linkedSubcategories } = await supabase.from('subcategorias').select('id').eq('categoria_id', id);
+    
+    if (linkedSubcategories && linkedSubcategories.length > 0) {
+      alert(`Não é possível excluir. Existem ${linkedSubcategories.length} subcategoria(s) vinculada(s) a esta categoria.`);
+      return { success: false, error: 'Has linked subcategories' };
+    }
+
+    const { error } = await supabase.from('categorias').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting categoria:', JSON.stringify(error, null, 2));
+      alert('Erro ao excluir categoria. Verifique se existem subcategorias ou produtos vinculados.');
+      return { success: false, error };
+    } else {
+      await fetchData();
+      return { success: true };
+    }
+  };
+
+  const addSubcategoria = async (subcategoria: Omit<Subcategoria, 'id'>) => {
+    const { error } = await supabase.from('subcategorias').insert([subcategoria]);
+    if (error) {
+      console.error('Error adding subcategoria:', error);
+      alert('Erro ao adicionar subcategoria');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const updateSubcategoria = async (subcategoria: Subcategoria) => {
+    const { error } = await supabase.from('subcategorias').update(subcategoria).eq('id', subcategoria.id);
+    if (error) {
+      console.error('Error updating subcategoria:', error);
+      alert('Erro ao atualizar subcategoria');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const deleteSubcategoria = async (id: string) => {
+    // First check if there are linked products
+    const { data: linkedProducts } = await supabase.from('products').select('id').eq('subcategoria_id', id);
+    
+    if (linkedProducts && linkedProducts.length > 0) {
+      alert(`Não é possível excluir. Existem ${linkedProducts.length} produto(s) vinculado(s) a esta subcategoria.`);
+      return { success: false, error: 'Has linked products' };
+    }
+
+    const { error } = await supabase.from('subcategorias').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting subcategoria:', JSON.stringify(error, null, 2));
+      alert('Erro ao excluir subcategoria. Verifique se existem produtos vinculados.');
+      return { success: false, error };
+    } else {
+      await fetchData();
+      return { success: true };
+    }
+  };
+
+  const addDepartamento = async (departamento: Omit<Departamento, 'id'>) => {
+    const { error } = await supabase.from('departamentos').insert([departamento]);
+    if (error) {
+      console.error('Error adding departamento:', error);
+      alert('Erro ao adicionar departamento');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const updateDepartamento = async (departamento: Departamento) => {
+    const { error } = await supabase.from('departamentos').update(departamento).eq('id', departamento.id);
+    if (error) {
+      console.error('Error updating departamento:', error);
+      alert('Erro ao atualizar departamento');
+    } else {
+      await fetchData();
+    }
+  };
+
+  const deleteDepartamento = async (id: string) => {
+    // First check if there are linked categories
+    const { data: linkedCategories } = await supabase.from('categorias').select('id').eq('departamento_id', id);
+    
+    if (linkedCategories && linkedCategories.length > 0) {
+      alert(`Não é possível excluir. Existem ${linkedCategories.length} categoria(s) vinculada(s) a este departamento.`);
+      return { success: false, error: 'Has linked categories' };
+    }
+
+    const { error } = await supabase.from('departamentos').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting departamento:', JSON.stringify(error, null, 2));
+      alert('Erro ao excluir departamento. Verifique se existem categorias vinculadas.');
+      return { success: false, error };
+    } else {
+      await fetchData();
+      return { success: true };
+    }
+  };
+
   const logAuditAction = async (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => {
     try {
       await supabase.from('audit_logs').insert([{
@@ -1439,6 +2052,27 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     await fetchData();
   };
 
+  const addMaquininha = async (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => {
+    const { error } = await supabase.from('maquininhas').insert([maquininha]);
+    if (!error) await fetchData();
+  };
+
+  const updateMaquininha = async (maquininha: Maquininha) => {
+    const { error } = await supabase.from('maquininhas').update({
+      nome: maquininha.nome,
+      taxa_debito: maquininha.taxa_debito,
+      taxa_credito: maquininha.taxa_credito,
+      taxa_credito_parcelado: maquininha.taxa_credito_parcelado,
+      ativo: maquininha.ativo
+    }).eq('id', maquininha.id);
+    if (!error) await fetchData();
+  };
+
+  const deleteMaquininha = async (id: string) => {
+    const { error } = await supabase.from('maquininhas').delete().eq('id', id);
+    if (!error) await fetchData();
+  };
+
   const addCashMovement = async (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => {
     const { data, error } = await supabase.from('cash_movements').insert([{
       cash_register_id: movement.cashRegisterId,
@@ -1496,14 +2130,163 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const seedMercadologicalTree = async () => {
+    try {
+      console.log('Starting mercadological tree seeding...');
+      if (!DEFAULT_MERCADOLOGICAL_TREE || DEFAULT_MERCADOLOGICAL_TREE.length === 0) {
+        throw new Error('A árvore padrão está vazia ou não foi carregada.');
+      }
+
+      for (const dept of DEFAULT_MERCADOLOGICAL_TREE) {
+        // 1. Add/Get Department
+        const { data: existingDepts, error: checkDeptError } = await supabase
+          .from('departamentos')
+          .select('id')
+          .eq('codigo', dept.codigo);
+
+        if (checkDeptError) {
+          console.error('Error checking department:', checkDeptError);
+          // Continue or throw? Let's throw to be safe
+          throw checkDeptError;
+        }
+
+        let deptId;
+        if (existingDepts && existingDepts.length > 0) {
+          deptId = existingDepts[0].id;
+          console.log(`Department ${dept.nome} (${dept.codigo}) already exists. ID: ${deptId}`);
+        } else {
+          const { data: deptData, error: deptError } = await supabase
+            .from('departamentos')
+            .insert([{ nome: dept.nome, codigo: dept.codigo, ativo: true }])
+            .select();
+
+          if (deptError) {
+            console.error(`Error inserting department ${dept.nome}:`, deptError);
+            throw deptError;
+          }
+          if (!deptData || deptData.length === 0) {
+            throw new Error(`Failed to insert department ${dept.nome}`);
+          }
+          deptId = deptData[0].id;
+          console.log(`Department ${dept.nome} created. ID: ${deptId}`);
+        }
+
+        for (const cat of dept.categorias) {
+          // 2. Add/Get Category
+          const { data: existingCats, error: checkCatError } = await supabase
+            .from('categorias')
+            .select('id')
+            .eq('codigo', cat.codigo);
+
+          if (checkCatError) {
+            console.error('Error checking category:', checkCatError);
+            throw checkCatError;
+          }
+
+          let catId;
+          if (existingCats && existingCats.length > 0) {
+            catId = existingCats[0].id;
+            console.log(`Category ${cat.nome} (${cat.codigo}) already exists. ID: ${catId}`);
+          } else {
+            const { data: catData, error: catError } = await supabase
+              .from('categorias')
+              .insert([{ nome: cat.nome, codigo: cat.codigo, departamento_id: deptId }])
+              .select();
+
+            if (catError) {
+              console.error(`Error inserting category ${cat.nome}:`, catError);
+              throw catError;
+            }
+            if (!catData || catData.length === 0) {
+              throw new Error(`Failed to insert category ${cat.nome}`);
+            }
+            catId = catData[0].id;
+            console.log(`Category ${cat.nome} created. ID: ${catId}`);
+          }
+
+          for (const sub of cat.subcategorias) {
+            // 3. Add Subcategory if not exists
+            const { data: existingSubs, error: checkSubError } = await supabase
+              .from('subcategorias')
+              .select('id')
+              .eq('codigo', sub.codigo);
+
+            if (checkSubError) {
+              console.error('Error checking subcategory:', checkSubError);
+              throw checkSubError;
+            }
+
+            if (!existingSubs || existingSubs.length === 0) {
+              const { error: subError } = await supabase
+                .from('subcategorias')
+                .insert([{ nome: sub.nome, codigo: sub.codigo, categoria_id: catId }]);
+
+              if (subError) {
+                console.error(`Error inserting subcategory ${sub.nome}:`, subError);
+                throw subError;
+              }
+              console.log(`Subcategory ${sub.nome} created.`);
+            } else {
+              console.log(`Subcategory ${sub.nome} (${sub.codigo}) already exists.`);
+            }
+          }
+        }
+      }
+      await fetchData();
+      alert('Árvore mercadológica carregada com sucesso!');
+    } catch (error: any) {
+      console.error('Error seeding mercadological tree:', error);
+      alert(`Erro ao carregar árvore mercadológica: ${error.message || 'Erro desconhecido'}`);
+    }
+  };
+
+  const seedExpenseCategories = async () => {
+    const defaultCategories = [
+      'Aluguel',
+      'Energia Elétrica',
+      'Água e Esgoto',
+      'Internet e Telefone',
+      'Salários e Encargos',
+      'Fornecedores de Mercadorias',
+      'Manutenção e Reparos',
+      'Limpeza e Conservação',
+      'Marketing e Propaganda',
+      'Impostos e Taxas',
+      'Seguros',
+      'Material de Escritório',
+      'Outras Despesas'
+    ];
+
+    try {
+      for (const name of defaultCategories) {
+        const { data: existing } = await supabase
+          .from('expense_categories')
+          .select('id')
+          .eq('nome', name)
+          .maybeSingle();
+
+        if (!existing) {
+          await supabase.from('expense_categories').insert([{ nome: name }]);
+        }
+      }
+      await fetchData();
+    } catch (error) {
+      console.error('Error seeding expense categories:', error);
+    }
+  };
+
   return (
     <ERPContext.Provider value={{ 
       products, 
       sales, 
       customers, 
+      suppliers,
       losses,
       expenses,
-      categories,
+      departamentos,
+      categorias,
+      expenseCategories,
+      subcategorias,
       stockMovements,
       inventories,
       employees,
@@ -1532,12 +2315,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       addSale, 
       addDiscountLog,
       addCustomer,
+      updateCustomer,
+      deleteCustomer,
+      addSupplier,
+      updateSupplier,
+      deleteSupplier,
       addLoss,
       addExpense,
       addStockMovement,
       addInventory,
-      updateCustomer,
-      deleteCustomer,
       updateSale,
       deleteSale,
       updateLoss,
@@ -1548,6 +2334,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       deleteStockMovement,
       updateInventory,
       deleteInventory,
+      addCategoria,
+      updateCategoria,
+      deleteCategoria,
+      addExpenseCategory,
+      addSubcategoria,
+      updateSubcategoria,
+      deleteSubcategoria,
+      addDepartamento,
+      updateDepartamento,
+      deleteDepartamento,
       addEmployee,
       updateEmployee,
       deleteEmployee,
@@ -1561,8 +2357,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       updatePricingSettings,
       updateCompanySettings,
       updateSystemSettings,
+      paymentMethods,
+      addPaymentMethod,
+      updatePaymentMethod,
+      deletePaymentMethod,
+      maquininhas,
+      addMaquininha,
+      updateMaquininha,
+      deleteMaquininha,
+      lotes,
       login,
-      logout
+      logout,
+      seedMercadologicalTree,
+      seedExpenseCategories
     }}>
       {!isLoading && children}
     </ERPContext.Provider>

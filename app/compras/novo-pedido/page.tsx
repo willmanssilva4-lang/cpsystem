@@ -106,6 +106,28 @@ export default function NovaCompraPage() {
         const { data: productsData } = await supabase.from('products').select('id, name, sku, stock, cost_price, sale_price').order('name');
         if (productsData) {
           setProductsList(productsData);
+          
+          // Check for replenishment items
+          const savedItems = localStorage.getItem('replenishment_items');
+          if (savedItems) {
+            const parsedItems = JSON.parse(savedItems);
+            const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
+              const product = productsData.find((prod: any) => prod.id === p.id);
+              return {
+                id: Math.random().toString(36).substr(2, 9),
+                productId: p.id,
+                productName: p.name,
+                qty: Math.max(0, (product?.min_stock || 0) - (product?.stock || 0)),
+                cost: Number(product?.cost_price) || 0,
+                salePrice: Number(product?.sale_price) || 0,
+                expirationDate: new Date().toISOString().split('T')[0],
+                total: Math.max(0, (product?.min_stock || 0) - (product?.stock || 0)) * (Number(product?.cost_price) || 0)
+              };
+            });
+            setItems(newItems);
+            setActiveTab(2);
+            localStorage.removeItem('replenishment_items');
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -244,11 +266,31 @@ export default function NovaCompraPage() {
       const totalCompra = items.reduce((acc, item) => acc + item.total, 0);
       const supplierName = suppliersList.find(s => s.id === supplierId)?.name || 'Fornecedor Desconhecido';
 
+      // 0. Criar Pedido de Compra (purchase_orders)
+      const { data: orderData, error: orderError } = await supabase.from('purchase_orders').insert({
+        supplier_id: supplierId,
+        order_date: new Date().toISOString(),
+        total_amount: totalCompra,
+        status: 'Recebido'
+      }).select('id').single();
+
+      if (orderError) throw orderError;
+      const orderId = orderData.id;
+
       // For each product
       for (const item of items) {
+        // 1. Insert Item (purchase_order_items)
+        await supabase.from('purchase_order_items').insert({
+          purchase_order_id: orderId,
+          product_id: item.productId,
+          quantity: item.qty,
+          unit_price: item.cost,
+          total_price: item.total
+        });
+
         const numeroLote = `LT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
         
-        // 1. Create Lote
+        // 2. Create Lote
         const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
           produto_id: item.productId,
           numero_lote: numeroLote,
@@ -262,13 +304,12 @@ export default function NovaCompraPage() {
 
         let loteId = undefined;
         if (loteError) {
-          console.error('Error creating lote (table might not exist yet, simulating):', loteError);
-          // If table doesn't exist, we just log it and continue with the rest of the flow
+          console.error('Error creating lote:', loteError);
         } else if (loteData) {
           loteId = loteData.id;
         }
 
-        // 2. Update Stock and Sale Price
+        // 3. Update Stock and Sale Price
         const product = productsList.find(p => p.id === item.productId);
         if (product) {
           // Fetch current stock first
@@ -290,7 +331,7 @@ export default function NovaCompraPage() {
             .eq('id', item.productId);
         }
 
-        // 3. Register Movement
+        // 4. Register Movement
         await addStockMovement({
           productId: item.productId,
           loteId: loteId,
@@ -304,7 +345,7 @@ export default function NovaCompraPage() {
         });
       }
 
-      // 4. Generate Conta a Pagar (Expense)
+      // 5. Generate Conta a Pagar (Expense)
       let dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30); // Default 30 days if not specified
 

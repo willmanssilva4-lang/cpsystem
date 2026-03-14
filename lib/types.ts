@@ -3,6 +3,7 @@ import { Type } from "@google/genai";
 export interface Loss {
   id: string;
   productId: string;
+  loteId?: string;
   quantity: number;
   reason: string;
   date: string;
@@ -16,11 +17,35 @@ export interface CompositionItem {
   price?: number;
 }
 
+export interface Departamento {
+  id: string;
+  codigo?: string;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  nome: string;
+}
+
+export interface Categoria {
+  id: string;
+  codigo?: string;
+  nome: string;
+  departamento_id: string;
+}
+
+export interface Subcategoria {
+  id: string;
+  codigo?: string;
+  nome: string;
+  categoria_id: string;
+}
+
 export interface Product {
   id: string;
   name: string;
-  category: string;
-  categoryId?: string;
   sku: string;
   costPrice: number;
   salePrice: number;
@@ -30,12 +55,14 @@ export interface Product {
   brand?: string;
   unit?: string;
   supplier?: string;
-  group?: string;
-  subgroup?: string;
   profit?: number;
   profitPercentage?: number;
   composition?: CompositionItem[];
   status?: 'Ativo' | 'Inativo';
+  subcategoria_id?: string;
+  codigo_mercadologico?: string;
+  category?: string;
+  subgroup?: string;
 }
 
 export interface CashRegister {
@@ -103,6 +130,15 @@ export interface SaleItem {
   originalPrice?: number; // Preço original antes do desconto
 }
 
+export interface SalePayment {
+  method: string;
+  amount: number;
+  maquininhaId?: string;
+  taxAmount?: number;
+  netAmount?: number;
+  taxPercentage?: number;
+}
+
 export interface Sale {
   id: string;
   date: string;
@@ -110,10 +146,14 @@ export interface Sale {
   total: number;
   subtotal?: number; // Total antes dos descontos
   discount?: number; // Desconto total na venda
-  paymentMethod: 'Dinheiro' | 'Pix' | 'Crédito' | 'Débito' | 'Fiado' | 'Voucher';
+  paymentMethod: string; // Mantido para compatibilidade, será o primeiro método ou 'Múltiplo'
+  payments?: SalePayment[];
   customerId?: string;
   userId?: string; // Usuário que realizou a venda
   cashRegisterId?: string; // ID do caixa
+  maquininhaId?: string;
+  taxAmount?: number;
+  netAmount?: number;
 }
 
 export interface DiscountLog {
@@ -141,13 +181,31 @@ export interface Customer {
   image?: string;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  document: string;
+  phone: string;
+  email: string;
+  address: string;
+}
+
 export interface Expense {
   id: string;
   description: string;
   category: string;
+  supplier?: string;
   amount: number;
-  date: string;
-  status: 'Pago' | 'Pendente';
+  issueDate: string;
+  dueDate: string;
+  date: string; // Added for UI compatibility
+  paymentDate?: string;
+  paymentMethod?: string;
+  financialAccount?: string;
+  observation?: string;
+  isRecurring?: boolean;
+  frequency?: 'Mensal' | 'Semanal' | 'Anual';
+  status: 'Pago' | 'Pendente' | 'Vencido';
 }
 
 export interface PricingSettings {
@@ -259,6 +317,25 @@ export interface SystemSettings {
     push: boolean;
     sms: boolean;
   };
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  type: 'Dinheiro' | 'Pix' | 'Crédito' | 'Débito' | 'Fiado' | 'Voucher' | 'Outro';
+  taxPercentage: number;
+  taxFixed: number;
+  active: boolean;
+}
+
+export interface Maquininha {
+  id: string;
+  nome: string;
+  taxa_debito: number;
+  taxa_credito: number;
+  taxa_credito_parcelado: number;
+  ativo: boolean;
+  created_at: string;
 }
 
 export const INITIAL_PRODUCTS: Product[] = [];

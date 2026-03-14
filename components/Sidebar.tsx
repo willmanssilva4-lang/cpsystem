@@ -42,7 +42,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
   });
 
   const SidebarContent = (
-    <aside className="w-64 bg-[#0A1931] flex flex-col h-full text-white overflow-hidden">
+    <aside className="w-64 bg-brand-blue-support flex flex-col h-full text-white overflow-hidden">
       <div className="p-8 flex items-center justify-between">
         <Logo size="md" theme="dark" />
         <button 
@@ -64,8 +64,8 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
               className={cn(
                 "flex items-center gap-4 px-6 py-3 rounded-xl transition-all text-sm font-bold tracking-wide",
                 isActive 
-                  ? "bg-white/10 text-white shadow-inner" 
-                  : "text-white/60 hover:bg-white/5 hover:text-white"
+                  ? "bg-brand-blue text-white shadow-inner" 
+                  : "text-white/60 hover:bg-brand-blue hover:text-white"
               )}
             >
               <item.icon size={20} className={isActive ? "text-white" : "text-white/60"} />

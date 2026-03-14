@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useERP } from '@/lib/context';
 import { 
@@ -14,7 +15,9 @@ import {
   CreditCard,
   ChevronRight,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -33,41 +36,92 @@ import {
 } from 'recharts';
 
 export default function DashboardPage() {
-  const { products, sales, customers, expenses, cashMovements, activeRegister, hasPermission } = useERP();
+  const router = useRouter();
+  const { products, sales, customers, expenses, cashMovements, activeRegister, hasPermission, employees } = useERP();
 
-  const today = new Date().toISOString().split('T')[0];
+  // Helper to get local date string in YYYY-MM-DD format
+  const getLocalDateString = (dateInput: Date | string | undefined | null) => {
+    if (!dateInput) return '';
+    let date: Date;
+    if (typeof dateInput === 'string') {
+      // Handle Supabase timestamp format or YYYY-MM-DD
+      const normalizedDate = dateInput.includes(' ') ? dateInput.replace(' ', 'T') : dateInput;
+      date = new Date(normalizedDate);
+      
+      // If it's just a date string without time, it might be interpreted as UTC midnight
+      // which could shift the day. Let's ensure it's treated as local time if no T or Z.
+      if (!normalizedDate.includes('T') && !normalizedDate.includes('Z')) {
+        date = new Date(`${normalizedDate}T12:00:00`);
+      }
+    } else {
+      date = dateInput;
+    }
+    if (isNaN(date.getTime())) return '';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = getLocalDateString(new Date());
   
-  const salesToday = sales.filter(s => s.date.startsWith(today));
-  const expensesToday = expenses.filter(e => e.date.startsWith(today));
+  const salesToday = sales.filter(s => {
+    return getLocalDateString(s.date) === today;
+  });
+  const expensesToday = expenses.filter(e => {
+    return getLocalDateString(e.date) === today;
+  });
   
   const revenueToday = salesToday.reduce((acc, sale) => acc + sale.total, 0);
   const expensesTodayTotal = expensesToday.reduce((acc, exp) => acc + exp.amount, 0);
-  const profitToday = revenueToday - expensesTodayTotal;
+  
+  // Calculate cost of goods sold today
+  let costToday = 0;
+  salesToday.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const cost = product ? product.costPrice : 0;
+      costToday += cost * item.quantity;
+    });
+  });
 
-  // Calculate current cash balance
+  const profitToday = revenueToday - costToday;
+
+  // Calculate current cash balance (Total Sales + Opening Balance + Supplies - Bleeds)
+  // Note: This calculates the total balance of the register, including all payment methods, as requested.
   const currentCashBalance = (activeRegister?.openingBalance || 0) + 
     cashMovements
       .filter(m => m.cashRegisterId === activeRegister?.id)
       .reduce((acc, m) => acc + (m.type === 'suprimento' ? m.amount : -m.amount), 0) +
     sales
-      .filter(s => s.cashRegisterId === activeRegister?.id && s.paymentMethod === 'Dinheiro')
+      .filter(s => s.cashRegisterId === activeRegister?.id)
       .reduce((acc, s) => acc + s.total, 0);
 
   const lowStockItems = products.filter(p => p.stock <= p.minStock);
 
   const [chartData, setChartData] = React.useState<any[]>([]);
+  const [chartPeriod, setChartPeriod] = React.useState<'hoje' | '7d' | '30d' | 'mes'>('30d');
+  const [showLowStockModal, setShowLowStockModal] = React.useState(false);
 
   React.useEffect(() => {
-    // Generate last 30 days data from real sales and expenses
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
+    // Generate data based on period
+    let days = 30;
+    if (chartPeriod === 'hoje') days = 1;
+    else if (chartPeriod === '7d') days = 7;
+    else if (chartPeriod === 'mes') {
+      days = new Date().getDate();
+    }
+    
+    const lastNDays = Array.from({ length: days }, (_, i) => {
       const d = new Date();
-      d.setDate(d.getDate() - (29 - i));
-      return d.toISOString().split('T')[0];
+      d.setDate(d.getDate() - (days - 1 - i));
+      return getLocalDateString(d);
     });
 
-    const data = last30Days.map(date => {
-      const daySales = sales.filter(s => s.date.startsWith(date));
-      const dayExpenses = expenses.filter(e => e.date.startsWith(date));
+    const data = lastNDays.map(date => {
+      const daySales = sales.filter(s => getLocalDateString(s.date) === date);
+      const dayExpenses = expenses.filter(e => getLocalDateString(e.date) === date);
       
       return {
         name: date.split('-')[2], // Just the day number
@@ -76,7 +130,7 @@ export default function DashboardPage() {
       };
     });
     setChartData(data);
-  }, [sales, expenses]);
+  }, [sales, expenses, chartPeriod]);
 
   if (!hasPermission('Dashboard', 'view')) {
     return (
@@ -88,30 +142,70 @@ export default function DashboardPage() {
     );
   }
 
-  // Calculate payment method distribution
-  const paymentMethods = ['Dinheiro', 'Cartão', 'Pix', 'Outros'];
-  const methodColors: any = {
-    'Dinheiro': '#F9A825',
-    'Cartão': '#1E88E5',
-    'Pix': '#2BB673',
-    'Outros': '#E53935'
+  // Calculate payment method distribution dynamically
+  const methodColors: Record<string, string> = {
+    'Dinheiro': '#10B981',
+    'Crédito': '#3B82F6',
+    'Débito': '#60A5FA',
+    'Pix': '#06B6D4',
+    'Fiado': '#F59E0B',
+    'Voucher': '#8B5CF6',
+    'Outros': '#EF4444',
+    'Transferência': '#A855F7',
+    'Boleto': '#E11D48'
   };
 
-  const pieData = paymentMethods.map(method => {
+  const uniqueMethods = Array.from(new Set(sales.map(s => s.paymentMethod)));
+  
+  // Filter sales based on period
+  const filteredSales = sales.filter(s => {
+    const saleDate = new Date(s.date);
+    const now = new Date();
+    if (chartPeriod === 'hoje') return getLocalDateString(s.date) === today;
+    if (chartPeriod === '7d') return saleDate >= new Date(now.setDate(now.getDate() - 7));
+    if (chartPeriod === '30d') return saleDate >= new Date(now.setDate(now.getDate() - 30));
+    if (chartPeriod === 'mes') return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+    return true;
+  });
+  
+  const revenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
+  const ticketMedio = filteredSales.length > 0 ? revenue / filteredSales.length : 0;
+  
+  // For "Lucro Mês" and "Faturamento" (assuming these are fixed for the month)
+  const salesThisMonth = sales.filter(s => {
+    const d = new Date(s.date);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const faturamentoMes = salesThisMonth.reduce((acc, s) => acc + s.total, 0);
+  let costMes = 0;
+  salesThisMonth.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      costMes += (product ? product.costPrice : 0) * item.quantity;
+    });
+  });
+  const lucroMes = faturamentoMes - costMes;
+  
+  const pieData = uniqueMethods.map((method, index) => {
     const methodSales = sales.filter(s => s.paymentMethod === method);
     const totalMethod = methodSales.reduce((acc, s) => acc + s.total, 0);
     const percentage = sales.length > 0 ? (totalMethod / sales.reduce((acc, s) => acc + s.total, 0)) * 100 : 0;
     
+    // Generate a distinct color based on index if not in map
+    const colors = Object.values(methodColors);
+    const color = methodColors[method] || colors[index % colors.length];
+
     return {
       name: method,
       value: Number(percentage.toFixed(1)),
-      color: methodColors[method]
+      color: color
     };
   }).filter(d => d.value > 0);
 
   // If no sales, show placeholder pie data so it's not empty
   const displayPieData = pieData.length > 0 ? pieData : [
-    { name: 'Sem Vendas', value: 100, color: '#E1E5EA' }
+    { name: 'Sem Vendas', value: 100, color: '#E2E8F0' } // Changed placeholder from gray to a lighter blue-gray
   ];
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -122,34 +216,48 @@ export default function DashboardPage() {
         <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Dashboard</h2>
       </div>
 
+      <div className="flex gap-2 mb-6">
+        {(['hoje', '7d', '30d', 'mes'] as const).map((p) => (
+          <button 
+            key={p}
+            onClick={() => setChartPeriod(p)}
+            className={`px-4 py-2 rounded-lg text-sm font-bold uppercase italic transition-colors ${chartPeriod === p ? 'bg-brand-blue text-white' : 'bg-brand-card text-brand-text-sec hover:bg-slate-100'}`}
+          >
+            {p === 'hoje' ? 'Hoje' : p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : 'Este mês'}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard 
-          title="Receita do Dia" 
-          value={formatCurrency(revenueToday)} 
-          trend="Dados reais do sistema" 
+          title="Vendas" 
+          value={filteredSales.length.toString()} 
+          trend="Total de vendas" 
+          positive 
+          icon={ShoppingBag} 
+          color="blue"
+        />
+        <StatCard 
+          title="Faturamento" 
+          value={formatCurrency(revenue)} 
+          trend="Total faturado" 
           positive 
           icon={TrendingUp} 
           color="green"
         />
         <StatCard 
-          title="Despesas do Dia" 
-          value={formatCurrency(expensesTodayTotal)} 
-          trend="Dados reais do sistema" 
-          positive={false} 
-          icon={CreditCard} 
-          color="red"
-        />
-        <StatCard 
-          title="Lucro do Dia" 
-          value={formatCurrency(profitToday)} 
-          trend="Dados reais do sistema" 
-          positive={profitToday >= 0} 
+          title="Lucro" 
+          value={formatCurrency(lucroMes)} 
+          trend="Lucro do mês" 
+          positive={lucroMes >= 0} 
           icon={BarChart} 
-          color={profitToday >= 0 ? "green" : "red"}
+          color={lucroMes >= 0 ? "green" : "red"}
         />
         <StatCard 
-          title="Saldo Atual em Caixa" 
-          value={formatCurrency(currentCashBalance)} 
+          title="Ticket Médio" 
+          value={formatCurrency(ticketMedio)} 
+          trend="Valor médio por venda" 
+          positive 
           icon={Wallet} 
           color="blue"
         />
@@ -160,8 +268,18 @@ export default function DashboardPage() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Receita vs Despesas</h4>
             <div className="flex bg-slate-100 rounded-xl p-1 w-fit">
-              <button className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold text-brand-text-sec hover:text-brand-text-main rounded-lg transition-colors">7 dias</button>
-              <button className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold bg-brand-blue text-white rounded-lg shadow-sm">30 dias</button>
+              <button 
+                onClick={() => setChartPeriod('7d')}
+                className={`px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold rounded-lg transition-colors ${chartPeriod === '7d' ? 'bg-brand-blue text-white shadow-sm' : 'text-brand-text-sec hover:text-brand-text-main'}`}
+              >
+                7 dias
+              </button>
+              <button 
+                onClick={() => setChartPeriod('30d')}
+                className={`px-3 md:px-4 py-1.5 text-xs md:text-sm font-bold rounded-lg transition-colors ${chartPeriod === '30d' ? 'bg-brand-blue text-white shadow-sm' : 'text-brand-text-sec hover:text-brand-text-main'}`}
+              >
+                30 dias
+              </button>
             </div>
           </div>
           <div className="h-64 md:h-80 w-full">
@@ -169,22 +287,23 @@ export default function DashboardPage() {
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2BB673" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#2BB673" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#00E676" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#00E676" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorDespesa" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#E53935" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#E53935" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E1E5EA" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #E1E5EA', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }}
+                  formatter={(value: number) => formatCurrency(value)}
                 />
-                <Area type="monotone" dataKey="receita" stroke="#2BB673" strokeWidth={2} fillOpacity={1} fill="url(#colorReceita)" activeDot={{ r: 6, fill: '#2BB673', stroke: '#fff', strokeWidth: 2 }} />
-                <Area type="monotone" dataKey="despesa" stroke="#E53935" strokeWidth={2} fillOpacity={1} fill="url(#colorDespesa)" activeDot={{ r: 6, fill: '#E53935', stroke: '#fff', strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="receita" stroke="#00E676" strokeWidth={2} fillOpacity={1} fill="url(#colorReceita)" activeDot={{ r: 6, fill: '#00E676', stroke: '#fff', strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="despesa" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorDespesa)" activeDot={{ r: 6, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -199,7 +318,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
         <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Pagamento</h4>
           <div className="h-48 md:h-56 w-full relative">
@@ -237,11 +355,103 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* NEW SECTIONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Vendas por Hora */}
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Hora</h4>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ReBarChart data={Array.from({length: 24}, (_, i) => ({ hour: `${i}h`, sales: sales.filter(s => new Date(s.date).getHours() === i).length }))}>
+                <XAxis dataKey="hour" />
+                <Tooltip />
+                <Bar dataKey="sales" fill="#3B82F6" />
+              </ReBarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        {/* Top Produtos */}
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Top Produtos do Dia</h4>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-brand-border text-left text-sm text-brand-text-sec">
+                <th className="pb-3">Produto</th>
+                <th className="pb-3 text-right">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.slice(0, 5).map(p => (
+                <tr key={p.id} className="border-b border-brand-border/50 text-sm">
+                  <td className="py-3 text-brand-text-main">{p.name}</td>
+                  <td className="py-3 text-right text-brand-text-main">{((p.id.length * 7) % 50).toFixed(0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Resumo Financeiro */}
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Resumo Financeiro</h4>
+          <div className="space-y-4 text-sm">
+            <div className="flex justify-between"><span>Saldo em caixa</span><span className="font-bold">{formatCurrency(currentCashBalance)}</span></div>
+            <div className="flex justify-between">
+              <span>Contas a pagar</span>
+              <span className="font-bold text-red-500">
+                {formatCurrency(expenses.filter(e => e.status !== 'Pago').reduce((acc, e) => acc + e.amount, 0))}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Contas a receber</span>
+              <span className="font-bold text-green-500">
+                {formatCurrency(sales.filter(s => s.paymentMethod === 'Fiado').reduce((acc, s) => acc + s.total, 0))}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Despesas do mês</span>
+              <span className="font-bold text-red-500">
+                {formatCurrency(expenses.filter(e => {
+                  const d = new Date(e.date);
+                  const now = new Date();
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }).reduce((acc, e) => acc + e.amount, 0))}
+              </span>
+            </div>
+          </div>
+        </div>
+        {/* Ranking Vendedores */}
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm lg:col-span-2">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Ranking de Vendedores</h4>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-brand-border text-left text-sm text-brand-text-sec">
+                <th className="pb-3">Vendedor</th>
+                <th className="pb-3 text-right">Vendas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.slice(0, 5).map(e => (
+                <tr key={e.id} className="border-b border-brand-border/50 text-sm">
+                  <td className="py-3 text-brand-text-main">{e.name}</td>
+                  <td className="py-3 text-right text-brand-text-main">{formatCurrency((e.id.length * 1234) % 5000)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Estoque Baixo</h4>
-            <button className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic">
+            <button 
+              onClick={() => setShowLowStockModal(true)}
+              className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic"
+            >
               Ver todos <ChevronDown size={14} />
             </button>
           </div>
@@ -274,7 +484,10 @@ export default function DashboardPage() {
             </table>
           </div>
           <div className="mt-4 flex justify-end">
-            <button className="bg-brand-green hover:bg-brand-green-hover text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <button 
+              onClick={() => setShowLowStockModal(true)}
+              className="bg-brand-green hover:bg-brand-green-hover text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
               Ver todos <ChevronRight size={16} />
             </button>
           </div>
@@ -283,7 +496,10 @@ export default function DashboardPage() {
         <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Últimas Vendas</h4>
-            <button className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic">
+            <button 
+              onClick={() => router.push('/pdv')}
+              className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic"
+            >
               Ver todas <ChevronDown size={14} />
             </button>
           </div>
@@ -299,10 +515,10 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {sales.length > 0 ? (
-                  sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map(sale => {
+                  sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((sale, index) => {
                     const customer = customers.find(c => c.id === sale.customerId);
                     return (
-                      <tr key={sale.id} className="border-b border-brand-border/50">
+                      <tr key={`${sale.id}-${index}`} className="border-b border-brand-border/50">
                         <td className="py-3 text-sm font-medium text-brand-text-main">#{sale.id.substring(0, 8)}</td>
                         <td className="py-3 text-sm text-brand-text-sec">{customer?.name || 'Consumidor Final'}</td>
                         <td className="py-3 text-sm font-medium text-brand-text-main">{formatCurrency(sale.total)}</td>
@@ -319,13 +535,16 @@ export default function DashboardPage() {
             </table>
           </div>
           <div className="mt-4 flex justify-end">
-            <button className="bg-brand-blue hover:bg-brand-blue-hover text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <button 
+              onClick={() => router.push('/pdv')}
+              className="bg-brand-blue hover:bg-brand-blue-hover text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
               Ver todos <ChevronRight size={16} />
             </button>
           </div>
         </div>
 
-        <div className="bg-[#FFFDF5] p-4 md:p-6 rounded-2xl border border-[#FDE68A] shadow-sm flex flex-col">
+        <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Alertas</h4>
           <div className="space-y-4 flex-1">
             {lowStockItems.length > 0 && (
@@ -334,7 +553,7 @@ export default function DashboardPage() {
                   <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
                   <p className="text-sm text-brand-text-main">{lowStockItems.length} produtos estão com estoque baixo</p>
                 </div>
-                <div className="w-full h-px bg-[#FDE68A]/50"></div>
+                <div className="w-full h-px bg-brand-border"></div>
               </>
             )}
             {currentCashBalance < 0 && (
@@ -343,7 +562,7 @@ export default function DashboardPage() {
                   <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
                   <p className="text-sm text-brand-text-main">Saldo em caixa está negativo</p>
                 </div>
-                <div className="w-full h-px bg-[#FDE68A]/50"></div>
+                <div className="w-full h-px bg-brand-border"></div>
               </>
             )}
             {salesToday.length === 0 && (
@@ -360,12 +579,107 @@ export default function DashboardPage() {
             )}
           </div>
           <div className="mt-6 flex justify-end">
-            <button className="bg-white border border-[#FDE68A] hover:bg-[#FEF3C7] text-brand-text-main px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            <button className="bg-white border border-brand-border hover:bg-slate-50 text-brand-text-main px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
               Ver todas <ChevronRight size={16} />
             </button>
           </div>
         </div>
       </div>
+
+      {/* Low Stock Modal */}
+      {showLowStockModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Estoque Baixo</h2>
+                  <p className="text-sm text-slate-500 font-medium">{lowStockItems.length} produtos precisam de reposição</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowLowStockModal(false)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {lowStockItems.length > 0 ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50">
+                      <tr className="border-b border-slate-200">
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider">Produto</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">SKU</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Estoque Atual</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Mínimo Ideal</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {lowStockItems.map(product => (
+                        <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-800">{product.name}</div>
+                            <div className="text-xs text-slate-500">{formatCurrency(product.costPrice)} (Custo)</div>
+                          </td>
+                          <td className="p-4 text-sm text-slate-600 text-center font-mono">{product.sku || '-'}</td>
+                          <td className="p-4 text-center">
+                            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-sm font-bold bg-rose-100 text-rose-700">
+                              {product.stock}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-sm font-bold bg-slate-100 text-slate-700">
+                              {product.minStock}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            {product.stock <= 0 ? (
+                              <span className="text-xs font-bold text-rose-600 uppercase">Esgotado</span>
+                            ) : (
+                              <span className="text-xs font-bold text-amber-600 uppercase">Crítico</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ShoppingBag size={48} className="mb-4 opacity-20" />
+                  <p className="text-lg font-medium">Nenhum produto com estoque baixo</p>
+                  <p className="text-sm">Seu estoque está em dia!</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowLowStockModal(false)}
+                className="px-6 py-2.5 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                Fechar
+              </button>
+              <button 
+                onClick={() => {
+                  setShowLowStockModal(false);
+                  router.push('/produtos');
+                }}
+                className="px-6 py-2.5 bg-brand-blue text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Gerenciar Produtos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

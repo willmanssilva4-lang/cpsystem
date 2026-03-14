@@ -16,7 +16,7 @@ type InventoryStep = 'setup' | 'counting' | 'summary';
 type InventoryType = 'Geral' | 'Rotativo' | 'Categoria';
 
 export function InventorySessionModal({ onClose, onComplete }: InventorySessionModalProps) {
-  const { products, addInventory, addStockMovement, user } = useERP();
+  const { products, addInventory, addStockMovement, user, subcategorias, categorias } = useERP();
   const [step, setStep] = useState<InventoryStep>('setup');
   const [search, setSearch] = useState('');
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -35,7 +35,13 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const handleStartSession = () => {
     let filtered = [...products];
     if (config.type === 'Categoria' && config.category) {
-      filtered = filtered.filter(p => p.category === config.category);
+      const cat = categorias.find(c => c.nome === config.category);
+      if (cat) {
+        const subIds = subcategorias.filter(s => s.categoria_id === cat.id).map(s => s.id);
+        filtered = filtered.filter(p => p.subcategoria_id && subIds.includes(p.subcategoria_id));
+      } else {
+        filtered = [];
+      }
     } else if (config.type === 'Rotativo') {
       // For rotativo, maybe pick products with low stock or just a subset
       // For now, let's just take the first 20 or something, or let user search
@@ -203,8 +209,8 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                       className="w-full bg-white border border-slate-200 px-4 py-4 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
                     >
                       <option value="">Todas as Categorias</option>
-                      {Array.from(new Set(products.map(p => p.category))).map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                      {categorias.map(cat => (
+                        <option key={cat.id} value={cat.nome}>{cat.nome}</option>
                       ))}
                     </select>
                   </div>

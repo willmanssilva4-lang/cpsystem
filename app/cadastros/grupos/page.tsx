@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function GruposPage() {
   return (
-    <div className="p-8 space-y-8 bg-white min-h-screen">
+    <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
       <div className="flex items-center gap-4">
         <Link href="/cadastros" className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-brand-blue">
           <ArrowLeft size={24} />

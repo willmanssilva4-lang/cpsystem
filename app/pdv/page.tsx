@@ -11,7 +11,7 @@ import { DiscountModal } from '@/components/DiscountModal';
 import { AuthorizationModal } from '@/components/AuthorizationModal';
 import { CashRegisterManager } from '@/components/CashRegisterManager';
 import { Logo } from '@/components/Logo';
-import { HelpCircle, X, Tag, Lock } from 'lucide-react';
+import { HelpCircle, X, Tag, Lock, AlertCircle } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
@@ -40,6 +40,8 @@ export default function PDVPage() {
   const [cancelItemNumber, setCancelItemNumber] = useState('');
   const [showDiscountItemModal, setShowDiscountItemModal] = useState(false);
   const [discountItemNumber, setDiscountItemNumber] = useState('');
+  const [showOldRegisterWarning, setShowOldRegisterWarning] = useState(false);
+  const hasWarnedOldRegister = useRef(false);
   const [reverseSaleId, setReverseSaleId] = useState('');
   const [discountType, setDiscountType] = useState<'item' | 'sale'>('sale');
   const [pendingDiscount, setPendingDiscount] = useState<any>(null);
@@ -52,6 +54,52 @@ export default function PDVPage() {
   
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
+
+  const discountItemNumberRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showDiscountItemModal) {
+      setTimeout(() => {
+        discountItemNumberRef.current?.focus();
+        discountItemNumberRef.current?.select();
+      }, 50);
+    }
+  }, [showDiscountItemModal]);
+
+  const cancelItemNumberRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showCancelItemModal) {
+      setTimeout(() => {
+        cancelItemNumberRef.current?.focus();
+        cancelItemNumberRef.current?.select();
+      }, 50);
+    }
+  }, [showCancelItemModal]);
+
+  useEffect(() => {
+    if (activeRegister && activeRegister.openedAt && !hasWarnedOldRegister.current) {
+      const openedDate = new Date(activeRegister.openedAt).toLocaleDateString();
+      const today = new Date().toLocaleDateString();
+      if (openedDate !== today) {
+        hasWarnedOldRegister.current = true;
+        setTimeout(() => {
+          setShowOldRegisterWarning(true);
+        }, 50);
+      }
+    }
+  }, [activeRegister]);
+
+  const reverseSaleIdRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showReverseModal) {
+      setTimeout(() => {
+        reverseSaleIdRef.current?.focus();
+        reverseSaleIdRef.current?.select();
+      }, 50);
+    }
+  }, [showReverseModal]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -73,8 +121,8 @@ export default function PDVPage() {
     setShowPaymentModal(true);
   }, [cart]);
 
-  const finalizeSale = (paymentData: any) => {
-    addSale({
+  const finalizeSale = async (paymentData: any) => {
+    const success = await addSale({
       date: new Date().toISOString(),
       items: cart.map(item => ({
         productId: item.product.id,
@@ -86,16 +134,22 @@ export default function PDVPage() {
       subtotal: subtotal,
       discount: totalDiscount,
       total: paymentData.total,
-      paymentMethod: paymentData.method,
+      paymentMethod: paymentData.payments.length > 1 ? 'Múltiplo' : paymentData.payments[0]?.method,
+      payments: paymentData.payments,
+      maquininhaId: paymentData.payments[0]?.maquininhaId, // For compatibility
+      taxAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0),
+      netAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.netAmount || 0), 0),
       userId: user?.email
     });
 
-    setCart([]);
-    setSaleDiscount(0);
-    setSelectedCartIndex(-1);
-    setIsNavigatingCart(false);
-    setShowPaymentModal(false);
-    alert('Venda finalizada com sucesso!');
+    if (success) {
+      setCart([]);
+      setSaleDiscount(0);
+      setSelectedCartIndex(-1);
+      setIsNavigatingCart(false);
+      setShowPaymentModal(false);
+      // Removed alert to speed up PDV flow
+    }
   };
 
   const checkDiscountPermission = (amount: number, type: 'percentage' | 'value') => {
@@ -196,13 +250,13 @@ export default function PDVPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     
     // Only focus barcode input if register is active and no modal is open
-    const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal;
+    const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning;
     if (activeRegister && !isModalOpen && !showHelp && !confirmDialog) {
       barcodeInputRef.current?.focus();
     }
 
     return () => clearInterval(timer);
-  }, [activeRegister, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showHelp, confirmDialog]);
+  }, [activeRegister, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showOldRegisterWarning, showHelp, confirmDialog]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -229,9 +283,14 @@ export default function PDVPage() {
         return;
       }
 
-      // If any modal is open or register is closed, don't process global shortcuts (except Esc and F1)
-      const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || !activeRegister;
-      if ((isModalOpen || showHelp) && e.key !== 'Escape' && e.key !== 'F1') {
+      // If any modal is open or register is closed, don't process global shortcuts (except Esc)
+      const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || !activeRegister;
+      if (isModalOpen && e.key !== 'Escape') {
+        return;
+      }
+
+      // If help is open, only allow Esc and F1 (to toggle)
+      if (showHelp && e.key !== 'Escape' && e.key !== 'F1') {
         return;
       }
 
@@ -432,7 +491,7 @@ export default function PDVPage() {
       }
 
       // Ctrl Actions
-      if (e.ctrlKey && !isInputFocused) {
+      if (e.ctrlKey) {
         const key = e.key.toLowerCase();
         if (key === 's') { e.preventDefault(); setShowSangriaModal(true); }
         if (key === 'u') { e.preventDefault(); setShowSuprimentoModal(true); }
@@ -457,6 +516,8 @@ export default function PDVPage() {
           setShowAuthModal(false);
           setPendingAction(null);
           setPendingDiscount(null);
+        } else if (showOldRegisterWarning) {
+          setShowOldRegisterWarning(false);
         } else if (showDiscountModal) {
           setShowDiscountModal(false);
         } else if (showHelp) {
@@ -496,7 +557,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showCancelItemModal, showDiscountItemModal, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showCancelItemModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -964,6 +1025,7 @@ export default function PDVPage() {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-brand-text-main uppercase tracking-widest">ID da Venda ou Cupom</label>
                 <input 
+                  ref={reverseSaleIdRef}
                   autoFocus
                   value={reverseSaleId}
                   onChange={(e) => setReverseSaleId(e.target.value)}
@@ -1039,6 +1101,7 @@ export default function PDVPage() {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-brand-text-main uppercase tracking-widest">Número do Item</label>
                 <input 
+                  ref={cancelItemNumberRef}
                   autoFocus
                   value={cancelItemNumber}
                   onChange={(e) => setCancelItemNumber(e.target.value)}
@@ -1138,6 +1201,7 @@ export default function PDVPage() {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-brand-text-main uppercase tracking-widest">Número do Item</label>
                 <input 
+                  ref={discountItemNumberRef}
                   autoFocus
                   value={discountItemNumber}
                   onChange={(e) => setDiscountItemNumber(e.target.value)}
@@ -1321,6 +1385,9 @@ export default function PDVPage() {
                 setShowSuprimentoModal(false);
                 setShowClosureModal(false);
               }}
+              onSuccess={() => {
+                router.push('/');
+              }}
             />
             <button 
               onClick={() => {
@@ -1357,6 +1424,45 @@ export default function PDVPage() {
               >
                 NÃO (Esc)
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Old Register Warning Modal */}
+      {showOldRegisterWarning && (
+        <div className="fixed inset-0 bg-brand-text-main/90 backdrop-blur-md z-[600] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-blue">
+              <h2 className="text-xl font-black uppercase italic tracking-tight text-white flex items-center gap-2">
+                <AlertCircle size={24} />
+                Aviso de Caixa Aberto
+              </h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-slate-600 font-medium">
+                O caixa atual foi aberto em um dia anterior ({new Date(activeRegister?.openedAt || '').toLocaleDateString()}).
+              </p>
+              <p className="text-slate-600 font-medium">
+                Deseja continuar operando neste mesmo caixa ou prefere fechá-lo agora?
+              </p>
+              <div className="pt-4 flex gap-3">
+                <button
+                  onClick={() => setShowOldRegisterWarning(false)}
+                  className="flex-1 h-11 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                >
+                  Continuar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowOldRegisterWarning(false);
+                    setShowClosureModal(true);
+                  }}
+                  className="flex-1 h-11 bg-brand-blue-hover text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-blue transition-colors"
+                >
+                  Fechar Caixa
+                </button>
+              </div>
             </div>
           </div>
         </div>

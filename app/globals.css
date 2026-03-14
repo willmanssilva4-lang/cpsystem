@@ -2,21 +2,33 @@
 @import "tw-animate-css";
 
 @theme {
-  --color-brand-blue: #123B6D;
-  --color-brand-blue-hover: #0F2F57;
-  --color-brand-blue-support: #1E5AA8;
-  --color-brand-green: #2BB673;
-  --color-brand-green-hover: #239961;
+  /* Cor Primária (Marca) */
+  --color-brand-blue: #1E5EFF;
+  /* Azul Médio (Hover) */
+  --color-brand-blue-hover: #2F7BFF;
+  /* Azul Escuro (Fundo Premium) */
+  --color-brand-blue-support: #0A1F44;
   
+  /* Cor Secundária (Destaque) */
+  --color-brand-green: #00E676;
+  /* Sucesso */
+  --color-brand-green-hover: #22C55E;
+  
+  /* Fundo Escuro */
   --color-brand-bg: #F4F6F9;
+  /* Branco Interface */
   --color-brand-card: #FFFFFF;
-  --color-brand-text-main: #1F2D3D;
-  --color-brand-text-sec: #6B7C93;
-  --color-brand-border: #E1E5EA;
+  
+  /* Text colors */
+  --color-brand-text-main: #1F2937; /* Dark text for light background */
+  --color-brand-text-dark: #1F2937; /* Dark text for white cards */
+  --color-brand-text-sec: #64748B;
+  --color-brand-border: #E5E7EB;
 
-  --color-brand-danger: #E53935;
-  --color-brand-warning: #F9A825;
-  --color-brand-info: #1E88E5;
+  --color-brand-danger: #EF4444;
+  --color-brand-warning: #F59E0B;
+  --color-brand-info: #1E5EFF;
+  --color-brand-success: #22C55E;
 
   --font-sans: 'Inter', sans-serif;
 }
@@ -26,3 +38,16 @@ body {
   color: var(--color-brand-text-main);
   font-family: var(--font-sans);
 }
+
+/* Ensure text inside white cards is dark */
+.bg-brand-card, .bg-white, .bg-slate-50 {
+  color: var(--color-brand-text-dark);
+}
+
+/* Override text-brand-text-main inside cards to be dark */
+.bg-brand-card .text-brand-text-main, 
+.bg-white .text-brand-text-main,
+.bg-slate-50 .text-brand-text-main {
+  color: var(--color-brand-text-dark);
+}
+
