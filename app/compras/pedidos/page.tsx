@@ -10,6 +10,9 @@ export default function TodosPedidosPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [isItemsLoading, setIsItemsLoading] = useState(false);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -28,6 +31,47 @@ export default function TodosPedidosPage() {
     }
     fetchOrders();
   }, []);
+
+  const handleOrderClick = async (order: any) => {
+    setSelectedOrder(order);
+    setIsItemsLoading(true);
+    console.log('Fetching items for order:', order.id);
+    
+    // 1. Fetch items
+    const { data: items, error: itemsError } = await supabase
+      .from('purchase_order_items')
+      .select('quantity, unit_price, product_id')
+      .eq('purchase_order_id', order.id);
+    
+    if (itemsError) {
+      console.error('Error fetching items for order', order.id, ':', JSON.stringify(itemsError, null, 2));
+      setIsItemsLoading(false);
+      return;
+    }
+
+    if (items) {
+      // 2. Fetch products for these items
+      const productIds = [...new Set(items.map(item => item.product_id))];
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, name')
+        .in('id', productIds);
+        
+      if (productsError) {
+        console.error('Error fetching products:', JSON.stringify(productsError, null, 2));
+        setOrderItems(items); // Show items even if product names fail
+      } else {
+        // 3. Combine items with product names
+        const itemsWithProducts = items.map(item => ({
+          ...item,
+          products: products?.find(p => p.id === item.product_id)
+        }));
+        setOrderItems(itemsWithProducts);
+      }
+    }
+    
+    setIsItemsLoading(false);
+  };
 
   const filteredOrders = orders.filter(order => 
     (order.suppliers?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,7 +123,7 @@ export default function TodosPedidosPage() {
                 </tr>
               ) : (
                 filteredOrders.map(order => (
-                  <tr key={order.id} className="hover:bg-slate-50/50">
+                  <tr key={order.id} className="hover:bg-slate-50/50 cursor-pointer" onClick={() => handleOrderClick(order)}>
                     <td className="px-6 py-4 font-bold text-sm text-brand-text-main">{order.id.slice(0, 8)}</td>
                     <td className="px-6 py-4 font-bold text-sm text-brand-text-main">{order.suppliers?.name || 'Desconhecido'}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{new Date(order.order_date).toLocaleDateString('pt-BR')}</td>
@@ -103,6 +147,57 @@ export default function TodosPedidosPage() {
           </table>
         )}
       </div>
+
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black uppercase italic">Detalhes do Pedido</h2>
+              <button onClick={() => { setSelectedOrder(null); setOrderItems([]); }} className="text-slate-400 hover:text-slate-600">
+                <XCircle size={24} />
+              </button>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <p><strong>ID:</strong> {selectedOrder.id.slice(0, 8)}</p>
+                <p><strong>Fornecedor:</strong> {selectedOrder.suppliers?.name || 'Desconhecido'}</p>
+                <p><strong>Data:</strong> {new Date(selectedOrder.order_date).toLocaleDateString('pt-BR')}</p>
+                <p><strong>Status:</strong> {selectedOrder.status}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-bold mb-2">Produtos Comprados:</h3>
+                {isItemsLoading ? (
+                  <p className="text-sm text-slate-500">Carregando produtos...</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2">Produto</th>
+                        <th className="text-right py-2">Qtd</th>
+                        <th className="text-right py-2">Custo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderItems.map((item, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="py-2">{item.products?.name || 'Produto'}</td>
+                          <td className="text-right py-2">{item.quantity}</td>
+                          <td className="text-right py-2">R$ {Number(item.unit_price).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              
+              <div className="text-right font-black text-lg">
+                Total: R$ {Number(selectedOrder.total_amount).toFixed(2)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

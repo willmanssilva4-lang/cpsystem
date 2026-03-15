@@ -351,7 +351,7 @@ export default function PurchasingPage() {
             </select>
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={priceHistory}>
                 <defs>
                   <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -407,7 +407,7 @@ export default function PurchasingPage() {
             </button>
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={supplierPerformance} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
                 <XAxis type="number" hide />

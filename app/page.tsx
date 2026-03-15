@@ -37,7 +37,7 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { products, sales, customers, expenses, cashMovements, activeRegister, hasPermission, employees } = useERP();
+  const { products, sales, customers, expenses, cashMovements, activeRegister, hasPermission, employees, lotes } = useERP();
 
   // Helper to get local date string in YYYY-MM-DD format
   const getLocalDateString = (dateInput: Date | string | undefined | null) => {
@@ -98,11 +98,68 @@ export default function DashboardPage() {
       .filter(s => s.cashRegisterId === activeRegister?.id)
       .reduce((acc, s) => acc + s.total, 0);
 
+  const employeeSales = React.useMemo(() => {
+    const salesByEmployee: Record<string, number> = {};
+    sales.forEach(sale => {
+      if (sale.userId) {
+        salesByEmployee[sale.userId] = (salesByEmployee[sale.userId] || 0) + sale.total;
+      }
+    });
+    return employees.map(e => ({
+      ...e,
+      totalSales: salesByEmployee[e.id] || 0
+    })).sort((a, b) => b.totalSales - a.totalSales);
+  }, [sales, employees]);
+
+  const topProductsToday = React.useMemo(() => {
+    const productCounts: Record<string, { name: string, quantity: number }> = {};
+    
+    salesToday.forEach(sale => {
+      sale.items.forEach(item => {
+        if (!productCounts[item.productId]) {
+          const product = products.find(p => p.id === item.productId);
+          productCounts[item.productId] = { 
+            name: product?.name || 'Produto Desconhecido', 
+            quantity: 0 
+          };
+        }
+        productCounts[item.productId].quantity += item.quantity;
+      });
+    });
+
+    return Object.values(productCounts)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+  }, [salesToday, products]);
+
   const lowStockItems = products.filter(p => p.stock <= p.minStock);
 
+  const expiringLotes = React.useMemo(() => {
+    if (!lotes) return [];
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const thirtyDaysFromNow = new Date(todayDate);
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    return lotes.filter(lote => {
+      if (lote.saldoAtual <= 0) return false;
+      if (!lote.validade) return false;
+      
+      let validadeDate;
+      if (lote.validade.includes('T')) {
+        validadeDate = new Date(lote.validade);
+      } else {
+        validadeDate = new Date(`${lote.validade}T12:00:00`);
+      }
+      
+      return validadeDate <= thirtyDaysFromNow;
+    });
+  }, [lotes]);
+
   const [chartData, setChartData] = React.useState<any[]>([]);
-  const [chartPeriod, setChartPeriod] = React.useState<'hoje' | '7d' | '30d' | 'mes'>('30d');
+  const [chartPeriod, setChartPeriod] = React.useState<'hoje' | '7d' | '30d' | 'mes'>('hoje');
   const [showLowStockModal, setShowLowStockModal] = React.useState(false);
+  const [showExpiringModal, setShowExpiringModal] = React.useState(false);
 
   React.useEffect(() => {
     // Generate data based on period
@@ -283,7 +340,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="h-64 md:h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
@@ -321,7 +378,7 @@ export default function DashboardPage() {
         <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Pagamento</h4>
           <div className="h-48 md:h-56 w-full relative">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={displayPieData}
@@ -361,7 +418,7 @@ export default function DashboardPage() {
         <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Hora</h4>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <ReBarChart data={Array.from({length: 24}, (_, i) => ({ hour: `${i}h`, sales: sales.filter(s => new Date(s.date).getHours() === i).length }))}>
                 <XAxis dataKey="hour" />
                 <Tooltip />
@@ -381,12 +438,20 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {products.slice(0, 5).map(p => (
-                <tr key={p.id} className="border-b border-brand-border/50 text-sm">
-                  <td className="py-3 text-brand-text-main">{p.name}</td>
-                  <td className="py-3 text-right text-brand-text-main">{((p.id.length * 7) % 50).toFixed(0)}</td>
+              {topProductsToday.length > 0 ? (
+                topProductsToday.map((p, index) => (
+                  <tr key={index} className="border-b border-brand-border/50 text-sm">
+                    <td className="py-3 text-brand-text-main">{p.name}</td>
+                    <td className="py-3 text-right text-brand-text-main font-bold">{p.quantity}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={2} className="py-8 text-center text-brand-text-sec text-xs italic">
+                    Nenhuma venda realizada hoje
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -433,10 +498,10 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {employees.slice(0, 5).map(e => (
+              {employeeSales.slice(0, 5).map(e => (
                 <tr key={e.id} className="border-b border-brand-border/50 text-sm">
                   <td className="py-3 text-brand-text-main">{e.name}</td>
-                  <td className="py-3 text-right text-brand-text-main">{formatCurrency((e.id.length * 1234) % 5000)}</td>
+                  <td className="py-3 text-right text-brand-text-main">{formatCurrency(e.totalSales)}</td>
                 </tr>
               ))}
             </tbody>
@@ -549,9 +614,18 @@ export default function DashboardPage() {
           <div className="space-y-4 flex-1">
             {lowStockItems.length > 0 && (
               <>
-                <div className="flex gap-3">
+                <div className="flex gap-3 cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded-lg transition-colors" onClick={() => setShowLowStockModal(true)}>
                   <AlertTriangle size={20} className="text-brand-warning shrink-0 mt-0.5" />
                   <p className="text-sm text-brand-text-main">{lowStockItems.length} produtos estão com estoque baixo</p>
+                </div>
+                <div className="w-full h-px bg-brand-border"></div>
+              </>
+            )}
+            {expiringLotes.length > 0 && (
+              <>
+                <div className="flex gap-3 cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded-lg transition-colors" onClick={() => setShowExpiringModal(true)}>
+                  <AlertTriangle size={20} className="text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-brand-text-main">{expiringLotes.length} lotes de produtos vencendo em breve ou vencidos</p>
                 </div>
                 <div className="w-full h-px bg-brand-border"></div>
               </>
@@ -571,7 +645,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-brand-text-main">Nenhuma venda registrada hoje até o momento</p>
               </div>
             )}
-            {lowStockItems.length === 0 && currentCashBalance >= 0 && salesToday.length > 0 && (
+            {lowStockItems.length === 0 && expiringLotes.length === 0 && currentCashBalance >= 0 && salesToday.length > 0 && (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <TrendingUp size={32} className="text-brand-green mb-2 opacity-20" />
                 <p className="text-sm text-brand-text-sec italic">Tudo sob controle!</p>
@@ -670,6 +744,116 @@ export default function DashboardPage() {
               <button 
                 onClick={() => {
                   setShowLowStockModal(false);
+                  router.push('/produtos');
+                }}
+                className="px-6 py-2.5 bg-brand-blue text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Gerenciar Produtos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expiring Lotes Modal */}
+      {showExpiringModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Produtos Vencendo</h2>
+                  <p className="text-sm text-slate-500 font-medium">{expiringLotes.length} lotes precisam de atenção</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowExpiringModal(false)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {expiringLotes.length > 0 ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50">
+                      <tr className="border-b border-slate-200">
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider">Produto</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Lote</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Validade</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Saldo</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {expiringLotes.map(lote => {
+                        const product = products.find(p => p.id === lote.productId);
+                        
+                        let validadeDate;
+                        if (lote.validade.includes('T')) {
+                          validadeDate = new Date(lote.validade);
+                        } else {
+                          validadeDate = new Date(`${lote.validade}T12:00:00`);
+                        }
+                        
+                        const todayDate = new Date();
+                        todayDate.setHours(0, 0, 0, 0);
+                        
+                        const isExpired = validadeDate < todayDate;
+                        
+                        return (
+                          <tr key={lote.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4">
+                              <div className="font-bold text-slate-800">{product?.name || 'Produto Desconhecido'}</div>
+                            </td>
+                            <td className="p-4 text-sm text-slate-600 text-center font-mono">{lote.numeroLote || '-'}</td>
+                            <td className="p-4 text-center">
+                              <span className="text-sm font-medium text-slate-700">
+                                {validadeDate.toLocaleDateString('pt-BR')}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-sm font-bold bg-slate-100 text-slate-700">
+                                {lote.saldoAtual}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center">
+                              {isExpired ? (
+                                <span className="text-xs font-bold text-rose-600 uppercase">Vencido</span>
+                              ) : (
+                                <span className="text-xs font-bold text-amber-600 uppercase">Vence em Breve</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ShoppingBag size={48} className="mb-4 opacity-20" />
+                  <p className="text-lg font-medium">Nenhum produto vencendo em breve</p>
+                  <p className="text-sm">Seus lotes estão em dia!</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowExpiringModal(false)}
+                className="px-6 py-2.5 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                Fechar
+              </button>
+              <button 
+                onClick={() => {
+                  setShowExpiringModal(false);
                   router.push('/produtos');
                 }}
                 className="px-6 py-2.5 bg-brand-blue text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"

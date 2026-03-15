@@ -77,13 +77,18 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       const physical = counts[p.id] ?? p.stock;
       if (physical !== p.stock) {
         const diff = physical - p.stock;
-        totalDivergenceValue += diff * p.costPrice;
+        const cost = typeof p.costPrice === 'number' && !isNaN(p.costPrice) ? p.costPrice : 0;
+        totalDivergenceValue += diff * cost;
         itemsWithDivergence++;
       }
       itemsCounted++;
     });
 
-    return { totalDivergenceValue, itemsCounted, itemsWithDivergence };
+    return { 
+      totalDivergenceValue: isNaN(totalDivergenceValue) ? 0 : totalDivergenceValue, 
+      itemsCounted, 
+      itemsWithDivergence 
+    };
   };
 
   const handleFinalize = async () => {

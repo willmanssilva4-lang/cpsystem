@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   ArrowLeft, 
   Plus, 
@@ -43,31 +43,7 @@ export default function CotacoesPage() {
   
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  async function fetchInitialData() {
-    setIsLoading(true);
-    try {
-      // Fetch Products
-      const { data: products } = await supabase.from('products').select('id, name, sku, cost_price').order('name');
-      if (products) setProductsList(products);
-
-      // Fetch Suppliers
-      const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name');
-      if (suppliers) setSuppliersList(suppliers);
-
-      // Fetch Quotations
-      await fetchQuotations();
-    } catch (error) {
-      console.error('Error fetching initial data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function fetchQuotations() {
+  const fetchQuotations = useCallback(async () => {
     const { data: quotationsData } = await supabase
       .from('quotations')
       .select(`
@@ -98,7 +74,31 @@ export default function CotacoesPage() {
       });
       setQuotations(formatted);
     }
-  }
+  }, []);
+
+  const fetchInitialData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Fetch Products
+      const { data: products } = await supabase.from('products').select('id, name, sku, cost_price').order('name');
+      if (products) setProductsList(products);
+
+      // Fetch Suppliers
+      const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name');
+      if (suppliers) setSuppliersList(suppliers);
+
+      // Fetch Quotations
+      await fetchQuotations();
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchQuotations]);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -168,15 +168,15 @@ export default function CotacoesPage() {
 
   const handleSave = async () => {
     if (!title) {
-      alert('Informe um título para a cotação.');
+      console.warn('Título não informado');
       return;
     }
     if (items.length === 0) {
-      alert('Adicione pelo menos um produto à cotação.');
+      console.warn('Nenhum item adicionado');
       return;
     }
     if (selectedSuppliers.length === 0) {
-      alert('Selecione pelo menos um fornecedor.');
+      console.warn('Nenhum fornecedor selecionado');
       return;
     }
     
@@ -187,7 +187,8 @@ export default function CotacoesPage() {
         .from('quotations')
         .insert({
           title,
-          status: 'Em Aberto'
+          status: 'Em Aberto',
+          limit_date: limitDate || null
         })
         .select()
         .single();
@@ -213,7 +214,7 @@ export default function CotacoesPage() {
       const { error: sError } = await supabase.from('quotation_suppliers').insert(suppliersToInsert);
       if (sError) throw sError;
 
-      alert('Cotação lançada com sucesso!');
+      console.log('Cotação lançada com sucesso!');
       setView('list');
       setItems([]);
       setSelectedSuppliers([]);
@@ -222,7 +223,6 @@ export default function CotacoesPage() {
       await fetchQuotations();
     } catch (error) {
       console.error('Error saving quotation:', error);
-      alert('Erro ao salvar cotação.');
     } finally {
       setIsLoading(false);
     }

@@ -62,6 +62,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     category?: string;
     subgroup?: string;
     departamento_id?: string;
+    validade?: string;
   }>({
     sku: initialData?.sku || '',
     name: initialData?.name || '',
@@ -86,7 +87,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     codigo_mercadologico: initialData?.codigo_mercadologico || '',
     category: 'PADRAO',
     subgroup: 'PADRAO',
-    departamento_id: ''
+    departamento_id: '',
+    validade: initialData?.validade || ''
   });
 
   const roundPrice = (price: number) => {
@@ -384,6 +386,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     </select>
                     <HelpCircle size={24} className="text-slate-300" />
                   </div>
+                </div>
+                <div className="md:col-span-3">
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Validade:</label>
+                  <input 
+                    type="date"
+                    name="validade"
+                    value={formData.validade}
+                    onChange={handleChange}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                  />
                 </div>
               </div>
 

@@ -128,6 +128,7 @@ export interface SaleItem {
   price: number;
   discount?: number; // Valor do desconto aplicado ao item
   originalPrice?: number; // Preço original antes do desconto
+  promotionId?: string; // ID da promoção aplicada
 }
 
 export interface SalePayment {
@@ -188,6 +189,26 @@ export interface Supplier {
   phone: string;
   email: string;
   address: string;
+}
+
+export interface Promotion {
+  id: string;
+  name: string;
+  type: 'PRICE' | 'PERCENTAGE' | 'BUY_X_GET_Y' | 'COMBO';
+  startDate: string;
+  endDate: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  targetType: 'PRODUCT' | 'CATEGORY' | 'SUBCATEGORY' | 'ALL';
+  targetId?: string;
+  discountValue?: number;
+  buyQuantity?: number;
+  payQuantity?: number;
+  comboItems?: string[];
+  comboPrice?: number;
+  applyAutomatically: boolean;
+  limitPerCustomer?: number;
+  quantityLimit?: number;
+  daysOfWeek?: number[];
 }
 
 export interface Expense {

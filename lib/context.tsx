@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
+import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
 
@@ -27,6 +27,7 @@ interface ERPContextType {
   systemSettings: SystemSettings;
   paymentMethods: PaymentMethod[];
   maquininhas: Maquininha[];
+  promotions: Promotion[];
   user: { id: string; name: string; email: string; role: string; profileId?: string } | null;
   hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete') => boolean;
   discountLogs: DiscountLog[];
@@ -97,6 +98,9 @@ interface ERPContextType {
   addMaquininha: (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => Promise<void>;
   updateMaquininha: (maquininha: Maquininha) => Promise<void>;
   deleteMaquininha: (id: string) => Promise<void>;
+  addPromotion: (promotion: Omit<Promotion, 'id'>) => Promise<void>;
+  updatePromotion: (promotion: Promotion) => Promise<void>;
+  deletePromotion: (id: string) => Promise<void>;
   seedMercadologicalTree: () => Promise<void>;
   seedExpenseCategories: () => Promise<void>;
 }
@@ -131,6 +135,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [lotes, setLotes] = useState<ProductLote[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [maquininhas, setMaquininhas] = useState<Maquininha[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     theme: 'system',
     language: 'pt-BR',
@@ -209,6 +214,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const { data: lotesData } = await supabase.from('produto_lotes').select('*');
       const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
       const { data: maquininhasData } = await supabase.from('maquininhas').select('*');
+      const { data: promotionsData } = await supabase.from('promotions').select('*');
+
+      if (promotionsData) {
+        setPromotions(promotionsData.map(p => ({
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          startDate: p.start_date,
+          endDate: p.end_date,
+          status: p.status,
+          targetType: p.target_type,
+          targetId: p.target_id,
+          discountValue: p.discount_value ? Number(p.discount_value) : undefined,
+          buyQuantity: p.buy_quantity,
+          payQuantity: p.pay_quantity,
+          comboItems: p.combo_items,
+          comboPrice: p.combo_price ? Number(p.combo_price) : undefined,
+          applyAutomatically: p.apply_automatically,
+          limitPerCustomer: p.limit_per_customer,
+          quantityLimit: p.quantity_limit,
+          daysOfWeek: p.days_of_week
+        })));
+      }
 
       if (productsData) {
         const baseProducts = productsData.map(p => ({
@@ -288,10 +316,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           total: Number(s.total),
           paymentMethod: s.payment_method,
           customerId: s.customer_id,
+          userId: s.user_id,
           items: (s.sale_items || []).map((si: any) => ({
             productId: si.product_id,
             quantity: si.quantity,
-            price: Number(si.price)
+            price: Number(si.price),
+            originalPrice: si.original_price ? Number(si.original_price) : Number(si.price),
+            discount: si.discount ? Number(si.discount) : 0,
+            promotionId: si.promotion_id || undefined
           }))
         }));
         setSales(mappedSales);
@@ -668,11 +700,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
              localStorage.setItem('erp_user', JSON.stringify(fallbackUser));
           }
         } else {
-          // Fallback to localStorage if no Supabase session (legacy or dev)
-          const savedUser = localStorage.getItem('erp_user');
-          if (savedUser) {
-            setUser(JSON.parse(savedUser));
-          }
+          // No Supabase session, clear local storage to force re-login
+          // This prevents RLS errors on tables that require authentication
+          localStorage.removeItem('erp_user');
+          setUser(null);
         }
 
         await fetchData();
@@ -731,6 +762,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         paymentMethodsSubscription = supabase
           .channel('payment-methods-changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_methods' }, () => fetchData())
+          .subscribe();
+
+        const promotionsSubscription = supabase
+          .channel('promotions-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => fetchData())
           .subscribe();
 
       } catch (error) {
@@ -1050,7 +1086,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           quantity: item.quantity,
           price: item.price,
           original_price: item.originalPrice || item.price,
-          discount: item.discount || 0
+          discount: item.discount || 0,
+          promotion_id: item.promotionId || null
         }));
 
         let { error: itemsError } = await supabase.from('sale_items').insert(itemsToInsert);
@@ -1144,26 +1181,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
 
         await fetchData();
-        
-        // Optimistic update for local state AFTER successful DB insert
-        setSales(prev => {
-          const updated = [...prev, { ...newSale, id: saleId }];
-          localStorage.setItem('erp_sales', JSON.stringify(updated));
-          return updated;
-        });
-
-        // Update stock locally
-        setProducts(prev => {
-          const updated = prev.map(p => {
-            const item = sale.items.find(i => i.productId === p.id);
-            if (item) {
-              return { ...p, stock: p.stock - item.quantity };
-            }
-            return p;
-          });
-          localStorage.setItem('erp_products', JSON.stringify(updated));
-          return updated;
-        });
         
         return true;
       }
@@ -1321,6 +1338,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
       await fetchData();
+    } else {
+      console.error('Error adding loss:', JSON.stringify(error, null, 2), error);
+      throw new Error('Failed to add loss');
     }
   };
 
@@ -1344,7 +1364,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await fetchData();
     } else {
-      console.error('Error adding expense:', error);
+      console.error('Error adding expense:', JSON.stringify(error, null, 2), error);
+      throw new Error('Failed to add expense');
     }
   };
 
@@ -1372,8 +1393,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       await fetchData();
     } else {
-      console.error('Error adding stock movement:', error);
+      console.error('Error adding stock movement:', JSON.stringify(error, null, 2), error);
       alert('Erro ao registrar movimentação. Verifique se a tabela "stock_movements" existe no Supabase.');
+      throw new Error('Failed to add stock movement');
     }
   };
 
@@ -1391,8 +1413,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     if (!error) {
       await fetchData();
+      return true;
     } else {
-      console.error('Error adding inventory:', error);
+      console.error('Error adding inventory:', JSON.stringify(error, null, 2), error);
       // Fallback if columns don't exist yet - try without new columns
       const { error: retryError } = await supabase.from('inventories').insert([{
         date: inventory.date,
@@ -1405,8 +1428,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       
       if (!retryError) {
         await fetchData();
+        return true;
       } else {
+        console.error('Retry error adding inventory:', JSON.stringify(retryError, null, 2), retryError);
         alert('Erro ao registrar inventário. Verifique se a tabela "inventories" existe no Supabase.');
+        throw new Error('Failed to add inventory');
       }
     }
   };
@@ -2275,6 +2301,76 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addPromotion = async (promotion: Omit<Promotion, 'id'>) => {
+    if (user?.role !== 'Administrador') {
+      alert('Apenas administradores podem criar promoções.');
+      return;
+    }
+    const { error } = await supabase.from('promotions').insert([{
+      name: promotion.name,
+      type: promotion.type,
+      start_date: promotion.startDate,
+      end_date: promotion.endDate,
+      status: promotion.status,
+      target_type: promotion.targetType,
+      target_id: promotion.targetId,
+      discount_value: promotion.discountValue,
+      buy_quantity: promotion.buyQuantity,
+      pay_quantity: promotion.payQuantity,
+      combo_items: promotion.comboItems,
+      combo_price: promotion.comboPrice,
+      apply_automatically: promotion.applyAutomatically,
+      limit_per_customer: promotion.limitPerCustomer,
+      quantity_limit: promotion.quantityLimit,
+      days_of_week: promotion.daysOfWeek
+    }]);
+    if (!error) await fetchData();
+    else {
+      console.error('Error adding promotion:', error);
+      alert(`Erro ao adicionar promoção: ${error.message || JSON.stringify(error)}`);
+    }
+  };
+
+  const updatePromotion = async (promotion: Promotion) => {
+    if (user?.role !== 'Administrador') {
+      alert('Apenas administradores podem editar promoções.');
+      return;
+    }
+    const { error } = await supabase.from('promotions').update({
+      name: promotion.name,
+      type: promotion.type,
+      start_date: promotion.startDate,
+      end_date: promotion.endDate,
+      status: promotion.status,
+      target_type: promotion.targetType,
+      target_id: promotion.targetId,
+      discount_value: promotion.discountValue,
+      buy_quantity: promotion.buyQuantity,
+      pay_quantity: promotion.payQuantity,
+      combo_items: promotion.comboItems,
+      combo_price: promotion.comboPrice,
+      apply_automatically: promotion.applyAutomatically,
+      limit_per_customer: promotion.limitPerCustomer,
+      quantity_limit: promotion.quantityLimit,
+      days_of_week: promotion.daysOfWeek
+    }).eq('id', promotion.id);
+    if (!error) await fetchData();
+    else {
+      console.error('Error updating promotion:', error);
+      alert(`Erro ao atualizar promoção: ${error.message || JSON.stringify(error)}`);
+    }
+  };
+
+  const deletePromotion = async (id: string) => {
+    if (user?.role !== 'Administrador') {
+      alert('Apenas administradores podem excluir promoções.');
+      return;
+    }
+    const { error } = await supabase.from('promotions').delete().eq('id', id);
+    if (!error) await fetchData();
+    else console.error('Error deleting promotion:', error);
+  };
+
   return (
     <ERPContext.Provider value={{ 
       products, 
@@ -2296,6 +2392,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       pricingSettings,
       companySettings,
       systemSettings,
+      paymentMethods,
+      maquininhas,
+      promotions,
       user,
       hasPermission,
       discountLogs,
@@ -2365,6 +2464,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       addMaquininha,
       updateMaquininha,
       deleteMaquininha,
+      addPromotion,
+      updatePromotion,
+      deletePromotion,
       lotes,
       login,
       logout,

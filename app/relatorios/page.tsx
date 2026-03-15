@@ -72,7 +72,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 
@@ -221,13 +221,6 @@ export default function ReportsPage() {
       date: new Date(e.date).toLocaleDateString('pt-BR'),
       value: e.amount,
       status: 'Em Dia'
-    })),
-    ...filteredSales.slice(0, 3).map(s => ({
-      type: 'Receber',
-      desc: `Venda #${s.id.slice(0, 6)}`,
-      date: new Date(s.date).toLocaleDateString('pt-BR'),
-      value: s.total,
-      status: 'Próximo do Vencimento'
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -426,6 +419,7 @@ export default function ReportsPage() {
                   {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Curva ABC de Clientes' && <AbcCustomersReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Comissões de Vendedores' && <CommissionsReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Vendas por Vendedor' && <SalesBySellerReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Produto' && <SalesByProductReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Categoria' && <SalesByCategoryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Hora' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
@@ -440,7 +434,7 @@ export default function ReportsPage() {
                         <p className="text-sm text-slate-500 mt-2">Este relatório está sendo gerado com base nas projeções de vendas e despesas fixas.</p>
                       </div>
                       <div className="h-80 w-full bg-white rounded-3xl border border-slate-100 p-6">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                           <BarChart data={projectionData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
@@ -749,13 +743,6 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
       date: new Date(e.date).toLocaleDateString('pt-BR'),
       value: e.amount,
       status: 'Em Dia'
-    })),
-    ...filteredSales.slice(0, 3).map(s => ({
-      type: 'Receber',
-      desc: `Venda #${s.id.slice(0, 6)}`,
-      date: new Date(s.date).toLocaleDateString('pt-BR'),
-      value: s.total,
-      status: 'Próximo do Vencimento'
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -875,7 +862,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
             <div className="flex-1 flex items-center justify-between gap-4">
               <div className="h-64 w-1/2">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={categoryData}
@@ -977,7 +964,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
               </div>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
@@ -1002,7 +989,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
             <div className="flex-1 flex items-center justify-between gap-6">
               <div className="h-56 w-1/2">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={paymentData}
@@ -1620,7 +1607,7 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
       
       <div className="h-64 w-full">
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
@@ -1697,7 +1684,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="h-64">
           {data.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={data}
@@ -1770,7 +1757,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
     <div className="space-y-8">
       <div className="h-80 w-full">
         {data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
@@ -2080,7 +2067,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="h-64">
           {data.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={data}
@@ -2258,6 +2245,78 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { sales, systemUsers, employees } = useERP();
+  
+  const filteredSales = sales.filter(s => {
+    const d = s.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  const salesByUser: Record<string, { total: number, count: number }> = {};
+  filteredSales.forEach(sale => {
+    const userId = sale.userId || 'unknown';
+    if (!salesByUser[userId]) salesByUser[userId] = { total: 0, count: 0 };
+    salesByUser[userId].total += sale.total;
+    salesByUser[userId].count += 1;
+  });
+
+  const data = Object.entries(salesByUser).map(([userId, stats]) => {
+    let sellerName = 'Vendedor Desconhecido';
+    
+    if (userId !== 'unknown') {
+      const user = systemUsers.find(u => u.id === userId);
+      if (user) {
+        if (user.employeeId) {
+          const employee = employees.find(e => e.id === user.employeeId);
+          if (employee) {
+            sellerName = employee.fullName;
+          } else {
+            sellerName = user.username;
+          }
+        } else {
+          sellerName = user.username;
+        }
+      }
+    }
+
+    return {
+      userId,
+      sellerName,
+      total: stats.total,
+      count: stats.count
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  return (
+    <div className="space-y-6">
+      <h4 className="text-xl font-bold text-slate-800">Vendas por Vendedor</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-50">
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendedor</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Qtd. Vendas</th>
+              <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total Vendido</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {data.map((row, idx) => (
+              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.sellerName}</td>
+                <td className="py-4 text-sm font-bold text-brand-text-main">{row.count}</td>
+                <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,8 @@ import { HelpCircle, X, Tag, Lock, AlertCircle } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission } = useERP();
-  const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number }[]>([]);
+  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias } = useERP();
+  const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string }[]>([]);
   const [barcode, setBarcode] = useState('');
 
   const [quantity, setQuantity] = useState(1);
@@ -109,9 +109,58 @@ export default function PDVPage() {
     return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR');
   };
 
+  const comboDiscount = useMemo(() => {
+    const now = new Date();
+    const activeCombos = promotions.filter(p => 
+      p.status === 'ACTIVE' && 
+      p.type === 'COMBO' &&
+      p.applyAutomatically &&
+      new Date(p.startDate) <= now && 
+      new Date(p.endDate) >= now &&
+      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay()))
+    );
+
+    let totalComboDiscount = 0;
+
+    activeCombos.forEach(combo => {
+      if (!combo.comboItems || combo.comboItems.length === 0 || !combo.comboPrice) return;
+
+      let minSets = Infinity;
+      
+      for (const productId of combo.comboItems) {
+        const cartItems = cart.filter(item => item.product.id === productId);
+        const totalQty = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        
+        const requiredQty = combo.comboItems.filter(id => id === productId).length;
+        
+        const setsOfThisProduct = Math.floor(totalQty / requiredQty);
+        if (setsOfThisProduct < minSets) {
+          minSets = setsOfThisProduct;
+        }
+      }
+
+      if (minSets > 0 && minSets !== Infinity) {
+        let regularComboPrice = 0;
+        for (const productId of combo.comboItems) {
+          const product = products.find(p => p.id === productId);
+          if (product) {
+            regularComboPrice += product.salePrice;
+          }
+        }
+
+        const discountPerSet = regularComboPrice - combo.comboPrice;
+        if (discountPerSet > 0) {
+          totalComboDiscount += discountPerSet * minSets;
+        }
+      }
+    });
+
+    return totalComboDiscount;
+  }, [cart, promotions, products]);
+
   const subtotal = cart.reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
   const totalItemsDiscount = cart.reduce((acc, item) => acc + (item.discount * item.quantity), 0);
-  const totalDiscount = totalItemsDiscount + saleDiscount;
+  const totalDiscount = totalItemsDiscount + saleDiscount + comboDiscount;
   const total = Math.max(0, subtotal - totalDiscount);
 
   const handleCheckout = useCallback(() => {
@@ -129,7 +178,8 @@ export default function PDVPage() {
         quantity: item.quantity,
         price: item.product.salePrice,
         originalPrice: item.originalPrice,
-        discount: item.discount
+        discount: item.discount,
+        promotionId: item.promotionId
       })),
       subtotal: subtotal,
       discount: totalDiscount,
@@ -669,17 +719,83 @@ export default function PDVPage() {
   const addToCart = (product: Product, qty: number) => {
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
-    const existingIndex = cart.findIndex(item => item.product.id === product.id && item.discount === 0);
+
+    const now = new Date();
+    const activePromos = promotions.filter(p => 
+      p.status === 'ACTIVE' && 
+      p.applyAutomatically &&
+      new Date(p.startDate) <= now && 
+      new Date(p.endDate) >= now &&
+      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay()))
+    );
+
+    let promoDiscount = 0;
+    let promoType = '';
+    
+    const productSubcategory = subcategorias.find(s => s.id === product.subcategoria_id);
+    
+    const applicablePromo = activePromos.find(p => 
+      (p.targetType === 'PRODUCT' && p.targetId === product.id) ||
+      (p.targetType === 'CATEGORY' && p.targetId === productSubcategory?.categoria_id) ||
+      p.targetType === 'ALL'
+    );
+
+    if (applicablePromo) {
+      promoType = applicablePromo.type;
+      if (applicablePromo.type === 'PRICE' && applicablePromo.discountValue) {
+        promoDiscount = product.salePrice - applicablePromo.discountValue;
+      } else if (applicablePromo.type === 'PERCENTAGE' && applicablePromo.discountValue) {
+        promoDiscount = product.salePrice * (applicablePromo.discountValue / 100);
+      }
+    }
+
+    const existingIndex = cart.findIndex(item => item.product.id === product.id && item.discount === promoDiscount);
+    
     if (existingIndex >= 0) {
       const newCart = [...cart];
       newCart[existingIndex].quantity += qty;
+      
+      if (applicablePromo?.type === 'BUY_X_GET_Y' && applicablePromo.buyQuantity && applicablePromo.payQuantity) {
+        const totalQty = newCart[existingIndex].quantity;
+        const sets = Math.floor(totalQty / applicablePromo.buyQuantity);
+        const freeItems = sets * (applicablePromo.buyQuantity - applicablePromo.payQuantity);
+        if (freeItems > 0) {
+          const discountPerItem = (freeItems * product.salePrice) / totalQty;
+          newCart[existingIndex].discount = discountPerItem;
+          newCart[existingIndex].product.salePrice = product.salePrice - discountPerItem;
+          newCart[existingIndex].promotionId = applicablePromo.id;
+        } else {
+          newCart[existingIndex].discount = 0;
+          newCart[existingIndex].product.salePrice = product.salePrice;
+          newCart[existingIndex].promotionId = undefined;
+        }
+      } else if (applicablePromo) {
+        newCart[existingIndex].promotionId = applicablePromo.id;
+      }
+      
       setCart(newCart);
     } else {
+      let initialDiscount = promoDiscount;
+      let initialPrice = product.salePrice - promoDiscount;
+      let promotionId = applicablePromo?.id;
+      
+      if (applicablePromo?.type === 'BUY_X_GET_Y' && applicablePromo.buyQuantity && applicablePromo.payQuantity) {
+        const sets = Math.floor(qty / applicablePromo.buyQuantity);
+        const freeItems = sets * (applicablePromo.buyQuantity - applicablePromo.payQuantity);
+        if (freeItems > 0) {
+          initialDiscount = (freeItems * product.salePrice) / qty;
+          initialPrice = product.salePrice - initialDiscount;
+        } else {
+          promotionId = undefined;
+        }
+      }
+
       setCart([...cart, { 
-        product: { ...product }, 
+        product: { ...product, salePrice: initialPrice }, 
         quantity: qty, 
-        discount: 0, 
-        originalPrice: product.salePrice 
+        discount: initialDiscount, 
+        originalPrice: product.salePrice,
+        promotionId: promotionId
       }]);
     }
   };

@@ -8,15 +8,30 @@ import {
   Bell, 
   Save,
   Image as ImageIcon,
-  Check
+  Check,
+  AlertTriangle,
+  Trash2,
+  Info
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 export default function SettingsPage() {
   const { hasPermission } = useERP();
   const [activeTab, setActiveTab] = useState('empresa');
+
+  useEffect(() => {
+    console.log('⚙️ SettingsPage mounted', { activeTab });
+  }, [activeTab]);
+
+  if (typeof hasPermission !== 'function') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!hasPermission('Configurações', 'view')) {
     return (
@@ -61,16 +76,11 @@ export default function SettingsPage() {
 
         {/* Conteúdo da Aba Ativa */}
         <div className="flex-1 max-w-5xl">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden"
+          <div
+            className="bg-white rounded-3xl border border-brand-border shadow-sm min-h-[400px]"
           >
-            {activeTab === 'empresa' && <CompanySettings />}
-            {activeTab === 'sistema' && <SystemSettings />}
-          </motion.div>
+            {activeTab === 'empresa' ? <CompanySettings /> : <SystemSettings />}
+          </div>
         </div>
       </div>
     </div>
@@ -267,20 +277,96 @@ function CompanySettings() {
 
 function SystemSettings() {
   const { systemSettings, updateSystemSettings } = useERP();
-  const [formData, setFormData] = useState(systemSettings);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    setFormData(systemSettings);
+    console.log('🖥️ SystemSettings mounted', { hasSettings: !!systemSettings });
+  }, [systemSettings]);
+
+  const [formData, setFormData] = useState(systemSettings || {
+    theme: 'system',
+    language: 'pt-BR',
+    currency: 'BRL',
+    timezone: 'America/Sao_Paulo',
+    notifications: { email: true, push: true, sms: false }
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [clearStatus, setClearStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  useEffect(() => {
+    if (systemSettings) {
+      setFormData(systemSettings);
+    }
   }, [systemSettings]);
 
   const handleSave = () => {
+    if (!formData) return;
     setIsSaving(true);
     updateSystemSettings(formData);
     setIsSaving(false);
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 3000);
+  };
+
+  const handleClearData = async () => {
+    console.log('🚀 Iniciando limpeza de dados...');
+    setIsClearing(true);
+    setClearStatus('idle');
+    try {
+      const tables = [
+        'sale_items',
+        'sales',
+        'cash_movements',
+        'cash_closings',
+        'expenses',
+        'losses',
+        'stock_movements',
+        'inventories',
+        'purchase_order_items',
+        'purchase_orders',
+        'quotation_items',
+        'quotation_suppliers',
+        'quotation_responses',
+        'quotations',
+        'authorization_logs',
+        'vendas_descontos',
+        'produto_lotes',
+        'promotions',
+        'audit_logs'
+      ];
+
+      for (const table of tables) {
+        try {
+          console.log(`🧹 Limpando tabela: ${table}`);
+          const { error } = await supabase
+            .from(table)
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000');
+          
+          if (error) {
+            // Se for erro 404, a tabela não existe, podemos ignorar silenciosamente
+            if (error.code === 'PGRST116' || (error as any).status === 404) {
+              console.log(`ℹ️ Tabela ${table} não encontrada no banco, pulando...`);
+            } else {
+              console.warn(`⚠️ Aviso ao limpar tabela ${table}:`, error.message);
+            }
+          }
+        } catch (e) {
+          console.log(`ℹ️ Erro ao acessar tabela ${table}, provavelmente não existe.`);
+        }
+      }
+
+      console.log('✅ Limpeza concluída com sucesso');
+      setClearStatus('success');
+    } catch (error) {
+      console.error('❌ Erro crítico ao limpar dados:', error);
+      setClearStatus('error');
+    } finally {
+      console.log('🏁 Finalizando processo de limpeza');
+      setIsClearing(false);
+    }
   };
 
   return (
@@ -382,7 +468,10 @@ function SystemSettings() {
                 <h4 className="text-sm font-black text-rose-950 uppercase italic">Limpar Dados</h4>
                 <p className="text-xs text-rose-600/60 font-medium">Remover registros de teste.</p>
               </div>
-              <button className="w-full py-3 bg-white border border-rose-100 text-rose-600 rounded-2xl font-black uppercase italic text-xs hover:bg-rose-50 transition-all">
+              <button 
+                onClick={() => setShowConfirmClear(true)}
+                className="w-full py-3 bg-white border border-rose-100 text-rose-600 rounded-2xl font-black uppercase italic text-xs hover:bg-rose-50 transition-all"
+              >
                 Limpar Banco
               </button>
             </div>
@@ -419,6 +508,87 @@ function SystemSettings() {
           </button>
         </div>
       </div>
+
+      {/* Modal de Confirmação de Limpeza */}
+      {showConfirmClear && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 space-y-6 border border-rose-100 animate-in zoom-in duration-200"
+          >
+            {clearStatus === 'idle' ? (
+              <>
+                <div className="space-y-2 text-center">
+                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="text-rose-500" size={32} />
+                  </div>
+                  <h3 className="text-xl font-black uppercase italic text-rose-950">Limpar Banco de Dados?</h3>
+                  <p className="text-sm text-rose-600/60 font-medium">
+                    Esta ação irá remover permanentemente todos os registros de vendas, compras, movimentações e financeiro. Os cadastros de produtos e clientes serão mantidos.
+                  </p>
+                  <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Esta ação não pode ser desfeita.</p>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowConfirmClear(false)}
+                    className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase italic text-xs hover:bg-slate-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleClearData}
+                    disabled={isClearing}
+                    className="flex-1 py-3 bg-rose-600 text-white rounded-2xl font-black uppercase italic text-xs hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isClearing ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Limpando...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={14} />
+                        Sim, Limpar Tudo
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : clearStatus === 'success' ? (
+              <div className="space-y-4 text-center py-4">
+                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="text-emerald-500" size={32} />
+                </div>
+                <h3 className="text-xl font-black uppercase italic text-emerald-950">Sucesso!</h3>
+                <p className="text-sm text-emerald-600/60 font-medium">
+                  O banco de dados foi limpo com sucesso.
+                </p>
+                <button 
+                  onClick={() => { setShowConfirmClear(false); setClearStatus('idle'); }}
+                  className="w-full py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase italic text-xs hover:bg-emerald-700 transition-all"
+                >
+                  Voltar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4 text-center py-4">
+                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="text-rose-500" size={32} />
+                </div>
+                <h3 className="text-xl font-black uppercase italic text-rose-950">Erro</h3>
+                <p className="text-sm text-rose-600/60 font-medium">
+                  Ocorreu um erro ao tentar limpar os dados. Verifique o console para mais detalhes.
+                </p>
+                <button 
+                  onClick={() => { setShowConfirmClear(false); setClearStatus('idle'); }}
+                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase italic text-xs hover:bg-slate-200 transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

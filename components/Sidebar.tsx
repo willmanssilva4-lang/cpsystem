@@ -14,7 +14,8 @@ import {
   ClipboardList,
   Truck,
   LogOut,
-  X
+  X,
+  Tag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { icon: Package, label: 'Estoque', href: '/produtos' },
   { icon: Truck, label: 'Compras', href: '/compras' },
   { icon: ShoppingCart, label: 'Vendas', href: '/pdv' },
+  { icon: Tag, label: 'Promoções', href: '/promocoes' },
   { icon: Users, label: 'Clientes', href: '/clientes' },
   { icon: BarChart3, label: 'Relatórios', href: '/relatorios' },
   { icon: Settings, label: 'Configurações', href: '/configuracoes' },
