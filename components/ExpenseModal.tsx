@@ -39,6 +39,8 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
     status: 'Pendente' as 'Pago' | 'Pendente' | 'Vencido'
   });
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   useEffect(() => {
     if (expenseToEdit) {
       setFormData({
@@ -59,7 +61,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
   }, [expenseToEdit]);
 
   const handleDelete = async () => {
-    if (!expenseToEdit || !window.confirm('Tem certeza que deseja excluir este lançamento?')) return;
+    if (!expenseToEdit) return;
     
     setIsDeleting(true);
     try {
@@ -68,6 +70,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
     } catch (err: any) {
       setError(err.message || 'Erro ao excluir lançamento.');
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -299,7 +302,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
             {expenseToEdit && (
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteConfirm(true)}
                 disabled={isDeleting || isSubmitting}
                 className="h-11 px-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors disabled:opacity-50"
                 title="Excluir lançamento"
@@ -325,6 +328,31 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
           </div>
         </form>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Lançamento</h3>
+            <p className="text-gray-600 mb-6">Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+              >
+                {isDeleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

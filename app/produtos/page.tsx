@@ -35,10 +35,11 @@ import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [showLossModal, setShowLossModal] = useState(false);
   const [selectedLossProduct, setSelectedLossProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
@@ -146,14 +147,27 @@ export default function ProductsPage() {
           }
         }
 
+        const costPrice = Number(item['Preço de Custo']) || 0;
+        const salePrice = Number(item['Preço de Venda']) || 0;
+        const profit = Math.round((salePrice - costPrice) * 100) / 100;
+        let profitPercentage = 0;
+        
+        if (pricingSettings?.defaultMethod === 'markup') {
+          profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+        } else {
+          profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+        }
+
         addProduct({
           id: Math.random().toString(36).substr(2, 9),
           name: item.Nome,
           sku: item.SKU,
           unit: item['Unidade de Medida'] || 'UN',
           subcategoria_id: subcategoria_id,
-          costPrice: Number(item['Preço de Custo']),
-          salePrice: Number(item['Preço de Venda']),
+          costPrice: costPrice,
+          salePrice: salePrice,
+          profit: profit,
+          profitPercentage: Math.round(profitPercentage * 100) / 100,
           stock: Number(item.Estoque),
           minStock: Number(item['Estoque Mínimo']),
           status: item.Status || 'Ativo',
@@ -249,14 +263,19 @@ export default function ProductsPage() {
   const handleDelete = async (id: string) => {
     // Close menu first to avoid UI glitches
     setActiveMenuId(null);
-    
-    if (window.confirm('Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.')) {
+    setProductToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (productToDelete) {
       try {
-        await deleteProduct(id);
-        alert('Produto excluído com sucesso!');
+        await deleteProduct(productToDelete);
+        // alert('Produto excluído com sucesso!');
       } catch (error: any) {
         console.error('Delete product error:', error);
-        alert('Erro ao excluir produto: ' + (error.message || 'Verifique se o produto possui vendas ou perdas registradas.'));
+        // alert('Erro ao excluir produto: ' + (error.message || 'Verifique se o produto possui vendas ou perdas registradas.'));
+      } finally {
+        setProductToDelete(null);
       }
     }
   };
@@ -936,6 +955,29 @@ export default function ProductsPage() {
                   <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => { importProducts(e); setShowImportModal(false); }} />
                 </label>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {productToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Produto</h3>
+            <p className="text-gray-600 mb-6">Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setProductToDelete(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Excluir
+              </button>
             </div>
           </div>
         </div>

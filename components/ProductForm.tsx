@@ -63,32 +63,51 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     subgroup?: string;
     departamento_id?: string;
     validade?: string;
-  }>({
-    sku: initialData?.sku || '',
-    name: initialData?.name || '',
-    supplier: initialData?.supplier || '',
-    unit: initialData?.unit || 'UN',
-    costPrice: initialData?.costPrice ?? '',
-    salePrice: initialData?.salePrice ?? '',
-    termPrice: initialData?.salePrice ?? '',
-    wholesalePrice: initialData?.salePrice ?? '',
-    stock: initialData?.stock || 0,
-    minStock: initialData?.minStock || 1,
-    controlStock: 'SIM',
-    subcategoria_id: initialData?.subcategoria_id || '',
-    brand: initialData?.brand || 'PADRAO',
-    composition: initialData?.composition || [] as CompositionItem[],
-    profit: initialData?.profit ?? '',
-    profitPercentage: initialData?.profitPercentage ?? (pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin),
-    image: initialData?.image || DEFAULT_IMAGE,
-    barcode: '',
-    status: 'Ativo',
-    store: 'Loja Principal',
-    codigo_mercadologico: initialData?.codigo_mercadologico || '',
-    category: 'PADRAO',
-    subgroup: 'PADRAO',
-    departamento_id: '',
-    validade: initialData?.validade || ''
+  }>(() => {
+    let initialProfit = initialData?.profit ?? '';
+    let initialProfitPercentage = initialData?.profitPercentage ?? '';
+
+    if (initialData && initialData.costPrice !== undefined && initialData.salePrice !== undefined && initialProfit === '') {
+      const cost = Number(initialData.costPrice);
+      const sale = Number(initialData.salePrice);
+      initialProfit = Math.round((sale - cost) * 100) / 100;
+      
+      if (pricingSettings.defaultMethod === 'markup') {
+        initialProfitPercentage = cost > 0 ? Math.round((initialProfit / cost) * 100) / 100 * 100 : 0;
+      } else {
+        initialProfitPercentage = sale > 0 ? Math.round((initialProfit / sale) * 100) / 100 * 100 : 0;
+      }
+    } else if (initialProfitPercentage === '') {
+      initialProfitPercentage = pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin;
+    }
+
+    return {
+      sku: initialData?.sku || '',
+      name: initialData?.name || '',
+      supplier: initialData?.supplier || '',
+      unit: initialData?.unit || 'UN',
+      costPrice: initialData?.costPrice ?? '',
+      salePrice: initialData?.salePrice ?? '',
+      termPrice: initialData?.salePrice ?? '',
+      wholesalePrice: initialData?.salePrice ?? '',
+      stock: initialData?.stock || 0,
+      minStock: initialData?.minStock || 1,
+      controlStock: 'SIM',
+      subcategoria_id: initialData?.subcategoria_id || '',
+      brand: initialData?.brand || 'PADRAO',
+      composition: initialData?.composition || [] as CompositionItem[],
+      profit: initialProfit,
+      profitPercentage: initialProfitPercentage,
+      image: initialData?.image || DEFAULT_IMAGE,
+      barcode: '',
+      status: 'Ativo',
+      store: 'Loja Principal',
+      codigo_mercadologico: initialData?.codigo_mercadologico || '',
+      category: 'PADRAO',
+      subgroup: 'PADRAO',
+      departamento_id: '',
+      validade: initialData?.validade || ''
+    };
   });
 
   const roundPrice = (price: number) => {

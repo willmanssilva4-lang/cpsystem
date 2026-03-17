@@ -801,18 +801,6 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                 />
               </div>
             </div>
- 
-            <div className="flex-1 min-w-[200px] space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Loja</label>
-              <div className="relative">
-                <select className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none">
-                  <option>Loja Central</option>
-                  <option>Filial Norte</option>
-                  <option>E-commerce</option>
-                </select>
-                <MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
           </div>
         </div>
         

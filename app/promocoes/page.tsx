@@ -10,6 +10,7 @@ export default function PromocoesPage() {
   const { promotions, deletePromotion, sales, user } = useERP();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | undefined>(undefined);
+  const [promotionToDelete, setPromotionToDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -20,8 +21,19 @@ export default function PromocoesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta promoção?')) {
-      await deletePromotion(id);
+    setPromotionToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (promotionToDelete) {
+      try {
+        await deletePromotion(promotionToDelete);
+      } catch (error: any) {
+        console.error('Erro ao excluir:', error);
+        // You could add a toast notification here
+      } finally {
+        setPromotionToDelete(null);
+      }
     }
   };
 
@@ -206,6 +218,29 @@ export default function PromocoesPage() {
           onClose={() => setIsModalOpen(false)}
           promotion={editingPromotion}
         />
+      )}
+
+      {promotionToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Promoção</h3>
+            <p className="text-gray-600 mb-6">Tem certeza que deseja excluir esta promoção? Esta ação não pode ser desfeita.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPromotionToDelete(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

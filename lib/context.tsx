@@ -2363,12 +2363,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const deletePromotion = async (id: string) => {
     if (user?.role !== 'Administrador') {
-      alert('Apenas administradores podem excluir promoções.');
-      return;
+      throw new Error('Apenas administradores podem excluir promoções.');
     }
     const { error } = await supabase.from('promotions').delete().eq('id', id);
     if (!error) await fetchData();
-    else console.error('Error deleting promotion:', error);
+    else {
+      console.error('Error deleting promotion:', error);
+      throw error;
+    }
   };
 
   return (
