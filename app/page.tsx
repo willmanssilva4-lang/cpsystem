@@ -86,8 +86,6 @@ export default function DashboardPage() {
     });
   });
 
-  const profitToday = revenueToday - costToday;
-
   // Calculate current cash balance (Total Sales + Opening Balance + Supplies - Bleeds)
   // Note: This calculates the total balance of the register, including all payment methods, as requested.
   const currentCashBalance = (activeRegister?.openingBalance || 0) + 
@@ -160,6 +158,7 @@ export default function DashboardPage() {
   const [chartPeriod, setChartPeriod] = React.useState<'hoje' | '7d' | '30d' | 'mes'>('hoje');
   const [showLowStockModal, setShowLowStockModal] = React.useState(false);
   const [showExpiringModal, setShowExpiringModal] = React.useState(false);
+  const [showAllSalesModal, setShowAllSalesModal] = React.useState(false);
 
   React.useEffect(() => {
     // Generate data based on period
@@ -228,22 +227,36 @@ export default function DashboardPage() {
   const revenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
   const ticketMedio = filteredSales.length > 0 ? revenue / filteredSales.length : 0;
   
-  // For "Lucro Mês" and "Faturamento" (assuming these are fixed for the month)
-  const salesThisMonth = sales.filter(s => {
-    const d = new Date(s.date);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-  const faturamentoMes = salesThisMonth.reduce((acc, s) => acc + s.total, 0);
-  let costMes = 0;
-  salesThisMonth.forEach(sale => {
+  // Calculate cost of goods sold for the period
+  let costOfGoods = 0;
+  filteredSales.forEach(sale => {
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
-      costMes += (product ? product.costPrice : 0) * item.quantity;
+      costOfGoods += (product ? product.costPrice : 0) * item.quantity;
     });
   });
-  const lucroMes = faturamentoMes - costMes;
+
+  // Filter expenses based on period
+  const filteredExpenses = expenses.filter(e => {
+    const expenseDate = new Date(e.date);
+    const now = new Date();
+    if (chartPeriod === 'hoje') return getLocalDateString(e.date) === today;
+    if (chartPeriod === '7d') return expenseDate >= new Date(now.setDate(now.getDate() - 7));
+    if (chartPeriod === '30d') return expenseDate >= new Date(now.setDate(now.getDate() - 30));
+    if (chartPeriod === 'mes') return expenseDate.getMonth() === now.getMonth() && expenseDate.getFullYear() === now.getFullYear();
+    return true;
+  });
+
+  const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  const lucroPeriodo = revenue - costOfGoods - totalExpenses;
   
+  const periodText = {
+    'hoje': 'Lucro de hoje',
+    '7d': 'Lucro dos últimos 7 dias',
+    '30d': 'Lucro dos últimos 30 dias',
+    'mes': 'Lucro do mês'
+  }[chartPeriod];
+
   const pieData = uniqueMethods.map((method, index) => {
     const methodSales = sales.filter(s => s.paymentMethod === method);
     const totalMethod = methodSales.reduce((acc, s) => acc + s.total, 0);
@@ -304,11 +317,11 @@ export default function DashboardPage() {
         />
         <StatCard 
           title="Lucro" 
-          value={formatCurrency(lucroMes)} 
-          trend="Lucro do mês" 
-          positive={lucroMes >= 0} 
+          value={formatCurrency(lucroPeriodo)} 
+          trend={periodText} 
+          positive={lucroPeriodo >= 0} 
           icon={BarChart} 
-          color={lucroMes >= 0 ? "green" : "red"}
+          color={lucroPeriodo >= 0 ? "green" : "red"}
         />
         <StatCard 
           title="Ticket Médio" 
@@ -422,7 +435,7 @@ export default function DashboardPage() {
               <ReBarChart data={Array.from({length: 24}, (_, i) => ({ hour: `${i}h`, sales: sales.filter(s => new Date(s.date).getHours() === i).length }))}>
                 <XAxis dataKey="hour" />
                 <Tooltip />
-                <Bar dataKey="sales" fill="#3B82F6" />
+                <Bar dataKey="sales" name="Vendas" fill="#3B82F6" />
               </ReBarChart>
             </ResponsiveContainer>
           </div>
@@ -562,7 +575,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center mb-6">
             <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">Últimas Vendas</h4>
             <button 
-              onClick={() => router.push('/pdv')}
+              onClick={() => setShowAllSalesModal(true)}
               className="text-xs font-bold text-brand-text-sec hover:text-brand-blue flex items-center gap-1 uppercase italic"
             >
               Ver todas <ChevronDown size={14} />
@@ -580,7 +593,7 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {sales.length > 0 ? (
-                  sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((sale, index) => {
+                  sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 3).map((sale, index) => {
                     const customer = customers.find(c => c.id === sale.customerId);
                     return (
                       <tr key={`${sale.id}-${index}`} className="border-b border-brand-border/50">
@@ -601,7 +614,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 flex justify-end">
             <button 
-              onClick={() => router.push('/pdv')}
+              onClick={() => setShowAllSalesModal(true)}
               className="bg-brand-blue hover:bg-brand-blue-hover text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
             >
               Ver todos <ChevronRight size={16} />
@@ -859,6 +872,82 @@ export default function DashboardPage() {
                 className="px-6 py-2.5 bg-brand-blue text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
               >
                 Gerenciar Produtos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Sales Modal */}
+      {showAllSalesModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                  <ShoppingBag size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Todas as Vendas</h2>
+                  <p className="text-sm text-slate-500 font-medium">{sales.length} vendas registradas</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAllSalesModal(false)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {sales.length > 0 ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50">
+                      <tr className="border-b border-slate-200">
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider">Data</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider">Venda</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider">Cliente</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider">Valor</th>
+                        <th className="p-4 text-sm font-bold text-slate-600 uppercase tracking-wider text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((sale, index) => {
+                        const customer = customers.find(c => c.id === sale.customerId);
+                        return (
+                          <tr key={`${sale.id}-${index}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4 text-sm font-medium text-slate-700">
+                              {new Date(sale.date).toLocaleDateString('pt-BR')} {new Date(sale.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="p-4 text-sm font-medium text-slate-700">#{sale.id.substring(0, 8)}</td>
+                            <td className="p-4 text-sm text-slate-600">{customer?.name || 'Consumidor Final'}</td>
+                            <td className="p-4 text-sm font-bold text-slate-800">{formatCurrency(sale.total)}</td>
+                            <td className="p-4 text-center">
+                              <span className="bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded">Pago</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ShoppingBag size={48} className="mb-4 opacity-20" />
+                  <p className="text-lg font-medium">Nenhuma venda realizada</p>
+                  <p className="text-sm">Suas vendas aparecerão aqui.</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowAllSalesModal(false)}
+                className="px-6 py-2.5 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>
