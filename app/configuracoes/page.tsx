@@ -147,6 +147,12 @@ function CompanySettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  useEffect(() => {
+    if (companySettings) {
+      setFormData(companySettings);
+    }
+  }, [companySettings]);
+
   const handleSave = () => {
     setIsSaving(true);
     setTimeout(() => {
@@ -158,7 +164,7 @@ function CompanySettings() {
       } catch (error) {
         console.error('Erro ao salvar:', error);
         setIsSaving(false);
-        alert('❌ Erro ao salvar as configurações.');
+        alert('❌ Erro ao salvar as configurações. A imagem pode ser muito grande.');
       }
     }, 600);
   };
@@ -206,8 +212,39 @@ function CompanySettings() {
                   const file = e.target.files?.[0];
                   if (file) {
                     const reader = new FileReader();
-                    reader.onloadend = () => {
-                      setFormData(prev => ({ ...prev, logo: reader.result as string }));
+                    reader.onload = (event) => {
+                      const img = new Image();
+                      img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 400;
+                        const MAX_HEIGHT = 400;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                          if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                          }
+                        } else {
+                          if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                          }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                          ctx.drawImage(img, 0, 0, width, height);
+                          const dataUrl = canvas.toDataURL('image/png', 0.8);
+                          setFormData(prev => ({ ...prev, logo: dataUrl }));
+                        }
+                      };
+                      if (event.target?.result) {
+                        img.src = event.target.result as string;
+                      }
                     };
                     reader.readAsDataURL(file);
                   }
