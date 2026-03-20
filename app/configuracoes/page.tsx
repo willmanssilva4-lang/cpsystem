@@ -276,7 +276,15 @@ function CompanySettings() {
 
 
 function SystemSettings() {
-  const { systemSettings, updateSystemSettings } = useERP();
+  const { 
+    systemSettings, updateSystemSettings,
+    products, sales, customers, suppliers, expenses, losses,
+    departamentos, categorias, expenseCategories, subcategorias,
+    stockMovements, inventories, employees, systemUsers,
+    accessProfiles, permissions, pricingSettings, companySettings,
+    paymentMethods, maquininhas, promotions, discountLogs,
+    cashRegisters, cashMovements, cashClosings, lotes
+  } = useERP();
 
   useEffect(() => {
     console.log('🖥️ SystemSettings mounted', { hasSettings: !!systemSettings });
@@ -308,6 +316,30 @@ function SystemSettings() {
     setIsSaving(false);
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 3000);
+  };
+
+  const handleExportData = () => {
+    const dataToExport = {
+      products, sales, customers, suppliers, expenses, losses,
+      departamentos, categorias, expenseCategories, subcategorias,
+      stockMovements, inventories, employees, systemUsers,
+      accessProfiles, permissions, pricingSettings, companySettings,
+      systemSettings, paymentMethods, maquininhas, promotions, 
+      discountLogs, cashRegisters, cashMovements, cashClosings, lotes,
+      exportDate: new Date().toISOString()
+    };
+
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup_erp_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleClearData = async () => {
@@ -459,7 +491,10 @@ function SystemSettings() {
                 <h4 className="text-sm font-black text-brand-text-main uppercase italic">Backup Completo</h4>
                 <p className="text-xs text-brand-blue/60 font-medium">Baixe todos os seus dados.</p>
               </div>
-              <button className="w-full py-3 bg-white border border-brand-border text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-slate-50 transition-all">
+              <button 
+                onClick={handleExportData}
+                className="w-full py-3 bg-white border border-brand-border text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-slate-50 transition-all"
+              >
                 Exportar Agora
               </button>
             </div>
