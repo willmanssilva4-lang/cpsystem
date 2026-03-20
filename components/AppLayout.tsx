@@ -19,11 +19,6 @@ function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
           <Menu size={24} />
         </button>
         
-        <div className="hidden sm:flex items-center gap-2 text-brand-text-main font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
-          <MapPin size={18} className="text-brand-text-sec" />
-          <span className="text-sm">Loja Central</span>
-          <ChevronDown size={16} className="text-brand-text-sec" />
-        </div>
         <div className="hidden lg:flex items-center gap-2 text-brand-text-sec font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
           <Calendar size={18} />
           <span className="text-sm">
