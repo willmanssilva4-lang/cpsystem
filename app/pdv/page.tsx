@@ -873,10 +873,6 @@ export default function PDVPage() {
           <input type="checkbox" checked readOnly className="size-3 accent-brand-blue" />
           <span>Leitor Codigo De barras - F2</span>
         </div>
-        <div className="flex items-center gap-2">
-          <input type="checkbox" className="size-3 accent-brand-blue" />
-          <span>Venda Atacado</span>
-        </div>
       </div>
 
       {/* Status Bar */}
