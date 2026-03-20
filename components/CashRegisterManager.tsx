@@ -66,12 +66,14 @@ export function CashRegisterManager({
   const informedInputsRef = React.useRef<(HTMLInputElement | null)[]>([]);
   const justificationRefs = React.useRef<(HTMLTextAreaElement | null)[]>([]);
 
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
   // Focus opening balance when no active register
   React.useEffect(() => {
-    if (!activeRegister) {
+    if (!activeRegister && !showSuccessMessage) {
       setTimeout(() => openingInputRef.current?.focus(), 100);
     }
-  }, [activeRegister]);
+  }, [activeRegister, showSuccessMessage]);
 
   // Focus transaction amount when modal opens
   React.useEffect(() => {
@@ -149,9 +151,13 @@ export function CashRegisterManager({
     setIsClosing(false);
     setIsAuthorized(false);
     setSupervisorCode('');
-    alert('Caixa Fechado com Sucesso! O PDV será encerrado.');
-    onSuccess?.();
-    onClose?.();
+    setShowSuccessMessage(true);
+    
+    // Wait for 3 seconds before closing and redirecting
+    setTimeout(() => {
+      onSuccess?.();
+      onClose?.();
+    }, 3000);
   };
 
   const checkAuthorization = () => {
@@ -560,6 +566,42 @@ export function CashRegisterManager({
                   <p className="text-[10px] text-center text-slate-400 uppercase tracking-tighter">
                     Ao confirmar, o caixa será bloqueado e os dados enviados para auditoria.
                   </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Success Message Overlay */}
+      <AnimatePresence>
+        {showSuccessMessage && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-brand-blue/95 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="text-center space-y-6"
+            >
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto shadow-2xl animate-bounce">
+                <CheckCircle2 className="w-14 h-14 text-brand-blue" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
+                  Caixa Fechado com Sucesso!
+                </h2>
+                <p className="text-white/80 text-xl font-bold uppercase tracking-widest">
+                  O PDV será encerrado.
+                </p>
+              </div>
+              <div className="pt-8">
+                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto overflow-hidden">
+                  <motion.div 
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '0%' }}
+                    transition={{ duration: 3, ease: "linear" }}
+                    className="w-full h-full bg-white"
+                  />
                 </div>
               </div>
             </motion.div>
