@@ -40,33 +40,39 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
     const data: any[] = [];
     const now = new Date();
     
+    const isSameDay = (date1: string | Date, date2: Date) => {
+      const d1 = new Date(date1);
+      return d1.getFullYear() === date2.getFullYear() &&
+             d1.getMonth() === date2.getMonth() &&
+             d1.getDate() === date2.getDate();
+    };
+    
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(now.getDate() - i);
       d.setHours(0, 0, 0, 0);
       const dateStr = d.toLocaleDateString('pt-BR');
-      const dateKey = d.toISOString().split('T')[0];
 
       // Inflows
       const daySales = sales
-        .filter(s => new Date(s.date).toISOString().split('T')[0] === dateKey)
+        .filter(s => isSameDay(s.date, d))
         .reduce((acc, s) => acc + s.total, 0);
       
       const daySuprimentos = cashMovements
-        .filter(m => m.type === 'suprimento' && new Date(m.createdAt).toISOString().split('T')[0] === dateKey)
+        .filter(m => m.type === 'suprimento' && isSameDay(m.createdAt, d))
         .reduce((acc, m) => acc + m.amount, 0);
 
       // Outflows
       const dayExpenses = expenses
-        .filter(e => e.status === 'Pago' && new Date(e.paymentDate || e.date).toISOString().split('T')[0] === dateKey)
+        .filter(e => e.status === 'Pago' && isSameDay(e.paymentDate || e.date, d))
         .reduce((acc, e) => acc + e.amount, 0);
       
       const dayPurchases = stockMovements
-        .filter(m => m.type === 'COMPRA' && new Date(m.date).toISOString().split('T')[0] === dateKey)
+        .filter(m => m.type === 'COMPRA' && isSameDay(m.date, d))
         .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
       
       const daySangrias = cashMovements
-        .filter(m => m.type === 'sangria' && new Date(m.createdAt).toISOString().split('T')[0] === dateKey)
+        .filter(m => m.type === 'sangria' && isSameDay(m.createdAt, d))
         .reduce((acc, m) => acc + m.amount, 0);
 
       const inflows = daySales + daySuprimentos;
@@ -221,24 +227,32 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {dailyData.slice().reverse().map((day, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-300">{day.date}</td>
-                  <td className="px-6 py-4 text-xs font-black text-right text-emerald-600">{formatCurrency(day.inflows)}</td>
-                  <td className="px-6 py-4 text-xs font-black text-right text-rose-600">{formatCurrency(day.outflows)}</td>
-                  <td className={cn("px-6 py-4 text-xs font-black text-right", day.balance >= 0 ? "text-indigo-600" : "text-rose-600")}>
-                    {formatCurrency(day.balance)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-2 py-1 rounded-lg text-[9px] font-black uppercase italic",
-                      day.balance >= 0 ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                    )}>
-                      {day.balance >= 0 ? 'Positivo' : 'Negativo'}
-                    </span>
+              {dailyData.slice().reverse().filter(day => day.inflows > 0 || day.outflows > 0).length > 0 ? (
+                dailyData.slice().reverse().filter(day => day.inflows > 0 || day.outflows > 0).map((day, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-300">{day.date}</td>
+                    <td className="px-6 py-4 text-xs font-black text-right text-emerald-600">{formatCurrency(day.inflows)}</td>
+                    <td className="px-6 py-4 text-xs font-black text-right text-rose-600">{formatCurrency(day.outflows)}</td>
+                    <td className={cn("px-6 py-4 text-xs font-black text-right", day.balance >= 0 ? "text-indigo-600" : "text-rose-600")}>
+                      {formatCurrency(day.balance)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2 py-1 rounded-lg text-[9px] font-black uppercase italic",
+                        day.balance >= 0 ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                      )}>
+                        {day.balance >= 0 ? 'Positivo' : 'Negativo'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm font-medium text-slate-400 italic">
+                    Nenhuma movimentação financeira encontrada no período selecionado.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

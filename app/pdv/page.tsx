@@ -10,6 +10,9 @@ import { PaymentModal } from '@/components/PaymentModal';
 import { DiscountModal } from '@/components/DiscountModal';
 import { AuthorizationModal } from '@/components/AuthorizationModal';
 import { CashRegisterManager } from '@/components/CashRegisterManager';
+import { PriceCheckModal } from '@/components/PriceCheckModal';
+import { ProductListModal } from '@/components/ProductListModal';
+import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
 import { HelpCircle, X, Tag, Lock, AlertCircle } from 'lucide-react';
 
@@ -36,6 +39,9 @@ export default function PDVPage() {
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
   const [showClosureModal, setShowClosureModal] = useState(false);
   const [showReverseModal, setShowReverseModal] = useState(false);
+  const [showPriceCheckModal, setShowPriceCheckModal] = useState(false);
+  const [showProductListModal, setShowProductListModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCancelItemModal, setShowCancelItemModal] = useState(false);
   const [cancelItemNumber, setCancelItemNumber] = useState('');
   const [showDiscountItemModal, setShowDiscountItemModal] = useState(false);
@@ -300,13 +306,13 @@ export default function PDVPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     
     // Only focus barcode input if register is active and no modal is open
-    const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning;
+    const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || showPriceCheckModal || showProductListModal || showInvoiceModal;
     if (activeRegister && !isModalOpen && !showHelp && !confirmDialog) {
       barcodeInputRef.current?.focus();
     }
 
     return () => clearInterval(timer);
-  }, [activeRegister, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showOldRegisterWarning, showHelp, confirmDialog]);
+  }, [activeRegister, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showOldRegisterWarning, showPriceCheckModal, showProductListModal, showInvoiceModal, showHelp, confirmDialog]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -334,7 +340,7 @@ export default function PDVPage() {
       }
 
       // If any modal is open or register is closed, don't process global shortcuts (except Esc)
-      const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || !activeRegister;
+      const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || showPriceCheckModal || showProductListModal || showInvoiceModal || !activeRegister;
       if (isModalOpen && e.key !== 'Escape') {
         return;
       }
@@ -541,22 +547,27 @@ export default function PDVPage() {
       }
 
       // Ctrl Actions
-      if (e.ctrlKey) {
+      if (e.ctrlKey && !e.altKey) {
         const key = e.key.toLowerCase();
         if (key === 's') { e.preventDefault(); setShowSangriaModal(true); }
         if (key === 'u') { e.preventDefault(); setShowSuprimentoModal(true); }
         if (key === 'f') { e.preventDefault(); setShowClosureModal(true); }
         if (key === 'r') { e.preventDefault(); alert('Funcionalidade: Reabrir Venda (Ctrl+R)'); }
-        if (key === 'e') { e.preventDefault(); alert('Funcionalidade: Consultar Estoque (Ctrl+E)'); }
-        if (key === 'p') { e.preventDefault(); alert('Funcionalidade: Consultar Preço (Ctrl+P)'); }
-        if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Ctrl+H)'); }
-        if (key === 'l') { e.preventDefault(); alert('Funcionalidade: Lista Produtos (Ctrl+L)'); }
-        if (key === 'n') { e.preventDefault(); alert('Funcionalidade: Nota Fiscal (Ctrl+N)'); }
+        if (key === 'p') { e.preventDefault(); setShowPriceCheckModal(true); }
         if (key === 'c') { e.preventDefault(); alert('Funcionalidade: Segunda Via Cupom (Ctrl+C)'); }
+      }
+
+      // Alt Actions (to avoid browser shortcut conflicts like Ctrl+N, Ctrl+L, Ctrl+T)
+      if (e.altKey && !e.ctrlKey) {
+        const key = e.key.toLowerCase();
+        if (key === 'n') { e.preventDefault(); setShowInvoiceModal(true); }
+        if (key === 'l') { e.preventDefault(); setShowProductListModal(true); }
         if (key === 't') { 
           e.preventDefault(); 
           setShowReverseModal(true);
         }
+        if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Alt+H)'); }
+        if (key === 'e') { e.preventDefault(); alert('Funcionalidade: Consultar Estoque (Alt+E)'); }
       }
 
       // Esc - Sair / Voltar
@@ -584,6 +595,12 @@ export default function PDVPage() {
           setShowClosureModal(false);
         } else if (showReverseModal) {
           setShowReverseModal(false);
+        } else if (showPriceCheckModal) {
+          setShowPriceCheckModal(false);
+        } else if (showProductListModal) {
+          setShowProductListModal(false);
+        } else if (showInvoiceModal) {
+          setShowInvoiceModal(false);
         } else if (showCancelItemModal) {
           setShowCancelItemModal(false);
         } else if (showDiscountItemModal) {
@@ -607,7 +624,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showCancelItemModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -1119,9 +1136,11 @@ export default function PDVPage() {
           <span>|</span>
           <span>Ctrl+P - Preço</span>
           <span>|</span>
-          <span>Ctrl+H - Histórico</span>
+          <span>Alt+H - Histórico</span>
           <span>|</span>
-          <span>Ctrl+L - Lista</span>
+          <span>Alt+L - Lista</span>
+          <span>|</span>
+          <span>Alt+N - NF</span>
         </div>
       </div>
 
@@ -1411,11 +1430,12 @@ export default function PDVPage() {
                 <p><span className="font-bold">Ctrl + S</span> - Sangria</p>
                 <p><span className="font-bold">Ctrl + U</span> - Suprimento</p>
                 <p><span className="font-bold">Ctrl + F</span> - Fechamento de caixa</p>
-                <p><span className="font-bold">Ctrl + E</span> - Consultar estoque</p>
+                <p><span className="font-bold">Alt + E</span> - Consultar estoque</p>
                 <p><span className="font-bold">Ctrl + P</span> - Consultar preço</p>
-                <p><span className="font-bold">Ctrl + H</span> - Histórico do cliente</p>
-                <p><span className="font-bold">Ctrl + N</span> - Nota fiscal</p>
-                <p><span className="font-bold">Ctrl + T</span> - Troca/devolução</p>
+                <p><span className="font-bold">Alt + H</span> - Histórico do cliente</p>
+                <p><span className="font-bold">Alt + L</span> - Lista de produtos</p>
+                <p><span className="font-bold">Alt + N</span> - Nota fiscal</p>
+                <p><span className="font-bold">Alt + T</span> - Troca/devolução</p>
                 <div className="pt-4 text-[10px] opacity-60 italic">
                   Dica: Use [Número] + F6 para desconto rápido no item.
                 </div>
@@ -1426,6 +1446,26 @@ export default function PDVPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Price Check Modal */}
+      {showPriceCheckModal && (
+        <PriceCheckModal onClose={() => setShowPriceCheckModal(false)} />
+      )}
+
+      {/* Product List Modal */}
+      {showProductListModal && (
+        <ProductListModal 
+          onClose={() => setShowProductListModal(false)} 
+          onSelectProduct={(product) => {
+            selectProduct(product);
+          }}
+        />
+      )}
+
+      {/* Invoice Modal */}
+      {showInvoiceModal && (
+        <InvoiceModal onClose={() => setShowInvoiceModal(false)} />
       )}
 
       {/* New Product Modal */}

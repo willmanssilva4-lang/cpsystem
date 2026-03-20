@@ -438,8 +438,8 @@ export default function ReportsPage() {
                           <BarChart data={projectionData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                            <Tooltip />
+                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
+                            <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
                             <Bar dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} />
                           </BarChart>
@@ -657,7 +657,8 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   // Payment Data Calculation
   const paymentTotals: Record<string, number> = {};
   filteredSales.forEach(sale => {
-    const methodName = sale.paymentMethod || 'Outros';
+    const method = paymentMethods.find(m => m.id === sale.paymentMethod);
+    const methodName = method ? method.name : (sale.paymentMethod || 'Outros');
     paymentTotals[methodName] = (paymentTotals[methodName] || 0) + sale.total;
   });
 
@@ -672,12 +673,12 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   };
 
   const paymentData = Object.entries(paymentTotals)
-    .map(([name, value]) => ({
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value], index) => ({
       name,
       value: totalSales > 0 ? Number(((value / totalSales) * 100).toFixed(1)) : 0,
-      color: methodColors[name] || '#6B7C93'
-    }))
-    .sort((a, b) => b.value - a.value);
+      color: colors[index % colors.length]
+    }));
 
   // Sellers Ranking
   const sellerStats: Record<string, { total: number, volume: number, margin: number }> = {};
@@ -869,6 +870,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                     </Pie>
                     <Tooltip 
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      formatter={(value: any) => `${value}%`}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -956,10 +958,11 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                 <BarChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
                   <Tooltip 
                     cursor={{fill: '#F3F4F6'}} 
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
+                    formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)}
                   />
                   <Bar name="Entradas" dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
                   <Bar name="Saídas" dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={40} />
@@ -995,6 +998,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                     </Pie>
                     <Tooltip 
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      formatter={(value: any) => `${value}%`}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -2028,7 +2032,7 @@ function DiscountAuditReport({ startDate, endDate }: { startDate: string, endDat
 }
 
 function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales } = useERP();
+  const { sales, paymentMethods } = useERP();
   
   const filteredSales = sales.filter(s => {
     const d = s.date.split('T')[0];
@@ -2037,7 +2041,9 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
 
   const paymentTotals: Record<string, number> = {};
   filteredSales.forEach(sale => {
-    paymentTotals[sale.paymentMethod] = (paymentTotals[sale.paymentMethod] || 0) + sale.total;
+    const method = paymentMethods.find(m => m.id === sale.paymentMethod);
+    const methodName = method ? method.name : (sale.paymentMethod || 'Outros');
+    paymentTotals[methodName] = (paymentTotals[methodName] || 0) + sale.total;
   });
 
   const colors = ['#10B981', '#6366F1', '#0EA5E9', '#F43F5E', '#8B5CF6', '#F59E0B', '#64748B'];
@@ -2047,6 +2053,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       name: name,
       value,
       total: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value),
+      fill: colors[index % colors.length],
       color: colors[index % colors.length]
     }));
 
@@ -2056,20 +2063,17 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
         <div className="h-64">
           {data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
+              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
+                <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB' }} formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
-                </Pie>
-                <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
-              </PieChart>
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">

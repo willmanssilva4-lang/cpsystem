@@ -35,21 +35,39 @@ export function DRE({ sales, expenses, products }: DREProps) {
     const currentYear = new Date().getFullYear();
     years.add(currentYear);
     
-    sales.forEach(s => years.add(new Date(s.date).getFullYear()));
-    expenses.forEach(e => years.add(new Date(e.date).getFullYear()));
+    const getYear = (dateStr: string | Date | undefined) => {
+      if (!dateStr) return currentYear;
+      if (typeof dateStr === 'string' && dateStr.length === 10) {
+        return parseInt(dateStr.split('-')[0], 10);
+      }
+      return new Date(dateStr).getFullYear();
+    };
+
+    sales.forEach(s => years.add(getYear(s.date)));
+    expenses.forEach(e => years.add(getYear(e.date)));
     
     return Array.from(years).sort((a, b) => b - a);
   }, [sales, expenses]);
 
   const dreData = useMemo(() => {
+    const getMonthYear = (dateStr: string | Date | undefined) => {
+      if (!dateStr) return { month: -1, year: -1 };
+      if (typeof dateStr === 'string' && dateStr.length === 10) {
+        const [year, month] = dateStr.split('-');
+        return { month: parseInt(month, 10) - 1, year: parseInt(year, 10) };
+      }
+      const d = new Date(dateStr);
+      return { month: d.getMonth(), year: d.getFullYear() };
+    };
+
     // Filter sales for selected month/year
     const salesMonth = sales.filter(s => {
-      const d = new Date(s.date);
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      const { month, year } = getMonthYear(s.date);
+      return month === selectedMonth && year === selectedYear;
     });
 
-    // Receita Bruta
-    const receitaBruta = salesMonth.reduce((acc, s) => acc + s.total, 0);
+    // Receita Bruta (Vendas totais antes dos descontos)
+    const receitaBruta = salesMonth.reduce((acc, s) => acc + (s.subtotal || (s.total + (s.discount || 0))), 0);
 
     // Deduções (Descontos)
     const deducoes = salesMonth.reduce((acc, s) => acc + (s.discount || 0), 0);
@@ -73,8 +91,8 @@ export function DRE({ sales, expenses, products }: DREProps) {
 
     // Despesas Operacionais
     const expensesMonth = expenses.filter(e => {
-      const d = new Date(e.paymentDate || e.date);
-      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear && e.status === 'Pago';
+      const { month, year } = getMonthYear(e.paymentDate || e.date);
+      return month === selectedMonth && year === selectedYear && e.status === 'Pago';
     });
 
     // Agrupar despesas por categoria
