@@ -197,10 +197,31 @@ function CompanySettings() {
           </div>
           <div className="w-full md:w-48 space-y-2">
             <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Logo da Empresa</label>
-            <div className="aspect-square rounded-3xl border-2 border-dashed border-brand-border bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-brand-border/50 transition-colors group">
-              <ImageIcon className="text-brand-border group-hover:text-brand-blue-hover transition-colors" size={32} />
-              <span className="text-[10px] font-black text-brand-text-sec uppercase italic">Alterar Logo</span>
-            </div>
+            <label className="aspect-square rounded-3xl border-2 border-dashed border-brand-border bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-brand-border/50 transition-colors group relative overflow-hidden">
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setFormData(prev => ({ ...prev, logo: reader.result as string }));
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }} 
+              />
+              {formData.logo ? (
+                <img src={formData.logo} alt="Logo" className="w-full h-full object-contain p-2" />
+              ) : (
+                <>
+                  <ImageIcon className="text-brand-border group-hover:text-brand-blue-hover transition-colors" size={32} />
+                  <span className="text-[10px] font-black text-brand-text-sec uppercase italic">Alterar Logo</span>
+                </>
+              )}
+            </label>
           </div>
         </div>
         

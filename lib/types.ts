@@ -242,6 +242,7 @@ export interface CompanySettings {
   legalName: string;
   cnpj: string;
   stateRegistration: string;
+  logo?: string;
   address: {
     street: string;
     number: string;

@@ -964,56 +964,68 @@ export default function PDVPage() {
             <h3 className="text-lg md:text-2xl font-black italic tracking-widest text-brand-text-main uppercase">Cupom Fiscal</h3>
           </div>
           
-          <div className="flex-1 bg-white text-slate-900 overflow-y-auto">
-            <div className="min-w-full">
-              <table className="w-full text-[10px] font-bold">
-              <thead className="bg-brand-text-main text-white sticky top-0">
-                <tr>
-                  <th className="px-2 py-1 text-center w-8">#</th>
-                  <th className="px-2 py-1 text-left">Cód de Barras</th>
-                  <th className="px-2 py-1 text-left">Descrição</th>
-                  <th className="px-2 py-1 text-center">Qtd.</th>
-                  <th className="px-2 py-1 text-right">Vlr. Unit</th>
-                  <th className="px-2 py-1 text-right">Valor Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {cart.map((item, idx) => (
-                  <tr 
-                    key={idx} 
-                    onClick={() => {
-                      if (idx === selectedCartIndex) {
-                        setSelectedCartIndex(-1);
-                        setIsNavigatingCart(false);
-                      } else {
-                        setSelectedCartIndex(idx);
-                        setIsNavigatingCart(true);
-                      }
-                    }}
-                    className={cn(
-                      "hover:bg-slate-50/50 transition-colors cursor-pointer",
-                      idx === selectedCartIndex ? "bg-brand-blue/20 ring-2 ring-brand-blue ring-inset" : ""
-                    )}
-                  >
-                    <td className="px-2 py-1 text-center font-mono text-slate-500">{idx + 1}</td>
-                    <td className="px-2 py-1 text-brand-text-main">{item.product.sku}</td>
-                    <td className="px-2 py-1 uppercase text-brand-text-main">
-                      {item.product.name}
-                      {item.discount > 0 && (
-                        <span className="ml-2 text-[8px] text-rose-600 font-black italic">
-                          (DESC: -{formatCurrency(item.discount * item.quantity)})
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1 text-center text-brand-text-main">{item.quantity.toFixed(3)}</td>
-                    <td className="px-2 py-1 text-right text-brand-text-main">{formatCurrency(item.product.salePrice)}</td>
-                    <td className="px-2 py-1 text-right text-brand-text-main font-black">{formatCurrency(item.product.salePrice * item.quantity)}</td>
+          <div className="flex-1 bg-white text-slate-900 overflow-y-auto relative">
+            {cart.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center opacity-30">
+                {companySettings?.logo ? (
+                  <img src={companySettings.logo} alt="Logo da Empresa" className="w-48 h-48 object-contain mb-4 filter grayscale" />
+                ) : (
+                  <Logo className="w-48 h-48 mb-4 filter grayscale" />
+                )}
+                <p className="text-xl font-black uppercase italic text-brand-text-main">Caixa Livre</p>
+                <p className="text-sm font-bold text-brand-text-sec">Passe o código de barras ou pesquise um produto para iniciar a venda.</p>
+              </div>
+            ) : (
+              <div className="min-w-full">
+                <table className="w-full text-[10px] font-bold">
+                <thead className="bg-brand-text-main text-white sticky top-0">
+                  <tr>
+                    <th className="px-2 py-1 text-center w-8">#</th>
+                    <th className="px-2 py-1 text-left">Cód de Barras</th>
+                    <th className="px-2 py-1 text-left">Descrição</th>
+                    <th className="px-2 py-1 text-center">Qtd.</th>
+                    <th className="px-2 py-1 text-right">Vlr. Unit</th>
+                    <th className="px-2 py-1 text-right">Valor Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {cart.map((item, idx) => (
+                    <tr 
+                      key={idx} 
+                      onClick={() => {
+                        if (idx === selectedCartIndex) {
+                          setSelectedCartIndex(-1);
+                          setIsNavigatingCart(false);
+                        } else {
+                          setSelectedCartIndex(idx);
+                          setIsNavigatingCart(true);
+                        }
+                      }}
+                      className={cn(
+                        "hover:bg-slate-50/50 transition-colors cursor-pointer",
+                        idx === selectedCartIndex ? "bg-brand-blue/20 ring-2 ring-brand-blue ring-inset" : ""
+                      )}
+                    >
+                      <td className="px-2 py-1 text-center font-mono text-slate-500">{idx + 1}</td>
+                      <td className="px-2 py-1 text-brand-text-main">{item.product.sku}</td>
+                      <td className="px-2 py-1 uppercase text-brand-text-main">
+                        {item.product.name}
+                        {item.discount > 0 && (
+                          <span className="ml-2 text-[8px] text-rose-600 font-black italic">
+                            (DESC: -{formatCurrency(item.discount * item.quantity)})
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1 text-center text-brand-text-main">{item.quantity.toFixed(3)}</td>
+                      <td className="px-2 py-1 text-right text-brand-text-main">{formatCurrency(item.product.salePrice)}</td>
+                      <td className="px-2 py-1 text-right text-brand-text-main font-black">{formatCurrency(item.product.salePrice * item.quantity)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
 
         <div className="bg-slate-50 px-4 py-2 flex justify-between items-center border-t border-brand-border">
             <span className="text-sm font-bold italic text-brand-text-main">Cliente: CONSUMIDOR FINAL</span>
