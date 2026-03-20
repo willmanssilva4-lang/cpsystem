@@ -966,14 +966,14 @@ export default function PDVPage() {
           
           <div className="flex-1 bg-white text-slate-900 overflow-y-auto relative">
             {cart.length === 0 ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center opacity-30">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
                 {companySettings?.logo ? (
-                  <img src={companySettings.logo} alt="Logo da Empresa" className="w-48 h-48 object-contain mb-4 filter grayscale" />
+                  <img src={companySettings.logo} alt="Logo da Empresa" className="w-48 h-48 object-contain mb-4" />
                 ) : (
-                  <Logo className="w-48 h-48 mb-4 filter grayscale" />
+                  <Logo className="w-48 h-48 mb-4 opacity-30" />
                 )}
-                <p className="text-xl font-black uppercase italic text-brand-text-main">Caixa Livre</p>
-                <p className="text-sm font-bold text-brand-text-sec">Passe o código de barras ou pesquise um produto para iniciar a venda.</p>
+                <p className="text-xl font-black uppercase italic text-brand-text-main opacity-30">Caixa Livre</p>
+                <p className="text-sm font-bold text-brand-text-sec opacity-30">Passe o código de barras ou pesquise um produto para iniciar a venda.</p>
               </div>
             ) : (
               <div className="min-w-full">
