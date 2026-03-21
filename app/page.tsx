@@ -35,6 +35,7 @@ import {
   Pie,
   Legend
 } from 'recharts';
+import { GoogleGenAI } from "@google/genai";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -162,6 +163,71 @@ export default function DashboardPage() {
   const [showLowStockModal, setShowLowStockModal] = React.useState(false);
   const [showExpiringModal, setShowExpiringModal] = React.useState(false);
   const [showAllSalesModal, setShowAllSalesModal] = React.useState(false);
+
+  // AI Assistant State
+  const [messages, setMessages] = React.useState<{role: 'user' | 'assistant', content: string}[]>([
+    { role: 'assistant', content: 'Olá! Sou seu assistente de IA. Como posso ajudar com seu negócio hoje?' }
+  ]);
+  const [input, setInput] = React.useState('');
+  const [isTyping, setIsTyping] = React.useState(false);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isTyping) return;
+
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsTyping(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `
+              Você é um assistente de IA especializado em gestão de negócios para um sistema ERP.
+              Contexto atual do negócio:
+              - Vendas hoje: ${salesToday.length} vendas, total ${formatCurrency(revenueToday)}
+              - Devoluções hoje: ${returnsToday.length}, total ${formatCurrency(returnsTodayTotal)}
+              - Despesas hoje: ${expensesToday.length}, total ${formatCurrency(expensesTodayTotal)}
+              - Saldo em caixa: ${formatCurrency(currentCashBalance)}
+              - Produtos com estoque baixo: ${lowStockItems.length}
+              - Produtos vencendo em 30 dias: ${expiringLotes.length}
+              - Ticket Médio do período: ${formatCurrency(ticketMedio)}
+              - Top 3 produtos hoje: ${topProductsToday.slice(0, 3).map(p => `${p.name} (${p.quantity} un)`).join(', ')}
+
+              Responda de forma concisa, profissional e útil em português brasileiro.
+              Pergunta do usuário: ${userMessage}
+            `}]
+          }
+        ],
+        config: {
+          systemInstruction: "Você é um assistente de gestão empresarial prestativo e analítico."
+        }
+      });
+
+      const text = response.text || "Desculpe, não consegui processar sua solicitação.";
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: text }]);
+    } catch (error) {
+      console.error("Erro na IA:", error);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Houve um erro ao processar sua pergunta. Verifique sua conexão ou tente novamente mais tarde." }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   React.useEffect(() => {
     // Generate data based on period
@@ -521,25 +587,51 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-        {/* Ranking Vendedores */}
-        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm lg:col-span-2">
-          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Ranking de Vendedores</h4>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-brand-border text-left text-sm text-brand-text-sec">
-                <th className="pb-3">Vendedor</th>
-                <th className="pb-3 text-right">Vendas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {employeeSales.slice(0, 5).map(e => (
-                <tr key={e.id} className="border-b border-brand-border/50 text-sm">
-                  <td className="py-3 text-brand-text-main">{e.name}</td>
-                  <td className="py-3 text-right text-brand-text-main">{formatCurrency(e.totalSales)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Assistente de IA */}
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm lg:col-span-2 flex flex-col h-[400px]">
+          <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-4 flex items-center gap-2">
+            <div className="w-2 h-2 bg-brand-green rounded-full animate-pulse"></div>
+            Assistente de IA
+          </h4>
+          
+          <div className="flex-1 overflow-y-auto mb-4 space-y-4 pr-2 custom-scrollbar">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-brand-blue text-white rounded-tr-none' 
+                    : 'bg-brand-bg text-brand-text-main rounded-tl-none border border-brand-border'
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-brand-bg text-brand-text-main p-3 rounded-2xl rounded-tl-none border border-brand-border text-sm italic">
+                  Digitando...
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Pergunte algo sobre seu negócio..."
+              className="flex-1 bg-brand-bg border border-brand-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            />
+            <button
+              type="submit"
+              disabled={isTyping || !input.trim()}
+              className="bg-brand-blue hover:bg-brand-blue-hover text-white p-2 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </form>
         </div>
       </div>
 

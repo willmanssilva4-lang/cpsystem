@@ -6,10 +6,13 @@ import { Sidebar } from '@/components/Sidebar';
 import { AuthGuard } from '@/components/AuthGuard';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X } from 'lucide-react';
+import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle } from 'lucide-react';
 import Image from 'next/image';
+import { HelpModal } from '@/components/HelpModal';
+import { ContextualHelp } from '@/components/ContextualHelp';
+import { HelpCircle as HelpIcon } from 'lucide-react';
 
-function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
+function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: () => void, onHelpClick: () => void }) {
   const { products, expenses, systemSettings, sendEmailNotification } = useERP();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -161,6 +164,15 @@ function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
             </div>
           )}
 
+          <button 
+            onClick={onHelpClick}
+            className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group"
+            title="Modo Ajuda"
+          >
+            <HelpCircle size={20} />
+            <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Ajuda</span>
+          </button>
+
           <Link href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
             <Settings size={20} />
           </Link>
@@ -192,6 +204,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, systemSettings } = useERP();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     if (!systemSettings?.theme) return;
@@ -214,25 +227,43 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [systemSettings?.theme]);
   
   const isLoginPage = pathname === '/login';
+  const isPDVPage = pathname === '/pdv';
 
   return (
     <AuthGuard>
       <div className="flex min-h-screen relative">
-        {!isLoginPage && (
+        {!isLoginPage && !isPDVPage && (
           <Sidebar 
             isOpen={isMobileMenuOpen} 
             onClose={() => setIsMobileMenuOpen(false)} 
           />
         )}
         <main className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
-          {!isLoginPage && (
+          {!isLoginPage && !isPDVPage && (
             <TopBar 
               user={user} 
               onMenuClick={() => setIsMobileMenuOpen(true)} 
+              onHelpClick={() => setIsHelpOpen(true)}
             />
           )}
           {children}
         </main>
+        <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+        <ContextualHelp key={pathname} />
+
+        {/* Fixed Help Button [?] */}
+        {!isLoginPage && (
+          <button
+            onClick={() => setIsHelpOpen(true)}
+            className="fixed bottom-8 right-8 w-16 h-16 bg-brand-blue text-white rounded-2xl shadow-2xl shadow-brand-blue/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-[90] group border-4 border-white"
+            title="Central de Ajuda"
+          >
+            <HelpIcon size={32} className="group-hover:rotate-12 transition-transform" />
+            <div className="absolute right-full mr-4 bg-brand-text-main text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+              Precisa de ajuda?
+            </div>
+          </button>
+        )}
       </div>
     </AuthGuard>
   );
