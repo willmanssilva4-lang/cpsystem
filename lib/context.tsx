@@ -28,6 +28,7 @@ interface ERPContextType {
   paymentMethods: PaymentMethod[];
   maquininhas: Maquininha[];
   promotions: Promotion[];
+  returns: Return[];
   user: { id: string; name: string; email: string; role: string; profileId?: string } | null;
   hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete') => boolean;
   discountLogs: DiscountLog[];
@@ -46,6 +47,7 @@ interface ERPContextType {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id'>) => Promise<boolean>;
+  addReturn: (returnData: Omit<Return, 'id'>) => Promise<boolean>;
   addDiscountLog: (log: Omit<DiscountLog, 'id'>) => Promise<void>;
   addCustomer: (customer: Customer) => void;
   updateCustomer: (customer: Customer) => Promise<void>;
@@ -70,6 +72,7 @@ interface ERPContextType {
   updatePricingSettings: (settings: PricingSettings) => void;
   updateCompanySettings: (settings: CompanySettings) => void;
   updateSystemSettings: (settings: SystemSettings) => void;
+  sendEmailNotification: (to: string, subject: string, body: string, html?: string) => Promise<boolean>;
   addPaymentMethod: (method: Omit<PaymentMethod, 'id'>) => void;
   updatePaymentMethod: (method: PaymentMethod) => void;
   deletePaymentMethod: (id: string) => void;
@@ -136,6 +139,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [maquininhas, setMaquininhas] = useState<Maquininha[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [returns, setReturns] = useState<Return[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     theme: 'system',
     language: 'pt-BR',
@@ -215,6 +219,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
       const { data: maquininhasData } = await supabase.from('maquininhas').select('*');
       const { data: promotionsData } = await supabase.from('promotions').select('*');
+      const { data: returnsData } = await supabase.from('returns').select('*, return_items(*)');
+      
+      if (returnsData) {
+        setReturns(returnsData.map(r => ({
+          id: r.id,
+          saleId: r.sale_id,
+          date: r.date,
+          items: (r.return_items || []).map((ri: any) => ({
+            productId: ri.product_id,
+            quantity: ri.quantity,
+            price: Number(ri.price),
+            reason: ri.reason
+          })),
+          total: Number(r.total),
+          type: r.type,
+          refundMethod: r.refund_method,
+          userId: r.user_id,
+          status: r.status
+        })));
+      }
 
       if (promotionsData) {
         setPromotions(promotionsData.map(p => ({
@@ -1192,6 +1216,83 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addReturn = async (returnData: Omit<Return, 'id'>): Promise<boolean> => {
+    try {
+      const { data: returnRes, error: returnError } = await supabase
+        .from('returns')
+        .insert([{
+          sale_id: returnData.saleId,
+          date: returnData.date,
+          total: returnData.total,
+          type: returnData.type,
+          refund_method: returnData.refundMethod,
+          user_id: user?.id || null,
+          status: returnData.status
+        }])
+        .select();
+
+      if (returnError) {
+        console.error('Error inserting return:', returnError);
+        // Fallback for local state if Supabase fails (e.g. table doesn't exist yet)
+        const tempId = Math.random().toString(36).substring(2, 9);
+        const newReturn = { ...returnData, id: tempId };
+        setReturns(prev => [...prev, newReturn]);
+        return true; 
+      }
+
+      if (returnRes && returnRes.length > 0) {
+        const returnId = returnRes[0].id;
+
+        const itemsToInsert = returnData.items.map(item => ({
+          return_id: returnId,
+          product_id: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          reason: item.reason
+        }));
+
+        await supabase.from('return_items').insert(itemsToInsert);
+
+        // Update stock
+        for (const item of returnData.items) {
+          const product = products.find(p => p.id === item.productId);
+          if (product) {
+            // Record stock movement
+            await supabase.from('stock_movements').insert([{
+              product_id: item.productId,
+              type: 'ENTRADA',
+              quantity: item.quantity,
+              origin: `Devolução #${returnId.substring(0, 8)}`,
+              date: returnData.date,
+              user_id: user?.id || 'Sistema',
+              user_name: user?.name || 'Sistema'
+            }]);
+
+            await supabase.from('products').update({ stock: product.stock + item.quantity }).eq('id', product.id);
+          }
+        }
+
+        // If refund method is cash, record cash movement
+        if (returnData.refundMethod === 'Dinheiro' && activeRegister) {
+          await addCashMovement({
+            cashRegisterId: activeRegister.id,
+            type: 'sangria',
+            amount: returnData.total,
+            reason: `Devolução Venda #${returnData.saleId.substring(0, 8)}`
+          });
+        }
+
+        await logAuditAction('devolução', 'vendas', returnId, null, returnData);
+        await fetchData();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error adding return:', error);
+      return false;
+    }
+  };
+
   const addDiscountLog = async (log: Omit<DiscountLog, 'id'>) => {
     const { error } = await supabase.from('vendas_descontos').insert([{
       venda_id: log.saleId,
@@ -1810,6 +1911,35 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('system_settings', JSON.stringify(settings));
   };
 
+  const sendEmailNotification = async (to: string, subject: string, body: string, html?: string) => {
+    try {
+      const response = await fetch('/api/notifications/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ to, subject, body, html }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          console.error('Erro ao enviar e-mail:', errorData.error || errorData);
+        } else {
+          const errorText = await response.text();
+          console.error('Erro ao enviar e-mail (não-JSON):', errorText.substring(0, 100));
+        }
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Erro de rede ao enviar e-mail:', error);
+      return false;
+    }
+  };
+
   const addPaymentMethod = async (method: Omit<PaymentMethod, 'id'>) => {
     const { error } = await supabase.from('payment_methods').insert([{
       name: method.name,
@@ -2397,6 +2527,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       paymentMethods,
       maquininhas,
       promotions,
+      returns,
       user,
       hasPermission,
       discountLogs,
@@ -2414,6 +2545,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       updateProduct, 
       deleteProduct,
       addSale, 
+      addReturn,
       addDiscountLog,
       addCustomer,
       updateCustomer,
@@ -2458,6 +2590,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       updatePricingSettings,
       updateCompanySettings,
       updateSystemSettings,
+      sendEmailNotification,
       paymentMethods,
       addPaymentMethod,
       updatePaymentMethod,

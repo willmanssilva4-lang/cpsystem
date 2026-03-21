@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { QuickReturnModal } from '@/components/QuickReturnModal';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/types';
@@ -43,6 +45,7 @@ export default function PDVPage() {
   const [showProductListModal, setShowProductListModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCancelItemModal, setShowCancelItemModal] = useState(false);
+  const [showQuickReturnModal, setShowQuickReturnModal] = useState(false);
   const [cancelItemNumber, setCancelItemNumber] = useState('');
   const [showDiscountItemModal, setShowDiscountItemModal] = useState(false);
   const [discountItemNumber, setDiscountItemNumber] = useState('');
@@ -357,13 +360,10 @@ export default function PDVPage() {
         setNumericBuffer('');
       }
 
-      // F2 - Modo Navegação / Focar Lista
+      // F2 - Devolução Rápida
       if (e.key === 'F2') {
         e.preventDefault();
-        if (cart.length > 0) {
-          setIsNavigatingCart(true);
-          setSelectedCartIndex(0);
-        }
+        setShowQuickReturnModal(true);
         setNumericBuffer('');
       }
 
@@ -603,6 +603,8 @@ export default function PDVPage() {
           setShowInvoiceModal(false);
         } else if (showCancelItemModal) {
           setShowCancelItemModal(false);
+        } else if (showQuickReturnModal) {
+          setShowQuickReturnModal(false);
         } else if (showDiscountItemModal) {
           setShowDiscountItemModal(false);
         } else if (isNavigatingCart) {
@@ -624,7 +626,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -964,7 +966,15 @@ export default function PDVPage() {
             {cart.length === 0 ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
                 {companySettings?.logo ? (
-                  <img src={companySettings.logo} alt="Logo da Empresa" className="w-48 h-48 object-contain mb-4" />
+                  <div className="relative w-48 h-48 mb-4">
+                    <Image 
+                      src={companySettings.logo} 
+                      alt="Logo da Empresa" 
+                      fill 
+                      className="object-contain" 
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                 ) : (
                   <Logo className="w-48 h-48 mb-4" />
                 )}
@@ -1406,6 +1416,11 @@ export default function PDVPage() {
         </div>
       )}
 
+      {/* Quick Return Modal */}
+      {showQuickReturnModal && (
+        <QuickReturnModal onClose={() => setShowQuickReturnModal(false)} />
+      )}
+
       {/* Help Modal */}
       {showHelp && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
@@ -1422,7 +1437,7 @@ export default function PDVPage() {
               <div className="space-y-2">
                 <h4 className="font-black italic uppercase text-brand-blue border-b border-brand-border pb-1">Vendas</h4>
                 <p><span className="font-bold">F1</span> - Ajuda rápida</p>
-                <p><span className="font-bold">F2</span> - Modo navegação (Carrinho)</p>
+                <p><span className="font-bold">F2</span> - Devolução rápida</p>
                 <p><span className="font-bold">F3</span> - Buscar produto manual</p>
                 <p><span className="font-bold">F4</span> - Alterar quantidade</p>
                 <p><span className="font-bold">F5</span> - Inserir cliente</p>

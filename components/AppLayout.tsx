@@ -5,13 +5,15 @@ import { useERP } from '@/lib/context';
 import { Sidebar } from '@/components/Sidebar';
 import { AuthGuard } from '@/components/AuthGuard';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X } from 'lucide-react';
 import Image from 'next/image';
 
 function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
-  const { products, expenses } = useERP();
+  const { products, expenses, systemSettings, sendEmailNotification } = useERP();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [sentEmailNotificationIds, setSentEmailNotificationIds] = useState<string[]>([]);
 
   const notifications = useMemo(() => {
     const notifs: any[] = [];
@@ -45,6 +47,36 @@ function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
   }, [products, expenses, readNotificationIds]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Enviar notificações por e-mail
+  useEffect(() => {
+    if (!systemSettings?.notifications?.email || !user?.email) return;
+
+    const unreadNotifications = notifications.filter(n => !n.read && !sentEmailNotificationIds.includes(n.id));
+    
+    if (unreadNotifications.length > 0) {
+      unreadNotifications.forEach(async (notification) => {
+        console.log(`📧 Tentando enviar e-mail para ${user.email} sobre: ${notification.title}`);
+        const success = await sendEmailNotification(
+          user.email,
+          `ERP Alerta: ${notification.title}`,
+          notification.message,
+          `
+            <div style="font-family: sans-serif; padding: 20px; color: #334155;">
+              <h2 style="color: #1e40af;">${notification.title}</h2>
+              <p>${notification.message}</p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+              <p style="font-size: 12px; color: #64748b;">Este é um alerta automático do seu sistema ERP.</p>
+            </div>
+          `
+        );
+
+        if (success) {
+          setSentEmailNotificationIds(prev => [...prev, notification.id]);
+        }
+      });
+    }
+  }, [notifications, systemSettings, user, sentEmailNotificationIds, sendEmailNotification]);
 
   const markAsRead = (id: string) => {
     if (!readNotificationIds.includes(id)) {
@@ -129,9 +161,9 @@ function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
             </div>
           )}
 
-          <button className="hover:text-brand-blue transition-colors p-1">
+          <Link href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
             <Settings size={20} />
-          </button>
+          </Link>
         </div>
 
         <div className="hidden sm:block w-px h-8 bg-brand-border"></div>
@@ -157,24 +189,43 @@ function TopBar({ user, onMenuClick }: { user: any, onMenuClick: () => void }) {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useERP();
+  const { user, systemSettings } = useERP();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!systemSettings?.theme) return;
+    
+    const root = window.document.documentElement;
+    const theme = systemSettings.theme;
+    
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else if (theme === 'light') {
+      root.classList.remove('dark');
+    } else if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      if (systemTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+  }, [systemSettings?.theme]);
   
   const isLoginPage = pathname === '/login';
-  const isPdvPage = pathname === '/pdv';
 
   return (
     <AuthGuard>
       <div className="flex min-h-screen relative">
-        {!isLoginPage && !isPdvPage && (
+        {!isLoginPage && (
           <Sidebar 
             isOpen={isMobileMenuOpen} 
             onClose={() => setIsMobileMenuOpen(false)} 
           />
         )}
-        <main className={`flex-1 flex flex-col min-w-0 ${!isLoginPage && !isPdvPage ? 'bg-brand-bg' : ''}`}>
-          {!isLoginPage && !isPdvPage && (
+        <main className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
+          {!isLoginPage && (
             <TopBar 
               user={user} 
               onMenuClick={() => setIsMobileMenuOpen(true)} 

@@ -85,11 +85,7 @@ export default function ReportsPage() {
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().split('T')[0];
-  });
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Dynamic Data Calculations for Dashboard
@@ -315,7 +311,12 @@ export default function ReportsPage() {
               <div className="flex items-center gap-4">
                 {selectedReportView !== 'Catálogo' && (
                   <button 
-                    onClick={() => setSelectedReportView('Catálogo')}
+                    onClick={() => {
+                      setSelectedReportView('Catálogo');
+                      const today = new Date().toISOString().split('T')[0];
+                      setStartDate(today);
+                      setEndDate(today);
+                    }}
                     className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all mr-2"
                   >
                     <ChevronLeft size={18} />
@@ -337,6 +338,24 @@ export default function ReportsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                {selectedReportView !== 'Catálogo' && (
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
+                    <Calendar size={16} className="text-slate-400" />
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-0 p-0"
+                    />
+                    <span className="text-slate-300 text-xs font-bold">a</span>
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-0 p-0"
+                    />
+                  </div>
+                )}
                 {selectedReportView === 'Catálogo' && (
                   <div className="relative">
                     <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1476,15 +1495,18 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string, endDa
     return d >= startDate && d <= endDate;
   });
 
-  const productStats: Record<string, { qty: number, total: number }> = {};
+  const productStats: Record<string, { qty: number, total: number, totalCost: number }> = {};
 
   filteredSales.forEach(sale => {
     sale.items.forEach(item => {
       if (!productStats[item.productId]) {
-        productStats[item.productId] = { qty: 0, total: 0 };
+        productStats[item.productId] = { qty: 0, total: 0, totalCost: 0 };
       }
+      const product = products.find(p => p.id === item.productId);
+      const cost = product ? product.costPrice : 0;
       productStats[item.productId].qty += item.quantity;
       productStats[item.productId].total += item.price * item.quantity;
+      productStats[item.productId].totalCost += cost * item.quantity;
     });
   });
 
@@ -1495,7 +1517,8 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string, endDa
         name: product ? product.name : 'Produto Desconhecido',
         qty: stats.qty,
         price: stats.qty > 0 ? stats.total / stats.qty : 0,
-        total: stats.total
+        total: stats.total,
+        profit: stats.total - stats.totalCost
       };
     })
     .sort((a, b) => b.total - a.total)
@@ -1511,6 +1534,7 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string, endDa
             <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
             <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Qtd Vendida</th>
             <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Preço Médio</th>
+            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Lucro</th>
             <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total</th>
           </tr>
         </thead>
@@ -1520,11 +1544,12 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string, endDa
               <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
               <td className="py-4 text-sm font-bold text-brand-text-main">{row.qty} un</td>
               <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">{formatCurrency(row.price)}</td>
+              <td className="py-4 text-right text-sm font-black text-emerald-600">{formatCurrency(row.profit)}</td>
               <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.total)}</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
+              <td colSpan={5} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
             </tr>
           )}
         </tbody>
@@ -1634,6 +1659,7 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
 
 function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, subcategorias, categorias } = useERP();
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   
   const filteredSales = sales.filter(s => {
     const d = s.date.split('T')[0];
@@ -1641,6 +1667,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
   });
 
   const categoryTotals: Record<string, number> = {};
+  const categoryProducts: Record<string, Record<string, { name: string, quantity: number, total: number }>> = {};
   let totalRevenue = 0;
 
   filteredSales.forEach(sale => {
@@ -1657,6 +1684,18 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
       const itemTotal = item.price * item.quantity;
       categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
       totalRevenue += itemTotal;
+
+      // Track products per category
+      if (!categoryProducts[category]) categoryProducts[category] = {};
+      if (!categoryProducts[category][item.productId]) {
+        categoryProducts[category][item.productId] = {
+          name: product ? product.name : 'Produto Desconhecido',
+          quantity: 0,
+          total: 0
+        };
+      }
+      categoryProducts[category][item.productId].quantity += item.quantity;
+      categoryProducts[category][item.productId].total += itemTotal;
     });
   });
 
@@ -1668,49 +1707,97 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
       value,
       total: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value),
       percent: totalRevenue > 0 ? `${((value / totalRevenue) * 100).toFixed(1)}%` : '0%',
-      color: colors[index % colors.length]
+      color: colors[index % colors.length],
+      products: Object.values(categoryProducts[name] || {}).sort((a, b) => b.total - a.total)
     }));
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="h-64">
-          {data.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">
-              Nenhum dado para exibir no gráfico neste período.
-            </div>
-          )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h4 className="text-sm font-black text-brand-text-main uppercase italic mb-6 flex items-center gap-2">
+            <PieChartIcon size={16} className="text-brand-blue" />
+            Distribuição por Categoria
+          </h4>
+          <div className="h-64">
+            {data.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <PieChart>
+                  <Pie
+                    data={data}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">
+                Nenhum dado para exibir no gráfico neste período.
+              </div>
+            )}
+          </div>
         </div>
-        <div className="space-y-4 flex flex-col justify-center">
-          {data.map((cat, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
-                <span className="text-sm font-black text-brand-text-main uppercase italic">{cat.name}</span>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <h4 className="text-sm font-black text-brand-text-main uppercase italic mb-6 flex items-center gap-2">
+            <Layers size={16} className="text-brand-blue" />
+            Detalhamento de Vendas
+          </h4>
+          <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[400px]">
+            {data.map((cat, i) => (
+              <div key={i} className="space-y-2">
+                <button 
+                  onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
+                  className={cn(
+                    "w-full flex items-center justify-between p-3 rounded-2xl transition-all border",
+                    expandedCategory === cat.name ? "bg-brand-blue/5 border-brand-blue/20" : "bg-slate-50 border-transparent hover:bg-slate-100"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }}></div>
+                    <span className="text-sm font-black text-brand-text-main uppercase italic text-left">{cat.name}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <span className="text-sm font-black text-brand-blue">{cat.total}</span>
+                      <span className="text-[10px] font-bold text-brand-text-main/40 ml-2">({cat.percent})</span>
+                    </div>
+                    <ChevronDown size={16} className={cn("text-slate-400 transition-transform", expandedCategory === cat.name && "rotate-180")} />
+                  </div>
+                </button>
+
+                {expandedCategory === cat.name && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="pl-6 pr-2 py-2 space-y-2 overflow-hidden"
+                  >
+                    <div className="grid grid-cols-12 px-2 text-[10px] font-black text-brand-text-main/40 uppercase italic mb-1">
+                      <div className="col-span-7">Produto</div>
+                      <div className="col-span-2 text-center">Qtd</div>
+                      <div className="col-span-3 text-right">Total</div>
+                    </div>
+                    {cat.products.map((prod, idx) => (
+                      <div key={idx} className="grid grid-cols-12 px-2 py-1.5 border-b border-slate-50 last:border-0 items-center">
+                        <div className="col-span-7 text-[11px] font-bold text-brand-text-main truncate">{prod.name}</div>
+                        <div className="col-span-2 text-[11px] font-black text-brand-blue text-center">{prod.quantity}</div>
+                        <div className="col-span-3 text-[11px] font-black text-brand-blue text-right">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.total)}
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
               </div>
-              <div className="text-right">
-                <span className="text-sm font-black text-brand-blue">{cat.total}</span>
-                <span className="text-[10px] font-bold text-brand-text-main/40 ml-2">({cat.percent})</span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

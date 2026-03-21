@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   Settings, 
   Building2, 
@@ -252,7 +253,15 @@ function CompanySettings() {
                 }} 
               />
               {formData.logo ? (
-                <img src={formData.logo} alt="Logo" className="w-full h-full object-contain p-2" />
+                <div className="relative w-full h-full p-2">
+                  <Image 
+                    src={formData.logo} 
+                    alt="Logo" 
+                    fill 
+                    className="object-contain" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
               ) : (
                 <>
                   <ImageIcon className="text-brand-border group-hover:text-brand-blue-hover transition-colors" size={32} />
@@ -336,7 +345,7 @@ function CompanySettings() {
 
 function SystemSettings() {
   const { 
-    systemSettings, updateSystemSettings,
+    systemSettings, updateSystemSettings, sendEmailNotification,
     products, sales, customers, suppliers, expenses, losses,
     departamentos, categorias, expenseCategories, subcategorias,
     stockMovements, inventories, employees, systemUsers,
@@ -344,6 +353,10 @@ function SystemSettings() {
     paymentMethods, maquininhas, promotions, discountLogs,
     cashRegisters, cashMovements, cashClosings, lotes
   } = useERP();
+
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [testEmailStatus, setTestEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [testEmailError, setTestEmailError] = useState('');
 
   useEffect(() => {
     console.log('🖥️ SystemSettings mounted', { hasSettings: !!systemSettings });
@@ -460,6 +473,42 @@ function SystemSettings() {
     }
   };
 
+  const handleTestEmail = async () => {
+    setIsTestingEmail(true);
+    setTestEmailStatus('idle');
+    setTestEmailError('');
+    
+    try {
+      const success = await sendEmailNotification(
+        'willmanssilva4@gmail.com',
+        'ERP: Teste de Notificação',
+        'Este é um e-mail de teste enviado das configurações do seu ERP.',
+        `
+          <div style="font-family: sans-serif; padding: 20px; color: #334155;">
+            <h2 style="color: #1e40af;">Teste de Notificação</h2>
+            <p>Este é um e-mail de teste enviado das configurações do seu ERP.</p>
+            <p>Se você recebeu esta mensagem, sua integração com o Resend está funcionando corretamente!</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #64748b;">Este é um alerta automático do seu sistema ERP.</p>
+          </div>
+        `
+      );
+
+      if (success) {
+        setTestEmailStatus('success');
+        setTimeout(() => setTestEmailStatus('idle'), 3000);
+      } else {
+        setTestEmailStatus('error');
+        setTestEmailError('Verifique o console para detalhes do erro.');
+      }
+    } catch (error: any) {
+      setTestEmailStatus('error');
+      setTestEmailError(error.message || 'Erro desconhecido');
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
   return (
     <div className="divide-y divide-slate-100">
       <SectionHeader 
@@ -524,6 +573,46 @@ function SystemSettings() {
               defaultChecked={formData.notifications.email}
               onChange={(checked) => setFormData({...formData, notifications: {...formData.notifications, email: checked}})}
             />
+            <div className="p-4 rounded-2xl border border-brand-border bg-slate-50/30 flex flex-col gap-3">
+              <div className="space-y-1">
+                <h4 className="text-xs font-black text-brand-text-main uppercase italic">Teste de E-mail</h4>
+                <p className="text-[10px] text-brand-blue/60 font-medium leading-tight">
+                  Envia um e-mail de teste para <strong>willmanssilva4@gmail.com</strong> para validar sua configuração.
+                </p>
+              </div>
+              <button 
+                onClick={handleTestEmail}
+                disabled={isTestingEmail}
+                className={cn(
+                  "w-full py-2 rounded-xl font-black uppercase italic text-[10px] transition-all flex items-center justify-center gap-2",
+                  testEmailStatus === 'success' ? "bg-emerald-500 text-white" :
+                  testEmailStatus === 'error' ? "bg-rose-500 text-white" :
+                  "bg-white border border-brand-border text-brand-blue hover:bg-slate-50"
+                )}
+              >
+                {isTestingEmail ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-brand-blue/30 border-t-brand-blue rounded-full animate-spin" />
+                    Enviando...
+                  </>
+                ) : testEmailStatus === 'success' ? (
+                  <>
+                    <Check size={12} />
+                    E-mail Enviado!
+                  </>
+                ) : testEmailStatus === 'error' ? (
+                  <>
+                    <AlertTriangle size={12} />
+                    Erro no Envio
+                  </>
+                ) : (
+                  "Enviar E-mail de Teste"
+                )}
+              </button>
+              {testEmailStatus === 'error' && (
+                <p className="text-[9px] text-rose-500 font-bold text-center">{testEmailError}</p>
+              )}
+            </div>
             <ToggleGroup 
               label="Notificações Push" 
               description="Receber alertas no navegador/app." 

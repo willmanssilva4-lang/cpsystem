@@ -72,6 +72,12 @@ export async function POST(req: Request) {
           email = `${sanitizedUsername}@example.com`;
         }
       }
+    } else {
+      // Validate provided email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json({ error: 'Formato de e-mail inválido' }, { status: 400 });
+      }
     }
 
     // Check if username or email already exists in system_users to provide a better error

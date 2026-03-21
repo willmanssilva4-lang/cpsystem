@@ -25,7 +25,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const updateData: any = {};
     if (password) updateData.password = password;
-    if (email) updateData.email = email;
+    
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json({ error: 'Formato de e-mail inválido' }, { status: 400 });
+      }
+      updateData.email = email;
+    }
+    
     if (user_metadata) updateData.user_metadata = user_metadata;
 
     const { data, error } = await supabaseAdmin.auth.admin.updateUserById(id, updateData);

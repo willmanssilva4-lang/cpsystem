@@ -122,6 +122,25 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface ReturnItem {
+  productId: string;
+  quantity: number;
+  price: number;
+  reason: string;
+}
+
+export interface Return {
+  id: string;
+  saleId: string;
+  date: string;
+  items: ReturnItem[];
+  total: number;
+  type: 'PARCIAL' | 'TOTAL';
+  refundMethod: string;
+  userId: string;
+  status: 'CONCLUÍDO' | 'CANCELADO';
+}
+
 export interface SaleItem {
   productId: string;
   quantity: number;

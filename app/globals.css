@@ -33,6 +33,59 @@
   --font-sans: 'Inter', sans-serif;
 }
 
+.dark {
+  --color-brand-bg: #0F172A;
+  --color-brand-card: #1E293B;
+  --color-brand-text-main: #F8FAFC;
+  --color-brand-text-dark: #F8FAFC;
+  --color-brand-text-sec: #94A3B8;
+  --color-brand-border: #334155;
+}
+
+.dark body {
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-text-main);
+}
+
+.dark .bg-white, 
+.dark .bg-brand-card,
+.dark .bg-slate-50 {
+  background-color: var(--color-brand-card) !important;
+  color: var(--color-brand-text-dark) !important;
+}
+
+.dark .bg-brand-bg {
+  background-color: var(--color-brand-bg) !important;
+}
+
+.dark .text-brand-text-main,
+.dark .text-slate-900,
+.dark .text-gray-900 {
+  color: var(--color-brand-text-main) !important;
+}
+
+.dark .text-brand-text-sec,
+.dark .text-slate-600,
+.dark .text-gray-600 {
+  color: var(--color-brand-text-sec) !important;
+}
+
+.dark .border-brand-border,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: var(--color-brand-border) !important;
+}
+
+.dark input, 
+.dark select, 
+.dark textarea {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--color-brand-border) !important;
+  color: var(--color-brand-text-main) !important;
+}
+
 body {
   background-color: var(--color-brand-bg);
   color: var(--color-brand-text-main);

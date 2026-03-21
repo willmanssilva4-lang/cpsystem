@@ -17,6 +17,7 @@ import {
   ChevronUp,
   ChevronDown,
   AlertCircle,
+  RotateCcw,
   X
 } from 'lucide-react';
 import { 
@@ -37,7 +38,7 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { products, sales, customers, expenses, cashMovements, activeRegister, hasPermission, employees, lotes } = useERP();
+  const { products, sales, returns, customers, expenses, cashMovements, activeRegister, hasPermission, employees, lotes } = useERP();
 
   // Helper to get local date string in YYYY-MM-DD format
   const getLocalDateString = (dateInput: Date | string | undefined | null) => {
@@ -74,6 +75,8 @@ export default function DashboardPage() {
   });
   
   const revenueToday = salesToday.reduce((acc, sale) => acc + sale.total, 0);
+  const returnsToday = returns.filter(r => getLocalDateString(r.date) === today);
+  const returnsTodayTotal = returnsToday.reduce((acc, r) => acc + r.total, 0);
   const expensesTodayTotal = expensesToday.reduce((acc, exp) => acc + exp.amount, 0);
   
   // Calculate cost of goods sold today
@@ -225,7 +228,17 @@ export default function DashboardPage() {
   });
   
   const revenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
-  const ticketMedio = filteredSales.length > 0 ? revenue / filteredSales.length : 0;
+  const returnsInPeriod = returns.filter(r => {
+    const returnDate = new Date(r.date);
+    const now = new Date();
+    if (chartPeriod === 'hoje') return getLocalDateString(r.date) === today;
+    if (chartPeriod === '7d') return returnDate >= new Date(now.setDate(now.getDate() - 7));
+    if (chartPeriod === '30d') return returnDate >= new Date(now.setDate(now.getDate() - 30));
+    if (chartPeriod === 'mes') return returnDate.getMonth() === now.getMonth() && returnDate.getFullYear() === now.getFullYear();
+    return true;
+  });
+  const totalReturns = returnsInPeriod.reduce((acc, r) => acc + r.total, 0);
+  const ticketMedio = filteredSales.length > 0 ? (revenue - totalReturns) / filteredSales.length : 0;
   
   // Calculate cost of goods sold for the period
   let costOfGoods = 0;
@@ -248,7 +261,7 @@ export default function DashboardPage() {
   });
 
   const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const lucroPeriodo = revenue - costOfGoods - totalExpenses;
+  const lucroPeriodo = revenue - costOfGoods - totalExpenses - totalReturns;
   
   const periodText = {
     'hoje': 'Lucro de hoje',
@@ -314,6 +327,14 @@ export default function DashboardPage() {
           positive 
           icon={TrendingUp} 
           color="green"
+        />
+        <StatCard 
+          title="Devoluções" 
+          value={formatCurrency(totalReturns)} 
+          trend="Total devolvido" 
+          positive={false} 
+          icon={RotateCcw} 
+          color="red"
         />
         <StatCard 
           title="Lucro" 
