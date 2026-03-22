@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Plus, Image as ImageIcon, HelpCircle, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -403,7 +403,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <option value="KG">KG</option>
                       <option value="LT">LT</option>
                     </select>
-                    <HelpCircle size={24} className="text-slate-300" />
+                    <div className="w-6 h-6 flex items-center justify-center text-slate-300 font-bold">?</div>
                   </div>
                 </div>
                 <div className="md:col-span-3">

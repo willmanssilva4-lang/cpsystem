@@ -74,7 +74,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateString } from '@/lib/utils';
 
 export default function ReportsPage() {
   const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods } = useERP();
@@ -85,17 +85,17 @@ export default function ReportsPage() {
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
 
   // Dynamic Data Calculations for Dashboard
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
 
   const filteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
+    const d = toLocalDateString(e.date);
     return d >= startDate && d <= endDate;
   });
 
@@ -247,6 +247,7 @@ export default function ReportsPage() {
     { id: 'dre', category: 'gerencial', title: 'DRE Gerencial', description: 'Demonstrativo de resultados, impostos e lucro líquido.', icon: FileBarChart },
     { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
     { id: 'meios_pagamento', category: 'vendas', title: 'Relatório de Meios de Pagamento (Análise Profunda)', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
+    { id: 'estorno_devolucao', category: 'financeiro', title: 'Relatório de Estorno e Devolução', description: 'Monitoramento de estornos e devoluções realizadas.', icon: RefreshCw },
   ];
 
   const filteredReports = allReports.filter(r => 
@@ -445,6 +446,7 @@ export default function ReportsPage() {
                   {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Meios de Pagamento (Análise Profunda)' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Fluxo de Caixa' && (
                     <div className="space-y-6">
                       <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
@@ -504,7 +506,7 @@ export default function ReportsPage() {
                     </div>
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -637,7 +639,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   filteredSales.forEach(sale => {
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : item.price * 0.7; // Fallback to 30% margin
+      const cost = product ? product.costPrice : 0;
       totalCost += cost * item.quantity;
     });
   });
@@ -645,6 +647,43 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const totalProfit = totalSales - totalCost;
   const ticketMedio = totalSales / (filteredSales.length || 1);
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+
+  // Previous Period Data for Trends
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  const prevStart = new Date(start);
+  prevStart.setDate(prevStart.getDate() - diffDays);
+  const prevEnd = new Date(start);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+
+  const prevStartDate = prevStart.toISOString().split('T')[0];
+  const prevEndDate = prevEnd.toISOString().split('T')[0];
+
+  const prevFilteredSales = sales.filter(s => {
+    const d = s.date.split('T')[0];
+    return d >= prevStartDate && d <= prevEndDate;
+  });
+
+  const prevTotalSales = prevFilteredSales.reduce((acc, s) => acc + s.total, 0);
+  let prevTotalCost = 0;
+  prevFilteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const cost = product ? product.costPrice : 0;
+      prevTotalCost += cost * item.quantity;
+    });
+  });
+
+  const prevTotalProfit = prevTotalSales - prevTotalCost;
+  const prevTicketMedio = prevFilteredSales.length > 0 ? prevTotalSales / prevFilteredSales.length : 0;
+  const prevProfitMargin = prevTotalSales > 0 ? (prevTotalProfit / prevTotalSales) * 100 : 0;
+
+  const profitTrend = prevTotalProfit !== 0 ? ((totalProfit - prevTotalProfit) / Math.abs(prevTotalProfit)) * 100 : 0;
+  const ticketMedioTrend = prevTicketMedio !== 0 ? ((ticketMedio - prevTicketMedio) / prevTicketMedio) * 100 : 0;
+  const marginTrend = prevProfitMargin !== 0 ? profitMargin - prevProfitMargin : 0;
 
   // Category Data Calculation
   const categoryTotals: Record<string, number> = {};
@@ -830,9 +869,9 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lucro Líquido Acumulado</p>
             <div className="mt-2">
               <h3 className="text-3xl font-bold text-[#1e293b]">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-              <div className="flex items-center gap-1 text-brand-green text-[11px] font-bold mt-2">
-                <TrendingUp size={14} />
-                <span>Tendência Alta</span>
+              <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${profitTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                {profitTrend >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                <span>{Math.abs(profitTrend).toFixed(1)}% vs período anterior</span>
               </div>
             </div>
           </div>
@@ -841,9 +880,9 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ticket Médio por Venda</p>
             <div className="mt-2">
               <h3 className="text-3xl font-bold text-[#1e293b]">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-              <div className="flex items-center gap-1 text-brand-green text-[11px] font-bold mt-2">
-                <TrendingUp size={14} />
-                <span>Tendência Alta</span>
+              <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${ticketMedioTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                {ticketMedioTrend >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                <span>{Math.abs(ticketMedioTrend).toFixed(1)}% vs período anterior</span>
               </div>
             </div>
           </div>
@@ -852,9 +891,9 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Margem de Lucro Bruta</p>
             <div className="mt-2">
               <h3 className="text-3xl font-bold text-[#1e293b]">{profitMargin.toFixed(1)}%</h3>
-              <div className="flex items-center gap-1 text-brand-danger text-[11px] font-bold mt-2">
-                <TrendingDown size={14} />
-                <span>Tendência</span>
+              <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                {marginTrend >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                <span>{Math.abs(marginTrend).toFixed(1)}% vs período anterior</span>
               </div>
             </div>
           </div>
@@ -1096,7 +1135,7 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
   const { cashRegisters, cashClosings } = useERP();
   
   const filteredRegisters = cashRegisters.filter(r => {
-    const d = r.openedAt.split('T')[0];
+    const d = toLocalDateString(r.openedAt);
     return d >= startDate && d <= endDate;
   });
 
@@ -1562,7 +1601,7 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
   const { sales, products } = useERP();
   
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
 
@@ -2393,6 +2432,59 @@ function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDat
                 <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.total)}</td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { returns, products } = useERP();
+
+  const filteredReturns = returns.filter(r => {
+    const d = r.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  const getProductNames = (items: any[]) => {
+    return items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      return product ? product.name : 'Produto Desconhecido';
+    }).join(', ');
+  };
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  return (
+    <div className="space-y-6">
+      <h4 className="text-xl font-bold text-slate-800">Relatório de Estorno e Devolução</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-50">
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tipo</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto(s)</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Método Reembolso</th>
+              <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filteredReturns.map((ret) => (
+              <tr key={ret.id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="py-4 text-sm font-medium text-slate-600">{new Date(ret.date).toLocaleDateString('pt-BR')}</td>
+                <td className="py-4 text-sm font-bold text-slate-800">{ret.type}</td>
+                <td className="py-4 text-sm font-medium text-slate-600">{getProductNames(ret.items)}</td>
+                <td className="py-4 text-sm font-medium text-slate-600">{ret.refundMethod}</td>
+                <td className="py-4 text-right text-sm font-black text-brand-danger">{formatCurrency(ret.total)}</td>
+              </tr>
+            ))}
+            {filteredReturns.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-slate-400 italic">Nenhum estorno ou devolução encontrado no período.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -21,7 +21,7 @@ export default function SalesAuditPage() {
         type: 'discount',
         date: log.date,
         user: log.userId,
-        details: `${log.type === 'percentage' ? log.value + '%' : 'R$ ' + log.value.toFixed(2)} de desconto em ${log.saleId ? 'Venda #' + log.saleId.substring(0, 8) : 'Item'}`,
+        details: `${log.type === 'percentage' ? log.value + '%' : 'R$ ' + log.value.toFixed(2)} de desconto em ${log.saleId ? 'Venda #' + log.saleId.substring(0, 8).toUpperCase() : 'Item'}`,
         reason: log.reason,
         severity: log.value > 20 || (log.type === 'value' && log.value > 100) ? 'high' : 'medium'
       });
@@ -34,7 +34,7 @@ export default function SalesAuditPage() {
         type: 'return',
         date: ret.date,
         user: ret.userId,
-        details: `Devolução ${ret.type} de R$ ${ret.total.toFixed(2)} na Venda #${ret.saleId.substring(0, 8)}`,
+        details: `Devolução ${ret.type} de R$ ${ret.total.toFixed(2)} na Venda #${ret.saleId.substring(0, 8).toUpperCase()}`,
         reason: ret.items[0]?.reason || 'Não informado',
         severity: ret.type === 'TOTAL' ? 'high' : 'medium'
       });

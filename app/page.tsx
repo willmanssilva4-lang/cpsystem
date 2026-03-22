@@ -329,6 +329,128 @@ export default function DashboardPage() {
   const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   const lucroPeriodo = revenue - costOfGoods - totalExpenses - totalReturns;
   
+  // Calculate previous period data for trends
+  const prevFilteredSales = sales.filter(s => {
+    const saleDate = new Date(s.date);
+    const now = new Date();
+    if (chartPeriod === 'hoje') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return getLocalDateString(s.date) === getLocalDateString(yesterday.toISOString());
+    }
+    if (chartPeriod === '7d') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 14);
+      const end = new Date(now);
+      end.setDate(end.getDate() - 7);
+      return saleDate >= start && saleDate < end;
+    }
+    if (chartPeriod === '30d') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 60);
+      const end = new Date(now);
+      end.setDate(end.getDate() - 30);
+      return saleDate >= start && saleDate < end;
+    }
+    if (chartPeriod === 'mes') {
+      const prevMonth = new Date(now);
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+      return saleDate.getMonth() === prevMonth.getMonth() && saleDate.getFullYear() === prevMonth.getFullYear();
+    }
+    return true;
+  });
+
+  const prevRevenue = prevFilteredSales.reduce((acc, sale) => acc + sale.total, 0);
+  const prevReturnsInPeriod = returns.filter(r => {
+    const returnDate = new Date(r.date);
+    const now = new Date();
+    if (chartPeriod === 'hoje') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return getLocalDateString(r.date) === getLocalDateString(yesterday.toISOString());
+    }
+    if (chartPeriod === '7d') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 14);
+      const end = new Date(now);
+      end.setDate(end.getDate() - 7);
+      return returnDate >= start && returnDate < end;
+    }
+    if (chartPeriod === '30d') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 60);
+      const end = new Date(now);
+      end.setDate(end.getDate() - 30);
+      return returnDate >= start && returnDate < end;
+    }
+    if (chartPeriod === 'mes') {
+      const prevMonth = new Date(now);
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+      return returnDate.getMonth() === prevMonth.getMonth() && returnDate.getFullYear() === prevMonth.getFullYear();
+    }
+    return true;
+  });
+  
+  const prevTotalReturns = prevReturnsInPeriod.reduce((acc, r) => acc + r.total, 0);
+  const prevTicketMedio = prevFilteredSales.length > 0 ? (prevRevenue - prevTotalReturns) / prevFilteredSales.length : 0;
+
+  let prevCostOfGoods = 0;
+  prevFilteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      prevCostOfGoods += (product ? product.costPrice : 0) * item.quantity;
+    });
+  });
+
+  const prevFilteredExpenses = expenses.filter(e => {
+    const expenseDate = new Date(e.date);
+    const now = new Date();
+    if (chartPeriod === 'hoje') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return getLocalDateString(e.date) === getLocalDateString(yesterday.toISOString());
+    }
+    if (chartPeriod === '7d') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 14);
+      const end = new Date(now);
+      end.setDate(end.getDate() - 7);
+      return expenseDate >= start && expenseDate < end;
+    }
+    if (chartPeriod === '30d') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 60);
+      const end = new Date(now);
+      end.setDate(end.getDate() - 30);
+      return expenseDate >= start && expenseDate < end;
+    }
+    if (chartPeriod === 'mes') {
+      const prevMonth = new Date(now);
+      prevMonth.setMonth(prevMonth.getMonth() - 1);
+      return expenseDate.getMonth() === prevMonth.getMonth() && expenseDate.getFullYear() === prevMonth.getFullYear();
+    }
+    return true;
+  });
+
+  const prevTotalExpenses = prevFilteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  const prevLucroPeriodo = prevRevenue - prevCostOfGoods - prevTotalExpenses - prevTotalReturns;
+
+  const getTrend = (current: number, prev: number) => {
+    if (prev === 0) return { value: 0, text: "Sem dados anteriores", isPositive: current >= 0 };
+    const diff = ((current - prev) / Math.abs(prev)) * 100;
+    return {
+      value: diff,
+      text: `${diff > 0 ? '+' : ''}${diff.toFixed(1)}% vs período anterior`,
+      isPositive: diff >= 0
+    };
+  };
+
+  const vendasTrend = getTrend(filteredSales.length, prevFilteredSales.length);
+  const faturamentoTrend = getTrend(revenue, prevRevenue);
+  const devolucoesTrend = getTrend(totalReturns, prevTotalReturns);
+  const lucroTrend = getTrend(lucroPeriodo, prevLucroPeriodo);
+  const ticketMedioTrend = getTrend(ticketMedio, prevTicketMedio);
+
   const periodText = {
     'hoje': 'Lucro de hoje',
     '7d': 'Lucro dos últimos 7 dias',
@@ -381,40 +503,40 @@ export default function DashboardPage() {
         <StatCard 
           title="Vendas" 
           value={filteredSales.length.toString()} 
-          trend="Total de vendas" 
-          positive 
+          trend={vendasTrend.text} 
+          positive={vendasTrend.isPositive} 
           icon={ShoppingBag} 
           color="blue"
         />
         <StatCard 
           title="Faturamento" 
           value={formatCurrency(revenue)} 
-          trend="Total faturado" 
-          positive 
+          trend={faturamentoTrend.text} 
+          positive={faturamentoTrend.isPositive} 
           icon={TrendingUp} 
           color="green"
         />
         <StatCard 
           title="Devoluções" 
           value={formatCurrency(totalReturns)} 
-          trend="Total devolvido" 
-          positive={false} 
+          trend={devolucoesTrend.text} 
+          positive={!devolucoesTrend.isPositive} 
           icon={RotateCcw} 
           color="red"
         />
         <StatCard 
           title="Lucro" 
           value={formatCurrency(lucroPeriodo)} 
-          trend={periodText} 
-          positive={lucroPeriodo >= 0} 
+          trend={lucroTrend.text} 
+          positive={lucroTrend.isPositive} 
           icon={BarChart} 
           color={lucroPeriodo >= 0 ? "green" : "red"}
         />
         <StatCard 
           title="Ticket Médio" 
           value={formatCurrency(ticketMedio)} 
-          trend="Valor médio por venda" 
-          positive 
+          trend={ticketMedioTrend.text} 
+          positive={ticketMedioTrend.isPositive} 
           icon={Wallet} 
           color="blue"
         />
@@ -710,7 +832,7 @@ export default function DashboardPage() {
                     const customer = customers.find(c => c.id === sale.customerId);
                     return (
                       <tr key={`${sale.id}-${index}`} className="border-b border-brand-border/50">
-                        <td className="py-3 text-sm font-medium text-brand-text-main">#{sale.id.substring(0, 8)}</td>
+                        <td className="py-3 text-sm font-medium text-brand-text-main">#{sale.id.substring(0, 8).toUpperCase()}</td>
                         <td className="py-3 text-sm text-brand-text-sec">{customer?.name || 'Consumidor Final'}</td>
                         <td className="py-3 text-sm font-medium text-brand-text-main">{formatCurrency(sale.total)}</td>
                         <td className="py-3 text-center"><span className="bg-brand-green text-white text-[10px] font-bold px-2 py-1 rounded">Pago</span></td>
@@ -1034,7 +1156,7 @@ export default function DashboardPage() {
                             <td className="p-4 text-sm font-medium text-slate-700">
                               {new Date(sale.date).toLocaleDateString('pt-BR')} {new Date(sale.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </td>
-                            <td className="p-4 text-sm font-medium text-slate-700">#{sale.id.substring(0, 8)}</td>
+                            <td className="p-4 text-sm font-medium text-slate-700">#{sale.id.substring(0, 8).toUpperCase()}</td>
                             <td className="p-4 text-sm text-slate-600">{customer?.name || 'Consumidor Final'}</td>
                             <td className="p-4 text-sm font-bold text-slate-800">{formatCurrency(sale.total)}</td>
                             <td className="p-4 text-center">

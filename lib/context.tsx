@@ -46,7 +46,7 @@ interface ERPContextType {
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => Promise<void>;
-  addSale: (sale: Omit<Sale, 'id'>) => Promise<boolean>;
+  addSale: (sale: Omit<Sale, 'id'>) => Promise<Sale | null>;
   addReturn: (returnData: Omit<Return, 'id'>) => Promise<boolean>;
   addDiscountLog: (log: Omit<DiscountLog, 'id'>) => Promise<void>;
   addCustomer: (customer: Customer) => void;
@@ -1015,7 +1015,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addSale = async (sale: Omit<Sale, 'id'>): Promise<boolean> => {
+  const addSale = async (sale: Omit<Sale, 'id'>): Promise<Sale | null> => {
     const tempId = Math.random().toString(36).substring(2, 9);
     const newSale: Sale = { ...sale, id: tempId };
 
@@ -1206,13 +1206,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
         await fetchData();
         
-        return true;
+        return { ...sale, id: saleData[0].id };
       }
-      return false;
+      return null;
     } catch (err: any) {
       console.error('Error in addSale Supabase sync:', err);
       alert(`Erro inesperado ao salvar venda no banco de dados: ${err.message || JSON.stringify(err)}`);
-      return false;
+      return null;
     }
   };
 
@@ -1232,7 +1232,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         .select();
 
       if (returnError) {
-        console.error('Error inserting return:', returnError);
+        console.error('Error inserting return:', JSON.stringify(returnError, null, 2));
         // Fallback for local state if Supabase fails (e.g. table doesn't exist yet)
         const tempId = Math.random().toString(36).substring(2, 9);
         const newReturn = { ...returnData, id: tempId };

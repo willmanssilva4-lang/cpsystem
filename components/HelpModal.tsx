@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { X, Search, ChevronRight, PlayCircle, Keyboard, HelpCircle, Book, Info } from 'lucide-react';
+import { X, Search, ChevronRight, PlayCircle, Keyboard, Book, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HELP_CATEGORIES, HELP_ARTICLES, SHORTCUTS, HelpArticle } from '@/lib/helpData';
 import { cn } from '@/lib/utils';
@@ -45,7 +45,7 @@ export function HelpModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             <div className="bg-brand-blue p-6 text-white flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                  <HelpCircle size={32} />
+                  <span className="text-xl font-black">?</span>
                 </div>
                 <div>
                   <h2 className="text-2xl font-black italic uppercase tracking-tighter">Central de Ajuda</h2>

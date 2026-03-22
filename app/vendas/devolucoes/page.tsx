@@ -17,8 +17,10 @@ export default function ReturnsPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.replace('#', '').trim().toLowerCase();
+    if (!query) return;
     const sale = sales.find(s => 
+      s.id.toLowerCase().substring(0, 8).includes(query) ||
       s.id.toLowerCase().includes(query) || 
       (s.customerId && s.customerId.toLowerCase().includes(query))
     );
@@ -147,7 +149,7 @@ export default function ReturnsPage() {
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between border-b border-brand-border pb-2">
                     <span className="text-brand-text-sec font-bold uppercase text-[10px]">ID Venda</span>
-                    <span className="font-black italic">#{selectedSale.id.substring(0, 8)}</span>
+                    <span className="font-black italic">#{selectedSale.id.substring(0, 8).toUpperCase()}</span>
                   </div>
                   <div className="flex justify-between border-b border-brand-border pb-2">
                     <span className="text-brand-text-sec font-bold uppercase text-[10px]">Data/Hora</span>

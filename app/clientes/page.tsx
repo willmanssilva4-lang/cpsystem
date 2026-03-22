@@ -187,7 +187,7 @@ export default function CustomersPage() {
                         <ShoppingBag size={20} />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold">Venda #{sale.id.substring(0, 8)}</p>
+                        <p className="text-sm font-bold">Venda #{sale.id.substring(0, 8).toUpperCase()}</p>
                         <p className="text-xs text-slate-500">
                           {new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.items.length} itens
                         </p>

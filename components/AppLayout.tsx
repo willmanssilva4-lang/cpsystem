@@ -10,7 +10,6 @@ import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle } fr
 import Image from 'next/image';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
-import { HelpCircle as HelpIcon } from 'lucide-react';
 
 function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: () => void, onHelpClick: () => void }) {
   const { products, expenses, systemSettings, sendEmailNotification } = useERP();
@@ -252,18 +251,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <ContextualHelp key={pathname} />
 
         {/* Fixed Help Button [?] */}
-        {!isLoginPage && (
-          <button
-            onClick={() => setIsHelpOpen(true)}
-            className="fixed bottom-8 right-8 w-16 h-16 bg-brand-blue text-white rounded-2xl shadow-2xl shadow-brand-blue/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-[90] group border-4 border-white"
-            title="Central de Ajuda"
-          >
-            <HelpIcon size={32} className="group-hover:rotate-12 transition-transform" />
-            <div className="absolute right-full mr-4 bg-brand-text-main text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
-              Precisa de ajuda?
-            </div>
-          </button>
-        )}
+        {/* Help button removed */}
       </div>
     </AuthGuard>
   );

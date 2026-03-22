@@ -16,11 +16,11 @@ import { PriceCheckModal } from '@/components/PriceCheckModal';
 import { ProductListModal } from '@/components/ProductListModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
-import { HelpCircle, X, Tag, Lock, AlertCircle } from 'lucide-react';
+import { X, Tag, Lock, AlertCircle, Check, Printer } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias } = useERP();
+  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers } = useERP();
   const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string }[]>([]);
   const [barcode, setBarcode] = useState('');
 
@@ -60,6 +60,7 @@ export default function PDVPage() {
   } | null>(null);
   const [saleDiscount, setSaleDiscount] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
+  const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
@@ -207,7 +208,7 @@ export default function PDVPage() {
       setSelectedCartIndex(-1);
       setIsNavigatingCart(false);
       setShowPaymentModal(false);
-      // Removed alert to speed up PDV flow
+      setCompletedSale(success);
     }
   };
 
@@ -249,6 +250,70 @@ export default function PDVPage() {
 
     setShowDiscountModal(false);
     setPendingDiscount(null);
+  };
+
+  const handlePrintReceipt = (sale: Sale) => {
+    const customer = customers.find(c => c.id === sale.customerId);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const itemsHtml = sale.items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      return `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>${item.quantity}x ${product?.name || 'Produto'}</span>
+          <span>R$ ${(item.quantity * item.price).toFixed(2)}</span>
+        </div>
+      `;
+    }).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Recibo - Venda #${sale.id.substring(0, 8).toUpperCase()}</title>
+          <style>
+            body { font-family: monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+            .items { margin-bottom: 20px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+            .totals { text-align: right; font-weight: bold; }
+            .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>CUPOM NÃO FISCAL</h2>
+            <p>Venda #${sale.id.substring(0, 8).toUpperCase()}</p>
+            <p>Data: ${new Date(sale.date).toLocaleString('pt-BR')}</p>
+          </div>
+          
+          <div class="items">
+            ${itemsHtml}
+          </div>
+          
+          <div class="totals">
+            <p>Total: R$ ${sale.total.toFixed(2)}</p>
+            <p>Pagamento: ${sale.paymentMethod}</p>
+          </div>
+          
+          <div class="footer">
+            <p>Cliente: ${customer?.nome || 'Consumidor Final'}</p>
+            <p>Obrigado pela preferência!</p>
+          </div>
+          
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   const handleDiscountConfirm = (data: any) => {
@@ -1427,7 +1492,7 @@ export default function PDVPage() {
           <div className="bg-white w-full max-w-2xl rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden">
             <div className="bg-brand-blue px-6 py-4 flex justify-between items-center text-white">
               <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
-                <HelpCircle size={24} /> Ajuda Rápida - CpSystem
+                ? Ajuda Rápida - CpSystem
               </h3>
               <button onClick={() => setShowHelp(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
                 <X size={24} />
@@ -1602,6 +1667,36 @@ export default function PDVPage() {
                 className="px-8 py-3 bg-white hover:bg-rose-50 text-rose-600 border-2 border-rose-100 font-bold rounded-xl transition-all active:scale-95"
               >
                 NÃO (Esc)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Completed Sale Modal */}
+      {completedSale && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-brand-border rounded-3xl p-8 max-w-md w-full shadow-2xl text-center animate-in fade-in zoom-in duration-200">
+            <div className="w-20 h-20 bg-brand-green/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Check className="text-brand-green" size={40} />
+            </div>
+            <h2 className="text-3xl font-black text-brand-text-main italic uppercase tracking-tight mb-2">Venda Finalizada!</h2>
+            <p className="text-brand-text-sec font-medium mb-6">
+              Cupom: <span className="font-black text-brand-blue">#{completedSale.id.substring(0, 8).toUpperCase()}</span>
+            </p>
+            
+            <div className="grid grid-cols-1 gap-3">
+              <button 
+                onClick={() => { handlePrintReceipt(completedSale); setCompletedSale(null); }}
+                className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-brand-text-main font-black rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
+              >
+                <Printer size={18} /> Imprimir Cupom
+              </button>
+              <button 
+                onClick={() => setCompletedSale(null)}
+                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-hover text-white font-black rounded-xl transition-all active:scale-95 uppercase tracking-widest text-sm shadow-lg shadow-brand-blue/20"
+              >
+                Nova Venda (Enter)
               </button>
             </div>
           </div>

@@ -23,6 +23,70 @@ export default function SalesHistoryPage() {
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, startDate, endDate, searchQuery]);
 
+  const handlePrintReceipt = (sale: Sale) => {
+    const customer = customers.find(c => c.id === sale.customerId);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const itemsHtml = sale.items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      return `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>${item.quantity}x ${product?.name || 'Produto'}</span>
+          <span>R$ ${(item.quantity * item.price).toFixed(2)}</span>
+        </div>
+      `;
+    }).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Recibo - Venda #${sale.id.substring(0, 8).toUpperCase()}</title>
+          <style>
+            body { font-family: monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+            .items { margin-bottom: 20px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+            .totals { text-align: right; font-weight: bold; }
+            .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>CUPOM NÃO FISCAL</h2>
+            <p>Venda #${sale.id.substring(0, 8).toUpperCase()}</p>
+            <p>Data: ${new Date(sale.date).toLocaleString('pt-BR')}</p>
+          </div>
+          
+          <div class="items">
+            ${itemsHtml}
+          </div>
+          
+          <div class="totals">
+            <p>Total: R$ ${sale.total.toFixed(2)}</p>
+            <p>Pagamento: ${sale.paymentMethod}</p>
+          </div>
+          
+          <div class="footer">
+            <p>Cliente: ${customer?.nome || 'Consumidor Final'}</p>
+            <p>Obrigado pela preferência!</p>
+          </div>
+          
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   if (!hasPermission('vendas', 'historico')) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -101,7 +165,7 @@ export default function SalesHistoryPage() {
                             onClick={() => setSelectedSale(sale)}
                           >
                             <td className="px-6 py-4">
-                              <p className="font-black italic text-brand-text-main uppercase leading-tight">#{sale.id.substring(0, 8)}</p>
+                              <p className="font-black italic text-brand-text-main uppercase leading-tight">#{sale.id.substring(0, 8).toUpperCase()}</p>
                               <p className="text-[10px] text-brand-text-sec font-bold">{new Date(sale.date).toLocaleString('pt-BR')}</p>
                             </td>
                             <td className="px-6 py-4">
@@ -199,7 +263,10 @@ export default function SalesHistoryPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 pt-4">
-                    <button className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-brand-text-sec py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95">
+                    <button 
+                      onClick={() => handlePrintReceipt(selectedSale)}
+                      className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-brand-text-sec py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95"
+                    >
                       <Printer size={14} /> Imprimir 2ª Via
                     </button>
                     <button className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-brand-text-sec py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95">

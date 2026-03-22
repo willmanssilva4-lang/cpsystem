@@ -447,7 +447,7 @@ function SystemSettings() {
           const { error } = await supabase
             .from(table)
             .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000');
+            .not('id', 'is', null);
           
           if (error) {
             // Se for erro 404, a tabela não existe, podemos ignorar silenciosamente
