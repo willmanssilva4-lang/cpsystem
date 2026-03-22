@@ -39,7 +39,6 @@ function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
           <circle cx="20" cy="28" r="5" fill={dotColor} />
         </svg>
         <span className={`${textColor} font-black text-5xl tracking-tight`}>stem</span>
-        <span className={`${textColor} font-black text-xl align-top ml-1`}>®</span>
       </div>
       <span className={`${textColor} font-bold tracking-[0.2em] text-[10px] mt-1`}>
         GESTÃO FINANCEIRA INTELIGENTE

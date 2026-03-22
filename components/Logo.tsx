@@ -54,7 +54,6 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
           <circle cx="20" cy="28" r={s.dot} fill={dotColor} />
         </svg>
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>stem</span>
-        <span className={`${textColor} font-black text-sm align-top ml-1`}>®</span>
       </div>
       {!hideText && (
         <span className={`${textColor} font-bold tracking-[0.2em] ${s.sub} mt-1`}>
