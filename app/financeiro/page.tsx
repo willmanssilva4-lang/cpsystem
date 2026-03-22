@@ -240,15 +240,29 @@ export default function FinancePage() {
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
+    console.log('DEBUG SALES MONTH:', salesMonth);
+
     const receita = salesMonth.reduce((acc, s) => acc + s.total, 0);
+
+    // Taxas de Maquininhas (Financeiras)
+    const taxasMaquininhas = salesMonth.reduce((acc, s) => {
+      if (s.payments && Array.isArray(s.payments) && s.payments.length > 0) {
+        return acc + s.payments.reduce((pAcc, p) => pAcc + (p.taxAmount || 0), 0);
+      }
+      // Se não houver array de pagamentos, tenta verificar se há uma taxa única na venda (caso o modelo suporte)
+      // @ts-ignore
+      if (s.taxAmount) return acc + s.taxAmount;
+      return acc;
+    }, 0);
 
     let cmv = 0;
     salesMonth.forEach(sale => {
       sale.items.forEach(item => {
-        const product = products.find(p => p.id === item.productId);
-        if (product) {
-          cmv += product.costPrice * item.quantity;
-        }
+        // Usa o custo histórico se disponível, senão busca o custo atual
+        const cost = item.costPrice && item.costPrice > 0 
+          ? item.costPrice 
+          : (products.find(p => p.id === item.productId)?.costPrice || 0);
+        cmv += cost * item.quantity;
       });
     });
 
@@ -256,15 +270,18 @@ export default function FinancePage() {
       const d = new Date(e.date);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
+    console.log('DEBUG EXPENSES MONTH:', expensesMonth);
     const despesas = expensesMonth.reduce((acc, e) => acc + e.amount, 0);
 
-    const lucroBruto = receita - cmv;
-    const lucroReal = receita - cmv - despesas;
+    const lucroBruto = receita - cmv - taxasMaquininhas;
+    const lucroReal = receita - cmv - taxasMaquininhas - despesas;
+    
+    console.log('DEBUG DRE:', { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal });
     
     const margemBruta = receita > 0 ? (lucroBruto / receita) * 100 : 0;
     const margemLiquida = receita > 0 ? (lucroReal / receita) * 100 : 0;
 
-    return { receita, cmv, despesas, lucroBruto, lucroReal, margemBruta, margemLiquida };
+    return { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal, margemBruta, margemLiquida };
   }, [sales, expenses, products]);
 
   if (!hasPermission('Financeiro', 'view')) {
@@ -417,6 +434,14 @@ export default function FinancePage() {
                       CMV (Custo da Mercadoria)
                     </span>
                     <span className="text-lg font-black text-rose-600">{formatCurrency(dre.cmv)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
+                      Taxas Financeiras (Maquininhas)
+                    </span>
+                    <span className="text-lg font-black text-rose-600">{formatCurrency(dre.taxasMaquininhas)}</span>
                   </div>
 
                   <div className="flex justify-between items-center p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50">

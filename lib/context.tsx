@@ -341,10 +341,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           paymentMethod: s.payment_method,
           customerId: s.customer_id,
           userId: s.user_id,
+          taxAmount: s.tax_amount ? Number(s.tax_amount) : 0,
+          netAmount: s.net_amount ? Number(s.net_amount) : Number(s.total),
           items: (s.sale_items || []).map((si: any) => ({
             productId: si.product_id,
             quantity: si.quantity,
             price: Number(si.price),
+            costPrice: Number(si.cost_price || 0),
             originalPrice: si.original_price ? Number(si.original_price) : Number(si.price),
             discount: si.discount ? Number(si.discount) : 0,
             promotionId: si.promotion_id || undefined
@@ -1016,6 +1019,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addSale = async (sale: Omit<Sale, 'id'>): Promise<Sale | null> => {
+    console.log('DEBUG: addSale recebendo:', sale);
     const tempId = Math.random().toString(36).substring(2, 9);
     const newSale: Sale = { ...sale, id: tempId };
 
@@ -1037,6 +1041,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         cash_register_id: activeRegister?.id || null
       };
 
+      console.log('DEBUG: insertPayload para Supabase:', insertPayload);
+
       const res = await supabase.from('sales').insert([insertPayload]).select();
       saleData = res.data;
       saleError = res.error;
@@ -1044,6 +1050,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       // If it fails, try a more robust fallback
       if (saleError) {
         console.warn('Sale insert failed, trying fallback...', { error: saleError, status: res.status });
+        console.log('DEBUG: Fallback acionado. safePayload:', { tax_amount: sale.taxAmount, errorMsg });
 
         const errorMsg = saleError.message?.toLowerCase() || '';
         const safePayload: any = {
@@ -1104,15 +1111,21 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         // Log Audit
         await logAuditAction('venda', 'vendas', saleId, null, sale);
 
-        const itemsToInsert = sale.items.map(item => ({
-          sale_id: saleId,
-          product_id: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-          original_price: item.originalPrice || item.price,
-          discount: item.discount || 0,
-          promotion_id: item.promotionId || null
-        }));
+        const itemsToInsert = sale.items.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            sale_id: saleId,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            cost_price: product?.costPrice || 0,
+            original_price: item.originalPrice || item.price,
+            discount: item.discount || 0,
+            promotion_id: item.promotionId || null
+          };
+        });
+        
+        console.log('Payload sale_items:', itemsToInsert);
 
         let { error: itemsError } = await supabase.from('sale_items').insert(itemsToInsert);
         
@@ -2130,7 +2143,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const logAuditAction = async (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => {
     try {
       await supabase.from('audit_logs').insert([{
-        user_id: user?.email || 'system', // Ideally we'd have the UUID here, but using email as fallback if needed
+        user_id: user?.id || null, // UUID esperado pelo banco
         action,
         module,
         entity_id: entityId,

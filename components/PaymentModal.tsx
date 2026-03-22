@@ -95,6 +95,14 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     const partTaxAmount = Math.round(((amountToApply * partTaxPercentage) / 100) * 100) / 100;
     const partNetAmount = Math.round((amountToApply - partTaxAmount) * 100) / 100;
 
+    console.log('DEBUG: Calculando taxa', {
+      amountToApply,
+      partTaxPercentage,
+      partTaxAmount,
+      isCard,
+      selectedMaquininhaId
+    });
+
     const newPayment = {
       method: activeMethod,
       amount: amountToApply,

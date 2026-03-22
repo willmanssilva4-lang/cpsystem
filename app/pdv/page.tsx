@@ -181,6 +181,8 @@ export default function PDVPage() {
   }, [cart]);
 
   const finalizeSale = async (paymentData: any) => {
+    console.log('DEBUG: Finalizando venda, payments:', paymentData.payments);
+    console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
     const success = await addSale({
       date: new Date().toISOString(),
       items: cart.map(item => ({
@@ -201,6 +203,7 @@ export default function PDVPage() {
       netAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.netAmount || 0), 0),
       userId: user?.email
     });
+    console.log('DEBUG: Valor de taxAmount enviado para addSale:', paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0));
 
     if (success) {
       setCart([]);

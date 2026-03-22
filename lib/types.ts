@@ -145,6 +145,7 @@ export interface SaleItem {
   productId: string;
   quantity: number;
   price: number;
+  costPrice?: number; // Preço de custo no momento da venda
   discount?: number; // Valor do desconto aplicado ao item
   originalPrice?: number; // Preço original antes do desconto
   promotionId?: string; // ID da promoção aplicada

@@ -172,6 +172,9 @@ CREATE TABLE IF NOT EXISTS public.sales (
     customer_id UUID REFERENCES public.customers(id),
     user_id UUID REFERENCES public.system_users(id),
     cash_register_id UUID REFERENCES public.cash_registers(id),
+    tax_amount DECIMAL(12,2) DEFAULT 0,
+    net_amount DECIMAL(12,2) DEFAULT 0,
+    payments JSONB DEFAULT '[]',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

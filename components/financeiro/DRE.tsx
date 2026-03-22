@@ -75,6 +75,17 @@ export function DRE({ sales, expenses, products }: DREProps) {
     // Receita Líquida
     const receitaLiquida = receitaBruta - deducoes;
 
+    // Taxas de Maquininhas (Financeiras)
+    const taxasMaquininhas = salesMonth.reduce((acc, s) => {
+      if (s.payments && Array.isArray(s.payments) && s.payments.length > 0) {
+        return acc + s.payments.reduce((pAcc, p) => pAcc + (p.taxAmount || 0), 0);
+      }
+      // Tenta buscar taxa direta na venda se não houver array de pagamentos
+      // @ts-ignore
+      if (s.taxAmount) return acc + s.taxAmount;
+      return acc;
+    }, 0);
+
     // CMV (Custo da Mercadoria Vendida)
     let cmv = 0;
     salesMonth.forEach(sale => {
@@ -87,7 +98,7 @@ export function DRE({ sales, expenses, products }: DREProps) {
     });
 
     // Lucro Bruto
-    const lucroBruto = receitaLiquida - cmv;
+    const lucroBruto = receitaLiquida - cmv - taxasMaquininhas;
 
     // Despesas Operacionais
     const expensesMonth = expenses.filter(e => {
@@ -115,6 +126,7 @@ export function DRE({ sales, expenses, products }: DREProps) {
       receitaBruta,
       deducoes,
       receitaLiquida,
+      taxasMaquininhas,
       cmv,
       lucroBruto,
       despesasPorCategoria,
@@ -133,6 +145,10 @@ export function DRE({ sales, expenses, products }: DREProps) {
     // Add CMV as a cost
     if (dreData.cmv > 0) {
       data.push({ name: 'CMV (Custo Mercadorias)', value: dreData.cmv });
+    }
+    // Add Taxas Maquininhas as a cost
+    if (dreData.taxasMaquininhas > 0) {
+      data.push({ name: 'Taxas Maquininhas', value: dreData.taxasMaquininhas });
     }
     return data.sort((a, b) => b.value - a.value);
   }, [dreData]);
@@ -208,6 +224,15 @@ export function DRE({ sales, expenses, products }: DREProps) {
               <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50 mt-2">
                 <span className="text-sm font-black text-emerald-800 dark:text-emerald-400">= 2. Receita Líquida</span>
                 <span className="text-base font-black text-emerald-600">{formatCurrency(dreData.receitaLiquida)}</span>
+              </div>
+
+              {/* Taxas Financeiras */}
+              <div className="flex justify-between items-center p-3 pl-8 mt-2">
+                <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
+                  Taxas Financeiras (Maquininhas)
+                </span>
+                <span className="text-sm font-bold text-rose-500">{formatCurrency(dreData.taxasMaquininhas)}</span>
               </div>
 
               {/* CMV */}
