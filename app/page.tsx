@@ -18,7 +18,10 @@ import {
   ChevronDown,
   AlertCircle,
   RotateCcw,
-  X
+  X,
+  Package,
+  Receipt,
+  Banknote
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -173,7 +176,15 @@ export default function DashboardPage() {
   const chatEndRef = React.useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > 1 && chatEndRef.current) {
+      const container = chatEndRef.current.parentElement;
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
   };
 
   React.useEffect(() => {
@@ -450,6 +461,11 @@ export default function DashboardPage() {
   const devolucoesTrend = getTrend(totalReturns, prevTotalReturns);
   const lucroTrend = getTrend(lucroPeriodo, prevLucroPeriodo);
   const ticketMedioTrend = getTrend(ticketMedio, prevTicketMedio);
+  
+  const totalProductsSold = filteredSales.reduce((acc, sale) => acc + sale.items.reduce((sum, item) => sum + item.quantity, 0), 0);
+  const prevTotalProductsSold = prevFilteredSales.reduce((acc, sale) => acc + sale.items.reduce((sum, item) => sum + item.quantity, 0), 0);
+  const produtosVendidosTrend = getTrend(totalProductsSold, prevTotalProductsSold);
+  const despesasTrend = getTrend(totalExpenses, prevTotalExpenses);
 
   const periodText = {
     'hoje': 'Lucro de hoje',
@@ -517,12 +533,20 @@ export default function DashboardPage() {
           color="green"
         />
         <StatCard 
-          title="Devoluções" 
-          value={formatCurrency(totalReturns)} 
-          trend={devolucoesTrend.text} 
-          positive={!devolucoesTrend.isPositive} 
-          icon={RotateCcw} 
-          color="red"
+          title="Produtos Vendidos" 
+          value={totalProductsSold.toString()} 
+          trend={produtosVendidosTrend.text} 
+          positive={produtosVendidosTrend.isPositive} 
+          icon={Package} 
+          color="blue"
+        />
+        <StatCard 
+          title="Ticket Médio" 
+          value={formatCurrency(ticketMedio)} 
+          trend={ticketMedioTrend.text} 
+          positive={ticketMedioTrend.isPositive} 
+          icon={Wallet} 
+          color="blue"
         />
         <StatCard 
           title="Lucro" 
@@ -533,12 +557,28 @@ export default function DashboardPage() {
           color={lucroPeriodo >= 0 ? "green" : "red"}
         />
         <StatCard 
-          title="Ticket Médio" 
-          value={formatCurrency(ticketMedio)} 
-          trend={ticketMedioTrend.text} 
-          positive={ticketMedioTrend.isPositive} 
-          icon={Wallet} 
-          color="blue"
+          title="Despesas" 
+          value={formatCurrency(totalExpenses)} 
+          trend={despesasTrend.text} 
+          positive={!despesasTrend.isPositive} 
+          icon={Receipt} 
+          color="red"
+        />
+        <StatCard 
+          title="Devoluções" 
+          value={formatCurrency(totalReturns)} 
+          trend={devolucoesTrend.text} 
+          positive={!devolucoesTrend.isPositive} 
+          icon={RotateCcw} 
+          color="red"
+        />
+        <StatCard 
+          title="Saldo em Caixa" 
+          value={formatCurrency(currentCashBalance)} 
+          trend="Saldo atual do caixa aberto" 
+          positive={currentCashBalance >= 0} 
+          icon={Banknote} 
+          color={currentCashBalance >= 0 ? "green" : "red"}
         />
       </div>
 

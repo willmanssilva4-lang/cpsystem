@@ -181,7 +181,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-64 h-screen sticky top-0 shrink-0">
+      <div className="hidden lg:block w-64 h-screen sticky top-0 shrink-0 self-start">
         {SidebarContent}
       </div>
 

@@ -154,7 +154,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         onClose();
       }
 
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === 'F10') {
         e.preventDefault();
         if (isCard && !selectedMaquininhaId) {
           if (filteredMaquininhas[highlightedMaquininhaIndex]) {
@@ -401,7 +401,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                 remainingAmount <= 0 ? "bg-brand-green text-white" : "bg-slate-200 text-slate-400 cursor-not-allowed"
               )}
             >
-              Confirmar Venda (ENTER)
+              Confirmar Venda (F10)
             </button>
           </div>
         </div>

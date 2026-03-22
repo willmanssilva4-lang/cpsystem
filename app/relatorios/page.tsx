@@ -55,6 +55,7 @@ import {
   RefreshCw,
   AlertTriangle,
   FileBarChart,
+  Bot
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -946,18 +947,18 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
           </div>
 
-          {/* Ranking de Vendedores - Right Column */}
+          {/* Desempenho por Assistente IA - Right Column */}
           <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-8">
-              <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Vendedores por Desempenho</h4>
-              <Users size={16} className="text-slate-300" />
+              <h4 className="text-sm font-bold text-[#1e293b]">Desempenho por Assistente IA</h4>
+              <Bot size={16} className="text-slate-300" />
             </div>
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-slate-100">
                     <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</th>
+                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assistente IA</th>
                     <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Vendas (R$)</th>
                     <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Vendas</th>
                     <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem Média (%)</th>
