@@ -15,7 +15,7 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
       dot: '2.5', 
       stroke: '3', 
       sub: 'text-[6px]',
-      spacing: 'mx-0'
+      spacing: '-mx-1.5'
     },
     md: { 
       text: 'text-4xl', 
@@ -23,7 +23,7 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
       dot: '4', 
       stroke: '5', 
       sub: 'text-[9px]',
-      spacing: 'mx-0.5'
+      spacing: '-mx-2.5'
     },
     lg: { 
       text: 'text-6xl', 
@@ -31,7 +31,7 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
       dot: '6', 
       stroke: '8', 
       sub: 'text-[12px]',
-      spacing: 'mx-1'
+      spacing: '-mx-4'
     },
   };
 

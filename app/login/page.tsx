@@ -30,7 +30,7 @@ function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
     <div className="flex flex-col items-center justify-center">
       <div className="flex items-center">
         <span className={`${textColor} font-black text-5xl tracking-tight`}>Cps</span>
-        <svg viewBox="0 0 40 40" className="w-12 h-12 mx-0.5" style={{ overflow: 'visible' }}>
+        <svg viewBox="0 0 40 40" className="w-12 h-12 -mx-3" style={{ overflow: 'visible' }}>
           {/* Checkmark 'y' */}
           <path d="M 12 16 L 20 28 L 36 4" fill="none" stroke={checkColor} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
           {/* Stem of 'y' */}
