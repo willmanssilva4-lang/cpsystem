@@ -436,138 +436,140 @@ export default function PurchasingPage() {
 
       {/* Main Content Area */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
-        {/* Recent Orders Table */}
-        <div className="xl:col-span-2 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Pedidos Recentes</h2>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:flex-none">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/30" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Buscar pedido..."
-                  className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-brand-blue-hover w-full sm:w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+        <div className="xl:col-span-2 space-y-6 md:space-y-8">
+          {/* Recent Orders Table */}
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Pedidos Recentes</h2>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/30" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar pedido..."
+                    className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-brand-blue-hover w-full sm:w-64"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <button className="p-2 bg-slate-50 text-brand-text-main rounded-xl hover:bg-brand-border transition-colors">
+                  <Filter size={18} />
+                </button>
               </div>
-              <button className="p-2 bg-slate-50 text-brand-text-main rounded-xl hover:bg-brand-border transition-colors">
-                <Filter size={18} />
-              </button>
             </div>
-          </div>
 
-          <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="bg-slate-50/50 border-bottom border-brand-border">
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">ID</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Fornecedor</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Data</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Itens</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Total</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {recentOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-slate-50/30 transition-colors group">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-brand-text-main italic">{order.id}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-brand-text-main">{order.supplier}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-bold text-brand-text-main/60">{order.date}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-bold text-brand-text-main/60">{order.items} un.</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-brand-text-main italic">{order.total}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase italic tracking-tight ${
-                          order.status === 'Recebido' ? 'bg-brand-border text-brand-text-main' :
-                          order.status === 'Pendente' ? 'bg-amber-100 text-amber-700' :
-                          'bg-rose-100 text-rose-700'
-                        }`}>
-                          {order.status === 'Recebido' && <CheckCircle2 size={12} />}
-                          {order.status === 'Pendente' && <Clock size={12} />}
-                          {order.status === 'Cancelado' && <XCircle size={12} />}
-                          {order.status}
-                        </span>
-                      </td>
+            <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-bottom border-brand-border">
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">ID</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Fornecedor</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Data</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Itens</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Total</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-right">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t border-slate-50 text-center">
-              <Link href="/compras/pedidos" className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
-                Ver todos os pedidos
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Quotations Table */}
-        <div className="xl:col-span-2 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Cotações Ativas</h2>
-            <Link href="/compras/cotacoes" className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
-              Ver todas as cotações
-            </Link>
-          </div>
-
-          <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="bg-slate-50/50 border-bottom border-brand-border">
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Título</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Data</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Itens</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Fornecedores</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {recentQuotations.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400 italic">Nenhuma cotação ativa</td>
-                    </tr>
-                  ) : (
-                    recentQuotations.map((q) => (
-                      <tr key={q.id} className="hover:bg-slate-50/30 transition-colors group">
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {recentOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-slate-50/30 transition-colors group">
                         <td className="px-6 py-4">
-                          <span className="text-sm font-black text-brand-text-main italic">{q.title}</span>
+                          <span className="text-sm font-black text-brand-text-main italic">{order.id}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-brand-text-main/60">{q.date}</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-brand-text-main">{order.supplier}</span>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-brand-text-main/60">{q.items} itens</span>
+                          <span className="text-xs font-bold text-brand-text-main/60">{order.date}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-brand-text-main/60">{q.suppliers} fornecedores</span>
+                          <span className="text-xs font-bold text-brand-text-main/60">{order.items} un.</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-black text-brand-text-main italic">{order.total}</span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase italic tracking-tight ${
-                            q.status === 'Finalizada' ? 'bg-brand-border text-brand-text-main' : 'bg-amber-100 text-amber-700'
+                            order.status === 'Recebido' ? 'bg-brand-border text-brand-text-main' :
+                            order.status === 'Pendente' ? 'bg-amber-100 text-amber-700' :
+                            'bg-rose-100 text-rose-700'
                           }`}>
-                            {q.status}
+                            {order.status === 'Recebido' && <CheckCircle2 size={12} />}
+                            {order.status === 'Pendente' && <Clock size={12} />}
+                            {order.status === 'Cancelado' && <XCircle size={12} />}
+                            {order.status}
                           </span>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4 border-t border-slate-50 text-center">
+                <Link href="/compras/pedidos" className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
+                  Ver todos os pedidos
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Quotations Table */}
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Cotações Ativas</h2>
+              <Link href="/compras/cotacoes" className="text-[10px] font-black uppercase italic tracking-widest text-brand-blue hover:text-brand-text-main transition-colors">
+                Ver todas as cotações
+              </Link>
+            </div>
+
+            <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-bottom border-brand-border">
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Título</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Data</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Itens</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Fornecedores</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {recentQuotations.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400 italic">Nenhuma cotação ativa</td>
+                      </tr>
+                    ) : (
+                      recentQuotations.map((q) => (
+                        <tr key={q.id} className="hover:bg-slate-50/30 transition-colors group">
+                          <td className="px-6 py-4">
+                            <span className="text-sm font-black text-brand-text-main italic">{q.title}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-brand-text-main/60">{q.date}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-brand-text-main/60">{q.items} itens</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-brand-text-main/60">{q.suppliers} fornecedores</span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase italic tracking-tight ${
+                              q.status === 'Finalizada' ? 'bg-brand-border text-brand-text-main' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {q.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

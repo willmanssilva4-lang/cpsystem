@@ -421,9 +421,14 @@ function SystemSettings() {
     try {
       const tables = [
         'sale_items',
+        'vendas_descontos',
+        'return_items',
+        'returns',
         'sales',
         'cash_movements',
+        'cash_sales_summary',
         'cash_closings',
+        'cash_registers',
         'expenses',
         'losses',
         'stock_movements',
@@ -431,11 +436,10 @@ function SystemSettings() {
         'purchase_order_items',
         'purchase_orders',
         'quotation_items',
-        'quotation_suppliers',
         'quotation_responses',
+        'quotation_suppliers',
         'quotations',
         'authorization_logs',
-        'vendas_descontos',
         'produto_lotes',
         'promotions',
         'audit_logs'
@@ -706,7 +710,7 @@ function SystemSettings() {
                   </div>
                   <h3 className="text-xl font-black uppercase italic text-rose-950">Limpar Banco de Dados?</h3>
                   <p className="text-sm text-rose-600/60 font-medium">
-                    Esta ação irá remover permanentemente todos os registros de vendas, compras, movimentações e financeiro. Os cadastros de produtos e clientes serão mantidos.
+                    Esta ação irá remover permanentemente todos os dados do sistema. Os cadastros de produtos, usuários, funcionários, fornecedores e clientes serão mantidos.
                   </p>
                   <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Esta ação não pode ser desfeita.</p>
                 </div>
