@@ -39,49 +39,38 @@ import {
   Legend
 } from 'recharts';
 import { GoogleGenAI } from "@google/genai";
+import { getLocalDateString } from '@/lib/utils';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { products, sales, returns, customers, expenses, cashMovements, activeRegister, hasPermission, employees, lotes } = useERP();
+  const { products, sales, returns, customers, expenses, cashMovements, cashRegisters, activeRegister, hasPermission, employees, lotes, stockMovements } = useERP();
 
-  // Helper to get local date string in YYYY-MM-DD format
-  const getLocalDateString = (dateInput: Date | string | undefined | null) => {
-    if (!dateInput) return '';
-    let date: Date;
-    if (typeof dateInput === 'string') {
-      // Handle Supabase timestamp format or YYYY-MM-DD
-      const normalizedDate = dateInput.includes(' ') ? dateInput.replace(' ', 'T') : dateInput;
-      date = new Date(normalizedDate);
-      
-      // If it's just a date string without time, it might be interpreted as UTC midnight
-      // which could shift the day. Let's ensure it's treated as local time if no T or Z.
-      if (!normalizedDate.includes('T') && !normalizedDate.includes('Z')) {
-        date = new Date(`${normalizedDate}T12:00:00`);
-      }
-    } else {
-      date = dateInput;
-    }
-    if (isNaN(date.getTime())) return '';
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const [today, setToday] = React.useState('');
+  
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setToday(getLocalDateString());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const salesToday = React.useMemo(() => {
+    if (!today) return [];
+    return sales.filter(s => getLocalDateString(s.date) === today);
+  }, [sales, today]);
 
-  const today = getLocalDateString(new Date());
+  const expensesToday = React.useMemo(() => {
+    if (!today) return [];
+    return expenses.filter(e => getLocalDateString(e.date) === today);
+  }, [expenses, today]);
   
-  const salesToday = sales.filter(s => {
-    return getLocalDateString(s.date) === today;
-  });
-  const expensesToday = expenses.filter(e => {
-    return getLocalDateString(e.date) === today;
-  });
-  
-  const revenueToday = salesToday.reduce((acc, sale) => acc + sale.total, 0);
-  const returnsToday = returns.filter(r => getLocalDateString(r.date) === today);
-  const returnsTodayTotal = returnsToday.reduce((acc, r) => acc + r.total, 0);
-  const expensesTodayTotal = expensesToday.reduce((acc, exp) => acc + exp.amount, 0);
+  const revenueToday = React.useMemo(() => salesToday.reduce((acc, sale) => acc + sale.total, 0), [salesToday]);
+  const returnsToday = React.useMemo(() => {
+    if (!today) return [];
+    return returns.filter(r => getLocalDateString(r.date) === today);
+  }, [returns, today]);
+  const returnsTodayTotal = React.useMemo(() => returnsToday.reduce((acc, r) => acc + r.total, 0), [returnsToday]);
+  const expensesTodayTotal = React.useMemo(() => expensesToday.reduce((acc, exp) => acc + exp.amount, 0), [expensesToday]);
   
   // Calculate cost of goods sold today
   let costToday = 0;
@@ -93,15 +82,23 @@ export default function DashboardPage() {
     });
   });
 
-  // Calculate current cash balance (Total Sales + Opening Balance + Supplies - Bleeds)
-  // Note: This calculates the total balance of the register, including all payment methods, as requested.
-  const currentCashBalance = (activeRegister?.openingBalance || 0) + 
-    cashMovements
-      .filter(m => m.cashRegisterId === activeRegister?.id)
-      .reduce((acc, m) => acc + (m.type === 'suprimento' ? m.amount : -m.amount), 0) +
-    sales
-      .filter(s => s.cashRegisterId === activeRegister?.id)
-      .reduce((acc, s) => acc + s.total, 0);
+  // Calculate current cash balance (Total Sales + Opening Balances + Supplies - Bleeds - Paid Expenses - Stock Purchases - Returns)
+  const currentCashBalance = React.useMemo(() => {
+    const openingBalances = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
+    const movementsTotal = cashMovements.reduce((acc, m) => {
+      if (m.type === 'suprimento') return acc + m.amount;
+      if (m.type === 'sangria') return acc - m.amount;
+      if (m.type === 'ajuste') return acc + m.amount;
+      return acc;
+    }, 0);
+    
+    const totalEntradas = sales.reduce((acc, s) => acc + (s.total - (s.taxAmount || 0)), 0);
+    const totalDespesasPagas = expenses.filter(e => e.status === 'Pago').reduce((acc, e) => acc + e.amount, 0);
+    const totalReturns = returns.reduce((acc, r) => acc + r.total, 0);
+    const totalCompras = stockMovements.filter(m => m.type === 'COMPRA').reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    
+    return openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalReturns - totalCompras;
+  }, [cashRegisters, cashMovements, sales, expenses, returns, stockMovements]);
 
   const employeeSales = React.useMemo(() => {
     const salesByEmployee: Record<string, number> = {};
@@ -175,7 +172,7 @@ export default function DashboardPage() {
   const [isTyping, setIsTyping] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = React.useCallback(() => {
     if (messages.length > 1 && chatEndRef.current) {
       const container = chatEndRef.current.parentElement;
       if (container) {
@@ -185,11 +182,11 @@ export default function DashboardPage() {
         });
       }
     }
-  };
+  }, [messages]);
 
   React.useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,7 +316,9 @@ export default function DashboardPage() {
   
   // Calculate cost of goods sold for the period
   let costOfGoods = 0;
+  let totalTaxAmount = 0;
   filteredSales.forEach(sale => {
+    totalTaxAmount += (sale.taxAmount || 0);
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
       costOfGoods += (product ? product.costPrice : 0) * item.quantity;
@@ -338,7 +337,7 @@ export default function DashboardPage() {
   });
 
   const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const lucroPeriodo = revenue - costOfGoods - totalExpenses - totalReturns;
+  const lucroPeriodo = revenue - costOfGoods - totalExpenses - totalReturns - totalTaxAmount;
   
   // Calculate previous period data for trends
   const prevFilteredSales = sales.filter(s => {
@@ -406,7 +405,9 @@ export default function DashboardPage() {
   const prevTicketMedio = prevFilteredSales.length > 0 ? (prevRevenue - prevTotalReturns) / prevFilteredSales.length : 0;
 
   let prevCostOfGoods = 0;
+  let prevTotalTaxAmount = 0;
   prevFilteredSales.forEach(sale => {
+    prevTotalTaxAmount += (sale.taxAmount || 0);
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
       prevCostOfGoods += (product ? product.costPrice : 0) * item.quantity;
@@ -444,7 +445,7 @@ export default function DashboardPage() {
   });
 
   const prevTotalExpenses = prevFilteredExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const prevLucroPeriodo = prevRevenue - prevCostOfGoods - prevTotalExpenses - prevTotalReturns;
+  const prevLucroPeriodo = prevRevenue - prevCostOfGoods - prevTotalExpenses - prevTotalReturns - prevTotalTaxAmount;
 
   const getTrend = (current: number, prev: number) => {
     if (prev === 0) return { value: 0, text: "Sem dados anteriores", isPositive: current >= 0 };
@@ -575,7 +576,7 @@ export default function DashboardPage() {
         <StatCard 
           title="Saldo em Caixa" 
           value={formatCurrency(currentCashBalance)} 
-          trend="Saldo atual do caixa aberto" 
+          trend="Saldo total acumulado" 
           positive={currentCashBalance >= 0} 
           icon={Banknote} 
           color={currentCashBalance >= 0 ? "green" : "red"}

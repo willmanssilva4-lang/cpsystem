@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { Expense } from '@/lib/types';
 import { useERP } from '@/lib/context';
+import { getLocalDateString } from '@/lib/utils';
 
 interface PaymentModalProps {
   onClose: () => void;
@@ -16,7 +17,7 @@ export function PaymentModal({ onClose, expense }: PaymentModalProps) {
     amountPaid: expense.amount.toString(),
     paymentMethod: expense.paymentMethod || '',
     financialAccount: expense.financialAccount || '',
-    paymentDate: new Date().toISOString().split('T')[0]
+    paymentDate: getLocalDateString()
   });
 
   const handleSubmit = async (e: React.FormEvent) => {

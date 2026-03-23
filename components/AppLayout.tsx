@@ -10,6 +10,7 @@ import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle } fr
 import Image from 'next/image';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
+import { getLocalDateString } from '@/lib/utils';
 
 function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: () => void, onHelpClick: () => void }) {
   const { products, expenses, systemSettings, sendEmailNotification } = useERP();
@@ -33,7 +34,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
     });
 
     // Pending expenses
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const pendingExpenses = expenses.filter(e => !e.paymentDate && e.dueDate <= today);
     pendingExpenses.forEach(e => {
       notifs.push({
@@ -248,7 +249,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-        <ContextualHelp key={pathname} />
 
         {/* Fixed Help Button [?] */}
         {/* Help button removed */}

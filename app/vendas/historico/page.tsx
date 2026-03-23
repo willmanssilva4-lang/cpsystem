@@ -4,17 +4,18 @@ import React, { useState, useMemo } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, Calendar, Filter, Eye, Download, Printer, ShoppingCart, User, CreditCard, ChevronRight, Hash } from 'lucide-react';
 import { Sale } from '@/lib/types';
+import { getLocalDateString } from '@/lib/utils';
 
 export default function SalesHistoryPage() {
   const { sales, customers, products, hasPermission } = useERP();
   const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(getLocalDateString());
+  const [endDate, setEndDate] = useState(getLocalDateString());
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
-      const saleDate = new Date(sale.date).toISOString().split('T')[0];
+      const saleDate = getLocalDateString(new Date(sale.date));
       const matchesDate = saleDate >= startDate && saleDate <= endDate;
       const matchesSearch = 
         sale.id.toLowerCase().includes(searchQuery.toLowerCase()) ||

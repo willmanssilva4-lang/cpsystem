@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   ArrowUpCircle, 
   ArrowDownCircle, 
@@ -10,7 +10,7 @@ import {
   Download,
   Search
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { Sale, Expense, StockMovement, CashMovement } from '@/lib/types';
 import { 
   BarChart, 
@@ -36,15 +36,21 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
   const [days, setDays] = useState(30);
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setNow(new Date());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   const dailyData = useMemo(() => {
+    if (!now) return [];
     const data: any[] = [];
-    const now = new Date();
     
     const isSameDay = (date1: string | Date, date2: Date) => {
-      const d1 = new Date(date1);
-      return d1.getFullYear() === date2.getFullYear() &&
-             d1.getMonth() === date2.getMonth() &&
-             d1.getDate() === date2.getDate();
+      return getLocalDateString(date1) === getLocalDateString(date2);
     };
     
     for (let i = days - 1; i >= 0; i--) {
@@ -95,7 +101,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
       });
     }
     return data;
-  }, [sales, expenses, stockMovements, cashMovements, days]);
+  }, [sales, expenses, stockMovements, cashMovements, days, now]);
 
   const totals = useMemo(() => {
     return dailyData.reduce((acc, day) => ({

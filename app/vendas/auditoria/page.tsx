@@ -3,12 +3,13 @@
 import React, { useState, useMemo } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, Calendar, ShieldCheck, User, Clock, AlertTriangle, Info, CheckCircle2, RotateCcw, Tag, Trash2 } from 'lucide-react';
+import { getLocalDateString } from '@/lib/utils';
 
 export default function SalesAuditPage() {
   const { discountLogs, returns, systemUsers, hasPermission } = useERP();
   const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(getLocalDateString());
+  const [endDate, setEndDate] = useState(getLocalDateString());
   const [filterType, setFilterType] = useState<'all' | 'discount' | 'return' | 'cancellation'>('all');
 
   const auditEvents = useMemo(() => {
@@ -42,7 +43,7 @@ export default function SalesAuditPage() {
 
     return events
       .filter(event => {
-        const eventDate = new Date(event.date).toISOString().split('T')[0];
+        const eventDate = getLocalDateString(new Date(event.date));
         const matchesDate = eventDate >= startDate && eventDate <= endDate;
         const matchesType = filterType === 'all' || event.type === filterType;
         const matchesSearch = 

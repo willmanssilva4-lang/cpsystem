@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search, Plus, Trash2 } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { Promotion, Product, Categoria } from '@/lib/types';
+import { getLocalDateString } from '@/lib/utils';
 
 interface PromotionModalProps {
   isOpen: boolean;
@@ -15,13 +16,13 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
   const [formData, setFormData] = useState<Partial<Promotion>>(
     promotion ? {
       ...promotion,
-      startDate: promotion.startDate.split('T')[0],
-      endDate: promotion.endDate.split('T')[0],
+      startDate: getLocalDateString(new Date(promotion.startDate)),
+      endDate: getLocalDateString(new Date(promotion.endDate)),
     } : {
       name: '',
       type: 'PRICE',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0],
+      startDate: getLocalDateString(),
+      endDate: getLocalDateString(new Date(new Date().setDate(new Date().getDate() + 7))),
       status: 'ACTIVE',
       targetType: 'PRODUCT',
       targetId: '',

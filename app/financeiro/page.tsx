@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   Wallet, 
   ArrowUpCircle, 
@@ -19,7 +19,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { 
   BarChart, 
   Bar, 
@@ -45,9 +45,20 @@ import { MovimentacaoFinanceira } from '@/components/financeiro/MovimentacaoFina
 import { DRE } from '@/components/financeiro/DRE';
 
 export default function FinancePage() {
-  const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers } = useERP();
+  const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns } = useERP();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
-  const [periodFilter, setPeriodFilter] = useState('30d'); // '7d', '30d', 'month'
+
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  useEffect(() => {
+    const todayStr = getLocalDateString();
+    const timer = setTimeout(() => {
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<any>(null);
 
@@ -55,26 +66,38 @@ export default function FinancePage() {
 
   // Helper to get start of day
   const getStartOfDay = (date: Date | string) => {
-    const d = new Date(date);
+    let d: Date;
+    if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [y, m, day] = date.split('-').map(Number);
+      d = new Date(y, m - 1, day);
+    } else {
+      d = new Date(date);
+    }
     d.setHours(0, 0, 0, 0);
     return d;
   };
 
   const today = getStartOfDay(new Date());
 
+  const isWithinRange = useCallback((dateStr: string | Date) => {
+    if (!startDate || !endDate || !dateStr) return false;
+    const d = getLocalDateString(dateStr);
+    return d >= startDate && d <= endDate;
+  }, [startDate, endDate]);
+
   // --- 1. Cards Financeiros ---
   const stats = useMemo(() => {
-    // Faturamento Hoje
-    const salesToday = sales.filter(s => getStartOfDay(s.date).getTime() === today.getTime());
-    const faturamentoHoje = salesToday.reduce((acc, s) => acc + s.total, 0);
+    // Faturamento no Período
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date));
+    const faturamentoHoje = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
-    // Despesas Hoje (Pagas hoje ou com data de hoje)
-    const expensesToday = expenses.filter(e => getStartOfDay(e.date).getTime() === today.getTime());
-    const despesasHoje = expensesToday.reduce((acc, e) => acc + e.amount, 0);
+    // Despesas no Período
+    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date));
+    const despesasHoje = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
 
-    // CMV Hoje
+    // CMV no Período
     let cmvHoje = 0;
-    salesToday.forEach(sale => {
+    salesInPeriod.forEach(sale => {
       sale.items.forEach(item => {
         const product = products.find(p => p.id === item.productId);
         if (product) {
@@ -83,7 +106,10 @@ export default function FinancePage() {
       });
     });
 
-    // Lucro Hoje
+    // Taxas no Período
+    const taxasHoje = salesInPeriod.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+
+    // Lucro no Período (Bruto)
     const lucroHoje = faturamentoHoje - cmvHoje;
 
     // Saldo em Caixa Real (Baseado em todos os caixas, movimentações e vendas)
@@ -95,78 +121,67 @@ export default function FinancePage() {
       return acc;
     }, 0);
     
-    const totalEntradas = sales.reduce((acc, s) => acc + s.total, 0);
+    const totalEntradas = sales.reduce((acc, s) => acc + (s.total - (s.taxAmount || 0)), 0);
     const totalDespesasPagas = expenses.filter(e => e.status === 'Pago').reduce((acc, e) => acc + e.amount, 0);
+    const totalReturns = (returns || []).reduce((acc, r) => acc + r.total, 0);
     const totalCompras = stockMovements.filter(m => m.type === 'COMPRA').reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
     
-    const saldoCaixa = openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalCompras;
+    const saldoCaixa = openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalReturns - totalCompras;
 
     return { faturamentoHoje, despesasHoje, lucroHoje, saldoCaixa };
-  }, [sales, expenses, stockMovements, products, today, cashRegisters, cashMovements]);
+  }, [sales, expenses, stockMovements, products, cashRegisters, cashMovements, returns, isWithinRange]);
 
   // --- 2. Gráfico de Fluxo de Caixa ---
   const chartData = useMemo(() => {
+    if (!startDate || !endDate) return [];
     const data = [];
-    let days = 30;
-    if (periodFilter === '7d') days = 7;
+    const [sYear, sMonth, sDay] = startDate.split('-').map(Number);
+    const start = new Date(sYear, sMonth - 1, sDay);
+    start.setHours(0, 0, 0, 0);
     
-    const now = new Date();
+    const [eYear, eMonth, eDay] = endDate.split('-').map(Number);
+    const end = new Date(eYear, eMonth - 1, eDay);
+    end.setHours(0, 0, 0, 0);
     
-    if (periodFilter === 'month') {
-      // Current month days
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      for (let i = 1; i <= daysInMonth; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth(), i);
-        const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Limit to 60 days for daily view
+    const actualDays = Math.min(diffDays, 60);
+    
+    for (let i = 0; i <= actualDays; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const dIso = getLocalDateString(d);
+      
+      const entrada = sales
+        .filter(s => getLocalDateString(s.date) === dIso)
+        .reduce((acc, s) => acc + s.total, 0);
         
-        const entrada = sales
-          .filter(s => getStartOfDay(s.date).getTime() === d.getTime())
-          .reduce((acc, s) => acc + s.total, 0);
-          
-        const saidaExpenses = expenses
-          .filter(e => getStartOfDay(e.date).getTime() === d.getTime())
-          .reduce((acc, e) => acc + e.amount, 0);
-          
-        const saidaCompras = stockMovements
-          .filter(m => m.type === 'COMPRA' && getStartOfDay(m.date).getTime() === d.getTime())
-          .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
-          
-        data.push({ date: dateStr, entrada, saida: saidaExpenses + saidaCompras });
-      }
-    } else {
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-
-        const entrada = sales
-          .filter(s => getStartOfDay(s.date).getTime() === d.getTime())
-          .reduce((acc, s) => acc + s.total, 0);
-
-        const saidaExpenses = expenses
-          .filter(e => getStartOfDay(e.date).getTime() === d.getTime())
-          .reduce((acc, e) => acc + e.amount, 0);
-
-        const saidaCompras = stockMovements
-          .filter(m => m.type === 'COMPRA' && getStartOfDay(m.date).getTime() === d.getTime())
-          .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
-
-        data.push({ date: dateStr, entrada, saida: saidaExpenses + saidaCompras });
-      }
+      const saidaExpenses = expenses
+        .filter(e => e.status === 'Pago' && getLocalDateString(e.paymentDate || e.date) === dIso)
+        .reduce((acc, e) => acc + e.amount, 0);
+        
+      const saidaCompras = stockMovements
+        .filter(m => m.type === 'COMPRA' && getLocalDateString(m.date) === dIso)
+        .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+        
+      data.push({ date: dateStr, entrada, saida: saidaExpenses + saidaCompras });
     }
     return data;
-  }, [sales, expenses, stockMovements, periodFilter]);
+  }, [sales, expenses, stockMovements, startDate, endDate]);
 
   // --- 3. Contas a Pagar / Receber ---
   const contas = useMemo(() => {
+    const todayStr = getLocalDateString();
     const naoPagas = expenses.filter(e => e.status === 'Pendente' || e.status === 'Vencido');
     
-    const aPagarHoje = naoPagas.filter(e => getStartOfDay(e.date).getTime() === today.getTime());
-    const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getStartOfDay(e.date).getTime() < today.getTime());
+    const aPagarHoje = naoPagas.filter(e => getLocalDateString(e.date) === todayStr);
+    const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getLocalDateString(e.date) < todayStr);
     
     // Simulando contas a receber com vendas "Fiado" não pagas (simplificação)
-    const aReceberHoje = sales.filter(s => s.paymentMethod === 'Fiado' && getStartOfDay(s.date).getTime() === today.getTime());
+    const aReceberHoje = sales.filter(s => s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
 
     return {
       aPagarHoje: aPagarHoje.reduce((acc, e) => acc + e.amount, 0),
@@ -176,7 +191,7 @@ export default function FinancePage() {
       aReceberHoje: aReceberHoje.reduce((acc, s) => acc + s.total, 0),
       aReceberHojeList: aReceberHoje
     };
-  }, [expenses, sales, today]);
+  }, [expenses, sales]);
 
   // --- 4. Movimentações Financeiras Recentes ---
   const transactions = useMemo(() => {
@@ -230,35 +245,22 @@ export default function FinancePage() {
 
   // --- 6. DRE Automático ---
   const dre = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const salesMonth = sales.filter(s => {
-      const d = new Date(s.date);
-      // Use local time for month/year comparison to match user's perspective
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-
-    console.log('DEBUG SALES MONTH:', salesMonth);
-
-    const receita = salesMonth.reduce((acc, s) => acc + s.total, 0);
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date));
+    const receita = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Taxas de Maquininhas (Financeiras)
-    const taxasMaquininhas = salesMonth.reduce((acc, s) => {
+    const taxasMaquininhas = salesInPeriod.reduce((acc, s) => {
       if (s.payments && Array.isArray(s.payments) && s.payments.length > 0) {
         return acc + s.payments.reduce((pAcc, p) => pAcc + (p.taxAmount || 0), 0);
       }
-      // Se não houver array de pagamentos, tenta verificar se há uma taxa única na venda (caso o modelo suporte)
       // @ts-ignore
       if (s.taxAmount) return acc + s.taxAmount;
       return acc;
     }, 0);
 
     let cmv = 0;
-    salesMonth.forEach(sale => {
+    salesInPeriod.forEach(sale => {
       sale.items.forEach(item => {
-        // Usa o custo histórico se disponível, senão busca o custo atual
         const cost = item.costPrice && item.costPrice > 0 
           ? item.costPrice 
           : (products.find(p => p.id === item.productId)?.costPrice || 0);
@@ -266,23 +268,22 @@ export default function FinancePage() {
       });
     });
 
-    const expensesMonth = expenses.filter(e => {
-      const d = new Date(e.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-    console.log('DEBUG EXPENSES MONTH:', expensesMonth);
-    const despesas = expensesMonth.reduce((acc, e) => acc + e.amount, 0);
+    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date));
+    const despesas = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
 
-    const lucroBruto = receita - cmv - taxasMaquininhas;
-    const lucroReal = receita - cmv - taxasMaquininhas - despesas;
+    // Standard DRE:
+    // Lucro Bruto = Receita - CMV
+    // Lucro Líquido = Lucro Bruto - Taxas - Despesas
+    const lucroBruto = receita - cmv;
+    const lucroReal = lucroBruto - taxasMaquininhas - despesas;
     
-    console.log('DEBUG DRE:', { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal });
+    console.log('DEBUG DRE VALUES:', { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal });
     
     const margemBruta = receita > 0 ? (lucroBruto / receita) * 100 : 0;
     const margemLiquida = receita > 0 ? (lucroReal / receita) * 100 : 0;
 
     return { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal, margemBruta, margemLiquida };
-  }, [sales, expenses, products]);
+  }, [sales, expenses, products, isWithinRange]);
 
   if (!hasPermission('Financeiro', 'view')) {
     return (
@@ -303,6 +304,27 @@ export default function FinancePage() {
           <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Painel Executivo em Tempo Real</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center gap-2 px-3 py-1.5 border-r border-slate-200 dark:border-slate-700">
+              <Calendar size={16} className="text-brand-blue" />
+              <span className="text-[10px] font-black uppercase italic text-slate-400 tracking-widest">Período</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-0 outline-none"
+              />
+              <span className="text-xs font-bold text-slate-400">a</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-0 outline-none"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -334,25 +356,25 @@ export default function FinancePage() {
           {/* 1. Cards Financeiros */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <FinanceStatCard 
-              title="Faturamento Hoje" 
+              title="Faturamento" 
               value={formatCurrency(stats.faturamentoHoje)} 
               icon={ArrowUpCircle} 
               color="emerald" 
-              trend="Vendas do dia" 
+              trend="No período selecionado" 
             />
             <FinanceStatCard 
-              title="Despesas Hoje" 
+              title="Despesas" 
               value={formatCurrency(stats.despesasHoje)} 
               icon={ArrowDownCircle} 
               color="rose" 
-              trend="Contas pagas hoje" 
+              trend="No período selecionado" 
             />
             <FinanceStatCard 
-              title="Lucro Hoje" 
+              title="Lucro" 
               value={formatCurrency(stats.lucroHoje)} 
               icon={TrendingUp} 
               color="blue" 
-              trend="Vendas - CMV" 
+              trend="No período selecionado" 
             />
             <FinanceStatCard 
               title="Saldo em Caixa" 
@@ -407,7 +429,7 @@ export default function FinancePage() {
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-black uppercase italic tracking-tight flex items-center gap-2">
                     <PieChartIcon size={20} className="text-indigo-500" />
-                    DRE Automático (Este Mês)
+                    DRE Automático (Período)
                   </h3>
                   <div className="flex gap-2">
                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-widest" title="Margem sobre o custo do produto">
@@ -436,6 +458,11 @@ export default function FinancePage() {
                     <span className="text-lg font-black text-rose-600">{formatCurrency(dre.cmv)}</span>
                   </div>
 
+                  <div className="flex justify-between items-center p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50">
+                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Lucro Bruto</span>
+                    <span className="text-lg font-black text-emerald-600">{formatCurrency(dre.lucroBruto)}</span>
+                  </div>
+                  
                   <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                     <span className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
@@ -444,11 +471,6 @@ export default function FinancePage() {
                     <span className="text-lg font-black text-rose-600">{formatCurrency(dre.taxasMaquininhas)}</span>
                   </div>
 
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50">
-                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Lucro Bruto (Operacional)</span>
-                    <span className="text-lg font-black text-emerald-600">{formatCurrency(dre.lucroBruto)}</span>
-                  </div>
-                  
                   <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                     <span className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>

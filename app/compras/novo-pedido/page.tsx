@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString, formatDateBR } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 interface PurchaseItem {
@@ -50,19 +50,21 @@ export default function NovaCompraPage() {
   ]);
   const [paymentConditions, setPaymentConditions] = useState<any[]>([
     { id: '1', name: 'À Vista' },
-    { id: '2', name: '30 Dias' },
-    { id: '3', name: '30/60 Dias' },
-    { id: '4', name: '30/60/90 Dias' }
+    { id: '2', name: 'A Prazo' }
   ]);
 
   // Tab 1: Fornecedor Data
   const [supplierId, setSupplierId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [issueDate, setIssueDate] = useState(getLocalDateString());
+  const [entryDate, setEntryDate] = useState(getLocalDateString());
   const [paymentCondition, setPaymentCondition] = useState('');
   const [financialAccount, setFinancialAccount] = useState('');
   const [observations, setObservations] = useState('');
+
+  // Tab 3: Finalizar Data
+  const [installments, setInstallments] = useState<{ dueDate: string, amount: number }[]>([]);
+  const prevPaymentConditionRef = useRef<string>('');
 
   // Tab 2: Produtos Data
   const [items, setItems] = useState<PurchaseItem[]>([]);
@@ -120,7 +122,7 @@ export default function NovaCompraPage() {
                 qty: Math.max(0, (product?.min_stock || 0) - (product?.stock || 0)),
                 cost: Number(product?.cost_price) || 0,
                 salePrice: Number(product?.sale_price) || 0,
-                expirationDate: new Date().toISOString().split('T')[0],
+                expirationDate: getLocalDateString(),
                 total: Math.max(0, (product?.min_stock || 0) - (product?.stock || 0)) * (Number(product?.cost_price) || 0)
               };
             });
@@ -139,7 +141,79 @@ export default function NovaCompraPage() {
     fetchData();
   }, []);
 
+  // Initialize installments when moving to Tab 3 or when payment condition changes
+  useEffect(() => {
+    if (activeTab === 3 && items.length > 0) {
+      const total = items.reduce((acc, item) => acc + item.total, 0);
+      
+      // If payment condition changed OR installments are empty, initialize
+      if (prevPaymentConditionRef.current !== paymentCondition || installments.length === 0) {
+        let intervals: number[] = [0]; // Default À Vista
+        if (paymentCondition === '2') {
+          intervals = [30]; // Default A Prazo
+        }
+
+        const newInstallments = intervals.map((days) => {
+          const [y, m, d] = entryDate.split('-').map(Number);
+          const date = new Date(y, m - 1, d);
+          date.setDate(date.getDate() + days);
+          return {
+            dueDate: getLocalDateString(date),
+            amount: total / intervals.length
+          };
+        });
+        setInstallments(newInstallments);
+        prevPaymentConditionRef.current = paymentCondition;
+      } else {
+        // Just update amounts if total changed, keeping the current installment count
+        setInstallments(prev => {
+          const currentTotal = prev.reduce((acc, inst) => acc + inst.amount, 0);
+          if (Math.abs(currentTotal - total) > 0.01) {
+            return prev.map(inst => ({
+              ...inst,
+              amount: total / prev.length
+            }));
+          }
+          return prev;
+        });
+      }
+    }
+  }, [activeTab, paymentCondition, items, installments.length, entryDate]);
+
   // Handle Product Search
+  const handleInstallmentCountChange = (count: number) => {
+    if (count < 1) return;
+    const total = items.reduce((acc, item) => acc + item.total, 0);
+    const newInstallments = Array.from({ length: count }, (_, i) => {
+      // If we already have an installment at this index, keep its date
+      if (installments[i]) {
+        return {
+          ...installments[i],
+          amount: total / count
+        };
+      }
+      // Otherwise calculate a new date (30 days after the last one or 30 days from now)
+      let lastDate: Date;
+      if (installments.length > 0) {
+        const lastDateStr = installments[installments.length - 1].dueDate;
+        const [y, m, d] = lastDateStr.split('-').map(Number);
+        lastDate = new Date(y, m - 1, d);
+      } else {
+        const [y, m, d] = entryDate.split('-').map(Number);
+        lastDate = new Date(y, m - 1, d);
+      }
+      
+      const newDate = new Date(lastDate);
+      newDate.setDate(newDate.getDate() + 30);
+      
+      return {
+        dueDate: getLocalDateString(newDate),
+        amount: total / count
+      };
+    });
+    setInstallments(newInstallments);
+  };
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
@@ -269,7 +343,7 @@ export default function NovaCompraPage() {
       // 0. Criar Pedido de Compra (purchase_orders)
       const { data: orderData, error: orderError } = await supabase.from('purchase_orders').insert({
         supplier_id: supplierId,
-        order_date: new Date().toISOString(),
+        order_date: getLocalDateString(),
         total_amount: totalCompra,
         status: 'Recebido'
       }).select('id').single();
@@ -339,23 +413,23 @@ export default function NovaCompraPage() {
           quantity: item.qty,
           cost: item.cost,
           origin: `Compra NF: ${invoiceNumber || 'S/N'} - Fornecedor: ${supplierName}`,
-          date: new Date().toISOString(),
+          date: getLocalDateString(),
           userId: user?.email || 'system',
           userName: user?.name || 'Sistema'
         });
       }
 
-      // 5. Generate Conta a Pagar (Expense)
-      let dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30); // Default 30 days if not specified
-
-      await supabase.from('expenses').insert({
-        description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName}`,
-        category: 'Compras de Mercadorias',
-        amount: totalCompra,
-        date: dueDate.toISOString().split('T')[0],
-        status: 'Pendente'
-      });
+      // 5. Generate Conta a Pagar (Expense) - Installments
+      for (let i = 0; i < installments.length; i++) {
+        const inst = installments[i];
+        await supabase.from('expenses').insert({
+          description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName} ${installments.length > 1 ? `(${i + 1}/${installments.length})` : ''}`,
+          category: 'Compras de Mercadorias',
+          amount: inst.amount,
+          date: inst.dueDate,
+          status: 'Pendente'
+        });
+      }
 
       alert('Compra finalizada com sucesso! Estoque e financeiro atualizados.');
       router.push('/compras');
@@ -808,23 +882,72 @@ export default function NovaCompraPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Supplier Summary */}
-                  <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
-                    <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight border-b border-brand-border pb-2">Fornecedor</h3>
-                    
-                    <div>
-                      <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Nome</div>
-                      <div className="font-bold text-slate-700">{suppliersList.find(s => s.id === supplierId)?.name || '-'}</div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-6">
+                    {/* Supplier Summary */}
+                    <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
+                      <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight border-b border-brand-border pb-2">Fornecedor</h3>
+                      
                       <div>
-                        <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Nota Fiscal</div>
-                        <div className="font-bold text-slate-700">{invoiceNumber || 'S/N'}</div>
+                        <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Nome</div>
+                        <div className="font-bold text-slate-700">{suppliersList.find(s => s.id === supplierId)?.name || '-'}</div>
                       </div>
-                      <div>
-                        <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Entrada</div>
-                        <div className="font-bold text-slate-700">{new Date(entryDate).toLocaleDateString('pt-BR')}</div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Nota Fiscal</div>
+                          <div className="font-bold text-slate-700">{invoiceNumber || 'S/N'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Entrada</div>
+                          <div className="font-bold text-slate-700">{formatDateBR(entryDate)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Installments Summary */}
+                    <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
+                      <div className="flex items-center justify-between border-b border-brand-border pb-2">
+                        <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Financeiro / Parcelas</h3>
+                        {paymentCondition === '2' && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-brand-text-main/40 uppercase italic">Parcelas:</span>
+                            <input 
+                              type="number"
+                              min="1"
+                              max="12"
+                              value={installments.length}
+                              onChange={(e) => handleInstallmentCountChange(Number(e.target.value))}
+                              className="w-12 bg-white border border-brand-border rounded-lg text-xs font-black text-center py-1"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {installments.map((inst, idx) => (
+                          <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-border/50">
+                            <div className="w-8 h-8 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center font-black text-xs shrink-0">
+                              {idx + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Vencimento</div>
+                              <input 
+                                type="date"
+                                value={inst.dueDate}
+                                onChange={(e) => {
+                                  const newInst = [...installments];
+                                  newInst[idx].dueDate = e.target.value;
+                                  setInstallments(newInst);
+                                }}
+                                className="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0"
+                              />
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Valor</div>
+                              <div className="text-sm font-black text-brand-blue">R$ {inst.amount.toFixed(2)}</div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
