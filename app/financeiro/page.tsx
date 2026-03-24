@@ -177,8 +177,8 @@ export default function FinancePage() {
     const todayStr = getLocalDateString();
     const naoPagas = expenses.filter(e => e.status === 'Pendente' || e.status === 'Vencido');
     
-    const aPagarHoje = naoPagas.filter(e => getLocalDateString(e.date) === todayStr);
-    const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getLocalDateString(e.date) < todayStr);
+    const aPagarHoje = naoPagas.filter(e => getLocalDateString(e.dueDate || e.date) === todayStr);
+    const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getLocalDateString(e.dueDate || e.date) < todayStr);
     
     // Simulando contas a receber com vendas "Fiado" não pagas (simplificação)
     const aReceberHoje = sales.filter(s => s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
@@ -415,7 +415,7 @@ export default function FinancePage() {
                       <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93'}} tickFormatter={(value) => `R$ ${value}`} />
                       <Tooltip 
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value: any) => formatCurrency(value)}
                       />
                       <Area type="monotone" dataKey="entrada" name="Entradas" stroke="#00E676" strokeWidth={3} fillOpacity={1} fill="url(#colorEntrada)" />
                       <Area type="monotone" dataKey="saida" name="Saídas" stroke="#EF4444" strokeWidth={3} fillOpacity={1} fill="url(#colorSaida)" />

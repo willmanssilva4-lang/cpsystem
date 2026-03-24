@@ -24,6 +24,7 @@ import {
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { formatDateBR } from '@/lib/utils';
 import { 
   AreaChart, 
   Area, 
@@ -117,7 +118,7 @@ export default function PurchasingPage() {
           setRecentOrders(ordersData.map(order => ({
             id: order.id.substring(0, 8).toUpperCase(),
             supplier: (order.suppliers as any)?.name || 'Desconhecido',
-            date: new Date(order.order_date).toLocaleDateString('pt-BR'),
+            date: formatDateBR(order.order_date),
             total: `R$ ${Number(order.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             status: order.status,
             items: (order.purchase_order_items as any[])?.length || 0
@@ -145,7 +146,7 @@ export default function PurchasingPage() {
             id: q.id.substring(0, 8).toUpperCase(),
             title: q.title,
             status: q.status,
-            date: new Date(q.created_at).toLocaleDateString('pt-BR'),
+            date: formatDateBR(q.created_at),
             items: q.quotation_items?.length || 0,
             suppliers: q.quotation_suppliers?.length || 0
           })));

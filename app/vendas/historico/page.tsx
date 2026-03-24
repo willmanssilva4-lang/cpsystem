@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, Calendar, Filter, Eye, Download, Printer, ShoppingCart, User, CreditCard, ChevronRight, Hash } from 'lucide-react';
 import { Sale } from '@/lib/types';
-import { getLocalDateString } from '@/lib/utils';
+import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 
 export default function SalesHistoryPage() {
   const { sales, customers, products, hasPermission } = useERP();
@@ -57,7 +57,7 @@ export default function SalesHistoryPage() {
           <div class="header">
             <h2>CUPOM NÃO FISCAL</h2>
             <p>Venda #${sale.id.substring(0, 8).toUpperCase()}</p>
-            <p>Data: ${new Date(sale.date).toLocaleString('pt-BR')}</p>
+            <p>Data: ${formatDateTimeBR(sale.date)}</p>
           </div>
           
           <div class="items">
@@ -167,7 +167,7 @@ export default function SalesHistoryPage() {
                           >
                             <td className="px-6 py-4">
                               <p className="font-black italic text-brand-text-main uppercase leading-tight">#{sale.id.substring(0, 8).toUpperCase()}</p>
-                              <p className="text-[10px] text-brand-text-sec font-bold">{new Date(sale.date).toLocaleString('pt-BR')}</p>
+                              <p className="text-[10px] text-brand-text-sec font-bold">{formatDateTimeBR(sale.date)}</p>
                             </td>
                             <td className="px-6 py-4">
                               <p className="font-bold text-brand-text-main">{customer?.nome || 'Consumidor Final'}</p>

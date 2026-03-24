@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Search, Filter, ArrowUpRight, ArrowDownRight, Calendar, Download, FileText } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDateBR, formatTimeBR } from '@/lib/utils';
 import { Sale, Expense, StockMovement, CashMovement } from '@/lib/types';
 
 interface Props {
@@ -165,10 +165,10 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {new Date(t.date).toLocaleDateString('pt-BR')}
+                        {formatDateBR(t.date)}
                       </span>
                       <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                        <Calendar size={10} /> {new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        <Calendar size={10} /> {formatTimeBR(t.date)}
                       </span>
                     </div>
                   </td>

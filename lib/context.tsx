@@ -275,7 +275,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           composition: p.composition || [],
           status: p.status || 'Ativo',
           codigo_mercadologico: p.codigo_mercadologico,
-          subcategoria_id: p.subcategoria_id
+          subcategoria_id: p.subcategoria_id,
+          validade: p.validade
         }));
 
         // Calculate virtual stock for kits
@@ -369,6 +370,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (expensesData) {
+        console.log('Expenses data fetched:', expensesData);
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         
@@ -935,17 +937,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       image: product.image,
       composition: product.composition,
       status: product.status || 'Ativo',
-      codigo_mercadologico: product.codigo_mercadologico
+      codigo_mercadologico: product.codigo_mercadologico,
+      validade: product.validade || null
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (insertData as any).composition;
       if (error.message.includes('status')) delete (insertData as any).status;
       if (error.message.includes('codigo_mercadologico')) delete (insertData as any).codigo_mercadologico;
+      if (error.message.includes('validade')) delete (insertData as any).validade;
       
       const retry = await supabase.from('products').insert([insertData]).select();
       data = retry.data;
@@ -975,16 +979,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       min_stock: updated.minStock,
       image: updated.image,
       composition: updated.composition,
-      status: updated.status || 'Ativo'
+      status: updated.status || 'Ativo',
+      codigo_mercadologico: updated.codigo_mercadologico,
+      validade: updated.validade || null
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (updateData as any).composition;
       if (error.message.includes('status')) delete (updateData as any).status;
+      if (error.message.includes('codigo_mercadologico')) delete (updateData as any).codigo_mercadologico;
+      if (error.message.includes('validade')) delete (updateData as any).validade;
 
       const retry = await supabase.from('products').update(updateData).eq('id', updated.id);
       error = retry.error;

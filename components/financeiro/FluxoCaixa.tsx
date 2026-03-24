@@ -203,7 +203,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
               />
               <Tooltip 
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                formatter={(val: number) => formatCurrency(val)}
+                formatter={(val: any) => formatCurrency(val)}
               />
               <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px' }} />
               <Area type="monotone" dataKey="inflows" name="Entradas" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorIn)" />

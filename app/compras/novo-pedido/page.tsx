@@ -35,7 +35,7 @@ interface PurchaseItem {
 
 export default function NovaCompraPage() {
   const router = useRouter();
-  const { user, addStockMovement } = useERP();
+  const { user, addStockMovement, addExpense } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,11 +119,11 @@ export default function NovaCompraPage() {
                 id: Math.random().toString(36).substr(2, 9),
                 productId: p.id,
                 productName: p.name,
-                qty: Math.max(0, (product?.min_stock || 0) - (product?.stock || 0)),
-                cost: Number(product?.cost_price) || 0,
-                salePrice: Number(product?.sale_price) || 0,
+                qty: Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0)),
+                cost: Number((product as any)?.cost_price) || 0,
+                salePrice: Number((product as any)?.sale_price) || 0,
                 expirationDate: getLocalDateString(),
-                total: Math.max(0, (product?.min_stock || 0) - (product?.stock || 0)) * (Number(product?.cost_price) || 0)
+                total: Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0)) * (Number((product as any)?.cost_price) || 0)
               };
             });
             setItems(newItems);
@@ -343,7 +343,7 @@ export default function NovaCompraPage() {
       // 0. Criar Pedido de Compra (purchase_orders)
       const { data: orderData, error: orderError } = await supabase.from('purchase_orders').insert({
         supplier_id: supplierId,
-        order_date: getLocalDateString(),
+        order_date: new Date().toISOString(),
         total_amount: totalCompra,
         status: 'Recebido'
       }).select('id').single();
@@ -368,7 +368,7 @@ export default function NovaCompraPage() {
         const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
           produto_id: item.productId,
           numero_lote: numeroLote,
-          data_entrada: entryDate,
+          data_entrada: `${entryDate}T12:00:00Z`,
           validade: item.expirationDate,
           custo_unit: item.cost,
           quantidade_inicial: item.qty,
@@ -399,10 +399,21 @@ export default function NovaCompraPage() {
           if (item.salePrice > 0) {
             updateData.sale_price = item.salePrice;
           }
+
+          if (item.expirationDate) {
+            updateData.validade = item.expirationDate;
+          }
           
-          await supabase.from('products')
+          const { error: updateError } = await supabase.from('products')
             .update(updateData)
             .eq('id', item.productId);
+            
+          if (updateError && updateError.message.includes('validade')) {
+            delete updateData.validade;
+            await supabase.from('products')
+              .update(updateData)
+              .eq('id', item.productId);
+          }
         }
 
         // 4. Register Movement
@@ -413,22 +424,45 @@ export default function NovaCompraPage() {
           quantity: item.qty,
           cost: item.cost,
           origin: `Compra NF: ${invoiceNumber || 'S/N'} - Fornecedor: ${supplierName}`,
-          date: getLocalDateString(),
+          date: new Date().toISOString(),
           userId: user?.email || 'system',
           userName: user?.name || 'Sistema'
         });
       }
 
       // 5. Generate Conta a Pagar (Expense) - Installments
-      for (let i = 0; i < installments.length; i++) {
-        const inst = installments[i];
-        await supabase.from('expenses').insert({
-          description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName} ${installments.length > 1 ? `(${i + 1}/${installments.length})` : ''}`,
+      if (paymentCondition === '1') {
+        // À Vista: One single expense, paid immediately
+        const total = items.reduce((acc, item) => acc + item.total, 0);
+        await addExpense({
+          description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName}`,
           category: 'Compras de Mercadorias',
-          amount: inst.amount,
-          date: inst.dueDate,
-          status: 'Pendente'
+          amount: total,
+          supplier: supplierName,
+          supplierId: supplierId,
+          dueDate: new Date().toISOString(), // Paid today
+          date: new Date().toISOString(),
+          issueDate: new Date().toISOString(),
+          status: 'Pago',
+          paymentDate: new Date().toISOString(),
+          paymentMethod: 'Dinheiro'
         });
+      } else {
+        // A Prazo: Multiple installments
+        for (let i = 0; i < installments.length; i++) {
+          const inst = installments[i];
+          await addExpense({
+            description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName} (${i + 1}/${installments.length})`,
+            category: 'Compras de Mercadorias',
+            amount: inst.amount,
+            supplier: supplierName,
+            supplierId: supplierId,
+            dueDate: `${inst.dueDate}T12:00:00Z`,
+            date: `${inst.dueDate}T12:00:00Z`,
+            issueDate: new Date().toISOString(),
+            status: 'Pendente',
+          });
+        }
       }
 
       alert('Compra finalizada com sucesso! Estoque e financeiro atualizados.');
@@ -905,51 +939,53 @@ export default function NovaCompraPage() {
                     </div>
 
                     {/* Installments Summary */}
-                    <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
-                      <div className="flex items-center justify-between border-b border-brand-border pb-2">
-                        <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Financeiro / Parcelas</h3>
-                        {paymentCondition === '2' && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-brand-text-main/40 uppercase italic">Parcelas:</span>
-                            <input 
-                              type="number"
-                              min="1"
-                              max="12"
-                              value={installments.length}
-                              onChange={(e) => handleInstallmentCountChange(Number(e.target.value))}
-                              className="w-12 bg-white border border-brand-border rounded-lg text-xs font-black text-center py-1"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-3">
-                        {installments.map((inst, idx) => (
-                          <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-border/50">
-                            <div className="w-8 h-8 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center font-black text-xs shrink-0">
-                              {idx + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Vencimento</div>
+                    {paymentCondition !== '1' && (
+                      <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
+                        <div className="flex items-center justify-between border-b border-brand-border pb-2">
+                          <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Financeiro / Parcelas</h3>
+                          {paymentCondition === '2' && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-brand-text-main/40 uppercase italic">Parcelas:</span>
                               <input 
-                                type="date"
-                                value={inst.dueDate}
-                                onChange={(e) => {
-                                  const newInst = [...installments];
-                                  newInst[idx].dueDate = e.target.value;
-                                  setInstallments(newInst);
-                                }}
-                                className="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0"
+                                type="number"
+                                min="1"
+                                max="12"
+                                value={installments.length}
+                                onChange={(e) => handleInstallmentCountChange(Number(e.target.value))}
+                                className="w-12 bg-white border border-brand-border rounded-lg text-xs font-black text-center py-1"
                               />
                             </div>
-                            <div className="text-right">
-                              <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Valor</div>
-                              <div className="text-sm font-black text-brand-blue">R$ {inst.amount.toFixed(2)}</div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {installments.map((inst, idx) => (
+                            <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-border/50">
+                              <div className="w-8 h-8 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center font-black text-xs shrink-0">
+                                {idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Vencimento</div>
+                                <input 
+                                  type="date"
+                                  value={inst.dueDate}
+                                  onChange={(e) => {
+                                    const newInst = [...installments];
+                                    newInst[idx].dueDate = e.target.value;
+                                    setInstallments(newInst);
+                                  }}
+                                  className="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-700 focus:ring-0"
+                                />
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Valor</div>
+                                <div className="text-sm font-black text-brand-blue">R$ {inst.amount.toFixed(2)}</div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Products Summary */}

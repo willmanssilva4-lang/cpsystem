@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { QuickReturnModal } from '@/components/QuickReturnModal';
 import { useERP } from '@/lib/context';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 import { Product } from '@/lib/types';
 import { ProductForm } from '@/components/ProductForm';
 import { PaymentModal } from '@/components/PaymentModal';
@@ -89,8 +89,8 @@ export default function PDVPage() {
 
   useEffect(() => {
     if (activeRegister && activeRegister.openedAt && !hasWarnedOldRegister.current) {
-      const openedDate = new Date(activeRegister.openedAt).toLocaleDateString();
-      const today = new Date().toLocaleDateString();
+      const openedDate = getLocalDateString(new Date(activeRegister.openedAt));
+      const today = getLocalDateString();
       if (openedDate !== today) {
         hasWarnedOldRegister.current = true;
         setTimeout(() => {
@@ -116,7 +116,7 @@ export default function PDVPage() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR');
+    return formatDateTimeBR(date.toISOString());
   };
 
   const comboDiscount = useMemo(() => {
@@ -288,7 +288,7 @@ export default function PDVPage() {
           <div class="header">
             <h2>CUPOM NÃO FISCAL</h2>
             <p>Venda #${sale.id.substring(0, 8).toUpperCase()}</p>
-            <p>Data: ${new Date(sale.date).toLocaleString('pt-BR')}</p>
+            <p>Data: ${formatDateTimeBR(sale.date)}</p>
           </div>
           
           <div class="items">

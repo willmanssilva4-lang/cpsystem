@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Filter, MoreHorizontal, CheckCircle2, User, Calendar, DollarSign } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDateBR } from '@/lib/utils';
 import { Sale, Customer } from '@/lib/types';
 import { useERP } from '@/lib/context';
 
@@ -127,7 +127,7 @@ export function ContasReceber({ sales, customers }: { sales: Sale[], customers: 
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-slate-900 dark:text-slate-100">#{r.id.slice(0, 8)}</span>
                       <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                        <Calendar size={10} /> {new Date(r.date).toLocaleDateString('pt-BR')}
+                        <Calendar size={10} /> {formatDateBR(r.date)}
                       </span>
                     </div>
                   </td>

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, RotateCcw, ArrowLeft, Calendar, User, Hash, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
 import { Sale } from '@/lib/types';
+import { formatDateTimeBR } from '@/lib/utils';
 
 export default function ReturnsPage() {
   const { sales, products, addReturn, user, hasPermission } = useERP();
@@ -153,7 +154,7 @@ export default function ReturnsPage() {
                   </div>
                   <div className="flex justify-between border-b border-brand-border pb-2">
                     <span className="text-brand-text-sec font-bold uppercase text-[10px]">Data/Hora</span>
-                    <span className="font-bold">{new Date(selectedSale.date).toLocaleString('pt-BR')}</span>
+                    <span className="font-bold">{formatDateTimeBR(selectedSale.date)}</span>
                   </div>
                   <div className="flex justify-between border-b border-brand-border pb-2">
                     <span className="text-brand-text-sec font-bold uppercase text-[10px]">Total</span>

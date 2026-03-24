@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     composition JSONB DEFAULT '[]',
     subcategoria_id UUID REFERENCES public.subcategorias(id) ON DELETE SET NULL,
     codigo_mercadologico TEXT,
+    validade DATE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -63,6 +63,7 @@ export interface Product {
   codigo_mercadologico?: string;
   category?: string;
   subgroup?: string;
+  validade?: string;
 }
 
 export interface CashRegister {
@@ -235,7 +236,8 @@ export interface Expense {
   id: string;
   description: string;
   category: string;
-  supplier?: string;
+  supplier?: string; // Nome do fornecedor
+  supplierId?: string; // ID do fornecedor
   amount: number;
   issueDate: string;
   dueDate: string;

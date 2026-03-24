@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Search, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, formatDateBR } from '@/lib/utils';
 
 export default function TodosPedidosPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -126,7 +126,7 @@ export default function TodosPedidosPage() {
                   <tr key={order.id} className="hover:bg-slate-50/50 cursor-pointer" onClick={() => handleOrderClick(order)}>
                     <td className="px-6 py-4 font-bold text-sm text-brand-text-main">{order.id.slice(0, 8)}</td>
                     <td className="px-6 py-4 font-bold text-sm text-brand-text-main">{order.suppliers?.name || 'Desconhecido'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{new Date(order.order_date).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{formatDateBR(order.order_date)}</td>
                     <td className="px-6 py-4 text-right font-black text-brand-blue">R$ {Number(order.total_amount).toFixed(2)}</td>
                     <td className="px-6 py-4 text-center">
                       <span className={cn(
@@ -161,7 +161,7 @@ export default function TodosPedidosPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <p><strong>ID:</strong> {selectedOrder.id.slice(0, 8)}</p>
                 <p><strong>Fornecedor:</strong> {selectedOrder.suppliers?.name || 'Desconhecido'}</p>
-                <p><strong>Data:</strong> {new Date(selectedOrder.order_date).toLocaleDateString('pt-BR')}</p>
+                <p><strong>Data:</strong> {formatDateBR(selectedOrder.order_date)}</p>
                 <p><strong>Status:</strong> {selectedOrder.status}</p>
               </div>
               

@@ -39,7 +39,7 @@ import {
   Legend
 } from 'recharts';
 import { GoogleGenAI } from "@google/genai";
-import { getLocalDateString } from '@/lib/utils';
+import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -620,7 +620,7 @@ export default function DashboardPage() {
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} />
                 <Tooltip 
                   contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }}
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value: any) => formatCurrency(value)}
                 />
                 <Area type="monotone" dataKey="receita" stroke="#00E676" strokeWidth={2} fillOpacity={1} fill="url(#colorReceita)" activeDot={{ r: 6, fill: '#00E676', stroke: '#fff', strokeWidth: 2 }} />
                 <Area type="monotone" dataKey="despesa" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorDespesa)" activeDot={{ r: 6, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }} />
@@ -1195,7 +1195,7 @@ export default function DashboardPage() {
                         return (
                           <tr key={`${sale.id}-${index}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                             <td className="p-4 text-sm font-medium text-slate-700">
-                              {new Date(sale.date).toLocaleDateString('pt-BR')} {new Date(sale.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              {formatDateTimeBR(sale.date)}
                             </td>
                             <td className="p-4 text-sm font-medium text-slate-700">#{sale.id.substring(0, 8).toUpperCase()}</td>
                             <td className="p-4 text-sm text-slate-600">{customer?.name || 'Consumidor Final'}</td>

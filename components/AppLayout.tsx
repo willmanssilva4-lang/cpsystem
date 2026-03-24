@@ -13,10 +13,11 @@ import { ContextualHelp } from '@/components/ContextualHelp';
 import { getLocalDateString } from '@/lib/utils';
 
 function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: () => void, onHelpClick: () => void }) {
-  const { products, expenses, systemSettings, sendEmailNotification } = useERP();
+  const { products, expenses, lotes, systemSettings, sendEmailNotification } = useERP();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [sentEmailNotificationIds, setSentEmailNotificationIds] = useState<string[]>([]);
+  const sendingRef = React.useRef<Set<string>>(new Set());
 
   const notifications = useMemo(() => {
     const notifs: any[] = [];
@@ -33,8 +34,39 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
       });
     });
 
-    // Pending expenses
+    // Expired batches
     const today = getLocalDateString();
+    const expiredLotes = lotes.filter(l => l.validade <= today && l.saldoAtual > 0);
+    expiredLotes.forEach(l => {
+      const product = products.find(p => p.id === l.productId);
+      const isToday = l.validade === today;
+      notifs.push({
+        id: `lote-${l.id}`,
+        title: isToday ? 'Lote Vence Hoje' : 'Lote Vencido',
+        message: isToday 
+          ? `O lote "${l.numeroLote}" do produto "${product?.name || 'Desconhecido'}" vence hoje (${l.validade})`
+          : `O lote "${l.numeroLote}" do produto "${product?.name || 'Desconhecido'}" venceu em ${l.validade}`,
+        time: 'Estoque',
+        read: readNotificationIds.includes(`lote-${l.id}`)
+      });
+    });
+
+    // Expired products
+    const expiredProducts = products.filter(p => p.validade && p.validade <= today && p.stock > 0);
+    expiredProducts.forEach(p => {
+      const isToday = p.validade === today;
+      notifs.push({
+        id: `prod-${p.id}`,
+        title: isToday ? 'Produto Vence Hoje' : 'Produto Vencido',
+        message: isToday
+          ? `O produto "${p.name}" vence hoje (${p.validade})`
+          : `O produto "${p.name}" venceu em ${p.validade}`,
+        time: 'Estoque',
+        read: readNotificationIds.includes(`prod-${p.id}`)
+      });
+    });
+
+    // Pending expenses
     const pendingExpenses = expenses.filter(e => !e.paymentDate && e.dueDate <= today);
     pendingExpenses.forEach(e => {
       notifs.push({
@@ -47,7 +79,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
     });
 
     return notifs;
-  }, [products, expenses, readNotificationIds]);
+  }, [products, expenses, lotes, readNotificationIds]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -55,10 +87,13 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
   useEffect(() => {
     if (!systemSettings?.notifications?.email || !user?.email) return;
 
-    const unreadNotifications = notifications.filter(n => !n.read && !sentEmailNotificationIds.includes(n.id));
+    // Apenas notificar se houver notificações novas que ainda não foram enviadas ou processadas
+    const notificationsToSend = notifications.filter(n => !n.read && !sentEmailNotificationIds.includes(n.id) && !sendingRef.current.has(n.id));
     
-    if (unreadNotifications.length > 0) {
-      unreadNotifications.forEach(async (notification) => {
+    if (notificationsToSend.length > 0) {
+      notificationsToSend.forEach(async (notification) => {
+        sendingRef.current.add(notification.id);
+        
         console.log(`📧 Tentando enviar e-mail para ${user.email} sobre: ${notification.title}`);
         const success = await sendEmailNotification(
           user.email,
@@ -76,10 +111,12 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
 
         if (success) {
           setSentEmailNotificationIds(prev => [...prev, notification.id]);
+        } else {
+          sendingRef.current.delete(notification.id);
         }
       });
     }
-  }, [notifications, systemSettings, user, sentEmailNotificationIds, sendEmailNotification]);
+  }, [notifications, systemSettings, user, sendEmailNotification, sentEmailNotificationIds]);
 
   const markAsRead = (id: string) => {
     if (!readNotificationIds.includes(id)) {

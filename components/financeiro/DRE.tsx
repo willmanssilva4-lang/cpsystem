@@ -361,7 +361,7 @@ export function DRE({ sales, expenses, products }: DREProps) {
                       ))}
                     </Pie>
                     <RechartsTooltip 
-                      formatter={(value: number) => formatCurrency(value)}
+                      formatter={(value: any) => formatCurrency(value)}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
                     />
                     <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />

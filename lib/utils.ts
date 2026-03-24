@@ -36,9 +36,30 @@ export function toLocalDateString(isoDate: string) {
 }
 
 export function formatDateBR(dateStr: string) {
-  if (!dateStr || !dateStr.includes('-')) return dateStr;
+  if (!dateStr) return '';
   const parts = dateStr.split('T')[0].split('-');
   if (parts.length !== 3) return dateStr;
   const [year, month, day] = parts;
   return `${day}/${month}/${year}`;
+}
+
+export function formatDateTimeBR(dateStr: string) {
+  if (!dateStr) return '';
+  
+  // If it's just a date string like "YYYY-MM-DD", use formatDateBR
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return formatDateBR(dateStr);
+  }
+  
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  
+  return date.toLocaleString('pt-BR');
+}
+
+export function formatTimeBR(dateStr: string) {
+  if (!dateStr || dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }

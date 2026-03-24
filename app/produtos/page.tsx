@@ -28,7 +28,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTimeBR } from '@/lib/utils';
 import { ProductForm } from '@/components/ProductForm';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
 import { InventorySessionModal } from '@/components/InventorySessionModal';
@@ -599,7 +599,7 @@ export default function ProductsPage() {
                     stockMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50).map((mov) => (
                       <tr key={mov.id} className="hover:bg-white transition-colors">
                         <td className="px-6 py-4 text-xs font-bold text-slate-600">
-                          {new Date(mov.date).toLocaleString('pt-BR')}
+                          {formatDateTimeBR(mov.date)}
                         </td>
                         <td className="px-6 py-4 text-xs font-black text-slate-700">{mov.productName || 'Produto Excluído'}</td>
                         <td className="px-6 py-4">

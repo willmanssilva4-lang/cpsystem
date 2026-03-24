@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, Calendar, ShieldCheck, User, Clock, AlertTriangle, Info, CheckCircle2, RotateCcw, Tag, Trash2 } from 'lucide-react';
-import { getLocalDateString } from '@/lib/utils';
+import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 
 export default function SalesAuditPage() {
   const { discountLogs, returns, systemUsers, hasPermission } = useERP();
@@ -159,7 +159,7 @@ export default function SalesAuditPage() {
                                  event.type === 'return' ? 'Devolução Realizada' :
                                  'Venda Cancelada'}
                               </p>
-                              <p className="text-[10px] text-brand-text-sec font-bold">{new Date(event.date).toLocaleString('pt-BR')}</p>
+                              <p className="text-[10px] text-brand-text-sec font-bold">{formatDateTimeBR(event.date)}</p>
                             </div>
                           </div>
                         </td>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, X, ArrowRight, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { formatDateTimeBR } from '@/lib/utils';
 import { Sale, Product } from '@/lib/types';
 
 interface QuickReturnModalProps {
@@ -126,7 +127,7 @@ export function QuickReturnModal({ onClose }: QuickReturnModalProps) {
               <div className="bg-slate-50 p-4 rounded-2xl border border-brand-border flex justify-between items-center">
                 <div>
                   <p className="text-xs font-bold text-brand-text-sec uppercase">Venda #{selectedSale.id.substring(0, 8)}</p>
-                  <p className="text-sm font-bold text-brand-text-main">{new Date(selectedSale.date).toLocaleString('pt-BR')}</p>
+                  <p className="text-sm font-bold text-brand-text-main">{formatDateTimeBR(selectedSale.date)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-brand-text-sec uppercase">Total da Venda</p>

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTimeBR, formatDateBR } from '@/lib/utils';
 import { InventorySessionModal } from './InventorySessionModal';
 
 interface ProductFormProps {
@@ -31,6 +31,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   const [adjustmentReason, setAdjustmentReason] = useState('Correção de Saldo');
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const validadeInitialized = useRef(false);
   const [inventoryFilter, setInventoryFilter] = useState({
     date: '',
     status: ''
@@ -106,7 +107,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       category: 'PADRAO',
       subgroup: 'PADRAO',
       departamento_id: '',
-      validade: initialData?.validade || ''
+      validade: initialData?.validade || (() => {
+        if (!initialData?.id) return '';
+        const productLotes = lotes.filter(l => l.productId === initialData.id);
+        if (productLotes.length === 0) return '';
+        // Find the lot with the latest expiration date or latest entry date
+        const latestLote = [...productLotes].sort((a, b) => {
+          if (a.validade && b.validade) {
+            return new Date(b.validade).getTime() - new Date(a.validade).getTime();
+          }
+          return new Date(b.dataEntrada).getTime() - new Date(a.dataEntrada).getTime();
+        })[0];
+        return latestLote.validade || '';
+      })()
     };
   });
 
@@ -144,6 +157,24 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
 
   const [categoryId, setCategoryId] = useState('');
   const [departamentoId, setDepartamentoId] = useState('');
+
+  useEffect(() => {
+    if (initialData?.id && !formData.validade && lotes.length > 0 && !validadeInitialized.current) {
+      const productLotes = lotes.filter(l => l.productId === initialData.id);
+      if (productLotes.length > 0) {
+        const latestLote = [...productLotes].sort((a, b) => {
+          if (a.validade && b.validade) {
+            return new Date(b.validade).getTime() - new Date(a.validade).getTime();
+          }
+          return new Date(b.dataEntrada).getTime() - new Date(a.dataEntrada).getTime();
+        })[0];
+        if (latestLote.validade) {
+          setFormData(prev => ({ ...prev, validade: latestLote.validade }));
+          validadeInitialized.current = true;
+        }
+      }
+    }
+  }, [initialData?.id, lotes, formData.validade]);
 
   useEffect(() => {
     if (initialData?.subcategoria_id) {
@@ -873,7 +904,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       .map((mov) => (
                         <tr key={mov.id} className="hover:bg-white transition-colors">
                           <td className="px-6 py-4 text-xs font-bold text-slate-600">
-                            {new Date(mov.date).toLocaleString('pt-BR')}
+                            {formatDateTimeBR(mov.date)}
                           </td>
                           <td className="px-6 py-4">
                             <span className={cn(
@@ -1123,7 +1154,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             </td>
                             <td className="px-8 py-5">
                               <div className="flex flex-col">
-                                <span className="text-sm font-black text-slate-700">{new Date(inv.date).toLocaleDateString('pt-BR')}</span>
+                                <span className="text-sm font-black text-slate-700">{formatDateBR(inv.date)}</span>
                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{inv.location}</span>
                               </div>
                             </td>
@@ -1203,14 +1234,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                 <span className="text-sm font-black text-slate-700">{lote.numeroLote}</span>
                               </td>
                               <td className="px-8 py-5">
-                                <span className="text-sm font-bold text-slate-600">{new Date(lote.dataEntrada).toLocaleDateString('pt-BR')}</span>
+                                <span className="text-sm font-bold text-slate-600">{formatDateBR(lote.dataEntrada)}</span>
                               </td>
                               <td className="px-8 py-5">
                                 <span className={cn(
                                   "text-sm font-bold",
                                   lote.validade && new Date(lote.validade) < new Date() ? "text-rose-500" : "text-slate-600"
                                 )}>
-                                  {lote.validade ? new Date(lote.validade).toLocaleDateString('pt-BR') : '-'}
+                                  {lote.validade ? formatDateBR(lote.validade) : '-'}
                                 </span>
                               </td>
                               <td className="px-8 py-5">
