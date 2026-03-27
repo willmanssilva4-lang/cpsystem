@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, 
   Search, 
@@ -20,8 +20,10 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useERP } from '@/lib/context';
 
 export default function ReposicaoPage() {
+  const { user } = useERP();
   const [replenishmentData, setReplenishmentData] = useState<any[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -30,13 +32,15 @@ export default function ReposicaoPage() {
 
   const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'attention'>('all');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!user?.companyId) return;
     setIsLoading(true);
     try {
       // 1. Fetch products with low stock
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('*');
+        .select('*')
+        .eq('company_id', user.companyId);
       
       if (productsError) throw productsError;
 
@@ -56,17 +60,19 @@ export default function ReposicaoPage() {
               suppliers ( name )
             )
           `)
+          .eq('company_id', user?.companyId || null)
           .eq('product_id', p.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-
+        
         const supplierName = (lastPurchase?.purchase_orders as any)?.suppliers?.name || 'Não definido';
         
         // Fetch real sales data for the last 30 days to calculate weekly average
         const { data: salesData } = await supabase
           .from('sale_items')
           .select('quantity')
+          .eq('company_id', user?.companyId || null)
           .eq('product_id', p.id)
           .gte('created_at', thirtyDaysAgo.toISOString());
         
@@ -93,11 +99,11 @@ export default function ReposicaoPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.companyId]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const toggleItem = (id: string) => {
     setSelectedItems(prev => 

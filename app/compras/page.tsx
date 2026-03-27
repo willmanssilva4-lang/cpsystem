@@ -48,7 +48,7 @@ const QUICK_ACTIONS = [
 
 export default function PurchasingPage() {
   const router = useRouter();
-  const { hasPermission } = useERP();
+  const { hasPermission, user } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState<any[]>([
     { label: 'Pedidos Pendentes', value: '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -66,12 +66,14 @@ export default function PurchasingPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!user?.companyId) return;
       setIsLoading(true);
       try {
         // Fetch stats
         const { count: pendingCount } = await supabase
           .from('purchase_orders')
           .select('*', { count: 'exact', head: true })
+          .eq('company_id', user.companyId)
           .eq('status', 'Pendente');
 
         const startOfMonth = new Date();
@@ -81,17 +83,19 @@ export default function PurchasingPage() {
         const { data: monthOrders } = await supabase
           .from('purchase_orders')
           .select('total_amount')
+          .eq('company_id', user.companyId)
           .eq('status', 'Recebido')
           .gte('order_date', startOfMonth.toISOString());
         
         const monthTotal = monthOrders?.reduce((acc, order) => acc + Number(order.total_amount), 0) || 0;
 
-        const { data: allProducts } = await supabase.from('products').select('id, name, stock, min_stock');
+        const { data: allProducts } = await supabase.from('products').select('id, name, stock, min_stock').eq('company_id', user.companyId);
         const belowStockCountActual = allProducts?.filter(p => p.stock < p.min_stock).length || 0;
 
         const { count: activeSuppliersCount } = await supabase
           .from('suppliers')
-          .select('*', { count: 'exact', head: true });
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', user.companyId);
 
         setStats([
           { label: 'Pedidos Pendentes', value: pendingCount?.toString() || '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -111,6 +115,7 @@ export default function PurchasingPage() {
             suppliers ( name ),
             purchase_order_items ( id )
           `)
+          .eq('company_id', user?.companyId || null)
           .order('order_date', { ascending: false })
           .limit(5);
 
@@ -138,6 +143,7 @@ export default function PurchasingPage() {
             quotation_items ( id ),
             quotation_suppliers ( id )
           `)
+          .eq('company_id', user?.companyId || null)
           .order('created_at', { ascending: false })
           .limit(5);
 
@@ -174,7 +180,8 @@ export default function PurchasingPage() {
           .select(`
             total_amount,
             suppliers ( name )
-          `);
+          `)
+          .eq('company_id', user?.companyId || null);
         
         if (topSuppliersData && topSuppliersData.length > 0) {
           const supplierStats: Record<string, { orders: number, total: number }> = {};
@@ -224,6 +231,7 @@ export default function PurchasingPage() {
         const { data: historyData } = await supabase
           .from('purchase_orders')
           .select('order_date, total_amount')
+          .eq('company_id', user?.companyId || null)
           .eq('status', 'Recebido')
           .gte('order_date', sixMonthsAgo.toISOString());
 
@@ -264,7 +272,7 @@ export default function PurchasingPage() {
     }
 
     fetchData();
-  }, []);
+  }, [user?.companyId]);
 
   if (!hasPermission('Compras', 'view')) {
     return (
@@ -352,7 +360,7 @@ export default function PurchasingPage() {
             </select>
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer id="comp-price-area-resp" name="comp-price-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
               <AreaChart data={priceHistory}>
                 <defs>
                   <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -408,7 +416,7 @@ export default function PurchasingPage() {
             </button>
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer id="comp-supp-bar-resp" name="comp-supp-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
               <BarChart data={supplierPerformance} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
                 <XAxis type="number" hide />

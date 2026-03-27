@@ -33,10 +33,10 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         category: 'Venda PDV',
         type: 'entrada',
         amount: s.total,
-        status: 'Concluído',
+        status: 'Pago',
         source: 'sale'
       })),
-      ...expenses.map(e => ({
+      ...expenses.filter(e => e.status === 'Pago').map(e => ({
         id: `exp-${e.id}`,
         date: e.paymentDate || e.date,
         description: e.description,
@@ -46,16 +46,6 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         status: e.status,
         source: 'expense'
       })),
-      ...stockMovements.filter(m => m.type === 'COMPRA').map(m => ({
-        id: `stk-${m.id}`,
-        date: m.date,
-        description: `Compra de Estoque - ${m.productName || 'Produto'}`,
-        category: 'Fornecedores',
-        type: 'saida',
-        amount: m.quantity * (m.cost || 0),
-        status: 'Concluído',
-        source: 'purchase'
-      })),
       ...cashMovements.filter(m => m.type === 'suprimento' || m.type === 'sangria').map(m => ({
         id: `csh-${m.id}`,
         date: m.createdAt,
@@ -63,7 +53,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         category: 'Movimentação de Caixa',
         type: m.type === 'suprimento' ? 'entrada' : 'saida',
         amount: m.amount,
-        status: 'Concluído',
+        status: 'Pago',
         source: 'cash'
       }))
     ];
@@ -76,7 +66,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         t.category.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, expenses, stockMovements, cashMovements, daysFilter, typeFilter, searchTerm]);
+  }, [sales, expenses, cashMovements, daysFilter, typeFilter, searchTerm]);
 
   const totals = useMemo(() => {
     return transactions.reduce((acc, t) => {

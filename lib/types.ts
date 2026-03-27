@@ -45,6 +45,7 @@ export interface Subcategoria {
 
 export interface Product {
   id: string;
+  companyId: string;
   name: string;
   sku: string;
   costPrice: number;
@@ -64,6 +65,7 @@ export interface Product {
   category?: string;
   subgroup?: string;
   validade?: string;
+  has_had_stock?: boolean;
 }
 
 export interface CashRegister {
@@ -163,6 +165,7 @@ export interface SalePayment {
 
 export interface Sale {
   id: string;
+  companyId: string;
   date: string;
   items: SaleItem[];
   total: number;
@@ -194,6 +197,7 @@ export interface DiscountLog {
 
 export interface Customer {
   id: string;
+  companyId: string;
   name: string;
   document: string;
   phone: string;
@@ -205,6 +209,7 @@ export interface Customer {
 
 export interface Supplier {
   id: string;
+  companyId: string;
   name: string;
   document: string;
   phone: string;
@@ -234,6 +239,7 @@ export interface Promotion {
 
 export interface Expense {
   id: string;
+  companyId: string;
   description: string;
   category: string;
   supplier?: string; // Nome do fornecedor
@@ -276,6 +282,7 @@ export interface CompanySettings {
 
 export interface StockMovement {
   id: string;
+  companyId: string;
   productId: string;
   loteId?: string;
   type: 'ENTRADA' | 'SAÍDA' | 'AJUSTE' | 'COMPRA';
@@ -360,6 +367,7 @@ export interface SystemSettings {
     email: boolean;
     push: boolean;
     sms: boolean;
+    senderEmail?: string;
   };
 }
 
@@ -380,6 +388,17 @@ export interface Maquininha {
   taxa_credito_parcelado: number;
   ativo: boolean;
   created_at: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  document?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  status: 'Ativo' | 'Inativo';
+  createdAt: string;
 }
 
 export const INITIAL_PRODUCTS: Product[] = [];

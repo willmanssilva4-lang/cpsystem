@@ -35,7 +35,7 @@ import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -138,43 +138,67 @@ export default function ProductsPage() {
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet);
       
-      json.forEach((item: any) => {
-        let subcategoria_id = '';
-        if (item.Subcategoria) {
-          const sub = subcategorias.find(s => s.nome.toLowerCase() === String(item.Subcategoria).toLowerCase());
-          if (sub) {
-            subcategoria_id = sub.id;
+      const processImports = async () => {
+        let importedCount = 0;
+        let duplicateCount = 0;
+
+        for (const item of json as any[]) {
+          let subcategoria_id = '';
+          if (item.Subcategoria) {
+            const sub = subcategorias.find(s => s.nome.toLowerCase() === String(item.Subcategoria).toLowerCase());
+            if (sub) {
+              subcategoria_id = sub.id;
+            }
+          }
+
+          const costPrice = Number(item['Preço de Custo']) || 0;
+          const salePrice = Number(item['Preço de Venda']) || 0;
+          const profit = Math.round((salePrice - costPrice) * 100) / 100;
+          let profitPercentage = 0;
+          
+          if (pricingSettings?.defaultMethod === 'markup') {
+            profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+          } else {
+            profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+          }
+
+          const success = await addProduct({
+            id: Math.random().toString(36).substr(2, 9),
+            name: item.Nome,
+            sku: item.SKU,
+            unit: item['Unidade de Medida'] || 'UN',
+            subcategoria_id: subcategoria_id,
+            costPrice: costPrice,
+            salePrice: salePrice,
+            profit: profit,
+            profitPercentage: Math.round(profitPercentage * 100) / 100,
+            stock: Number(item.Estoque),
+            minStock: Number(item['Estoque Mínimo']),
+            status: item.Status || 'Ativo',
+            image: 'https://picsum.photos/seed/product/200/200'
+          } as Product);
+
+          if (success) {
+            importedCount++;
+          } else {
+            duplicateCount++;
           }
         }
-
-        const costPrice = Number(item['Preço de Custo']) || 0;
-        const salePrice = Number(item['Preço de Venda']) || 0;
-        const profit = Math.round((salePrice - costPrice) * 100) / 100;
-        let profitPercentage = 0;
         
-        if (pricingSettings?.defaultMethod === 'markup') {
-          profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+        if (duplicateCount > 0) {
+          setCustomAlert({
+            message: `${importedCount} produtos importados. ${duplicateCount} produtos ignorados por código duplicado.`,
+            type: 'warning'
+          });
         } else {
-          profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+          setCustomAlert({
+            message: 'Produtos importados com sucesso!',
+            type: 'success'
+          });
         }
+      };
 
-        addProduct({
-          id: Math.random().toString(36).substr(2, 9),
-          name: item.Nome,
-          sku: item.SKU,
-          unit: item['Unidade de Medida'] || 'UN',
-          subcategoria_id: subcategoria_id,
-          costPrice: costPrice,
-          salePrice: salePrice,
-          profit: profit,
-          profitPercentage: Math.round(profitPercentage * 100) / 100,
-          stock: Number(item.Estoque),
-          minStock: Number(item['Estoque Mínimo']),
-          status: item.Status || 'Ativo',
-          image: 'https://picsum.photos/seed/product/200/200'
-        } as Product);
-      });
-      alert('Produtos importados com sucesso!');
+      processImports();
     };
     reader.readAsBinaryString(file);
   };
@@ -209,11 +233,12 @@ export default function ProductsPage() {
   });
 
   const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
-  const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
+  const lowStockCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
 
-  const handleSaveProduct = (formData: any) => {
+  const handleSaveProduct = async (formData: any) => {
+    let success = false;
     if (editingProduct) {
-      updateProduct({
+      success = await updateProduct({
         ...editingProduct,
         ...formData,
         costPrice: Number(formData.costPrice),
@@ -229,7 +254,7 @@ export default function ProductsPage() {
         subgroup: formData.subgroup || 'PADRAO'
       });
     } else {
-      addProduct({
+      success = await addProduct({
         id: Math.random().toString(36).substr(2, 9),
         name: formData.name,
         sku: formData.sku,
@@ -250,8 +275,11 @@ export default function ProductsPage() {
         subgroup: formData.subgroup || 'PADRAO'
       });
     }
-    setShowModal(false);
-    setEditingProduct(null);
+
+    if (success) {
+      setShowModal(false);
+      setEditingProduct(null);
+    }
   };
 
   const handleEdit = (product: Product) => {

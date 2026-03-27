@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
@@ -29,7 +29,10 @@ interface ERPContextType {
   maquininhas: Maquininha[];
   promotions: Promotion[];
   returns: Return[];
-  user: { id: string; name: string; email: string; role: string; profileId?: string } | null;
+  user: { id: string; name: string; email: string; role: string; profileId?: string; companyId?: string } | null;
+  isSuperAdmin: boolean;
+  isAuthReady: boolean;
+  isLoading: boolean;
   hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete') => boolean;
   discountLogs: DiscountLog[];
   cashRegisters: CashRegister[];
@@ -43,8 +46,8 @@ interface ERPContextType {
   suspendCashRegister: () => Promise<void>;
   blockCashRegister: (reason: string) => Promise<void>;
   logAuditAction: (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => Promise<void>;
-  addProduct: (product: Product) => void;
-  updateProduct: (product: Product) => void;
+  addProduct: (product: Product) => Promise<boolean>;
+  updateProduct: (product: Product) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id'>) => Promise<Sale | null>;
   addReturn: (returnData: Omit<Return, 'id'>) => Promise<boolean>;
@@ -70,13 +73,13 @@ interface ERPContextType {
   deleteAccessProfile: (id: string) => Promise<void>;
   updatePermissions: (profileId: string, permissions: Omit<Permission, 'id'>[]) => Promise<void>;
   updatePricingSettings: (settings: PricingSettings) => void;
-  updateCompanySettings: (settings: CompanySettings) => void;
+  updateCompanySettings: (settings: CompanySettings) => Promise<void> | void;
   updateSystemSettings: (settings: SystemSettings) => void;
-  sendEmailNotification: (to: string, subject: string, body: string, html?: string) => Promise<boolean>;
-  addPaymentMethod: (method: Omit<PaymentMethod, 'id'>) => void;
-  updatePaymentMethod: (method: PaymentMethod) => void;
-  deletePaymentMethod: (id: string) => void;
-  login: (email: string, password: string) => Promise<boolean>;
+  sendEmailNotification: (to: string, subject: string, body: string, html?: string, from?: string) => Promise<{ success: boolean; error?: string }>;
+  addPaymentMethod: (method: Omit<PaymentMethod, 'id'>) => Promise<boolean>;
+  updatePaymentMethod: (method: PaymentMethod) => Promise<boolean>;
+  deletePaymentMethod: (id: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{success: boolean, error?: string}>;
   logout: () => Promise<void>;
   updateSale: (sale: Sale) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
@@ -106,6 +109,8 @@ interface ERPContextType {
   deletePromotion: (id: string) => Promise<void>;
   seedMercadologicalTree: () => Promise<void>;
   seedExpenseCategories: () => Promise<void>;
+  customAlert: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null;
+  setCustomAlert: (alert: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null) => void;
 }
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
@@ -172,24 +177,56 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       state: 'RJ'
     }
   });
-  const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; profileId?: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; profileId?: string; companyId?: string } | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [customAlert, setCustomAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const originalAlert = window.alert;
+      window.alert = (message: string) => {
+        setCustomAlert({ message, type: 'info' });
+      };
+      return () => {
+        window.alert = originalAlert;
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.email?.toLowerCase() === 'willmanssilva4@gmail.com') {
+      setIsSuperAdmin(true);
+    } else {
+      setIsSuperAdmin(false);
+    }
+  }, [user]);
+
+  const fetchData = useCallback(async () => {
+    // Get current user from localStorage to avoid dependency cycles
+    const storedUser = localStorage.getItem('erp_user');
+    const currentUser = storedUser ? JSON.parse(storedUser) : null;
+    
+    if (!currentUser?.companyId) {
+      return;
+    }
+
+    const companyId = currentUser.companyId;
+
     try {
-      const { data: productsData } = await supabase.from('products').select('*');
-      const { data: customersData } = await supabase.from('customers').select('*');
-      const { data: suppliersData } = await supabase.from('suppliers').select('*');
-      let salesData, saleItemsData;
+      const { data: productsData } = await supabase.from('products').select('*').eq('company_id', companyId);
+      const { data: customersData } = await supabase.from('customers').select('*').eq('company_id', companyId);
+      const { data: suppliersData } = await supabase.from('suppliers').select('*').eq('company_id', companyId);
+      let salesData;
       try {
-        const res = await supabase.from('sales').select('*, sale_items(*)');
+        const res = await supabase.from('sales').select('*, sale_items(*)').eq('company_id', companyId);
         if (res.error) throw res.error;
         salesData = res.data;
       } catch (e) {
         console.warn('Failed to fetch sales with join, fetching separately...', e);
         const [salesRes, itemsRes] = await Promise.all([
-          supabase.from('sales').select('*'),
-          supabase.from('sale_items').select('*')
+          supabase.from('sales').select('*').eq('company_id', companyId),
+          supabase.from('sale_items').select('*').eq('company_id', companyId)
         ]);
         if (salesRes.data) {
           salesData = salesRes.data.map(s => ({
@@ -198,29 +235,49 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           }));
         }
       }
-      const { data: lossesData } = await supabase.from('losses').select('*');
-      const { data: expensesData } = await supabase.from('expenses').select('*');
-      const { data: movementsData } = await supabase.from('stock_movements').select('*');
-      const { data: inventoriesData } = await supabase.from('inventories').select('*');
-      const { data: employeesData } = await supabase.from('employees').select('*');
-      const { data: systemUsersData } = await supabase.from('system_users').select('*');
-      const { data: accessProfilesData } = await supabase.from('access_profiles').select('*');
-      const { data: permissionsData } = await supabase.from('permissions').select('*');
-      const { data: departamentosData } = await supabase.from('departamentos').select('*');
-      const { data: categoriasData } = await supabase.from('categorias').select('*');
-      const { data: expenseCategoriesData } = await supabase.from('expense_categories').select('*');
-      const { data: subcategoriasData } = await supabase.from('subcategorias').select('*');
-      const { data: discountLogsData } = await supabase.from('vendas_descontos').select('*');
-      const { data: registersData } = await supabase.from('cash_registers').select('*');
-      const { data: movementsData_cash } = await supabase.from('cash_movements').select('*');
-      const { data: closingsData } = await supabase.from('cash_closings').select('*');
-      const { data: auditLogsData } = await supabase.from('audit_logs').select('*');
-      const { data: lotesData } = await supabase.from('produto_lotes').select('*');
-      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
-      const { data: maquininhasData } = await supabase.from('maquininhas').select('*');
-      const { data: promotionsData } = await supabase.from('promotions').select('*');
-      const { data: returnsData } = await supabase.from('returns').select('*, return_items(*)');
+      const { data: lossesData } = await supabase.from('losses').select('*').eq('company_id', companyId);
+      const { data: expensesData } = await supabase.from('expenses').select('*').eq('company_id', companyId);
+      const { data: movementsData } = await supabase.from('stock_movements').select('*').eq('company_id', companyId);
+      const { data: inventoriesData } = await supabase.from('inventories').select('*').eq('company_id', companyId);
+      const { data: employeesData } = await supabase.from('employees').select('*').eq('company_id', companyId);
+      const { data: systemUsersData } = await supabase.from('system_users').select('*').eq('company_id', companyId);
+      const { data: accessProfilesData } = await supabase.from('access_profiles').select('*').eq('company_id', companyId);
+      const { data: permissionsData } = await supabase.from('permissions').select('*').eq('company_id', companyId);
+      const { data: departamentosData } = await supabase.from('departamentos').select('*').eq('company_id', companyId);
+      const { data: categoriasData } = await supabase.from('categorias').select('*').eq('company_id', companyId);
+      const { data: expenseCategoriesData } = await supabase.from('expense_categories').select('*').eq('company_id', companyId);
+      const { data: subcategoriasData } = await supabase.from('subcategorias').select('*').eq('company_id', companyId);
+      const { data: discountLogsData } = await supabase.from('vendas_descontos').select('*').eq('company_id', companyId);
+      const { data: registersData } = await supabase.from('cash_registers').select('*').eq('company_id', companyId);
+      const { data: movementsData_cash } = await supabase.from('cash_movements').select('*').eq('company_id', companyId);
+      const { data: closingsData } = await supabase.from('cash_closings').select('*').eq('company_id', companyId);
+      const { data: auditLogsData } = await supabase.from('audit_logs').select('*').eq('company_id', companyId);
+      const { data: lotesData } = await supabase.from('produto_lotes').select('*').eq('company_id', companyId);
+      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*').eq('company_id', companyId);
+      const { data: maquininhasData } = await supabase.from('maquininhas').select('*').eq('company_id', companyId);
+      const { data: promotionsData } = await supabase.from('promotions').select('*').eq('company_id', companyId);
+      const { data: returnsData } = await supabase.from('returns').select('*, return_items(*)').eq('company_id', companyId);
+      const { data: companyData } = await supabase.from('companies').select('*').eq('id', companyId).single();
       
+      if (companyData) {
+        setCompanySettings(prev => ({
+          ...prev,
+          tradeName: companyData.name || prev.tradeName,
+          legalName: companyData.name || prev.legalName,
+          cnpj: companyData.document || prev.cnpj,
+          email: companyData.email || prev.email,
+          phone: companyData.phone || prev.phone,
+          address: {
+            ...prev.address,
+            street: companyData.address || prev.address.street
+          }
+        }));
+      } else {
+        const savedCompany = localStorage.getItem('company_settings');
+        if (savedCompany) {
+          setCompanySettings(JSON.parse(savedCompany));
+        }
+      }
       if (returnsData) {
         setReturns(returnsData.map(r => ({
           id: r.id,
@@ -276,7 +333,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           status: p.status || 'Ativo',
           codigo_mercadologico: p.codigo_mercadologico,
           subcategoria_id: p.subcategoria_id,
-          validade: p.validade
+          validade: p.validade,
+          has_had_stock: p.has_had_stock
         }));
 
         // Calculate virtual stock for kits
@@ -619,12 +677,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         setPricingSettings(JSON.parse(savedPricing));
       }
 
-      // Load company settings from localStorage as fallback for now
-      const savedCompany = localStorage.getItem('company_settings');
-      if (savedCompany) {
-        setCompanySettings(JSON.parse(savedCompany));
-      }
-
       // Load system settings from localStorage as fallback for now
       const savedSystem = localStorage.getItem('system_settings');
       if (savedSystem) {
@@ -677,7 +729,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       setLosses(INITIAL_LOSSES);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let productsSubscription: any;
@@ -698,21 +750,53 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          console.log('Found Supabase session, restoring user...');
           // Fetch user details from system_users table
-          const { data: userData, error: userError } = await supabase
-            .from('system_users')
-            .select('*, employees(full_name), access_profiles(name)')
-            .eq('id', session.user.id)
-            .single();
+          let userData = null;
+          try {
+            // Try simple query first to avoid join issues
+            const { data, error: userError } = await supabase
+              .from('system_users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (userError) {
+              if (userError.code === 'PGRST116') {
+                console.warn('User not found in system_users table');
+              } else {
+                console.error('Error fetching system_user:', userError.message);
+              }
+            } else {
+              userData = data;
+              
+              // Try to get joined data separately or in a second pass if needed
+              // For now, we'll just use the data we have and try to enrich it
+              try {
+                const { data: enrichedData } = await supabase
+                  .from('system_users')
+                  .select('employees!employee_id(full_name), access_profiles!profile_id(name)')
+                  .eq('id', session.user.id)
+                  .single();
+                
+                if (enrichedData) {
+                  userData = { ...userData, ...enrichedData };
+                }
+              } catch (enrichErr) {
+                console.warn('Could not enrich user data with joins:', enrichErr);
+              }
+            }
+          } catch (err: any) {
+            console.error('Unexpected error fetching user details:', err?.message || err);
+          }
 
           if (userData) {
             const user = {
               id: userData.id,
-              name: userData.employees?.full_name || userData.username,
-              email: userData.email || userData.username,
+              name: userData.employees?.full_name || userData.username || userData.full_name || session.user.email?.split('@')[0] || 'Usuário',
+              email: userData.email || session.user.email || userData.username || '',
               role: userData.access_profiles?.name || userData.profile_id || 'user',
-              profileId: userData.profile_id
+              profileId: userData.profile_id,
+              companyId: userData.company_id
             };
             setUser(user);
             localStorage.setItem('erp_user', JSON.stringify(user));
@@ -819,12 +903,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (departamentosSubscription) supabase.removeChannel(departamentosSubscription);
       if (paymentMethodsSubscription) supabase.removeChannel(paymentMethodsSubscription);
     };
-  }, []);
+  }, [fetchData]);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<{success: boolean, error?: string}> => {
     try {
       const cleanInput = username.trim();
-      const cleanPassword = password.trim();
+      const cleanPassword = password;
 
       console.log('Attempting login for:', cleanInput);
 
@@ -876,19 +960,57 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Supabase Auth Login error:', error.message);
-        return false;
+        return { success: false, error: `Login failed for email ${emailToUse}: ${error.message}` };
       }
 
       if (data.user) {
         // Fetch user details from system_users table
-        const { data: userData, error: userError } = await supabase
-          .from('system_users')
-          .select('*, employees(full_name), access_profiles(name)')
-          .eq('id', data.user.id)
-          .single();
+        let userData = null;
+        try {
+          // Try simple query first
+          const { data: simpleData, error: userError } = await supabase
+            .from('system_users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+          
+          if (!userError && simpleData) {
+            userData = simpleData;
+            
+            // Try to enrich
+            try {
+              const { data: enrichedData } = await supabase
+                .from('system_users')
+                .select('employees!employee_id(full_name), access_profiles!profile_id(name)')
+                .eq('id', data.user.id)
+                .single();
+              
+              if (enrichedData) {
+                userData = { ...userData, ...enrichedData };
+              }
+            } catch (enrichErr) {
+              console.warn('Could not enrich user data with joins:', enrichErr);
+            }
+          } else if (userError && userError.code !== 'PGRST116') {
+            console.error('Error fetching system_user:', userError.message);
+          }
+        } catch (err: any) {
+          console.error('Unexpected error fetching user details:', err?.message || err);
+        }
 
-        if (userError || !userData) {
-          console.error('Error fetching user details:', userError?.message);
+        if (userData) {
+          const user = {
+            id: userData.id,
+            name: userData.employees?.full_name || userData.username || userData.full_name || data.user.email?.split('@')[0] || 'Usuário',
+            email: userData.email || data.user.email || emailToUse,
+            role: userData.access_profiles?.name || userData.role || 'user',
+            profileId: userData.profile_id,
+            companyId: userData.company_id
+          };
+          setUser(user);
+          localStorage.setItem('erp_user', JSON.stringify(user));
+        } else {
+          console.warn('System user not found, using auth user data');
           // Fallback if system_users entry is missing
           const fallbackUser = {
             id: data.user.id,
@@ -898,24 +1020,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           };
           setUser(fallbackUser);
           localStorage.setItem('erp_user', JSON.stringify(fallbackUser));
-        } else {
-          const user = {
-            id: userData.id,
-            name: userData.employees?.full_name || userData.username,
-            email: userData.email || userData.username,
-            role: userData.access_profiles?.name || userData.profile_id || 'user',
-            profileId: userData.profile_id
-          };
-          setUser(user);
-          localStorage.setItem('erp_user', JSON.stringify(user));
         }
-        return true;
+        return { success: true };
       }
       
-      return false;
-    } catch (err) {
+      return { success: false, error: 'Unknown error occurred' };
+    } catch (err: any) {
       console.error('Login error:', err);
-      return false;
+      return { success: false, error: err.message || 'Unknown error occurred' };
     }
   };
 
@@ -925,8 +1037,25 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  const addProduct = async (product: Product) => {
+  const addProduct = async (product: Product): Promise<boolean> => {
+    if (!user?.companyId) return false;
+
+    // Check for duplicate SKU (code)
+    if (product.sku && product.sku.trim() !== '') {
+      const existingProduct = products.find(p => 
+        p.sku && p.sku.toLowerCase() === product.sku.toLowerCase()
+      );
+      if (existingProduct) {
+        setCustomAlert({
+          message: "produto já cadastrado, código não pode ser cadastrado",
+          type: 'error'
+        });
+        return false;
+      }
+    }
+    
     let insertData = {
+      company_id: user.companyId,
       name: product.name,
       subcategoria_id: product.subcategoria_id === '' ? null : product.subcategoria_id,
       sku: product.sku,
@@ -938,7 +1067,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       composition: product.composition,
       status: product.status || 'Ativo',
       codigo_mercadologico: product.codigo_mercadologico,
-      validade: product.validade || null
+      validade: product.validade || null,
+      has_had_stock: product.stock > 0
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
@@ -956,20 +1086,47 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       error = retry.error;
       
       if (!error) {
-        alert('Produto salvo, mas alguns campos (como Status, Composição ou Cód. Mercadológico) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, adicione as colunas "status" (text), "composition" (jsonb) e "codigo_mercadologico" (text) na tabela "products".');
+        setCustomAlert({
+          message: 'Produto salvo, mas alguns campos (como Status, Composição, Cód. Mercadológico ou Validade) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (fix_schema_issues.sql) no seu painel do Supabase.',
+          type: 'warning'
+        });
       }
     }
 
     if (error) {
       console.error('Error adding product:', error.message, error.details, error.hint, error);
-      alert(`Erro ao adicionar produto: ${error.message || JSON.stringify(error)}`);
+      setCustomAlert({
+        message: `Erro ao adicionar produto: ${error.message || JSON.stringify(error)}`,
+        type: 'error'
+      });
+      return false;
     } else if (data) {
       await fetchData();
+      return true;
     }
+    return false;
   };
 
-  const updateProduct = async (updated: Product) => {
+  const updateProduct = async (updated: Product): Promise<boolean> => {
+    if (!user?.companyId) return false;
+
+    // Check for duplicate SKU (code) excluding current product
+    if (updated.sku && updated.sku.trim() !== '') {
+      const existingProduct = products.find(p => 
+        p.id !== updated.id && 
+        p.sku && p.sku.toLowerCase() === updated.sku.toLowerCase()
+      );
+      if (existingProduct) {
+        setCustomAlert({
+          message: "produto já cadastrado, código não pode ser cadastrado",
+          type: 'error'
+        });
+        return false;
+      }
+    }
+
     let updateData = {
+      company_id: user.companyId,
       name: updated.name,
       subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
       sku: updated.sku,
@@ -981,7 +1138,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       composition: updated.composition,
       status: updated.status || 'Ativo',
       codigo_mercadologico: updated.codigo_mercadologico,
-      validade: updated.validade || null
+      validade: updated.validade || null,
+      has_had_stock: updated.stock > 0 || updated.has_had_stock
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
@@ -998,15 +1156,23 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       error = retry.error;
       
       if (!error) {
-        alert('Produto atualizado, mas alguns campos (como Status ou Composição) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, adicione as colunas "status" (text) e "composition" (jsonb) na tabela "products".');
+        setCustomAlert({
+          message: 'Produto atualizado, mas alguns campos (como Status, Composição, Cód. Mercadológico ou Validade) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (fix_schema_issues.sql) no seu painel do Supabase.',
+          type: 'warning'
+        });
       }
     }
 
     if (error) {
       console.error('Error updating product:', error.message, error.details, error.hint, error);
-      alert(`Erro ao atualizar produto: ${error.message || JSON.stringify(error)}`);
+      setCustomAlert({
+        message: `Erro ao atualizar produto: ${error.message || JSON.stringify(error)}`,
+        type: 'error'
+      });
+      return false;
     } else {
       await fetchData();
+      return true;
     }
   };
 
@@ -1035,6 +1201,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       let saleData, saleError;
       
       const insertPayload = {
+        company_id: user?.companyId || null,
         customer_id: sale.customerId || null,
         total: sale.total,
         subtotal: sale.subtotal || sale.total,
@@ -1058,10 +1225,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       // If it fails, try a more robust fallback
       if (saleError) {
         console.warn('Sale insert failed, trying fallback...', { error: saleError, status: res.status });
-        console.log('DEBUG: Fallback acionado. safePayload:', { tax_amount: sale.taxAmount, errorMsg });
-
+        
         const errorMsg = saleError.message?.toLowerCase() || '';
         const safePayload: any = {
+          company_id: user?.companyId || null,
           total: sale.total,
           payment_method: ['Dinheiro', 'Pix', 'Crédito', 'Débito', 'Fiado'].includes(sale.paymentMethod) ? sale.paymentMethod : 'Dinheiro',
           date: sale.date
@@ -1085,6 +1252,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.error('Fallback insert also failed:', fallbackRes.error);
           const absoluteMinimal = {
+            company_id: user?.companyId || null,
             total: sale.total,
             payment_method: 'Dinheiro', // Use a guaranteed valid method for the absolute fallback
             date: sale.date
@@ -1122,6 +1290,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const itemsToInsert = sale.items.map(item => {
           const product = products.find(p => p.id === item.productId);
           return {
+            company_id: user?.companyId || null,
             sale_id: saleId,
             product_id: item.productId,
             quantity: item.quantity,
@@ -1140,6 +1309,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         if (itemsError && itemsError.message && itemsError.message.includes('column')) {
           console.warn('Retrying sale_items insert without original_price/discount columns...');
           const fallbackItems = sale.items.map(item => ({
+            company_id: user?.companyId || null,
             sale_id: saleId,
             product_id: item.productId,
             quantity: item.quantity,
@@ -1160,6 +1330,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           if (product) {
             // Record stock movement
             const movePayload = {
+              company_id: user?.companyId || null,
               product_id: item.productId,
               type: 'SAÍDA',
               quantity: -item.quantity,
@@ -1190,11 +1361,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
                   for (const lote of componentLotes) {
                     if (qtyToDeduct <= 0) break;
                     const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
-                    await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+                    await supabase.from('produto_lotes').update({ company_id: user?.companyId || null, saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
                     qtyToDeduct -= deduction;
                   }
 
                   await supabase.from('products').update({ 
+                    company_id: user?.companyId || null,
                     stock: componentProduct.stock - (comp.quantity * item.quantity) 
                   }).eq('id', componentProduct.id);
                 }
@@ -1209,11 +1381,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               for (const lote of productLotes) {
                 if (qtyToDeduct <= 0) break;
                 const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
-                await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+                await supabase.from('produto_lotes').update({ company_id: user?.companyId || null, saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
                 qtyToDeduct -= deduction;
               }
 
-              await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', product.id);
+              await supabase.from('products').update({ company_id: user?.companyId || null, stock: product.stock - item.quantity }).eq('id', product.id);
             }
           }
         }
@@ -1221,7 +1393,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         if (sale.customerId) {
           const customer = customers.find(c => c.id === sale.customerId);
           if (customer) {
-            await supabase.from('customers').update({ total_spent: customer.totalSpent + sale.total }).eq('id', customer.id);
+            await supabase.from('customers').update({ company_id: user?.companyId || null, total_spent: customer.totalSpent + sale.total }).eq('id', customer.id);
           }
         }
 
@@ -1242,6 +1414,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const { data: returnRes, error: returnError } = await supabase
         .from('returns')
         .insert([{
+          company_id: user?.companyId || null,
           sale_id: returnData.saleId,
           date: returnData.date,
           total: returnData.total,
@@ -1265,6 +1438,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const returnId = returnRes[0].id;
 
         const itemsToInsert = returnData.items.map(item => ({
+          company_id: user?.companyId || null,
           return_id: returnId,
           product_id: item.productId,
           quantity: item.quantity,
@@ -1280,6 +1454,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           if (product) {
             // Record stock movement
             await supabase.from('stock_movements').insert([{
+              company_id: user?.companyId || null,
               product_id: item.productId,
               type: 'ENTRADA',
               quantity: item.quantity,
@@ -1289,7 +1464,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               user_name: user?.name || 'Sistema'
             }]);
 
-            await supabase.from('products').update({ stock: product.stock + item.quantity }).eq('id', product.id);
+            await supabase.from('products').update({ 
+              company_id: user?.companyId || null, 
+              stock: product.stock + item.quantity,
+              has_had_stock: true 
+            }).eq('id', product.id);
           }
         }
 
@@ -1316,6 +1495,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addDiscountLog = async (log: Omit<DiscountLog, 'id'>) => {
     const { error } = await supabase.from('vendas_descontos').insert([{
+      company_id: user?.companyId || null,
       venda_id: log.saleId,
       produto_id: log.productId,
       tipo: log.type,
@@ -1336,6 +1516,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomer = async (customer: Customer) => {
     const { error } = await supabase.from('customers').insert([{
+      company_id: user?.companyId || null,
       name: customer.name,
       document: customer.document,
       phone: customer.phone,
@@ -1352,6 +1533,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addSupplier = async (supplier: Supplier) => {
     const { error } = await supabase.from('suppliers').insert([{
+      company_id: user?.companyId || null,
       name: supplier.name,
       document: supplier.document,
       phone: supplier.phone,
@@ -1366,6 +1548,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateSupplier = async (supplier: Supplier) => {
     const { error } = await supabase.from('suppliers').update({
+      company_id: user?.companyId || null,
       name: supplier.name,
       document: supplier.document,
       phone: supplier.phone,
@@ -1384,6 +1567,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addLoss = async (loss: Omit<Loss, 'id'>) => {
     const { error } = await supabase.from('losses').insert([{
+      company_id: user?.companyId || null,
       product_id: loss.productId,
       lote_id: loss.loteId,
       quantity: loss.quantity,
@@ -1397,6 +1581,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (product) {
         // Record stock movement
         await supabase.from('stock_movements').insert([{
+          company_id: user?.companyId || null,
           product_id: loss.productId,
           type: 'SAÍDA',
           quantity: -loss.quantity,
@@ -1420,11 +1605,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               for (const lote of componentLotes) {
                 if (qtyToDeduct <= 0) break;
                 const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
-                await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+                await supabase.from('produto_lotes').update({ company_id: user?.companyId || null, saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
                 qtyToDeduct -= deduction;
               }
 
               await supabase.from('products').update({ 
+                company_id: user?.companyId || null,
                 stock: componentProduct.stock - (comp.quantity * loss.quantity) 
               }).eq('id', componentProduct.id);
             }
@@ -1436,6 +1622,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             const lote = lotes.find(l => l.id === loss.loteId);
             if (lote) {
               await supabase.from('produto_lotes').update({ 
+                company_id: user?.companyId || null,
                 saldo_atual: lote.saldoAtual - loss.quantity 
               }).eq('id', lote.id);
             }
@@ -1449,12 +1636,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             for (const lote of productLotes) {
               if (qtyToDeduct <= 0) break;
               const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
-              await supabase.from('produto_lotes').update({ saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
+              await supabase.from('produto_lotes').update({ company_id: user?.companyId || null, saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
               qtyToDeduct -= deduction;
             }
           }
 
           await supabase.from('products').update({
+            company_id: user?.companyId || null,
             stock: product.stock - loss.quantity
           }).eq('id', product.id);
         }
@@ -1468,6 +1656,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addExpense = async (expense: Omit<Expense, 'id'>) => {
     const { error } = await supabase.from('expenses').insert([{
+      company_id: user?.companyId || null,
       description: expense.description,
       category: expense.category,
       supplier: expense.supplier,
@@ -1493,6 +1682,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addStockMovement = async (movement: Omit<StockMovement, 'id'>) => {
     const { error } = await supabase.from('stock_movements').insert([{
+      company_id: user?.companyId || null,
       product_id: movement.productId,
       lote_id: movement.loteId,
       type: movement.type,
@@ -1507,10 +1697,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       const product = products.find(p => p.id === movement.productId);
       if (product) {
+        const updatePayload: any = { company_id: user?.companyId || null };
+        
         if (movement.type !== 'COMPRA') {
-          await supabase.from('products').update({
-            stock: product.stock + movement.quantity
-          }).eq('id', product.id);
+          updatePayload.stock = product.stock + movement.quantity;
+        }
+        
+        // Se a movimentação for de entrada (positiva), marca que o produto já teve estoque
+        if (movement.quantity > 0) {
+          updatePayload.has_had_stock = true;
+        }
+        
+        if (Object.keys(updatePayload).length > 1) {
+          await supabase.from('products').update(updatePayload).eq('id', product.id);
         }
       }
       await fetchData();
@@ -1523,6 +1722,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addInventory = async (inventory: Omit<Inventory, 'id'>) => {
     const { error } = await supabase.from('inventories').insert([{
+      company_id: user?.companyId || null,
       date: inventory.date,
       location: inventory.location,
       items_counted: inventory.itemsCounted,
@@ -1540,6 +1740,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error adding inventory:', JSON.stringify(error, null, 2), error);
       // Fallback if columns don't exist yet - try without new columns
       const { error: retryError } = await supabase.from('inventories').insert([{
+        company_id: user?.companyId || null,
         date: inventory.date,
         location: inventory.location,
         items_counted: inventory.itemsCounted,
@@ -1561,6 +1762,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateCustomer = async (customer: Customer) => {
     const { error } = await supabase.from('customers').update({
+      company_id: user?.companyId || null,
       name: customer.name,
       document: customer.document,
       phone: customer.phone,
@@ -1582,6 +1784,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const updateSale = async (sale: Sale) => {
     // Note: Updating a sale with items is complex. This is a simplified version.
     const { error } = await supabase.from('sales').update({
+      company_id: user?.companyId || null,
       total: sale.total,
       payment_method: sale.paymentMethod,
       customer_id: sale.customerId,
@@ -1599,6 +1802,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateLoss = async (loss: Loss) => {
     const { error } = await supabase.from('losses').update({
+      company_id: user?.companyId || null,
       product_id: loss.productId,
       quantity: loss.quantity,
       reason: loss.reason,
@@ -1617,6 +1821,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateExpense = async (expense: Expense) => {
     const { error } = await supabase.from('expenses').update({
+      company_id: user?.companyId || null,
       description: expense.description,
       category: expense.category,
       supplier: expense.supplier,
@@ -1643,6 +1848,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateStockMovement = async (movement: StockMovement) => {
     const { error } = await supabase.from('stock_movements').update({
+      company_id: user?.companyId || null,
       product_id: movement.productId,
       type: movement.type,
       quantity: movement.quantity,
@@ -1663,6 +1869,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateInventory = async (inventory: Inventory) => {
     const { error } = await supabase.from('inventories').update({
+      company_id: user?.companyId || null,
       date: inventory.date,
       location: inventory.location,
       items_counted: inventory.itemsCounted,
@@ -1684,6 +1891,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addEmployee = async (employee: Omit<Employee, 'id'>) => {
     const { error } = await supabase.from('employees').insert([{
+      company_id: user?.companyId || null,
       full_name: employee.fullName,
       cpf: employee.cpf,
       phone: employee.phone,
@@ -1698,6 +1906,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateEmployee = async (employee: Employee) => {
     const { error } = await supabase.from('employees').update({
+      company_id: user?.companyId || null,
       full_name: employee.fullName,
       cpf: employee.cpf,
       phone: employee.phone,
@@ -1736,6 +1945,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             profileId: systemUser.profileId,
             storeId: systemUser.storeId,
             status: systemUser.status,
+            companyId: user?.companyId || null,
             user_metadata: {
               name: systemUser.username
             }
@@ -1816,6 +2026,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Update system_users table
       let updateData: any = {
+        company_id: user?.companyId || null,
         username: systemUser.username,
         email: systemUser.email,
         employee_id: systemUser.employeeId,
@@ -1876,6 +2087,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addAccessProfile = async (profile: Omit<AccessProfile, 'id'>) => {
     const { error } = await supabase.from('access_profiles').insert([{
+      company_id: user?.companyId || null,
       name: profile.name,
       description: profile.description
     }]);
@@ -1885,6 +2097,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateAccessProfile = async (profile: AccessProfile) => {
     const { error } = await supabase.from('access_profiles').update({
+      company_id: user?.companyId || null,
       name: profile.name,
       description: profile.description
     }).eq('id', profile.id);
@@ -1905,6 +2118,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     // Insert new permissions
     const { error } = await supabase.from('permissions').insert(
       perms.map(p => ({
+        company_id: user?.companyId || null,
         profile_id: profileId,
         module: p.module,
         can_view: p.canView,
@@ -1922,9 +2136,23 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pricing_settings', JSON.stringify(settings));
   };
 
-  const updateCompanySettings = (settings: CompanySettings) => {
+  const updateCompanySettings = async (settings: CompanySettings) => {
     setCompanySettings(settings);
     localStorage.setItem('company_settings', JSON.stringify(settings));
+    
+    if (user?.companyId) {
+      const { error } = await supabase.from('companies').update({
+        name: settings.tradeName,
+        document: settings.cnpj,
+        email: settings.email,
+        phone: settings.phone,
+        address: settings.address.street // Simplified mapping for now
+      }).eq('id', user.companyId);
+      
+      if (error) {
+        console.error('Error updating company in database:', error);
+      }
+    }
   };
 
   const updateSystemSettings = (settings: SystemSettings) => {
@@ -1932,37 +2160,48 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('system_settings', JSON.stringify(settings));
   };
 
-  const sendEmailNotification = async (to: string, subject: string, body: string, html?: string) => {
+  const sendEmailNotification = async (to: string, subject: string, body: string, html?: string, from?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await fetch('/api/notifications/email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ to, subject, body, html }),
+        body: JSON.stringify({ 
+          to, 
+          subject, 
+          body, 
+          html,
+          from: from || systemSettings?.notifications?.senderEmail 
+        }),
       });
 
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
+        let errorMessage = 'Erro desconhecido ao enviar e-mail';
+        
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
+          errorMessage = errorData.error?.message || errorData.error || errorMessage;
           console.error('Erro ao enviar e-mail:', errorData.error || errorData);
         } else {
           const errorText = await response.text();
-          console.error('Erro ao enviar e-mail (não-JSON):', errorText.substring(0, 100));
+          errorMessage = errorText.substring(0, 100);
+          console.error('Erro ao enviar e-mail (não-JSON):', errorMessage);
         }
-        return false;
+        return { success: false, error: errorMessage };
       }
 
-      return true;
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Erro de rede ao enviar e-mail:', error);
-      return false;
+      return { success: false, error: error.message || 'Erro de rede' };
     }
   };
 
-  const addPaymentMethod = async (method: Omit<PaymentMethod, 'id'>) => {
+  const addPaymentMethod = async (method: Omit<PaymentMethod, 'id'>): Promise<boolean> => {
     const { error } = await supabase.from('payment_methods').insert([{
+      company_id: user?.companyId || null,
       name: method.name,
       type: method.type,
       tax_percentage: method.taxPercentage,
@@ -1971,19 +2210,21 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }]);
     if (!error) {
       await fetchData();
+      return true;
     } else {
       console.error('Error adding payment method details:', JSON.stringify(error, null, 2));
-      alert(`Erro ao adicionar forma de pagamento: ${error.message || 'Erro desconhecido'}`);
-      // Fallback
-      const newMethod = { ...method, id: Math.random().toString(36).substr(2, 9) };
-      const updated = [...paymentMethods, newMethod];
-      setPaymentMethods(updated);
-      localStorage.setItem('payment_methods', JSON.stringify(updated));
+      if (error.code === '23505') {
+        setCustomAlert({ message: 'Uma forma de pagamento com este nome já existe.', type: 'error' });
+      } else {
+        setCustomAlert({ message: `Erro ao adicionar forma de pagamento: ${error.message || 'Erro desconhecido'}`, type: 'error' });
+      }
+      return false;
     }
   };
 
-  const updatePaymentMethod = async (method: PaymentMethod) => {
+  const updatePaymentMethod = async (method: PaymentMethod): Promise<boolean> => {
     const { error } = await supabase.from('payment_methods').update({
+      company_id: user?.companyId || null,
       name: method.name,
       type: method.type,
       tax_percentage: method.taxPercentage,
@@ -1992,34 +2233,35 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', method.id);
     if (!error) {
       await fetchData();
+      return true;
     } else {
       console.error('Error updating payment method:', error);
-      // Fallback
-      const updated = paymentMethods.map(m => m.id === method.id ? method : m);
-      setPaymentMethods(updated);
-      localStorage.setItem('payment_methods', JSON.stringify(updated));
+      if (error.code === '23505') {
+        setCustomAlert({ message: 'Uma forma de pagamento com este nome já existe.', type: 'error' });
+      } else {
+        setCustomAlert({ message: `Erro ao atualizar forma de pagamento: ${error.message || 'Erro desconhecido'}`, type: 'error' });
+      }
+      return false;
     }
   };
 
-  const deletePaymentMethod = async (id: string) => {
+  const deletePaymentMethod = async (id: string): Promise<boolean> => {
     console.log('Context: deletePaymentMethod called with ID:', id);
     const { data, error } = await supabase.from('payment_methods').delete().eq('id', id);
     
     if (error) {
       console.error('Context: Error deleting payment method from Supabase:', JSON.stringify(error, null, 2));
-      // Fallback to local deletion if table doesn't exist or other error
-      const updated = paymentMethods.filter(m => m.id !== id);
-      setPaymentMethods(updated);
-      localStorage.setItem('payment_methods', JSON.stringify(updated));
-      console.log('Context: Fallback to local deletion performed.');
+      setCustomAlert({ message: `Erro ao excluir forma de pagamento: ${error.message || 'Erro desconhecido'}`, type: 'error' });
+      return false;
     } else {
       console.log('Context: Payment method deleted successfully from Supabase. Data:', data);
       await fetchData();
+      return true;
     }
   };
 
   const addCategoria = async (categoria: Omit<Categoria, 'id'>) => {
-    const { error } = await supabase.from('categorias').insert([categoria]);
+    const { error } = await supabase.from('categorias').insert([{ ...categoria, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding categoria:', error);
       alert('Erro ao adicionar categoria');
@@ -2029,7 +2271,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addExpenseCategory = async (categoria: Omit<ExpenseCategory, 'id'>) => {
-    const { error } = await supabase.from('expense_categories').insert([categoria]);
+    const { error } = await supabase.from('expense_categories').insert([{ ...categoria, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding expense category:', error);
       alert('Erro ao adicionar categoria de despesa');
@@ -2039,7 +2281,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateCategoria = async (categoria: Categoria) => {
-    const { error } = await supabase.from('categorias').update(categoria).eq('id', categoria.id);
+    const { error } = await supabase.from('categorias').update({ ...categoria, company_id: user?.companyId || null }).eq('id', categoria.id);
     if (error) {
       console.error('Error updating categoria:', error);
       alert('Erro ao atualizar categoria');
@@ -2069,7 +2311,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addSubcategoria = async (subcategoria: Omit<Subcategoria, 'id'>) => {
-    const { error } = await supabase.from('subcategorias').insert([subcategoria]);
+    const { error } = await supabase.from('subcategorias').insert([{ ...subcategoria, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding subcategoria:', error);
       alert('Erro ao adicionar subcategoria');
@@ -2079,7 +2321,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateSubcategoria = async (subcategoria: Subcategoria) => {
-    const { error } = await supabase.from('subcategorias').update(subcategoria).eq('id', subcategoria.id);
+    const { error } = await supabase.from('subcategorias').update({ ...subcategoria, company_id: user?.companyId || null }).eq('id', subcategoria.id);
     if (error) {
       console.error('Error updating subcategoria:', error);
       alert('Erro ao atualizar subcategoria');
@@ -2109,7 +2351,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addDepartamento = async (departamento: Omit<Departamento, 'id'>) => {
-    const { error } = await supabase.from('departamentos').insert([departamento]);
+    const { error } = await supabase.from('departamentos').insert([{ ...departamento, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding departamento:', error);
       alert('Erro ao adicionar departamento');
@@ -2119,7 +2361,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateDepartamento = async (departamento: Departamento) => {
-    const { error } = await supabase.from('departamentos').update(departamento).eq('id', departamento.id);
+    const { error } = await supabase.from('departamentos').update({ ...departamento, company_id: user?.companyId || null }).eq('id', departamento.id);
     if (error) {
       console.error('Error updating departamento:', error);
       alert('Erro ao atualizar departamento');
@@ -2168,6 +2410,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const openCashRegister = async (openingBalance: number, observation?: string) => {
     const { data, error } = await supabase.from('cash_registers').insert([{
+      company_id: user?.companyId || null,
       operator_id: (await supabase.auth.getUser()).data.user?.id,
       opening_balance: openingBalance,
       status: 'open',
@@ -2193,6 +2436,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Update Register Status
     const { error: regError } = await supabase.from('cash_registers').update({
+      company_id: user?.companyId || null,
       status: 'closed',
       closed_at: new Date().toISOString(),
       closed_by: (await supabase.auth.getUser()).data.user?.id
@@ -2206,6 +2450,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     // 2. Insert Sales Summary
     const summaryToInsert = informedTotals.map(item => ({
+      company_id: user?.companyId || null,
       cash_register_id: activeRegister.id,
       payment_method: item.method,
       system_total: item.system,
@@ -2217,6 +2462,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     // 3. Insert Closing Record
     const { data: closingData } = await supabase.from('cash_closings').insert([{
+      company_id: user?.companyId || null,
       cash_register_id: activeRegister.id,
       total_system: totalSystem,
       total_informed: totalInformed,
@@ -2230,12 +2476,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addMaquininha = async (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => {
-    const { error } = await supabase.from('maquininhas').insert([maquininha]);
+    const { error } = await supabase.from('maquininhas').insert([{ ...maquininha, company_id: user?.companyId || null }]);
     if (!error) await fetchData();
   };
 
   const updateMaquininha = async (maquininha: Maquininha) => {
     const { error } = await supabase.from('maquininhas').update({
+      company_id: user?.companyId || null,
       nome: maquininha.nome,
       taxa_debito: maquininha.taxa_debito,
       taxa_credito: maquininha.taxa_credito,
@@ -2252,6 +2499,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const addCashMovement = async (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => {
     const { data, error } = await supabase.from('cash_movements').insert([{
+      company_id: user?.companyId || null,
       cash_register_id: movement.cashRegisterId,
       type: movement.type,
       amount: movement.amount,
@@ -2270,7 +2518,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const suspendCashRegister = async () => {
     if (!activeRegister) return;
-    const { error } = await supabase.from('cash_registers').update({ status: 'suspended' }).eq('id', activeRegister.id);
+    const { error } = await supabase.from('cash_registers').update({ 
+      company_id: user?.companyId || null,
+      status: 'suspended' 
+    }).eq('id', activeRegister.id);
     if (!error) {
       await logAuditAction('suspensao', 'caixa', activeRegister.id);
       await fetchData();
@@ -2280,6 +2531,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const blockCashRegister = async (reason: string) => {
     if (!activeRegister) return;
     const { error } = await supabase.from('cash_registers').update({ 
+      company_id: user?.companyId || null,
       status: 'blocked',
       observation: (activeRegister.observation || '') + ' | Bloqueado: ' + reason 
     }).eq('id', activeRegister.id);
@@ -2291,6 +2543,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const hasPermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete') => {
     if (!user) return false;
+    const userEmail = user.email?.toLowerCase();
+    
+    // Super Admin only has permission for "Gestão de Empresas"
+    if (userEmail === 'willmanssilva4@gmail.com') {
+      return module === 'Gestão de Empresas';
+    }
+
     if (user.role === 'Administrador') return true;
     
     const profilePerms = permissions.filter(p => p.profileId === user.profileId);
@@ -2334,7 +2593,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         } else {
           const { data: deptData, error: deptError } = await supabase
             .from('departamentos')
-            .insert([{ nome: dept.nome, codigo: dept.codigo, ativo: true }])
+            .insert([{ company_id: user?.companyId || null, nome: dept.nome, codigo: dept.codigo, ativo: true }])
             .select();
 
           if (deptError) {
@@ -2367,7 +2626,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           } else {
             const { data: catData, error: catError } = await supabase
               .from('categorias')
-              .insert([{ nome: cat.nome, codigo: cat.codigo, departamento_id: deptId }])
+              .insert([{ company_id: user?.companyId || null, nome: cat.nome, codigo: cat.codigo, departamento_id: deptId }])
               .select();
 
             if (catError) {
@@ -2396,7 +2655,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             if (!existingSubs || existingSubs.length === 0) {
               const { error: subError } = await supabase
                 .from('subcategorias')
-                .insert([{ nome: sub.nome, codigo: sub.codigo, categoria_id: catId }]);
+                .insert([{ company_id: user?.companyId || null, nome: sub.nome, codigo: sub.codigo, categoria_id: catId }]);
 
               if (subError) {
                 console.error(`Error inserting subcategory ${sub.nome}:`, subError);
@@ -2443,7 +2702,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (!existing) {
-          await supabase.from('expense_categories').insert([{ nome: name }]);
+          await supabase.from('expense_categories').insert([{ company_id: user?.companyId || null, nome: name }]);
         }
       }
       await fetchData();
@@ -2458,6 +2717,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const { error } = await supabase.from('promotions').insert([{
+      company_id: user?.companyId || null,
       name: promotion.name,
       type: promotion.type,
       start_date: promotion.startDate,
@@ -2488,6 +2748,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const { error } = await supabase.from('promotions').update({
+      company_id: user?.companyId || null,
       name: promotion.name,
       type: promotion.type,
       start_date: promotion.startDate,
@@ -2550,6 +2811,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       promotions,
       returns,
       user,
+      isSuperAdmin,
+      isAuthReady: !isLoading,
+      isLoading,
       hasPermission,
       discountLogs,
       cashRegisters,
@@ -2627,9 +2891,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       seedMercadologicalTree,
-      seedExpenseCategories
+      seedExpenseCategories,
+      customAlert,
+      setCustomAlert
     }}>
-      {!isLoading && children}
+      {children}
     </ERPContext.Provider>
   );
 }

@@ -4,6 +4,7 @@
 -- 1. Mercadological Tree (Departamentos, Categorias, Subcategorias)
 CREATE TABLE IF NOT EXISTS public.departamentos (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
     codigo TEXT UNIQUE,
     nome TEXT NOT NULL,
     ativo BOOLEAN DEFAULT TRUE,
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.departamentos (
 
 CREATE TABLE IF NOT EXISTS public.categorias (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
     codigo TEXT UNIQUE,
     nome TEXT NOT NULL,
     departamento_id UUID REFERENCES public.departamentos(id) ON DELETE CASCADE,
@@ -20,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.categorias (
 
 CREATE TABLE IF NOT EXISTS public.subcategorias (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
     codigo TEXT UNIQUE,
     nome TEXT NOT NULL,
     categoria_id UUID REFERENCES public.categorias(id) ON DELETE CASCADE,
@@ -29,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.subcategorias (
 -- 2. Promotions (Promoções)
 CREATE TABLE IF NOT EXISTS public.promotions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
     name TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('PRICE', 'PERCENTAGE', 'BUY_X_GET_Y', 'COMBO')),
     start_date TIMESTAMPTZ NOT NULL,
@@ -51,6 +55,7 @@ CREATE TABLE IF NOT EXISTS public.promotions (
 -- 3. Returns and Reversals (Devoluções e Estornos)
 CREATE TABLE IF NOT EXISTS public.returns (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
     sale_id UUID REFERENCES public.sales(id) ON DELETE CASCADE,
     date TIMESTAMPTZ DEFAULT NOW(),
     total DECIMAL(12,2) NOT NULL,
@@ -63,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.returns (
 
 CREATE TABLE IF NOT EXISTS public.return_items (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    company_id UUID,
     return_id UUID REFERENCES public.returns(id) ON DELETE CASCADE,
     product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
     quantity DECIMAL(12,3) NOT NULL,

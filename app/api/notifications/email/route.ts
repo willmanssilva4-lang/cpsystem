@@ -13,10 +13,10 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(apiKey);
-    const { to, subject, body, html } = await req.json();
+    const { to, subject, body, html, from } = await req.json();
 
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      from: from || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: [to],
       subject: subject,
       text: body,

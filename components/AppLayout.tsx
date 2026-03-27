@@ -23,7 +23,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
     const notifs: any[] = [];
     
     // Low stock notifications
-    const lowStock = products.filter(p => p.stock <= p.minStock);
+    const lowStock = products.filter(p => p.stock <= p.minStock && p.has_had_stock);
     lowStock.forEach(p => {
       notifs.push({
         id: `stock-${p.id}`,
@@ -129,17 +129,21 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
     setReadNotificationIds(Array.from(new Set([...readNotificationIds, ...allIds])));
   };
 
+  const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
+
   return (
-    <header className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
+    <header id="top-bar" name="top-bar" className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
       <div className="flex items-center gap-2 md:gap-6">
         <button 
+          id="mobile-menu-toggle"
+          name="mobile-menu-toggle"
           onClick={onMenuClick}
           className="lg:hidden p-2 hover:bg-slate-50 rounded-lg transition-colors text-brand-text-main"
         >
           <Menu size={24} />
         </button>
         
-        <div className="hidden lg:flex items-center gap-2 text-brand-text-sec font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
+        <div id="date-display" name="date-display" className="hidden lg:flex items-center gap-2 text-brand-text-sec font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
           <Calendar size={18} />
           <span className="text-sm">
             {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -148,12 +152,14 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
         </div>
       </div>
 
-      <div className="flex items-center gap-3 md:gap-6">
-        <div className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
-          <button 
-            className="relative hover:text-brand-blue transition-colors p-1"
-            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-          >
+          <div id="top-bar-actions" name="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
+          <div id="notifications-container" name="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
+            <button 
+              id="notifications-toggle"
+              name="notifications-toggle"
+              className="relative hover:text-brand-blue transition-colors p-1"
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            >
             <Bell size={20} />
             {unreadCount > 0 && (
               <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-brand-green text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-white">
@@ -201,30 +207,39 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
             </div>
           )}
 
-          <button 
-            onClick={onHelpClick}
-            className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group"
-            title="Modo Ajuda"
+            <button 
+              id="help-toggle"
+              name="help-toggle"
+              onClick={onHelpClick}
+              className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group"
+              title="Modo Ajuda"
+            >
+              <HelpCircle size={20} />
+              <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Ajuda</span>
+            </button>
+  
+            {!isSuperAdmin && (
+              <Link id="settings-link" name="settings-link" href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
+                <Settings size={20} />
+              </Link>
+            )}
+          </div>
+  
+          <div className="hidden sm:block w-px h-8 bg-brand-border"></div>
+  
+          <div 
+            id="user-profile-toggle"
+            name="user-profile-toggle"
+            className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-slate-50 p-1 rounded-lg transition-colors"
+            onClick={() => !isSuperAdmin && (window.location.href = '/configuracoes')}
           >
-            <HelpCircle size={20} />
-            <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Ajuda</span>
-          </button>
-
-          <Link href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
-            <Settings size={20} />
-          </Link>
-        </div>
-
-        <div className="hidden sm:block w-px h-8 bg-brand-border"></div>
-
-        <div className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-slate-50 p-1 rounded-lg transition-colors">
           <div className="hidden md:block text-right">
             <p className="text-sm font-semibold text-brand-text-main">{user?.name || 'Usuário'}</p>
             <p className="text-xs text-brand-text-sec capitalize">{user?.role || 'Acesso'}</p>
           </div>
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-brand-blue/10 overflow-hidden border border-brand-border flex items-center justify-center">
             {user?.image ? (
-              <Image src={user.image} alt={user.name} width={40} height={40} className="object-cover" referrerPolicy="no-referrer" />
+              <Image src={user.image} alt={user.name || 'User'} width={40} height={40} className="object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm">
                 {(user?.name || 'U').charAt(0).toUpperCase()}
@@ -236,6 +251,9 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
     </header>
   );
 }
+
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GlobalAlert } from '@/components/GlobalAlert';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, systemSettings } = useERP();
@@ -268,28 +286,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen relative">
-        {!isLoginPage && !isPDVPage && (
-          <Sidebar 
-            isOpen={isMobileMenuOpen} 
-            onClose={() => setIsMobileMenuOpen(false)} 
-          />
-        )}
-        <main className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
+      <div id="app-layout" name="app-layout" className="flex min-h-screen relative">
           {!isLoginPage && !isPDVPage && (
-            <TopBar 
-              user={user} 
-              onMenuClick={() => setIsMobileMenuOpen(true)} 
-              onHelpClick={() => setIsHelpOpen(true)}
+            <Sidebar 
+              isOpen={isMobileMenuOpen} 
+              onClose={() => setIsMobileMenuOpen(false)} 
             />
           )}
-          {children}
-        </main>
-        <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+          <main id="main-content" name="main-content" data-id="main-content" data-name="main-content" className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
+            {!isLoginPage && !isPDVPage && (
+              <TopBar 
+                user={user} 
+                onMenuClick={() => setIsMobileMenuOpen(true)} 
+                onHelpClick={() => setIsHelpOpen(true)}
+              />
+            )}
+            <div id="page-content" name="page-content" data-id="page-content" data-name="page-content" className="flex-1">
+              {children}
+            </div>
+          </main>
+          <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+          <GlobalAlert />
 
-        {/* Fixed Help Button [?] */}
-        {/* Help button removed */}
-      </div>
-    </AuthGuard>
-  );
+          {/* Fixed Help Button [?] */}
+          {/* Help button removed */}
+        </div>
+      </AuthGuard>
+    );
 }

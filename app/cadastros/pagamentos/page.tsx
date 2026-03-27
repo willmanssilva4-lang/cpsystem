@@ -54,7 +54,7 @@ export default function PagamentosPage() {
     await deletePaymentMethod(id);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.type) {
       alert('Preencha os campos obrigatórios (Nome e Tipo)');
       return;
@@ -68,15 +68,18 @@ export default function PagamentosPage() {
       active: formData.active
     };
 
+    let success = false;
     if (editingId) {
-      updatePaymentMethod({ id: editingId, ...payload });
+      success = await updatePaymentMethod({ id: editingId, ...payload });
     } else {
-      addPaymentMethod(payload);
+      success = await addPaymentMethod(payload);
     }
 
-    setShowForm(false);
-    setEditingId(null);
-    setFormData({ name: '', type: 'Dinheiro', taxPercentage: '', taxFixed: '', active: true });
+    if (success) {
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({ name: '', type: 'Dinheiro', taxPercentage: '', taxFixed: '', active: true });
+    }
   };
 
   if (showForm) {

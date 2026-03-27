@@ -1563,12 +1563,14 @@ export default function PDVPage() {
       {showProductModal && (
         <ProductForm 
           onClose={() => setShowProductModal(false)}
-          onSave={(data) => {
-            addProduct({
+          onSave={async (data) => {
+            const success = await addProduct({
               ...data,
               id: Math.random().toString(36).substr(2, 9),
             });
-            setShowProductModal(false);
+            if (success) {
+              setShowProductModal(false);
+            }
           }}
         />
       )}

@@ -44,6 +44,7 @@ export default function CotacoesPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const fetchQuotations = useCallback(async () => {
+    if (!user?.companyId) return;
     const { data: quotationsData } = await supabase
       .from('quotations')
       .select(`
@@ -54,6 +55,7 @@ export default function CotacoesPage() {
         ),
         quotation_responses ( price )
       `)
+      .eq('company_id', user.companyId)
       .order('created_at', { ascending: false });
 
     if (quotationsData) {
@@ -80,11 +82,11 @@ export default function CotacoesPage() {
     setIsLoading(true);
     try {
       // Fetch Products
-      const { data: products } = await supabase.from('products').select('id, name, sku, cost_price').order('name');
+      const { data: products } = await supabase.from('products').select('id, name, sku, cost_price').eq('company_id', user?.companyId || null).order('name');
       if (products) setProductsList(products);
 
       // Fetch Suppliers
-      const { data: suppliers } = await supabase.from('suppliers').select('id, name').order('name');
+      const { data: suppliers } = await supabase.from('suppliers').select('id, name').eq('company_id', user?.companyId || null).order('name');
       if (suppliers) setSuppliersList(suppliers);
 
       // Fetch Quotations
@@ -186,6 +188,7 @@ export default function CotacoesPage() {
       const { data: quotation, error: qError } = await supabase
         .from('quotations')
         .insert({
+          company_id: user?.companyId || null,
           title,
           status: 'Em Aberto',
           limit_date: limitDate || null
@@ -197,6 +200,7 @@ export default function CotacoesPage() {
 
       // 2. Insert Items
       const itemsToInsert = items.map(item => ({
+        company_id: user?.companyId || null,
         quotation_id: quotation.id,
         product_id: item.id,
         quantity: item.qty
@@ -207,6 +211,7 @@ export default function CotacoesPage() {
 
       // 3. Insert Suppliers
       const suppliersToInsert = selectedSuppliers.map(sId => ({
+        company_id: user?.companyId || null,
         quotation_id: quotation.id,
         supplier_id: sId
       }));

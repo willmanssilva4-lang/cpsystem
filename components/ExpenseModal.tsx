@@ -36,7 +36,8 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
     observation: '',
     isRecurring: false,
     frequency: 'Mensal',
-    status: 'Pendente' as 'Pago' | 'Pendente' | 'Vencido'
+    status: 'Pendente' as 'Pago' | 'Pendente' | 'Vencido',
+    paymentDate: ''
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -55,7 +56,8 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
         observation: expenseToEdit.observation || '',
         isRecurring: expenseToEdit.isRecurring || false,
         frequency: expenseToEdit.frequency || 'Mensal',
-        status: expenseToEdit.status
+        status: expenseToEdit.status,
+        paymentDate: expenseToEdit.paymentDate || ''
       });
     }
   }, [expenseToEdit]);
@@ -98,7 +100,10 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
         observation: formData.observation,
         isRecurring: formData.isRecurring,
         frequency: formData.frequency as 'Mensal' | 'Semanal' | 'Anual',
-        status: formData.status
+        status: formData.status,
+        paymentDate: formData.status === 'Pago' 
+          ? (formData.paymentDate || new Date().toISOString()) 
+          : undefined
       };
 
       if (expenseToEdit) {

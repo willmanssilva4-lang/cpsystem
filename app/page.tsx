@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useERP } from '@/lib/context';
+import { Logo } from '@/components/Logo';
 import { 
   TrendingUp, 
   ShoppingBag, 
@@ -41,19 +42,15 @@ import {
 import { GoogleGenAI } from "@google/genai";
 import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 
+import { CompaniesManagement } from '@/components/admin/CompaniesManagement';
+
 export default function DashboardPage() {
   const router = useRouter();
-  const { products, sales, returns, customers, expenses, cashMovements, cashRegisters, activeRegister, hasPermission, employees, lotes, stockMovements } = useERP();
+  const { user, isSuperAdmin, isAuthReady, products, sales, returns, customers, expenses, cashMovements, cashRegisters, activeRegister, hasPermission, employees, lotes, stockMovements } = useERP();
 
   const [today, setToday] = React.useState('');
-  
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setToday(getLocalDateString());
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
-  
+  const [isMounted, setIsMounted] = React.useState(false);
+
   const salesToday = React.useMemo(() => {
     if (!today) return [];
     return sales.filter(s => getLocalDateString(s.date) === today);
@@ -73,14 +70,17 @@ export default function DashboardPage() {
   const expensesTodayTotal = React.useMemo(() => expensesToday.reduce((acc, exp) => acc + exp.amount, 0), [expensesToday]);
   
   // Calculate cost of goods sold today
-  let costToday = 0;
-  salesToday.forEach(sale => {
-    sale.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
-      costToday += cost * item.quantity;
+  const costToday = React.useMemo(() => {
+    let total = 0;
+    salesToday.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        const cost = product ? product.costPrice : 0;
+        total += cost * item.quantity;
+      });
     });
-  });
+    return total;
+  }, [salesToday, products]);
 
   // Calculate current cash balance (Total Sales + Opening Balances + Supplies - Bleeds - Paid Expenses - Stock Purchases - Returns)
   const currentCashBalance = React.useMemo(() => {
@@ -134,7 +134,7 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [salesToday, products]);
 
-  const lowStockItems = products.filter(p => p.stock <= p.minStock);
+  const lowStockItems = React.useMemo(() => products.filter(p => p.stock <= p.minStock && p.has_had_stock), [products]);
 
   const expiringLotes = React.useMemo(() => {
     if (!lotes) return [];
@@ -188,6 +188,63 @@ export default function DashboardPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+      setToday(getLocalDateString());
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
+
+  React.useEffect(() => {
+    // Generate data based on period
+    let days = 30;
+    if (chartPeriod === 'hoje') days = 1;
+    else if (chartPeriod === '7d') days = 7;
+    else if (chartPeriod === 'mes') {
+      days = new Date().getDate();
+    }
+    
+    const lastNDays = Array.from({ length: days }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (days - 1 - i));
+      return getLocalDateString(d);
+    });
+
+    const data = lastNDays.map(date => {
+      const daySales = sales.filter(s => getLocalDateString(s.date) === date);
+      const dayExpenses = expenses.filter(e => getLocalDateString(e.date) === date);
+      
+      return {
+        name: date.split('-')[2], // Just the day number
+        receita: daySales.reduce((acc, s) => acc + s.total, 0),
+        despesa: dayExpenses.reduce((acc, e) => acc + e.amount, 0),
+      };
+    });
+    setChartData(data);
+  }, [sales, expenses, chartPeriod]);
+
+  // Early returns AFTER all hooks
+  if (!isAuthReady || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
+        <Logo size="lg" theme="light" className="animate-pulse" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-brand-blue/20 border-t-brand-blue rounded-full animate-spin" />
+          <p className="text-brand-text-sec font-bold uppercase italic tracking-widest animate-pulse">Carregando Sistema...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSuperAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <CompaniesManagement />
+      </div>
+    );
+  }
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isTyping) return;
@@ -237,40 +294,13 @@ export default function DashboardPage() {
     }
   };
 
-  React.useEffect(() => {
-    // Generate data based on period
-    let days = 30;
-    if (chartPeriod === 'hoje') days = 1;
-    else if (chartPeriod === '7d') days = 7;
-    else if (chartPeriod === 'mes') {
-      days = new Date().getDate();
-    }
-    
-    const lastNDays = Array.from({ length: days }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (days - 1 - i));
-      return getLocalDateString(d);
-    });
-
-    const data = lastNDays.map(date => {
-      const daySales = sales.filter(s => getLocalDateString(s.date) === date);
-      const dayExpenses = expenses.filter(e => getLocalDateString(e.date) === date);
-      
-      return {
-        name: date.split('-')[2], // Just the day number
-        receita: daySales.reduce((acc, s) => acc + s.total, 0),
-        despesa: dayExpenses.reduce((acc, e) => acc + e.amount, 0),
-      };
-    });
-    setChartData(data);
-  }, [sales, expenses, chartPeriod]);
-
   if (!hasPermission('Dashboard', 'view')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <BarChart size={48} className="text-rose-500" />
         <h2 className="text-xl font-black uppercase italic text-brand-text-main">Acesso Negado</h2>
         <p className="text-brand-text-sec">Você não tem permissão para visualizar o Dashboard.</p>
+        <p className="text-xs text-brand-text-sec/50">Usuário: {user?.email || 'Desconhecido'}</p>
       </div>
     );
   }
@@ -501,6 +531,7 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen overflow-x-hidden">
       <div className="flex flex-col gap-1">
+        <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Dashboard Geral</h2>
         <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Dashboard</h2>
       </div>
 
@@ -602,30 +633,32 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
-          <div className="h-64 md:h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00E676" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#00E676" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorDespesa" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }}
-                  formatter={(value: any) => formatCurrency(value)}
-                />
-                <Area type="monotone" dataKey="receita" stroke="#00E676" strokeWidth={2} fillOpacity={1} fill="url(#colorReceita)" activeDot={{ r: 6, fill: '#00E676', stroke: '#fff', strokeWidth: 2 }} />
-                <Area type="monotone" dataKey="despesa" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorDespesa)" activeDot={{ r: 6, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div id="revenue-chart-container" name="revenue-chart-container" className="h-64 md:h-80 w-full">
+            {isMounted && (
+              <ResponsiveContainer id="revenue-chart-resp" name="revenue-chart-resp" width="100%" height="100%" minWidth={1} minHeight={1} debounce={1}>
+                <AreaChart id="revenue-chart" name="revenue-chart" data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00E676" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#00E676" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorDespesa" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6B7C93'}} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }}
+                    formatter={(value: any) => formatCurrency(value)}
+                  />
+                  <Area type="monotone" dataKey="receita" stroke="#00E676" strokeWidth={2} fillOpacity={1} fill="url(#colorReceita)" activeDot={{ r: 6, fill: '#00E676', stroke: '#fff', strokeWidth: 2 }} />
+                  <Area type="monotone" dataKey="despesa" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorDespesa)" activeDot={{ r: 6, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <div className="flex justify-center gap-8 mt-4">
             <div className="flex items-center gap-2">
@@ -640,26 +673,28 @@ export default function DashboardPage() {
         </div>
         <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Pagamento</h4>
-          <div className="h-48 md:h-56 w-full relative">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <PieChart>
-                <Pie
-                  data={displayPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {displayPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: any) => `${value}%`} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div id="payment-chart-container" name="payment-chart-container" className="h-48 md:h-56 w-full relative">
+            {isMounted && (
+              <ResponsiveContainer id="payment-chart-resp" name="payment-chart-resp" width="100%" height="100%" minWidth={1} minHeight={1} debounce={1}>
+                <PieChart id="payment-chart" name="payment-chart">
+                  <Pie
+                    data={displayPieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {displayPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => `${value}%`} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-4 mt-6">
             {displayPieData.map((item) => (
@@ -678,16 +713,18 @@ export default function DashboardPage() {
       {/* NEW SECTIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Vendas por Hora */}
-        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+        <div id="hourly-sales-container" name="hourly-sales-container" className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
           <h4 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-6">Vendas por Hora</h4>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <ReBarChart data={Array.from({length: 24}, (_, i) => ({ hour: `${i}h`, sales: sales.filter(s => new Date(s.date).getHours() === i).length }))}>
-                <XAxis dataKey="hour" />
-                <Tooltip />
-                <Bar dataKey="sales" name="Vendas" fill="#3B82F6" />
-              </ReBarChart>
-            </ResponsiveContainer>
+          <div id="hourly-chart-wrapper" name="hourly-chart-wrapper" className="h-64">
+            {isMounted && (
+              <ResponsiveContainer id="hourly-chart-resp" name="hourly-chart-resp" width="100%" height="100%" minWidth={1} minHeight={1} debounce={1}>
+                <ReBarChart id="hourly-chart" name="hourly-chart" data={Array.from({length: 24}, (_, i) => ({ hour: `${i}h`, sales: sales.filter(s => new Date(s.date).getHours() === i).length }))}>
+                  <XAxis dataKey="hour" />
+                  <Tooltip />
+                  <Bar dataKey="sales" name="Vendas" fill="#3B82F6" />
+                </ReBarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
         {/* Top Produtos */}
@@ -1228,6 +1265,11 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Companies Management Modal for Super Admin */}
+      {isSuperAdmin && showCompaniesModal && (
+        <CompaniesManagement isModal onClose={() => setShowCompaniesModal(false)} />
       )}
     </div>
   );

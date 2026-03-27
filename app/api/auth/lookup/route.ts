@@ -24,11 +24,15 @@ export async function POST(req: Request) {
     }
 
     // Query system_users to find the email for this username
+    console.log('Looking up username:', username);
     const { data, error } = await supabaseAdmin
       .from('system_users')
       .select('email')
-      .eq('username', username)
-      .single();
+      .ilike('username', username)
+      .limit(1)
+      .maybeSingle();
+
+    console.log('Lookup result:', { data, error });
 
     if (error || !data) {
       // If not found, return null (client will fall back to generated email)

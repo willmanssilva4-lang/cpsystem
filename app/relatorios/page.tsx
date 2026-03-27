@@ -90,125 +90,134 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
 
   // Dynamic Data Calculations for Dashboard
-  const filteredSales = sales.filter(s => {
+  const filteredSales = React.useMemo(() => sales.filter(s => {
     const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
-  });
+  }), [sales, startDate, endDate]);
 
-  const filteredExpenses = expenses.filter(e => {
+  const filteredExpenses = React.useMemo(() => expenses.filter(e => {
     const d = toLocalDateString(e.date);
     return d >= startDate && d <= endDate;
-  });
+  }), [expenses, startDate, endDate]);
 
   // Sales Chart Data
-  const chartDataMap = new Map();
-  filteredSales.forEach(sale => {
-    const d = sale.date.split('T')[0];
-    const dateObj = new Date(d);
-    dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
-    const dateStr = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}`;
-    
-    if (!chartDataMap.has(dateStr)) {
-      chartDataMap.set(dateStr, { date: dateStr, total: 0, profit: 0 });
-    }
-    
-    let profit = 0;
-    sale.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
-      profit += (item.price - cost) * item.quantity;
+  const dynamicSalesData = React.useMemo(() => {
+    const chartDataMap = new Map();
+    filteredSales.forEach(sale => {
+      const d = sale.date.split('T')[0];
+      const dateObj = new Date(d);
+      dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
+      const dateStr = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}`;
+      
+      if (!chartDataMap.has(dateStr)) {
+        chartDataMap.set(dateStr, { date: dateStr, total: 0, profit: 0 });
+      }
+      
+      let profit = 0;
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        const cost = product ? product.costPrice : 0;
+        profit += (item.price - cost) * item.quantity;
+      });
+
+      const current = chartDataMap.get(dateStr);
+      current.total += sale.total;
+      current.profit += profit;
     });
 
-    const current = chartDataMap.get(dateStr);
-    current.total += sale.total;
-    current.profit += profit;
-  });
-
-  const dynamicSalesData = Array.from(chartDataMap.values()).sort((a, b) => {
-    const [d1, m1] = a.date.split('/');
-    const [d2, m2] = b.date.split('/');
-    return new Date(2020, Number(m1)-1, Number(d1)).getTime() - new Date(2020, Number(m2)-1, Number(d2)).getTime();
-  });
+    return Array.from(chartDataMap.values()).sort((a, b) => {
+      const [d1, m1] = a.date.split('/');
+      const [d2, m2] = b.date.split('/');
+      return new Date(2020, Number(m1)-1, Number(d1)).getTime() - new Date(2020, Number(m2)-1, Number(d2)).getTime();
+    });
+  }, [filteredSales, products]);
 
   // Category Data
-  const categoryTotals: Record<string, number> = {};
-  let totalRevenue = 0;
-  filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      let category = 'Outros';
-      if (product && product.subcategoria_id) {
-        const sub = subcategorias.find(s => s.id === product.subcategoria_id);
-        if (sub) {
-          const cat = categorias.find(c => c.id === sub.categoria_id);
-          if (cat) category = cat.nome;
+  const { dynamicCategoryData, totalRevenue } = React.useMemo(() => {
+    const categoryTotals: Record<string, number> = {};
+    let revenue = 0;
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        let category = 'Outros';
+        if (product && product.subcategoria_id) {
+          const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+          if (sub) {
+            const cat = categorias.find(c => c.id === sub.categoria_id);
+            if (cat) category = cat.nome;
+          }
         }
-      }
-      const itemTotal = item.price * item.quantity;
-      categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
-      totalRevenue += itemTotal;
+        const itemTotal = item.price * item.quantity;
+        categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
+        revenue += itemTotal;
+      });
     });
-  });
 
-  const colors = ['#00E676', '#22C55E', '#10B981', '#34D399', '#6EE7B7', '#047857', '#064E3B'];
-  const dynamicCategoryData = Object.entries(categoryTotals)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, value], index) => ({
+    const data = Object.entries(categoryTotals).map(([name, value]) => ({
       name,
       value,
-      color: colors[index % colors.length]
-    }));
+      percentage: revenue > 0 ? (value / revenue) * 100 : 0
+    })).sort((a, b) => b.value - a.value);
+
+    return { dynamicCategoryData: data, totalRevenue: revenue };
+  }, [filteredSales, products, subcategorias, categorias]);
+
+  const colors = ['#00E676', '#22C55E', '#10B981', '#34D399', '#6EE7B7', '#047857', '#064E3B'];
 
   // Top Products Data
-  const productStats: Record<string, { qty: number, total: number }> = {};
-  filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
-      if (!productStats[item.productId]) {
-        productStats[item.productId] = { qty: 0, total: 0 };
-      }
-      productStats[item.productId].qty += item.quantity;
-      productStats[item.productId].total += item.price * item.quantity;
+  const dynamicTopProducts = React.useMemo(() => {
+    const productStats: Record<string, { qty: number, total: number }> = {};
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        if (!productStats[item.productId]) {
+          productStats[item.productId] = { qty: 0, total: 0 };
+        }
+        productStats[item.productId].qty += item.quantity;
+        productStats[item.productId].total += item.price * item.quantity;
+      });
     });
-  });
 
-  const dynamicTopProducts = Object.entries(productStats)
-    .map(([productId, stats]) => {
-      const product = products.find(p => p.id === productId);
-      return {
-        name: product ? product.name : 'Produto Desconhecido',
-        sales: `${stats.qty} un`,
-        revenue: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.total),
-        growth: '-',
-        total: stats.total
-      };
-    })
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+    return Object.entries(productStats)
+      .map(([productId, stats]) => {
+        const product = products.find(p => p.id === productId);
+        return {
+          name: product ? product.name : 'Produto Desconhecido',
+          sales: `${stats.qty} un`,
+          revenue: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.total),
+          growth: '-',
+          total: stats.total
+        };
+      })
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [filteredSales, products]);
 
   // Dados reais por semana para o gráfico de projeção/histórico
-  const projectionData = [0, 1, 2, 3].map(i => {
-    const start = new Date(startDate);
-    start.setDate(start.getDate() + (i * 7));
-    const end = new Date(start);
-    end.setDate(end.getDate() + 7);
-    
-    const weekSales = filteredSales.filter(s => {
-      const d = new Date(s.date);
-      return d >= start && d < end;
-    }).reduce((acc, s) => acc + s.total, 0);
-    
-    const weekExpenses = filteredExpenses.filter(e => {
-      const d = new Date(e.date);
-      return d >= start && d < end;
-    }).reduce((acc, e) => acc + e.amount, 0);
-    
-    return {
-      name: `Semana ${i + 1}`,
-      inflows: weekSales,
-      outflows: weekExpenses,
-      balance: weekSales - weekExpenses
-    };
-  });
+  const projectionData = React.useMemo(() => {
+    return [0, 1, 2, 3].map(i => {
+      const start = new Date(startDate);
+      start.setDate(start.getDate() + (i * 7));
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      
+      const weekSales = filteredSales.filter(s => {
+        const d = new Date(s.date);
+        return d >= start && d < end;
+      }).reduce((acc, s) => acc + s.total, 0);
+      
+      const weekExpenses = filteredExpenses.filter(e => {
+        const d = new Date(e.date);
+        return d >= start && d < end;
+      }).reduce((acc, e) => acc + e.amount, 0);
+      
+      return {
+        name: `Semana ${i + 1}`,
+        inflows: weekSales,
+        outflows: weekExpenses,
+        balance: weekSales - weekExpenses
+      };
+    });
+  }, [filteredSales, filteredExpenses, startDate]);
 
   // Accounts Payable/Receivable
   const accounts = [
@@ -456,7 +465,7 @@ export default function ReportsPage() {
                         <p className="text-sm text-slate-500 mt-2">Este relatório está sendo gerado com base nas projeções de vendas e despesas fixas.</p>
                       </div>
                       <div className="h-80 w-full bg-white rounded-3xl border border-slate-100 p-6">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                        <ResponsiveContainer id="rel-proj-bar-main-resp" name="rel-proj-bar-main-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                           <BarChart data={projectionData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
@@ -771,29 +780,33 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     .slice(0, 6);
 
   // Dados reais por semana para o gráfico de projeção/histórico
-  const projectionData = [0, 1, 2, 3].map(i => {
-    const start = new Date(startDate);
-    start.setDate(start.getDate() + (i * 7));
-    const end = new Date(start);
-    end.setDate(end.getDate() + 7);
-    
-    const weekSales = filteredSales.filter(s => {
-      const d = new Date(s.date);
-      return d >= start && d < end;
-    }).reduce((acc, s) => acc + s.total, 0);
-    
-    const weekExpenses = filteredExpenses.filter(e => {
-      const d = new Date(e.date);
-      return d >= start && d < end;
-    }).reduce((acc, e) => acc + e.amount, 0);
-    
-    return {
-      name: `Semana ${i + 1}`,
-      inflows: weekSales,
-      outflows: weekExpenses,
-      balance: weekSales - weekExpenses
-    };
-  });
+  const secondProjectionData = React.useMemo(() => {
+    return [0, 1, 2, 3].map(i => {
+      const start = new Date(startDate);
+      start.setDate(start.getDate() + (i * 7));
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      
+      const weekSales = sales.filter(s => {
+        const d = new Date(s.date);
+        const dateStr = toLocalDateString(s.date);
+        return dateStr >= startDate && dateStr <= endDate && d >= start && d < end;
+      }).reduce((acc, s) => acc + s.total, 0);
+      
+      const weekExpenses = expenses.filter(e => {
+        const d = new Date(e.date);
+        const dateStr = toLocalDateString(e.date);
+        return dateStr >= startDate && dateStr <= endDate && d >= start && d < end;
+      }).reduce((acc, e) => acc + e.amount, 0);
+      
+      return {
+        name: `Semana ${i + 1}`,
+        inflows: weekSales,
+        outflows: weekExpenses,
+        balance: weekSales - weekExpenses
+      };
+    });
+  }, [sales, expenses, startDate, endDate]);
 
   // Accounts Payable/Receivable
   const accounts = [
@@ -910,7 +923,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
             <div className="flex-1 flex items-center justify-between gap-4">
               <div className="h-64 w-1/2">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ResponsiveContainer id="rel-cat-pie-resp" name="rel-cat-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                   <PieChart>
                     <Pie
                       data={categoryData}
@@ -1013,8 +1026,8 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
               </div>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <BarChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <ResponsiveContainer id="rel-proj-bar-resp" name="rel-proj-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                <BarChart data={secondProjectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
                   <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
@@ -1039,7 +1052,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
             <div className="flex-1 flex items-center justify-between gap-6">
               <div className="h-56 w-1/2">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ResponsiveContainer id="rel-pay-pie-resp" name="rel-pay-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                   <PieChart>
                     <Pie
                       data={paymentData}
@@ -1214,45 +1227,52 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
 function DreReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, expenses } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const { filteredSales, filteredExpenses } = React.useMemo(() => {
+    return {
+      filteredSales: sales.filter(s => {
+        const d = s.date.split('T')[0];
+        return d >= startDate && d <= endDate;
+      }),
+      filteredExpenses: expenses.filter(e => {
+        const d = e.date.split('T')[0];
+        return d >= startDate && d <= endDate;
+      })
+    };
+  }, [sales, expenses, startDate, endDate]);
 
-  const filteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
-
-  const receitaBruta = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  let cmv = 0;
-  filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
-      cmv += cost * item.quantity;
+  const { receitaBruta, cmv, impostos, despesasOp, despesasAdm, depreciacao } = React.useMemo(() => {
+    const rBruta = filteredSales.reduce((acc, s) => acc + s.total, 0);
+    let costOfGoods = 0;
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        const cost = product ? product.costPrice : 0;
+        costOfGoods += cost * item.quantity;
+      });
     });
-  });
-  
-  const impostos = filteredExpenses
-    .filter(e => ['Impostos', 'Taxas'].includes(e.category))
-    .reduce((acc, e) => acc + e.amount, 0);
+    
+    const imp = filteredExpenses
+      .filter(e => ['Impostos', 'Taxas'].includes(e.category))
+      .reduce((acc, e) => acc + e.amount, 0);
+      
+    const dOp = filteredExpenses
+      .filter(e => ['Operacional', 'Fornecedores', 'Utilidades'].includes(e.category))
+      .reduce((acc, e) => acc + e.amount, 0);
+      
+    const dAdm = filteredExpenses
+      .filter(e => ['Administrativo', 'Infraestrutura', 'Salários'].includes(e.category))
+      .reduce((acc, e) => acc + e.amount, 0);
+
+    const dep = filteredExpenses
+      .filter(e => ['Depreciação', 'Amortização'].includes(e.category))
+      .reduce((acc, e) => acc + e.amount, 0);
+
+    return { receitaBruta: rBruta, cmv: costOfGoods, impostos: imp, despesasOp: dOp, despesasAdm: dAdm, depreciacao: dep };
+  }, [filteredSales, filteredExpenses, products]);
+
   const receitaLiquida = receitaBruta - impostos;
   const lucroBruto = receitaLiquida - cmv;
-  
-  // Real expenses split by category
-  const despesasOp = filteredExpenses
-    .filter(e => ['Operacional', 'Fornecedores', 'Utilidades'].includes(e.category))
-    .reduce((acc, e) => acc + e.amount, 0);
-    
-  const despesasAdm = filteredExpenses
-    .filter(e => ['Administrativo', 'Infraestrutura', 'Salários'].includes(e.category))
-    .reduce((acc, e) => acc + e.amount, 0);
-
   const ebitda = lucroBruto - despesasOp - despesasAdm;
-  const depreciacao = filteredExpenses
-    .filter(e => ['Depreciação', 'Amortização'].includes(e.category))
-    .reduce((acc, e) => acc + e.amount, 0);
   const lucroLiquido = ebitda - depreciacao;
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -1601,43 +1621,51 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string, endDa
 function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
-  });
-
-  const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  const totalOrders = filteredSales.length;
-  const ticketMedio = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-  let estimatedProfit = 0;
-  filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
-      estimatedProfit += (item.price - cost) * item.quantity;
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
     });
-  });
+  }, [sales, startDate, endDate]);
 
-  const chartDataMap = new Map();
-  filteredSales.forEach(sale => {
-    const d = sale.date.split('T')[0];
-    const dateObj = new Date(d);
-    // Adjusting for timezone offset to get the correct local day
-    dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
-    const dateStr = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}`;
-    
-    if (!chartDataMap.has(dateStr)) {
-      chartDataMap.set(dateStr, { date: dateStr, total: 0 });
-    }
-    chartDataMap.get(dateStr).total += sale.total;
-  });
+  const { totalRevenue, totalOrders, ticketMedio, estimatedProfit } = React.useMemo(() => {
+    const revenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+    const orders = filteredSales.length;
+    const ticket = orders > 0 ? revenue / orders : 0;
 
-  const chartData = Array.from(chartDataMap.values()).sort((a, b) => {
-    const [d1, m1] = a.date.split('/');
-    const [d2, m2] = b.date.split('/');
-    return new Date(2020, Number(m1)-1, Number(d1)).getTime() - new Date(2020, Number(m2)-1, Number(d2)).getTime();
-  });
+    let profit = 0;
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        const cost = product ? product.costPrice : 0;
+        profit += (item.price - cost) * item.quantity;
+      });
+    });
+
+    return { totalRevenue: revenue, totalOrders: orders, ticketMedio: ticket, estimatedProfit: profit };
+  }, [filteredSales, products]);
+
+  const chartData = React.useMemo(() => {
+    const chartDataMap = new Map();
+    filteredSales.forEach(sale => {
+      const d = sale.date.split('T')[0];
+      const dateObj = new Date(d);
+      // Adjusting for timezone offset to get the correct local day
+      dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
+      const dateStr = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}`;
+      
+      if (!chartDataMap.has(dateStr)) {
+        chartDataMap.set(dateStr, { date: dateStr, total: 0 });
+      }
+      chartDataMap.get(dateStr).total += sale.total;
+    });
+
+    return Array.from(chartDataMap.values()).sort((a, b) => {
+      const [d1, m1] = a.date.split('/');
+      const [d2, m2] = b.date.split('/');
+      return new Date(2020, Number(m1)-1, Number(d1)).getTime() - new Date(2020, Number(m2)-1, Number(d2)).getTime();
+    });
+  }, [filteredSales]);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -1664,7 +1692,7 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
       
       <div className="h-64 w-full">
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ResponsiveContainer id="rel-sales-area-resp" name="rel-sales-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
@@ -1761,7 +1789,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
           </h4>
           <div className="h-64">
             {data.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <ResponsiveContainer id="rel-pay-pie-2-resp" name="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                 <PieChart>
                   <Pie
                     data={data}
@@ -1876,7 +1904,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
     <div className="space-y-8">
       <div className="h-80 w-full">
         {data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ResponsiveContainer id="rel-hourly-bar-resp" name="rel-hourly-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
@@ -2189,7 +2217,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="h-64">
           {data.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer id="rel-cat-bar-resp" name="rel-cat-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
               <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} />

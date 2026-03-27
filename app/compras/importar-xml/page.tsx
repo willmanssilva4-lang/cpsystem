@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -16,10 +16,44 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useERP } from '@/lib/context';
 
 export default function ImportXmlPage() {
+  const { suppliers, products } = useERP();
   const [step, setStep] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
+  const [mockInvoice, setMockInvoice] = useState<any>(null);
+
+  useEffect(() => {
+    if (suppliers.length > 0 && products.length > 0) {
+      const randomSupplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+      const randomProducts = products.slice(0, 3).map(p => ({
+        id: p.sku || p.id.slice(0, 4),
+        name: p.name,
+        qty: Math.floor(Math.random() * 100) + 1,
+        un: 'UN',
+        unit: `R$ ${p.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        total: `R$ ${(p.costPrice * 10).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        linked: true
+      }));
+
+      setMockInvoice({
+        number: '000.' + Math.floor(Math.random() * 900000 + 100000),
+        supplier: randomSupplier.name,
+        date: new Date().toLocaleDateString('pt-BR'),
+        total: 'R$ ' + (randomProducts.reduce((acc, p) => acc + parseFloat(p.total.replace('R$ ', '').replace('.', '').replace(',', '.')), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        items: randomProducts
+      });
+    } else {
+      setMockInvoice({
+        number: '000.000.000',
+        supplier: 'Nenhum Fornecedor Encontrado',
+        date: new Date().toLocaleDateString('pt-BR'),
+        total: 'R$ 0,00',
+        items: []
+      });
+    }
+  }, [suppliers, products]);
 
   const handleUpload = () => {
     setIsUploading(true);
@@ -117,10 +151,10 @@ export default function ImportXmlPage() {
             {/* Invoice Header Info */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {[
-                { icon: FileText, label: 'Número NF-e', value: '000.123.456' },
-                { icon: Truck, label: 'Fornecedor', value: 'AMBEV S.A.' },
-                { icon: Calendar, label: 'Emissão', value: '01/03/2024' },
-                { icon: DollarSign, label: 'Valor Total', value: 'R$ 1.250,00' },
+                { icon: FileText, label: 'Número NF-e', value: mockInvoice?.number || '...' },
+                { icon: Truck, label: 'Fornecedor', value: mockInvoice?.supplier || '...' },
+                { icon: Calendar, label: 'Emissão', value: mockInvoice?.date || '...' },
+                { icon: DollarSign, label: 'Valor Total', value: mockInvoice?.total || '...' },
               ].map((info) => (
                 <div key={info.label} className="p-6 rounded-3xl bg-slate-50 border border-brand-border">
                   <div className="text-brand-blue mb-2"><info.icon size={20} /></div>
@@ -149,11 +183,7 @@ export default function ImportXmlPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {[
-                    { id: '1020', name: 'Cerveja Skol 350ml Lata', qty: 240, un: 'UN', unit: 'R$ 2,50', total: 'R$ 600,00', linked: true },
-                    { id: '1021', name: 'Cerveja Brahma 350ml Lata', qty: 240, un: 'UN', unit: 'R$ 2,70', total: 'R$ 648,00', linked: true },
-                    { id: '9999', name: 'Novo Produto Teste', qty: 1, un: 'UN', unit: 'R$ 2,00', total: 'R$ 2,00', linked: false },
-                  ].map((prod) => (
+                  {(mockInvoice?.items || []).map((prod: any) => (
                     <tr key={prod.id} className="hover:bg-slate-50/30 transition-colors">
                       <td className="px-6 py-4 text-sm font-bold text-brand-text-main">{prod.id}</td>
                       <td className="px-6 py-4 text-sm font-bold text-brand-text-main">{prod.name}</td>
@@ -185,12 +215,12 @@ export default function ImportXmlPage() {
               <div className="flex items-center gap-6">
                 <div>
                   <div className="text-[10px] font-black text-brand-text-sec uppercase italic tracking-widest">Total da Nota</div>
-                  <div className="text-2xl font-black italic tracking-tight">R$ 1.250,00</div>
+                  <div className="text-2xl font-black italic tracking-tight">{mockInvoice?.total || 'R$ 0,00'}</div>
                 </div>
                 <div className="w-px h-10 bg-brand-text-main" />
                 <div>
-                  <div className="text-[10px] font-black text-brand-text-sec uppercase italic tracking-widest">Itens Pendentes</div>
-                  <div className="text-2xl font-black italic tracking-tight">01</div>
+                  <div className="text-[10px] font-black text-brand-text-sec uppercase italic tracking-widest">Itens Identificados</div>
+                  <div className="text-2xl font-black italic tracking-tight">{mockInvoice?.items?.length || 0}</div>
                 </div>
               </div>
               <div className="flex items-center gap-4">

@@ -44,9 +44,9 @@ export default function NovaCompraPage() {
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);
   const [financialAccounts, setFinancialAccounts] = useState<any[]>([
-    { id: '1', name: 'Caixa Interno' },
-    { id: '2', name: 'Banco Itaú' },
-    { id: '3', name: 'Banco do Brasil' }
+    { id: '1', name: 'Caixa' },
+    { id: '2', name: 'Conta Bancária' },
+    { id: '3', name: 'Conta PIX' }
   ]);
   const [paymentConditions, setPaymentConditions] = useState<any[]>([
     { id: '1', name: 'À Vista' },
@@ -89,23 +89,11 @@ export default function NovaCompraPage() {
       setIsLoading(true);
       try {
         // Fetch suppliers
-        const { data: suppliersData } = await supabase.from('customers').select('id, name').order('name');
-        // Using customers table as a fallback if suppliers table doesn't exist, but let's try suppliers first
-        const { data: realSuppliers, error: realSuppliersError } = await supabase.from('suppliers').select('id, name').order('name');
-        
-        if (realSuppliers && realSuppliers.length > 0) {
-          setSuppliersList(realSuppliers);
-        } else if (suppliersData) {
-          // Mock suppliers if table doesn't exist
-          setSuppliersList([
-            { id: 'sup-1', name: 'Distribuidora XYZ' },
-            { id: 'sup-2', name: 'Atacadão das Bebidas' },
-            { id: 'sup-3', name: 'Alimentos S.A.' }
-          ]);
-        }
+        const { data: realSuppliers } = await supabase.from('suppliers').select('id, name').eq('company_id', user?.companyId || null).order('name');
+        setSuppliersList(realSuppliers || []);
 
         // Fetch products
-        const { data: productsData } = await supabase.from('products').select('id, name, sku, stock, cost_price, sale_price').order('name');
+        const { data: productsData } = await supabase.from('products').select('id, name, sku, stock, cost_price, sale_price').eq('company_id', user?.companyId || null).order('name');
         if (productsData) {
           setProductsList(productsData);
           
@@ -139,7 +127,7 @@ export default function NovaCompraPage() {
     }
 
     fetchData();
-  }, []);
+  }, [user?.companyId]);
 
   // Initialize installments when moving to Tab 3 or when payment condition changes
   useEffect(() => {
@@ -330,6 +318,17 @@ export default function NovaCompraPage() {
   };
 
   const handleConfirmPurchase = async () => {
+    if (items.length === 0) {
+      alert('Adicione pelo menos um produto à compra.');
+      return;
+    }
+    
+    const totalCompra = items.reduce((acc, item) => acc + item.total, 0);
+    if (totalCompra <= 0) {
+      alert('O valor total da compra deve ser maior que zero.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Criar Lotes (produto_lotes)
@@ -342,6 +341,7 @@ export default function NovaCompraPage() {
 
       // 0. Criar Pedido de Compra (purchase_orders)
       const { data: orderData, error: orderError } = await supabase.from('purchase_orders').insert({
+        company_id: user?.companyId || null,
         supplier_id: supplierId,
         order_date: new Date().toISOString(),
         total_amount: totalCompra,
@@ -355,6 +355,7 @@ export default function NovaCompraPage() {
       for (const item of items) {
         // 1. Insert Item (purchase_order_items)
         await supabase.from('purchase_order_items').insert({
+          company_id: user?.companyId || null,
           purchase_order_id: orderId,
           product_id: item.productId,
           quantity: item.qty,
@@ -366,6 +367,7 @@ export default function NovaCompraPage() {
         
         // 2. Create Lote
         const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
+          company_id: user?.companyId || null,
           produto_id: item.productId,
           numero_lote: numeroLote,
           data_entrada: `${entryDate}T12:00:00Z`,
@@ -387,12 +389,13 @@ export default function NovaCompraPage() {
         const product = productsList.find(p => p.id === item.productId);
         if (product) {
           // Fetch current stock first
-          const { data: currentProduct } = await supabase.from('products').select('stock').eq('id', item.productId).single();
+          const { data: currentProduct } = await supabase.from('products').select('stock').eq('id', item.productId).eq('company_id', user?.companyId || null).single();
           const currentStock = currentProduct?.stock || 0;
           
           const updateData: any = { 
             stock: currentStock + item.qty,
-            cost_price: item.cost
+            cost_price: item.cost,
+            has_had_stock: true
           };
 
           // Update sale price if it was changed/provided in the purchase
@@ -406,13 +409,15 @@ export default function NovaCompraPage() {
           
           const { error: updateError } = await supabase.from('products')
             .update(updateData)
-            .eq('id', item.productId);
+            .eq('id', item.productId)
+            .eq('company_id', user?.companyId || null);
             
           if (updateError && updateError.message.includes('validade')) {
             delete updateData.validade;
             await supabase.from('products')
               .update(updateData)
-              .eq('id', item.productId);
+              .eq('id', item.productId)
+              .eq('company_id', user?.companyId || null);
           }
         }
 
@@ -436,7 +441,7 @@ export default function NovaCompraPage() {
         const total = items.reduce((acc, item) => acc + item.total, 0);
         await addExpense({
           description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName}`,
-          category: 'Compras de Mercadorias',
+          category: 'Compra de Mercadoria',
           amount: total,
           supplier: supplierName,
           supplierId: supplierId,
@@ -453,7 +458,7 @@ export default function NovaCompraPage() {
           const inst = installments[i];
           await addExpense({
             description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName} (${i + 1}/${installments.length})`,
-            category: 'Compras de Mercadorias',
+            category: 'Compra de Mercadoria',
             amount: inst.amount,
             supplier: supplierName,
             supplierId: supplierId,

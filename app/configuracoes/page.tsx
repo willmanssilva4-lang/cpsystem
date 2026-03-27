@@ -12,19 +12,16 @@ import {
   Check,
   AlertTriangle,
   Trash2,
-  Info
+  Info,
+  Lock
 } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 export default function SettingsPage() {
-  const { hasPermission } = useERP();
+  const { hasPermission, user } = useERP();
   const [activeTab, setActiveTab] = useState('empresa');
-
-  useEffect(() => {
-    console.log('⚙️ SettingsPage mounted', { activeTab });
-  }, [activeTab]);
 
   if (typeof hasPermission !== 'function') {
     return (
@@ -33,6 +30,8 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
 
   if (!hasPermission('Configurações', 'view')) {
     return (
@@ -47,13 +46,14 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'empresa', label: 'Dados da Empresa', icon: Building2 },
     { id: 'sistema', label: 'Config. do Sistema', icon: Settings },
+    { id: 'seguranca', label: 'Segurança', icon: Lock },
   ];
 
   return (
     <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
       <div className="flex flex-col gap-1">
         <h2 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Configurações</h2>
-        <p className="text-brand-blue/60 font-medium">Gerencie as preferências da empresa e do sistema.</p>
+        <p className="text-brand-blue/60 font-medium">Gerencie as preferências da empresa, do sistema e segurança.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -80,7 +80,9 @@ export default function SettingsPage() {
           <div
             className="bg-white rounded-3xl border border-brand-border shadow-sm min-h-[400px]"
           >
-            {activeTab === 'empresa' ? <CompanySettings /> : <SystemSettings />}
+            {activeTab === 'empresa' && <CompanySettings />}
+            {activeTab === 'sistema' && <SystemSettings />}
+            {activeTab === 'seguranca' && <SecuritySettings />}
           </div>
         </div>
       </div>
@@ -155,20 +157,18 @@ function CompanySettings() {
     }
   }, [companySettings]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      try {
-        updateCompanySettings(formData);
-        setIsSaving(false);
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-      } catch (error) {
-        console.error('Erro ao salvar:', error);
-        setIsSaving(false);
-        alert('❌ Erro ao salvar as configurações. A imagem pode ser muito grande.');
-      }
-    }, 600);
+    try {
+      await updateCompanySettings(formData);
+      setIsSaving(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      setIsSaving(false);
+      alert('❌ Erro ao salvar as configurações. A imagem pode ser muito grande.');
+    }
   };
 
   return (
@@ -343,6 +343,104 @@ function CompanySettings() {
 
 
 
+function SecuritySettings() {
+  console.log('SecuritySettings rendering');
+  const { changePassword } = useERP();
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    
+    setIsSaving(true);
+    setError('');
+    
+    const { error } = await changePassword(newPassword);
+    
+    setIsSaving(false);
+    if (error) {
+      setError('Erro ao alterar a senha: ' + error.message);
+    } else {
+      setShowSuccess(true);
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setShowSuccess(false), 3000);
+    }
+  };
+
+  return (
+    <div className="divide-y divide-slate-100">
+      <SectionHeader 
+        title="Segurança" 
+        description="Altere sua senha de acesso ao sistema." 
+      />
+      <div className="p-6 space-y-6">
+        <div className="space-y-4">
+          <InputGroup 
+            label="Nova Senha" 
+            type="password"
+            value={newPassword} 
+            onChange={(e) => setNewPassword(e.target.value)} 
+          />
+          <InputGroup 
+            label="Confirmar Nova Senha" 
+            type="password"
+            value={confirmPassword} 
+            onChange={(e) => setConfirmPassword(e.target.value)} 
+          />
+        </div>
+        
+        {error && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-medium">
+            <AlertTriangle size={20} />
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-6">
+          <div className={cn(
+            "flex items-center gap-2 text-brand-blue font-black uppercase italic text-xs transition-all duration-500",
+            showSuccess ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
+          )}>
+            <Check size={16} className="bg-brand-border rounded-full p-0.5" />
+            Senha alterada com sucesso!
+          </div>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 text-white rounded-2xl font-black uppercase italic text-sm shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+              isSaving ? "bg-brand-text-sec" : "bg-brand-blue shadow-brand-blue/20 hover:bg-brand-text-main"
+            )}
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                Alterar Senha
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SystemSettings() {
   const { 
     systemSettings, updateSystemSettings, sendEmailNotification,
@@ -357,6 +455,7 @@ function SystemSettings() {
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [testEmailStatus, setTestEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [testEmailError, setTestEmailError] = useState('');
+  const [testEmailRecipient, setTestEmailRecipient] = useState('willmanssilva4@gmail.com');
 
   useEffect(() => {
     console.log('🖥️ SystemSettings mounted', { hasSettings: !!systemSettings });
@@ -483,8 +582,8 @@ function SystemSettings() {
     setTestEmailError('');
     
     try {
-      const success = await sendEmailNotification(
-        'willmanssilva4@gmail.com',
+      const result = await sendEmailNotification(
+        testEmailRecipient,
         'ERP: Teste de Notificação',
         'Este é um e-mail de teste enviado das configurações do seu ERP.',
         `
@@ -495,15 +594,16 @@ function SystemSettings() {
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
             <p style="font-size: 12px; color: #64748b;">Este é um alerta automático do seu sistema ERP.</p>
           </div>
-        `
+        `,
+        formData.notifications.senderEmail
       );
 
-      if (success) {
+      if (result.success) {
         setTestEmailStatus('success');
         setTimeout(() => setTestEmailStatus('idle'), 3000);
       } else {
         setTestEmailStatus('error');
-        setTestEmailError('Verifique o console para detalhes do erro.');
+        setTestEmailError(result.error || 'Erro desconhecido ao enviar e-mail.');
       }
     } catch (error: any) {
       setTestEmailStatus('error');
@@ -571,18 +671,40 @@ function SystemSettings() {
             <Bell size={14} /> Notificações
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ToggleGroup 
-              label="Notificações por Email" 
-              description="Receber alertas importantes por email." 
-              defaultChecked={formData.notifications.email}
-              onChange={(checked) => setFormData({...formData, notifications: {...formData.notifications, email: checked}})}
-            />
+            <div className="space-y-4">
+              <ToggleGroup 
+                label="Notificações por Email" 
+                description="Receber alertas importantes por email." 
+                defaultChecked={formData.notifications.email}
+                onChange={(checked) => setFormData({...formData, notifications: {...formData.notifications, email: checked}})}
+              />
+              
+              {formData.notifications.email && (
+                <div className="pt-2">
+                  <InputGroup 
+                    label="E-mail de Envio (Remetente)" 
+                    placeholder="ex: notificacoes@seudominio.com.br"
+                    value={formData.notifications.senderEmail || ''} 
+                    onChange={e => setFormData({...formData, notifications: {...formData.notifications, senderEmail: e.target.value}})} 
+                  />
+                  <p className="text-[10px] text-brand-text-main/50 mt-1 ml-1">
+                    Deixe em branco para usar o padrão. Requer domínio verificado no Resend.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="p-4 rounded-2xl border border-brand-border bg-slate-50/30 flex flex-col gap-3">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <h4 className="text-xs font-black text-brand-text-main uppercase italic">Teste de E-mail</h4>
                 <p className="text-[10px] text-brand-blue/60 font-medium leading-tight">
-                  Envia um e-mail de teste para <strong>willmanssilva4@gmail.com</strong> para validar sua configuração.
+                  Envie um e-mail de teste para validar sua configuração.
                 </p>
+                <InputGroup 
+                  label="E-mail de Destino" 
+                  value={testEmailRecipient}
+                  onChange={(e) => setTestEmailRecipient(e.target.value)}
+                />
               </div>
               <button 
                 onClick={handleTestEmail}

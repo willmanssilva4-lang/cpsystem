@@ -22,10 +22,24 @@ export function PaymentModal({ onClose, expense }: PaymentModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Se a data selecionada for hoje, usamos o ISO completo para ter o horário
+    const todayStr = getLocalDateString();
+    const finalPaymentDate = formData.paymentDate === todayStr 
+      ? new Date().toISOString() 
+      : formData.paymentDate;
+
+    const amount = parseFloat(formData.amountPaid);
+    if (isNaN(amount) || amount <= 0) {
+      alert('O valor do pagamento deve ser maior que zero.');
+      return;
+    }
+
     await updateExpense({
       ...expense,
+      amount: amount,
       status: 'Pago',
-      paymentDate: formData.paymentDate,
+      paymentDate: finalPaymentDate,
       paymentMethod: formData.paymentMethod,
       financialAccount: formData.financialAccount
     });

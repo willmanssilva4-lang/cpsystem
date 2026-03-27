@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   });
 
   try {
-    const { 
+    let { 
       username, 
       password, 
       email: providedEmail, 
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       storeId, 
       status, 
       supervisorCode,
+      companyId,
       user_metadata 
     } = await req.json();
 
@@ -58,6 +59,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    username = username.trim();
 
     // Use provided email or construct from username
     let email = providedEmail;
@@ -140,6 +143,7 @@ export async function POST(req: Request) {
         profile_id: profileId,
         store_id: storeId,
         status: status,
+        company_id: companyId,
         password_hash: passwordHash,
         supervisor_code: supervisorCode
       }]);

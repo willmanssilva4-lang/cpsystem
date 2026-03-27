@@ -176,7 +176,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
       <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
         <h3 className="text-sm font-black uppercase italic tracking-tight mb-6">Evolução Diária</h3>
         <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ResponsiveContainer id="fluxo-daily-area-resp" name="fluxo-daily-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
             <AreaChart data={dailyData}>
               <defs>
                 <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">

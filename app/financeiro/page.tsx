@@ -211,19 +211,11 @@ export default function FinancePage() {
         description: e.description,
         date: e.date,
         amount: e.amount,
-      })),
-      ...stockMovements.filter(m => m.type === 'COMPRA').map(m => ({
-        id: `stock-${m.id}`,
-        type: 'saida' as const,
-        category: 'Compra Fornecedor',
-        description: `Compra de ${m.quantity} un - ${m.productName || 'Produto'}`,
-        date: m.date,
-        amount: m.quantity * (m.cost || 0),
       }))
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return all.slice(0, 10);
-  }, [sales, expenses, stockMovements]);
+  }, [sales, expenses]);
 
   // --- 5. Resumo de Vendas por Pagamento ---
   const salesByPayment = useMemo(() => {
@@ -300,8 +292,8 @@ export default function FinancePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Financeiro 360°</h1>
-          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Painel Executivo em Tempo Real</p>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Central Financeira</h1>
+          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Gestão Completa de Entrada e Saídas</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -398,7 +390,7 @@ export default function FinancePage() {
                   </h3>
                 </div>
                 <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                  <ResponsiveContainer id="fin-cash-area-resp" name="fin-cash-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorEntrada" x1="0" y1="0" x2="0" y2="1">

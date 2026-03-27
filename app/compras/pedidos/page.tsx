@@ -5,8 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Search, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { cn, formatDateBR } from '@/lib/utils';
+import { useERP } from '@/lib/context';
 
 export default function TodosPedidosPage() {
+  const { user } = useERP();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,10 +18,12 @@ export default function TodosPedidosPage() {
 
   useEffect(() => {
     async function fetchOrders() {
+      if (!user?.companyId) return;
       setIsLoading(true);
       const { data, error } = await supabase
         .from('purchase_orders')
         .select('id, order_date, total_amount, status, suppliers(name)')
+        .eq('company_id', user.companyId)
         .order('order_date', { ascending: false });
       
       if (error) {
@@ -30,7 +34,7 @@ export default function TodosPedidosPage() {
       setIsLoading(false);
     }
     fetchOrders();
-  }, []);
+  }, [user?.companyId]);
 
   const handleOrderClick = async (order: any) => {
     setSelectedOrder(order);
@@ -41,6 +45,7 @@ export default function TodosPedidosPage() {
     const { data: items, error: itemsError } = await supabase
       .from('purchase_order_items')
       .select('quantity, unit_price, product_id')
+      .eq('company_id', user?.companyId || null)
       .eq('purchase_order_id', order.id);
     
     if (itemsError) {
@@ -55,6 +60,7 @@ export default function TodosPedidosPage() {
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select('id, name')
+        .eq('company_id', user?.companyId || null)
         .in('id', productIds);
         
       if (productsError) {

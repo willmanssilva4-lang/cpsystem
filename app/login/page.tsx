@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
   const textColor = theme === 'dark' ? 'text-white' : 'text-brand-blue';
@@ -62,11 +63,49 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [setupMessage, setSetupMessage] = useState('');
   const { login } = useERP();
   const router = useRouter();
+  const [resetMode, setResetMode] = useState(false);
+
+  // Load remembered email and check for reset token
+  React.useEffect(() => {
+    const savedEmail = localStorage.getItem('erp_remembered_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+
+    // Check if we are in reset mode (from Supabase email link)
+    if (window.location.hash && window.location.hash.includes('type=recovery')) {
+      setResetMode(true);
+      setSetupMessage('E-mail verificado! Por favor, defina sua nova senha abaixo.');
+    }
+  }, []);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setError(`Erro ao atualizar senha: ${error.message}`);
+      } else {
+        setSetupMessage('Senha atualizada com sucesso! Você já pode fazer login.');
+        setResetMode(false);
+        setPassword('');
+      }
+    } catch (err) {
+      setError('Erro ao processar atualização de senha.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,14 +113,48 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const result = await login(email, password);
+      if (result.success) {
+        // Handle Remember Me
+        if (rememberMe) {
+          localStorage.setItem('erp_remembered_email', email);
+        } else {
+          localStorage.removeItem('erp_remembered_email');
+        }
+
         router.push('/');
       } else {
-        setError('Usuário ou senha incorretos.');
+        setError(result.error || 'Usuário ou senha incorretos.');
       }
     } catch (err) {
       setError('Ocorreu um erro ao tentar fazer login.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Por favor, digite seu e-mail para recuperar a senha.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSetupMessage('');
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login?reset=true`,
+      });
+
+      if (error) {
+        setError(`Erro ao enviar e-mail de recuperação: ${error.message}`);
+      } else {
+        setSetupMessage('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+      }
+    } catch (err) {
+      setError('Erro ao processar solicitação de recuperação.');
     } finally {
       setLoading(false);
     }
@@ -91,12 +164,12 @@ export default function LoginPage() {
     setLoading(true);
     setSetupMessage('');
     try {
-      const email = 'suporte@cpsstem.com.br';
-      const password = 'admin123';
+      const emailToUse = email || 'suporte@cpsstem.com.br';
+      const passwordToUse = password || 'admin123';
 
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: emailToUse,
+        password: passwordToUse,
       });
 
       if (error) {
@@ -104,17 +177,21 @@ export default function LoginPage() {
       } else if (data.user) {
         // Tentar login automático
         const { error: loginError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: emailToUse,
+          password: passwordToUse,
         });
 
         if (!loginError) {
           setSetupMessage('Usuário criado e logado com sucesso! Redirecionando...');
           setTimeout(() => {
-            router.push('/');
+            if (emailToUse.toLowerCase() === 'willmanssilva4@gmail.com') {
+              router.push('/');
+            } else {
+              router.push('/');
+            }
           }, 1500);
         } else {
-          setSetupMessage('Usuário criado! Senha: admin123. Faça login agora.');
+          setSetupMessage(`Usuário criado! Senha: ${passwordToUse}. Faça login agora.`);
         }
       }
     } catch (err) {
@@ -183,12 +260,21 @@ export default function LoginPage() {
 
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold">
-                  <span className="text-brand-text-main">Acesse </span>
-                  <span className="text-brand-text-sec">sua Conta</span>
+                  {resetMode ? (
+                    <>
+                      <span className="text-brand-text-main">Nova </span>
+                      <span className="text-brand-text-sec">Senha</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-brand-text-main">Acesse </span>
+                      <span className="text-brand-text-sec">sua Conta</span>
+                    </>
+                  )}
                 </h2>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={resetMode ? handleUpdatePassword : handleSubmit} className="space-y-5">
                 {error && (
                   <div className="p-3 bg-brand-danger/10 border border-brand-danger/20 rounded-xl text-brand-danger text-sm font-medium text-center">
                     {error}
@@ -201,28 +287,30 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 text-sm font-medium text-brand-text-main ml-1">
-                    <User size={16} className="text-brand-text-sec" />
-                    Usuário
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-sec" size={18} />
-                    <input 
-                      type="text"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 bg-white border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue transition-all outline-none text-brand-text-main placeholder:text-brand-text-sec"
-                      placeholder="Digite seu usuário"
-                    />
+                {!resetMode && (
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-sm font-medium text-brand-text-main ml-1">
+                      <User size={16} className="text-brand-text-sec" />
+                      Usuário
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-sec" size={18} />
+                      <input 
+                        type="text"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 bg-white border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue transition-all outline-none text-brand-text-main placeholder:text-brand-text-sec"
+                        placeholder="Digite seu usuário"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-sm font-medium text-brand-text-main ml-1">
                     <Lock size={16} className="text-brand-text-sec" />
-                    Senha
+                    {resetMode ? 'Nova Senha' : 'Senha'}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-sec" size={18} />
@@ -232,7 +320,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full pl-11 pr-12 py-3.5 bg-white border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue transition-all outline-none text-brand-text-main placeholder:text-brand-text-sec"
-                      placeholder="Digite sua senha"
+                      placeholder={resetMode ? "Digite sua nova senha" : "Digite sua senha"}
                     />
                     <button 
                       type="button"
@@ -244,18 +332,32 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <div className="w-5 h-5 rounded border border-brand-border flex items-center justify-center group-hover:border-brand-blue transition-colors">
-                      <input type="checkbox" className="opacity-0 absolute" />
-                      <div className="w-3 h-3 rounded-sm bg-brand-blue scale-0 transition-transform" />
-                    </div>
-                    <span className="text-sm text-brand-text-sec select-none">Lembrar-me</span>
-                  </label>
-                  <a href="#" className="text-sm font-medium text-brand-blue hover:underline">
-                    Esqueceu sua senha?
-                  </a>
-                </div>
+                {!resetMode && (
+                  <div className="flex items-center justify-between pt-2">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <div className="w-5 h-5 rounded border border-brand-border flex items-center justify-center group-hover:border-brand-blue transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="opacity-0 absolute" 
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                        />
+                        <div className={cn(
+                          "w-3 h-3 rounded-sm bg-brand-blue transition-transform",
+                          rememberMe ? "scale-100" : "scale-0"
+                        )} />
+                      </div>
+                      <span className="text-sm text-brand-text-sec select-none">Lembrar-me</span>
+                    </label>
+                    <button 
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-sm font-medium text-brand-blue hover:underline bg-transparent border-none p-0 cursor-pointer"
+                    >
+                      Esqueceu sua senha?
+                    </button>
+                  </div>
+                )}
 
                 <button 
                   type="submit"
@@ -263,17 +365,58 @@ export default function LoginPage() {
                   className="w-full py-4 mt-2 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-xl font-bold text-lg shadow-lg shadow-brand-blue/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   <Lock size={20} />
-                  {loading ? 'Entrando...' : 'Entrar no Sistema'}
+                  {loading ? (resetMode ? 'Atualizando...' : 'Entrando...') : (resetMode ? 'Atualizar Senha' : 'Entrar no Sistema')}
                 </button>
                 
-                <button
-                  type="button"
-                  onClick={handleCreateAdmin}
-                  disabled={loading}
-                  className="w-full py-2 mt-2 text-xs text-brand-text-sec hover:text-brand-blue underline transition-colors"
-                >
-                  Primeiro acesso? Clique aqui para registrar o Admin
-                </button>
+                {resetMode && (
+                  <button
+                    type="button"
+                    onClick={() => setResetMode(false)}
+                    className="w-full py-2 mt-2 text-xs text-brand-text-sec hover:text-brand-blue underline transition-colors"
+                  >
+                    Voltar para o Login
+                  </button>
+                )}
+
+                {!resetMode && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCreateAdmin}
+                      disabled={loading}
+                      className="w-full py-2 mt-2 text-xs text-brand-text-sec hover:text-brand-blue underline transition-colors"
+                    >
+                      Primeiro acesso? Clique aqui para registrar o Admin
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLoading(true);
+                        setSetupMessage('');
+                        try {
+                          const response = await fetch('/api/auth/bootstrap');
+                          const data = await response.json();
+                          if (response.ok) {
+                            setSetupMessage(`Sistema inicializado! Email: ${data.email}, Senha: ${data.tempPassword}`);
+                            setEmail(data.email);
+                            setPassword(data.tempPassword);
+                          } else {
+                            setSetupMessage(`Erro no bootstrap: ${data.error}`);
+                          }
+                        } catch (err) {
+                          setSetupMessage('Erro ao conectar com a API de bootstrap.');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={loading}
+                      className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 underline transition-colors"
+                    >
+                      Configurar Sistema (Bootstrap Super Admin)
+                    </button>
+                  </>
+                )}
               </form>
 
               <div className="mt-8 relative">

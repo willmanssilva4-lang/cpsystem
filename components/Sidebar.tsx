@@ -11,6 +11,7 @@ import {
   Wallet, 
   BarChart3, 
   Settings,
+  ShieldCheck,
   ClipboardList,
   Truck,
   LogOut,
@@ -44,13 +45,16 @@ const NAV_ITEMS = [
   { icon: Users, label: 'Clientes', href: '/clientes' },
   { icon: BarChart3, label: 'Relatórios', href: '/relatorios' },
   { icon: Settings, label: 'Configurações', href: '/configuracoes' },
+  { icon: ShieldCheck, label: 'Gestão de Empresas', href: '/admin/companies', superAdminOnly: true },
 ];
 
 export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () => void }) {
   const pathname = usePathname();
-  const { logout, hasPermission } = useERP();
+  const { logout, hasPermission, user } = useERP();
   
   const [expandedMenus, setExpandedMenus] = React.useState<string[]>([]);
+
+  const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
 
   const toggleMenu = (label: string) => {
     setExpandedMenus(prev => 
@@ -58,22 +62,28 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
     );
   };
 
-  const filteredNavItems = NAV_ITEMS.map(item => {
-    if (item.subItems) {
-      const filteredSubItems = item.subItems.filter(sub => hasPermission(sub.label, 'view'));
-      if (filteredSubItems.length > 0) {
-        return { ...item, subItems: filteredSubItems };
+  const filteredNavItems = isSuperAdmin 
+    ? NAV_ITEMS.filter(item => item.label === 'Gestão de Empresas').map(item => ({ ...item, href: '/' }))
+    : NAV_ITEMS.map(item => {
+      if (item.superAdminOnly && !isSuperAdmin) return null;
+      
+      if (item.subItems) {
+        const filteredSubItems = item.subItems.filter(sub => hasPermission(sub.label, 'view'));
+        if (filteredSubItems.length > 0) {
+          return { ...item, subItems: filteredSubItems };
+        }
+        return null;
       }
-      return null;
-    }
-    return hasPermission(item.label, 'view') ? item : null;
-  }).filter(Boolean) as any[];
+      return hasPermission(item.label, 'view') || item.superAdminOnly || isSuperAdmin ? item : null;
+    }).filter(Boolean) as any[];
 
   const SidebarContent = (
-    <aside className="w-64 bg-brand-blue-support flex flex-col h-full text-white overflow-hidden">
+    <aside id="sidebar-nav" name="sidebar-nav" className="w-64 bg-brand-blue-support flex flex-col h-full text-white overflow-hidden">
       <div className="p-8 flex items-center justify-between">
         <Logo size="md" theme="dark" />
         <button 
+          id="sidebar-close"
+          name="sidebar-close"
           onClick={onClose}
           className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60"
         >
@@ -117,6 +127,10 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
                         const isSubActive = pathname.startsWith(sub.href);
                         return (
                           <Link
+                            id={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
+                            name={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
+                            data-id={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
+                            data-name={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
                             key={sub.href}
                             href={sub.href}
                             onClick={() => {
@@ -145,6 +159,10 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
           const isActive = pathname === item.href || (item.href === '/produtos' && pathname === '/produtos');
           return (
             <Link
+              id={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              name={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              data-id={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              data-name={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               key={item.href}
               href={item.href}
               onClick={onClose}
@@ -167,6 +185,8 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
         <div className="absolute inset-0 bg-gradient-to-t from-brand-blue to-transparent opacity-50"></div>
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <button
+            id="logout-button"
+            name="logout-button"
             onClick={logout}
             className="relative z-10 w-full flex items-center gap-3 px-6 py-3 rounded-xl transition-all text-sm font-bold text-white/60 hover:bg-rose-500/20 hover:text-rose-400"
           >
