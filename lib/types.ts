@@ -278,6 +278,7 @@ export interface CompanySettings {
     city: string;
     state: string;
   };
+  email?: string;
 }
 
 export interface StockMovement {
@@ -368,6 +369,7 @@ export interface SystemSettings {
     push: boolean;
     sms: boolean;
     senderEmail?: string;
+    recipientEmail?: string;
   };
 }
 

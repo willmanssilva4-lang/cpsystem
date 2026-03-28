@@ -2172,7 +2172,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           subject, 
           body, 
           html,
-          from: from || systemSettings?.notifications?.senderEmail 
+          from: from || companySettings?.email || systemSettings?.notifications?.senderEmail 
         }),
       });
 

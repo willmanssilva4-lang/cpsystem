@@ -202,6 +202,11 @@ function CompanySettings() {
                 onChange={(e) => setFormData(prev => ({ ...prev, stateRegistration: e.target.value }))} 
               />
             </div>
+            <InputGroup 
+              label="E-mail" 
+              value={formData.email || ''} 
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} 
+            />
           </div>
           <div className="w-full md:w-48 space-y-2">
             <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Logo da Empresa</label>
@@ -270,7 +275,6 @@ function CompanySettings() {
               )}
             </label>
           </div>
-        </div>
         
         <div className="space-y-4 pt-4">
           <h4 className="text-xs font-black text-brand-text-main/40 uppercase tracking-widest italic border-b border-slate-100 pb-2">Endereço</h4>
@@ -455,7 +459,7 @@ function SystemSettings() {
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [testEmailStatus, setTestEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [testEmailError, setTestEmailError] = useState('');
-  const [testEmailRecipient, setTestEmailRecipient] = useState('willmanssilva4@gmail.com');
+  const [testEmailRecipient, setTestEmailRecipient] = useState('willmanssilva1@gmail.com');
 
   useEffect(() => {
     console.log('🖥️ SystemSettings mounted', { hasSettings: !!systemSettings });
@@ -683,9 +687,15 @@ function SystemSettings() {
                 <div className="pt-2">
                   <InputGroup 
                     label="E-mail de Envio (Remetente)" 
-                    placeholder="ex: notificacoes@seudominio.com.br"
+                    placeholder="ex: willmanssilva1@gmail.com"
                     value={formData.notifications.senderEmail || ''} 
                     onChange={e => setFormData({...formData, notifications: {...formData.notifications, senderEmail: e.target.value}})} 
+                  />
+                  <InputGroup 
+                    label="E-mail de Destino (Recebimento)" 
+                    placeholder="ex: willmanssilva1@gmail.com"
+                    value={formData.notifications.recipientEmail || ''} 
+                    onChange={e => setFormData({...formData, notifications: {...formData.notifications, recipientEmail: e.target.value}})} 
                   />
                   <p className="text-[10px] text-brand-text-main/50 mt-1 ml-1">
                     Deixe em branco para usar o padrão. Requer domínio verificado no Resend.
