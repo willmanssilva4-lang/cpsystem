@@ -100,16 +100,16 @@ export function DRE({ sales, expenses, products }: DREProps) {
     // Lucro Bruto
     const lucroBruto = receitaLiquida - cmv - taxasMaquininhas;
 
-    // Despesas Operacionais (Incluindo contas a pagar para o DRE)
+    // Despesas Operacionais
     const expensesMonth = expenses.filter(e => {
-      const { month, year } = getMonthYear(e.date);
-      return month === selectedMonth && year === selectedYear;
+      const { month, year } = getMonthYear(e.paymentDate || e.date);
+      return month === selectedMonth && year === selectedYear && e.status === 'Pago';
     });
 
-    // Agrupar despesas por descrição para detalhamento no gráfico (ex: luz, agua)
+    // Agrupar despesas por categoria
     const despesasPorCategoria = expensesMonth.reduce((acc, e) => {
-      const label = e.description || e.category || 'Outros';
-      acc[label] = (acc[label] || 0) + e.amount;
+      const cat = e.category || 'Outros';
+      acc[cat] = (acc[cat] || 0) + e.amount;
       return acc;
     }, {} as Record<string, number>);
 

@@ -275,7 +275,6 @@ function CompanySettings() {
               )}
             </label>
           </div>
-        </div>
         
         <div className="space-y-4 pt-4">
           <h4 className="text-xs font-black text-brand-text-main/40 uppercase tracking-widest italic border-b border-slate-100 pb-2">Endereço</h4>

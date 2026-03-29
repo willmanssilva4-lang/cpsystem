@@ -25,37 +25,34 @@ export default function ImportXmlPage() {
   const [mockInvoice, setMockInvoice] = useState<any>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (suppliers.length > 0 && products.length > 0) {
-        const randomSupplier = suppliers[Math.floor(Math.random() * suppliers.length)];
-        const randomProducts = products.slice(0, 3).map(p => ({
-          id: p.sku || p.id.slice(0, 4),
-          name: p.name,
-          qty: Math.floor(Math.random() * 100) + 1,
-          un: 'UN',
-          unit: `R$ ${p.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          total: `R$ ${(p.costPrice * 10).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          linked: true
-        }));
+    if (suppliers.length > 0 && products.length > 0) {
+      const randomSupplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+      const randomProducts = products.slice(0, 3).map(p => ({
+        id: p.sku || p.id.slice(0, 4),
+        name: p.name,
+        qty: Math.floor(Math.random() * 100) + 1,
+        un: 'UN',
+        unit: `R$ ${p.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        total: `R$ ${(p.costPrice * 10).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        linked: true
+      }));
 
-        setMockInvoice({
-          number: '000.' + Math.floor(Math.random() * 900000 + 100000),
-          supplier: randomSupplier.name,
-          date: new Date().toLocaleDateString('pt-BR'),
-          total: 'R$ ' + (randomProducts.reduce((acc, p) => acc + parseFloat(p.total.replace('R$ ', '').replace('.', '').replace(',', '.')), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-          items: randomProducts
-        });
-      } else {
-        setMockInvoice({
-          number: '000.000.000',
-          supplier: 'Nenhum Fornecedor Encontrado',
-          date: new Date().toLocaleDateString('pt-BR'),
-          total: 'R$ 0,00',
-          items: []
-        });
-      }
-    }, 0);
-    return () => clearTimeout(timer);
+      setMockInvoice({
+        number: '000.' + Math.floor(Math.random() * 900000 + 100000),
+        supplier: randomSupplier.name,
+        date: new Date().toLocaleDateString('pt-BR'),
+        total: 'R$ ' + (randomProducts.reduce((acc, p) => acc + parseFloat(p.total.replace('R$ ', '').replace('.', '').replace(',', '.')), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        items: randomProducts
+      });
+    } else {
+      setMockInvoice({
+        number: '000.000.000',
+        supplier: 'Nenhum Fornecedor Encontrado',
+        date: new Date().toLocaleDateString('pt-BR'),
+        total: 'R$ 0,00',
+        items: []
+      });
+    }
   }, [suppliers, products]);
 
   const handleUpload = () => {
