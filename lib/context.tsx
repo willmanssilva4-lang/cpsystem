@@ -46,7 +46,7 @@ interface ERPContextType {
   suspendCashRegister: () => Promise<void>;
   blockCashRegister: (reason: string) => Promise<void>;
   logAuditAction: (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => Promise<void>;
-  addProduct: (product: Product) => Promise<boolean>;
+  addProduct: (product: Product, skipFetch?: boolean) => Promise<boolean>;
   updateProduct: (product: Product) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id'>) => Promise<Sale | null>;
@@ -109,6 +109,7 @@ interface ERPContextType {
   deletePromotion: (id: string) => Promise<void>;
   seedMercadologicalTree: () => Promise<void>;
   seedExpenseCategories: () => Promise<void>;
+  fetchData: () => Promise<void>;
   customAlert: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null;
   setCustomAlert: (alert: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null) => void;
 }
@@ -323,7 +324,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const baseProducts = productsData.map(p => ({
           id: p.id,
           name: p.name,
-          sku: p.sku,
+          sku: p.sku ? String(p.sku) : '',
           costPrice: Number(p.cost_price),
           salePrice: Number(p.sale_price),
           stock: p.stock,
@@ -1037,13 +1038,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  const addProduct = async (product: Product): Promise<boolean> => {
+  const addProduct = async (product: Product, skipFetch?: boolean): Promise<boolean> => {
     if (!user?.companyId) return false;
 
     // Check for duplicate SKU (code)
-    if (product.sku && product.sku.trim() !== '') {
+    const productSkuStr = product.sku ? String(product.sku).trim() : '';
+    if (productSkuStr !== '') {
       const existingProduct = products.find(p => 
-        p.sku && p.sku.toLowerCase() === product.sku.toLowerCase()
+        p.sku && String(p.sku).toLowerCase() === productSkuStr.toLowerCase()
       );
       if (existingProduct) {
         setCustomAlert({
@@ -1085,7 +1087,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       data = retry.data;
       error = retry.error;
       
-      if (!error) {
+      if (!error && !skipFetch) {
         setCustomAlert({
           message: 'Produto salvo, mas alguns campos (como Status, Composição, Cód. Mercadológico ou Validade) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (fix_schema_issues.sql) no seu painel do Supabase.',
           type: 'warning'
@@ -1101,7 +1103,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       });
       return false;
     } else if (data) {
-      await fetchData();
+      if (!skipFetch) await fetchData();
       return true;
     }
     return false;
@@ -1111,10 +1113,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!user?.companyId) return false;
 
     // Check for duplicate SKU (code) excluding current product
-    if (updated.sku && updated.sku.trim() !== '') {
+    const updatedSkuStr = updated.sku ? String(updated.sku).trim() : '';
+    if (updatedSkuStr !== '') {
       const existingProduct = products.find(p => 
         p.id !== updated.id && 
-        p.sku && p.sku.toLowerCase() === updated.sku.toLowerCase()
+        p.sku && String(p.sku).toLowerCase() === updatedSkuStr.toLowerCase()
       );
       if (existingProduct) {
         setCustomAlert({
@@ -2892,6 +2895,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       logout,
       seedMercadologicalTree,
       seedExpenseCategories,
+      fetchData,
       customAlert,
       setCustomAlert
     }}>

@@ -35,7 +35,7 @@ import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert, fetchData } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -49,6 +49,15 @@ export default function ProductsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  const [currentMovPage, setCurrentMovPage] = useState(1);
+  const movItemsPerPage = 10;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory]);
 
   const getSubcategoriaName = (product: Product) => {
     if (!product.subcategoria_id) return 'Sem Subcategoria';
@@ -106,6 +115,9 @@ export default function ProductsPage() {
     XLSX.writeFile(workbook, 'produtos.xlsx');
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+
   const exportTemplate = () => {
     const templateData = [{
       Nome: 'Produto Exemplo',
@@ -130,6 +142,9 @@ export default function ProductsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
+    setImportProgress({ current: 0, total: 0 });
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       const data = evt.target?.result;
@@ -141,8 +156,14 @@ export default function ProductsPage() {
       const processImports = async () => {
         let importedCount = 0;
         let duplicateCount = 0;
+        const totalItems = json.length;
+        
+        setImportProgress({ current: 0, total: totalItems });
 
-        for (const item of json as any[]) {
+        for (let i = 0; i < totalItems; i++) {
+          const item = json[i] as any;
+          setImportProgress({ current: i + 1, total: totalItems });
+
           let subcategoria_id = '';
           if (item.Subcategoria) {
             const sub = subcategorias.find(s => s.nome.toLowerCase() === String(item.Subcategoria).toLowerCase());
@@ -151,8 +172,16 @@ export default function ProductsPage() {
             }
           }
 
-          const costPrice = Number(item['Preço de Custo']) || 0;
-          const salePrice = Number(item['Preço de Venda']) || 0;
+          const parseNumber = (val: any) => {
+            if (val === undefined || val === null || val === '') return 0;
+            if (typeof val === 'number') return val;
+            const str = String(val).replace(',', '.');
+            const num = Number(str);
+            return isNaN(num) ? 0 : num;
+          };
+
+          const costPrice = parseNumber(item['Preço de Custo']);
+          const salePrice = parseNumber(item['Preço de Venda']);
           const profit = Math.round((salePrice - costPrice) * 100) / 100;
           let profitPercentage = 0;
           
@@ -165,25 +194,32 @@ export default function ProductsPage() {
           const success = await addProduct({
             id: Math.random().toString(36).substr(2, 9),
             name: item.Nome,
-            sku: item.SKU,
+            sku: item.SKU ? String(item.SKU) : '',
             unit: item['Unidade de Medida'] || 'UN',
             subcategoria_id: subcategoria_id,
             costPrice: costPrice,
             salePrice: salePrice,
             profit: profit,
             profitPercentage: Math.round(profitPercentage * 100) / 100,
-            stock: Number(item.Estoque),
-            minStock: Number(item['Estoque Mínimo']),
+            stock: parseNumber(item.Estoque),
+            minStock: parseNumber(item['Estoque Mínimo']),
             status: item.Status || 'Ativo',
-            image: 'https://picsum.photos/seed/product/200/200'
-          } as Product);
+            image: 'https://images.unsplash.com/photo-1605600659873-d808a1d85f8c?q=80&w=400&h=400&auto=format&fit=crop'
+          } as Product, true); // true para skipFetch
 
           if (success) {
             importedCount++;
           } else {
             duplicateCount++;
           }
+          
+          // Pequeno delay para evitar rate limit do Supabase (max 5 requests/sec)
+          await new Promise(resolve => setTimeout(resolve, 250));
         }
+        
+        // Atualiza os dados apenas uma vez no final
+        await fetchData();
+        setIsImporting(false);
         
         if (duplicateCount > 0) {
           setCustomAlert({
@@ -231,6 +267,9 @@ export default function ProductsPage() {
 
     return true;
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
   const lowStockCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
@@ -345,6 +384,10 @@ export default function ProductsPage() {
   const handleStartInventory = async () => {
     setShowInventorySession(true);
   };
+
+  const sortedMovs = [...stockMovements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const totalMovPages = Math.ceil(sortedMovs.length / movItemsPerPage);
+  const currentMovs = sortedMovs.slice((currentMovPage - 1) * movItemsPerPage, currentMovPage * movItemsPerPage);
 
   if (!hasPermission('Estoque', 'view')) {
     return (
@@ -525,7 +568,7 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredProducts.map((product) => (
+                  {currentProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
                         <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue" />
@@ -571,25 +614,44 @@ export default function ProductsPage() {
 
             <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
               <p className="text-sm text-slate-500 font-medium">
-                Mostrando {filteredProducts.length} de {products.length} produtos
+                Mostrando {currentProducts.length} de {filteredProducts.length} produtos
               </p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
-                  <ChevronLeft size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600" />
+                  </button>
                   <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4].map(page => (
-                      <button 
-                        key={page}
-                        className={cn(
-                          "w-8 h-8 rounded-lg text-sm font-bold transition-all",
-                          page === 1 ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
-                        )}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                      .map((page, index, array) => (
+                        <React.Fragment key={page}>
+                          {index > 0 && array[index - 1] !== page - 1 && (
+                            <span className="text-slate-400 px-1">...</span>
+                          )}
+                          <button 
+                            onClick={() => setCurrentPage(page)}
+                            className={cn(
+                              "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                              page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                            )}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      ))}
                   </div>
-                  <ChevronRight size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={18} className="text-slate-400 hover:text-slate-600" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -623,8 +685,8 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {stockMovements.length > 0 ? (
-                    stockMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50).map((mov) => (
+                  {currentMovs.length > 0 ? (
+                    currentMovs.map((mov) => (
                       <tr key={mov.id} className="hover:bg-white transition-colors">
                         <td className="px-6 py-4 text-xs font-bold text-slate-600">
                           {formatDateTimeBR(mov.date)}
@@ -660,15 +722,44 @@ export default function ProductsPage() {
               </table>
               <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
                 <p className="text-sm text-slate-500 font-medium">
-                  Mostrando {stockMovements.length} movimentações
+                  Mostrando {currentMovs.length} de {stockMovements.length} movimentações
                 </p>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1">
-                    <ChevronLeft size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                    <button 
+                      onClick={() => setCurrentMovPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentMovPage === 1}
+                      className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600" />
+                    </button>
                     <div className="flex items-center gap-1">
-                      <button className="w-8 h-8 rounded-lg text-sm font-bold transition-all bg-brand-blue text-white shadow-md shadow-brand-blue/20">1</button>
+                      {Array.from({ length: totalMovPages }, (_, i) => i + 1)
+                        .filter(page => page === 1 || page === totalMovPages || Math.abs(page - currentMovPage) <= 1)
+                        .map((page, index, array) => (
+                          <React.Fragment key={page}>
+                            {index > 0 && array[index - 1] !== page - 1 && (
+                              <span className="text-slate-400 px-1">...</span>
+                            )}
+                            <button 
+                              onClick={() => setCurrentMovPage(page)}
+                              className={cn(
+                                "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                                page === currentMovPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                              )}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        ))}
                     </div>
-                    <ChevronRight size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                    <button 
+                      onClick={() => setCurrentMovPage(prev => Math.min(prev + 1, totalMovPages))}
+                      disabled={currentMovPage === totalMovPages || totalMovPages === 0}
+                      className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight size={18} className="text-slate-400 hover:text-slate-600" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -956,6 +1047,27 @@ export default function ProductsPage() {
             setSelectedLossProduct(null);
           }}
         />
+      )}
+
+      {isImporting && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center border border-slate-200">
+            <div className="w-16 h-16 border-4 border-brand-blue border-t-transparent rounded-full animate-spin mb-6"></div>
+            <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight mb-2">Importando Produtos</h3>
+            <p className="text-slate-600 mb-6 text-sm">
+              Por favor, aguarde. Isso pode levar alguns minutos dependendo do tamanho da planilha.
+            </p>
+            <div className="w-full bg-slate-100 rounded-full h-3 mb-3 overflow-hidden">
+              <div 
+                className="bg-brand-blue h-full transition-all duration-300 ease-out rounded-full"
+                style={{ width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%` }}
+              ></div>
+            </div>
+            <p className="text-sm font-bold text-brand-blue">
+              {importProgress.current} de {importProgress.total} produtos
+            </p>
+          </div>
+        </div>
       )}
 
       {showImportModal && (
