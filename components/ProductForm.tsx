@@ -1366,27 +1366,54 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Categoria</label>
+                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Departamento</label>
                       <select 
-                        name="category"
-                        value={formData.category}
-                        onChange={handleChange}
+                        value={departamentoId}
+                        onChange={(e) => {
+                          setDepartamentoId(e.target.value);
+                          setCategoryId('');
+                          setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                        }}
                         className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
                       >
-                        <option value="PADRAO">Padrão</option>
-                        <option value="KITS">Kits</option>
-                        <option value="COMBOS">Combos</option>
+                        <option value="">Selecione...</option>
+                        {departamentos.map(dept => (
+                          <option key={dept.id} value={dept.id}>{dept.codigo ? `${dept.codigo} - ` : ''}{dept.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Categoria</label>
+                      <select 
+                        value={categoryId}
+                        onChange={(e) => {
+                          setCategoryId(e.target.value);
+                          setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                        }}
+                        className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
+                      >
+                        <option value="">Selecione...</option>
+                        {categorias
+                          .filter(cat => !departamentoId || cat.departamento_id === departamentoId)
+                          .map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.codigo ? `${cat.codigo} - ` : ''}{cat.nome}</option>
+                          ))}
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Subcategoria</label>
                       <select 
-                        name="subgroup"
-                        value={formData.subgroup}
+                        name="subcategoria_id"
+                        value={formData.subcategoria_id}
                         onChange={handleChange}
                         className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
                       >
-                        <option value="PADRAO">Padrão</option>
+                        <option value="">Selecione...</option>
+                        {subcategorias
+                          .filter(sub => !categoryId || sub.categoria_id === categoryId)
+                          .map(sub => (
+                            <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
+                          ))}
                       </select>
                     </div>
                     <div>

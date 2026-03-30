@@ -48,7 +48,9 @@ export default function ProductsPage() {
   const [showInventorySession, setShowInventorySession] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedDepartamento, setSelectedDepartamento] = useState<string | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showDepartamentoMenu, setShowDepartamentoMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
@@ -57,7 +59,7 @@ export default function ProductsPage() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedCategory]);
+  }, [search, selectedCategory, selectedDepartamento]);
 
   const getSubcategoriaName = (product: Product) => {
     if (!product.subcategoria_id) return 'Sem Subcategoria';
@@ -203,7 +205,7 @@ export default function ProductsPage() {
             profitPercentage: Math.round(profitPercentage * 100) / 100,
             stock: parseNumber(item.Estoque),
             minStock: parseNumber(item['Estoque Mínimo']),
-            status: item.Status || 'Ativo',
+            status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
             image: 'https://images.unsplash.com/photo-1605600659873-d808a1d85f8c?q=80&w=400&h=400&auto=format&fit=crop'
           } as Product, true); // true para skipFetch
 
@@ -258,11 +260,17 @@ export default function ProductsPage() {
     
     if (!matchesSearch) return false;
 
-    if (selectedCategory) {
+    if (selectedCategory || selectedDepartamento) {
       if (!p.subcategoria_id) return false;
       const sub = subcategorias.find(s => s.id === p.subcategoria_id);
       if (!sub) return false;
-      return sub.categoria_id === selectedCategory;
+      
+      if (selectedCategory && sub.categoria_id !== selectedCategory) return false;
+      
+      if (selectedDepartamento) {
+        const cat = categorias.find(c => c.id === sub.categoria_id);
+        if (!cat || cat.departamento_id !== selectedDepartamento) return false;
+      }
     }
 
     return true;
@@ -400,7 +408,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => { setActiveMenuId(null); setShowCategoryMenu(false); }}>
+    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => { setActiveMenuId(null); setShowCategoryMenu(false); setShowDepartamentoMenu(false); }}>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Gestão de Produtos</h1>
@@ -467,56 +475,117 @@ export default function ProductsPage() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white">
               <div className="flex items-center gap-4 w-full md:w-auto relative">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowCategoryMenu(!showCategoryMenu);
-                  }}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
-                    selectedCategory ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Package size={16} />
-                    <span>{selectedCategory ? categorias.find(c => c.id === selectedCategory)?.nome : 'Categorias'}</span>
-                  </div>
-                  <ChevronDown size={14} />
-                </button>
+                {/* Departamento Filter */}
+                <div className="relative">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDepartamentoMenu(!showDepartamentoMenu);
+                      setShowCategoryMenu(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
+                      selectedDepartamento ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Filter size={16} />
+                      <span>{selectedDepartamento ? departamentos.find(d => d.id === selectedDepartamento)?.nome : 'Departamentos'}</span>
+                    </div>
+                    <ChevronDown size={14} />
+                  </button>
 
-                {showCategoryMenu && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden">
-                    <div className="p-2 max-h-64 overflow-y-auto">
-                      <button
-                        onClick={() => {
-                          setSelectedCategory(null);
-                          setShowCategoryMenu(false);
-                        }}
-                        className={cn(
-                          "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
-                          !selectedCategory ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
-                        )}
-                      >
-                        Todas as Categorias
-                      </button>
-                      {categorias.map(cat => (
+                  {showDepartamentoMenu && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden">
+                      <div className="p-2 max-h-64 overflow-y-auto">
                         <button
-                          key={cat.id}
                           onClick={() => {
-                            setSelectedCategory(cat.id);
+                            setSelectedDepartamento(null);
+                            setShowDepartamentoMenu(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
+                            !selectedDepartamento ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          Todos os Departamentos
+                        </button>
+                        {departamentos.map(dep => (
+                          <button
+                            key={dep.id}
+                            onClick={() => {
+                              setSelectedDepartamento(dep.id);
+                              setShowDepartamentoMenu(false);
+                            }}
+                            className={cn(
+                              "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
+                              selectedDepartamento === dep.id ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            {dep.nome}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Categoria Filter */}
+                <div className="relative">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowCategoryMenu(!showCategoryMenu);
+                      setShowDepartamentoMenu(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
+                      selectedCategory ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Package size={16} />
+                      <span>{selectedCategory ? categorias.find(c => c.id === selectedCategory)?.nome : 'Categorias'}</span>
+                    </div>
+                    <ChevronDown size={14} />
+                  </button>
+
+                  {showCategoryMenu && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden">
+                      <div className="p-2 max-h-64 overflow-y-auto">
+                        <button
+                          onClick={() => {
+                            setSelectedCategory(null);
                             setShowCategoryMenu(false);
                           }}
                           className={cn(
                             "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
-                            selectedCategory === cat.id ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
+                            !selectedCategory ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
                           )}
                         >
-                          {cat.nome}
+                          Todas as Categorias
                         </button>
-                      ))}
+                        {categorias
+                          .filter(cat => !selectedDepartamento || cat.departamento_id === selectedDepartamento)
+                          .map(cat => (
+                            <button
+                              key={cat.id}
+                              onClick={() => {
+                                setSelectedCategory(cat.id);
+                                setShowCategoryMenu(false);
+                              }}
+                              className={cn(
+                                "w-full text-left px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors",
+                                selectedCategory === cat.id ? "bg-brand-blue/10 text-brand-blue" : "text-slate-600 hover:bg-slate-50"
+                              )}
+                            >
+                              {cat.nome}
+                            </button>
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3 w-full md:w-auto">
                 <div className="relative w-full md:w-80">
