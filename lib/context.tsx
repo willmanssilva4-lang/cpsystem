@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
+import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, Return, ExpenseCategory, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_MERCADOLOGICAL_TREE } from './default-tree';
 
 interface ERPContextType {
   products: Product[];
@@ -61,7 +62,7 @@ interface ERPContextType {
   addLoss: (loss: Omit<Loss, 'id'>) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   addStockMovement: (movement: Omit<StockMovement, 'id'>) => Promise<void>;
-  addInventory: (inventory: Omit<Inventory, 'id'>) => Promise<void>;
+  addInventory: (inventory: Omit<Inventory, 'id'>) => Promise<boolean>;
   addEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (employee: Employee) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
@@ -93,14 +94,14 @@ interface ERPContextType {
   deleteInventory: (id: string) => Promise<void>;
   addCategoria: (categoria: Omit<Categoria, 'id'>) => Promise<void>;
   updateCategoria: (categoria: Categoria) => Promise<void>;
-  deleteCategoria: (id: string) => Promise<void>;
+  deleteCategoria: (id: string) => Promise<{success: boolean, error?: any}>;
   addExpenseCategory: (categoria: Omit<ExpenseCategory, 'id'>) => Promise<void>;
   addSubcategoria: (subcategoria: Omit<Subcategoria, 'id'>) => Promise<void>;
   updateSubcategoria: (subcategoria: Subcategoria) => Promise<void>;
-  deleteSubcategoria: (id: string) => Promise<void>;
+  deleteSubcategoria: (id: string) => Promise<{success: boolean, error?: any}>;
   addDepartamento: (departamento: Omit<Departamento, 'id'>) => Promise<void>;
   updateDepartamento: (departamento: Departamento) => Promise<void>;
-  deleteDepartamento: (id: string) => Promise<void>;
+  deleteDepartamento: (id: string) => Promise<{success: boolean, error?: any}>;
   addMaquininha: (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => Promise<void>;
   updateMaquininha: (maquininha: Maquininha) => Promise<void>;
   deleteMaquininha: (id: string) => Promise<void>;
@@ -112,13 +113,59 @@ interface ERPContextType {
   fetchData: () => Promise<void>;
   customAlert: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null;
   setCustomAlert: (alert: { message: string; type: 'success' | 'error' | 'warning' | 'info' } | null) => void;
+  changePassword: (newPassword: string) => Promise<{ error: any }>;
 }
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
 
-import { DEFAULT_MERCADOLOGICAL_TREE } from './default-tree';
+const INITIAL_SYSTEM_SETTINGS: SystemSettings = {
+  theme: 'system',
+  language: 'pt-BR',
+  currency: 'BRL',
+  timezone: 'America/Sao_Paulo',
+  dateFormat: 'DD/MM/YYYY',
+  notifications: {
+    email: true,
+    push: true,
+    sms: false
+  }
+};
+
+const INITIAL_PRICING_SETTINGS: PricingSettings = {
+  defaultMethod: 'markup',
+  defaultMargin: 30,
+  defaultMarkup: 50,
+  allowEditOnProduct: true,
+  autoRounding: false
+};
+
+const INITIAL_COMPANY_SETTINGS: CompanySettings = {
+  tradeName: 'Cp Sister PDV',
+  legalName: 'Cp Sister Soluções Tecnológicas LTDA',
+  cnpj: '00.000.000/0001-00',
+  stateRegistration: 'Isento',
+  address: {
+    street: 'Avenida das Américas, 1000',
+    number: 'Sala 204',
+    neighborhood: 'Barra da Tijuca',
+    city: 'Rio de Janeiro',
+    state: 'RJ'
+  }
+};
 
 export function ERPProvider({ children }: { children: React.ReactNode }) {
+  const getInitialState = <T,>(key: string, defaultValue: T): T => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(key);
+      try {
+        return saved ? JSON.parse(saved) : defaultValue;
+      } catch (e) {
+        return defaultValue;
+      }
+    }
+    return defaultValue;
+  };
+
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -146,42 +193,39 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [maquininhas, setMaquininhas] = useState<Maquininha[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [returns, setReturns] = useState<Return[]>([]);
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    theme: 'system',
-    language: 'pt-BR',
-    currency: 'BRL',
-    timezone: 'America/Sao_Paulo',
-    dateFormat: 'DD/MM/YYYY',
-    notifications: {
-      email: true,
-      push: true,
-      sms: false
-    }
-  });
-  const [pricingSettings, setPricingSettings] = useState<PricingSettings>({
-    defaultMethod: 'markup',
-    defaultMargin: 30,
-    defaultMarkup: 50,
-    allowEditOnProduct: true,
-    autoRounding: false
-  });
-  const [companySettings, setCompanySettings] = useState<CompanySettings>({
-    tradeName: 'Cp Sister PDV',
-    legalName: 'Cp Sister Soluções Tecnológicas LTDA',
-    cnpj: '00.000.000/0001-00',
-    stateRegistration: 'Isento',
-    address: {
-      street: 'Avenida das Américas, 1000',
-      number: 'Sala 204',
-      neighborhood: 'Barra da Tijuca',
-      city: 'Rio de Janeiro',
-      state: 'RJ'
-    }
-  });
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(INITIAL_SYSTEM_SETTINGS);
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings>(INITIAL_PRICING_SETTINGS);
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(INITIAL_COMPANY_SETTINGS);
   const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; profileId?: string; companyId?: string } | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [customAlert, setCustomAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const loadFromStorage = <T,>(key: string, setter: (val: T) => void, defaultValue: T) => {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          setter(JSON.parse(saved));
+        } catch (e) {
+          setter(defaultValue);
+        }
+      }
+    };
+
+    loadFromStorage('erp_products', setProducts, []);
+    loadFromStorage('erp_sales', setSales, []);
+    loadFromStorage('erp_customers', setCustomers, []);
+    loadFromStorage('erp_suppliers', setSuppliers, []);
+    loadFromStorage('erp_expenses', setExpenses, []);
+    loadFromStorage('payment_methods', setPaymentMethods, []);
+    loadFromStorage('maquininhas', setMaquininhas, []);
+    loadFromStorage('system_settings', setSystemSettings, INITIAL_SYSTEM_SETTINGS);
+    loadFromStorage('pricing_settings', setPricingSettings, INITIAL_PRICING_SETTINGS);
+    loadFromStorage('company_settings', setCompanySettings, INITIAL_COMPANY_SETTINGS);
+    loadFromStorage('erp_user', setUser, null);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -203,7 +247,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (targetTables?: string[]) => {
     // Get current user from localStorage to avoid dependency cycles
     const storedUser = localStorage.getItem('erp_user');
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -213,52 +257,99 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
 
     const companyId = currentUser.companyId;
+    const shouldFetch = (table: string) => !targetTables || targetTables.includes(table);
 
     try {
-      const { data: productsData } = await supabase.from('products').select('*').eq('company_id', companyId);
-      const { data: customersData } = await supabase.from('customers').select('*').eq('company_id', companyId);
-      const { data: suppliersData } = await supabase.from('suppliers').select('*').eq('company_id', companyId);
+      // Define all possible queries
+      const queries: Record<string, any> = {
+        products: supabase.from('products').select('*').eq('company_id', companyId).order('name', { ascending: true }),
+        customers: supabase.from('customers').select('*').eq('company_id', companyId).order('name', { ascending: true }),
+        suppliers: supabase.from('suppliers').select('*').eq('company_id', companyId).order('name', { ascending: true }),
+        losses: supabase.from('losses').select('*').eq('company_id', companyId),
+        expenses: supabase.from('expenses').select('*').eq('company_id', companyId),
+        stock_movements: supabase.from('stock_movements').select('*').eq('company_id', companyId).order('date', { ascending: false }).limit(500),
+        inventories: supabase.from('inventories').select('*').eq('company_id', companyId).order('date', { ascending: false }),
+        employees: supabase.from('employees').select('*').eq('company_id', companyId),
+        system_users: supabase.from('system_users').select('*').eq('company_id', companyId),
+        access_profiles: supabase.from('access_profiles').select('*').eq('company_id', companyId),
+        permissions: supabase.from('permissions').select('*').eq('company_id', companyId),
+        departamentos: supabase.from('departamentos').select('*').eq('company_id', companyId),
+        categorias: supabase.from('categorias').select('*').eq('company_id', companyId),
+        expense_categories: supabase.from('expense_categories').select('*').eq('company_id', companyId),
+        subcategorias: supabase.from('subcategorias').select('*').eq('company_id', companyId),
+        vendas_descontos: supabase.from('vendas_descontos').select('*').eq('company_id', companyId),
+        cash_registers: supabase.from('cash_registers').select('*').eq('company_id', companyId).order('opened_at', { ascending: false }).limit(100),
+        cash_movements: supabase.from('cash_movements').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(200),
+        cash_closings: supabase.from('cash_closings').select('*').eq('company_id', companyId).order('closed_at', { ascending: false }).limit(100),
+        audit_logs: supabase.from('audit_logs').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(200),
+        produto_lotes: supabase.from('produto_lotes').select('*').eq('company_id', companyId),
+        payment_methods: supabase.from('payment_methods').select('*').eq('company_id', companyId),
+        maquininhas: supabase.from('maquininhas').select('*').eq('company_id', companyId),
+        promotions: supabase.from('promotions').select('*').eq('company_id', companyId),
+        returns: supabase.from('returns').select('*, return_items(*)').eq('company_id', companyId).order('date', { ascending: false }).limit(100),
+        companies: supabase.from('companies').select('*').eq('id', companyId).single()
+      };
+
+      // Filter queries based on targetTables
+      const activeTableNames = Object.keys(queries).filter(shouldFetch);
+      const activeQueries = activeTableNames.map(name => queries[name]);
+
+      const results = await Promise.all(activeQueries);
+      
+      // Map results back to data variables
+      const data: Record<string, any> = {};
+      activeTableNames.forEach((name, index) => {
+        data[name] = results[index].data;
+      });
+
+      const productsData = data.products;
+      const customersData = data.customers;
+      const suppliersData = data.suppliers;
+      const lossesData = data.losses;
+      const expensesData = data.expenses;
+      const movementsData = data.stock_movements;
+      const inventoriesData = data.inventories;
+      const employeesData = data.employees;
+      const systemUsersData = data.system_users;
+      const accessProfilesData = data.access_profiles;
+      const permissionsData = data.permissions;
+      const departamentosData = data.departamentos;
+      const categoriasData = data.categorias;
+      const expenseCategoriesData = data.expense_categories;
+      const subcategoriasData = data.subcategorias;
+      const discountLogsData = data.vendas_descontos;
+      const registersData = data.cash_registers;
+      const movementsData_cash = data.cash_movements;
+      const closingsData = data.cash_closings;
+      const auditLogsData = data.audit_logs;
+      const lotesData = data.produto_lotes;
+      const paymentMethodsData = data.payment_methods;
+      const maquininhasData = data.maquininhas;
+      const promotionsData = data.promotions;
+      const returnsData = data.returns;
+      const companyData = data.companies;
+
+      // Fetch sales separately if needed
       let salesData;
-      try {
-        const res = await supabase.from('sales').select('*, sale_items(*)').eq('company_id', companyId);
-        if (res.error) throw res.error;
-        salesData = res.data;
-      } catch (e) {
-        console.warn('Failed to fetch sales with join, fetching separately...', e);
-        const [salesRes, itemsRes] = await Promise.all([
-          supabase.from('sales').select('*').eq('company_id', companyId),
-          supabase.from('sale_items').select('*').eq('company_id', companyId)
-        ]);
-        if (salesRes.data) {
-          salesData = salesRes.data.map(s => ({
-            ...s,
-            sale_items: itemsRes.data ? itemsRes.data.filter(i => i.sale_id === s.id) : []
-          }));
+      if (shouldFetch('sales')) {
+        try {
+          const res = await supabase.from('sales').select('*, sale_items(*)').eq('company_id', companyId).order('date', { ascending: false }).limit(500);
+          if (res.error) throw res.error;
+          salesData = res.data;
+        } catch (e) {
+          console.warn('Failed to fetch sales with join, fetching separately...', e);
+          const [salesRes, itemsRes] = await Promise.all([
+            supabase.from('sales').select('*').eq('company_id', companyId).order('date', { ascending: false }).limit(500),
+            supabase.from('sale_items').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(2000)
+          ]);
+          if (salesRes.data) {
+            salesData = salesRes.data.map(s => ({
+              ...s,
+              sale_items: itemsRes.data ? itemsRes.data.filter(i => i.sale_id === s.id) : []
+            }));
+          }
         }
       }
-      const { data: lossesData } = await supabase.from('losses').select('*').eq('company_id', companyId);
-      const { data: expensesData } = await supabase.from('expenses').select('*').eq('company_id', companyId);
-      const { data: movementsData } = await supabase.from('stock_movements').select('*').eq('company_id', companyId);
-      const { data: inventoriesData } = await supabase.from('inventories').select('*').eq('company_id', companyId);
-      const { data: employeesData } = await supabase.from('employees').select('*').eq('company_id', companyId);
-      const { data: systemUsersData } = await supabase.from('system_users').select('*').eq('company_id', companyId);
-      const { data: accessProfilesData } = await supabase.from('access_profiles').select('*').eq('company_id', companyId);
-      const { data: permissionsData } = await supabase.from('permissions').select('*').eq('company_id', companyId);
-      const { data: departamentosData } = await supabase.from('departamentos').select('*').eq('company_id', companyId);
-      const { data: categoriasData } = await supabase.from('categorias').select('*').eq('company_id', companyId);
-      const { data: expenseCategoriesData } = await supabase.from('expense_categories').select('*').eq('company_id', companyId);
-      const { data: subcategoriasData } = await supabase.from('subcategorias').select('*').eq('company_id', companyId);
-      const { data: discountLogsData } = await supabase.from('vendas_descontos').select('*').eq('company_id', companyId);
-      const { data: registersData } = await supabase.from('cash_registers').select('*').eq('company_id', companyId);
-      const { data: movementsData_cash } = await supabase.from('cash_movements').select('*').eq('company_id', companyId);
-      const { data: closingsData } = await supabase.from('cash_closings').select('*').eq('company_id', companyId);
-      const { data: auditLogsData } = await supabase.from('audit_logs').select('*').eq('company_id', companyId);
-      const { data: lotesData } = await supabase.from('produto_lotes').select('*').eq('company_id', companyId);
-      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*').eq('company_id', companyId);
-      const { data: maquininhasData } = await supabase.from('maquininhas').select('*').eq('company_id', companyId);
-      const { data: promotionsData } = await supabase.from('promotions').select('*').eq('company_id', companyId);
-      const { data: returnsData } = await supabase.from('returns').select('*, return_items(*)').eq('company_id', companyId);
-      const { data: companyData } = await supabase.from('companies').select('*').eq('id', companyId).single();
       
       if (companyData) {
         setCompanySettings(prev => ({
@@ -280,7 +371,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (returnsData) {
-        setReturns(returnsData.map(r => ({
+        setReturns(returnsData.map((r: any) => ({
           id: r.id,
           saleId: r.sale_id,
           date: r.date,
@@ -299,7 +390,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (promotionsData) {
-        setPromotions(promotionsData.map(p => ({
+        setPromotions(promotionsData.map((p: any) => ({
           id: p.id,
           name: p.name,
           type: p.type,
@@ -321,7 +412,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (productsData) {
-        const baseProducts = productsData.map(p => ({
+        const baseProducts = productsData.map((p: any) => ({
           id: p.id,
           name: p.name,
           sku: p.sku ? String(p.sku) : '',
@@ -339,11 +430,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }));
 
         // Calculate virtual stock for kits
-        const finalProducts = baseProducts.map(p => {
+        const finalProducts = baseProducts.map((p: any) => {
           if (p.composition && p.composition.length > 0) {
             let possibleStock = Infinity;
             p.composition.forEach((item: CompositionItem) => {
-              const component = baseProducts.find(bp => bp.id === item.productId);
+              const component = baseProducts.find((bp: any) => bp.id === item.productId);
               if (component) {
                 const available = Math.floor(component.stock / item.quantity);
                 if (available < possibleStock) {
@@ -368,7 +459,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (subcategoriasData) setSubcategorias(subcategoriasData);
 
       if (customersData) {
-        const mappedCustomers = customersData.map(c => ({
+        const mappedCustomers = customersData.map((c: any) => ({
           id: c.id,
           name: c.name,
           document: c.document,
@@ -383,7 +474,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (suppliersData) {
-        setSuppliers(suppliersData.map(s => ({
+        setSuppliers(suppliersData.map((s: any) => ({
           id: s.id,
           name: s.name,
           document: s.document,
@@ -394,8 +485,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (salesData) {
-        const mappedSales = salesData.map(s => ({
+        const mappedSales = salesData.map((s: any) => ({
           id: s.id,
+          companyId: s.company_id,
           date: s.date,
           total: Number(s.total),
           paymentMethod: s.payment_method,
@@ -418,7 +510,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (lossesData) {
-        setLosses(lossesData.map(l => ({
+        setLosses(lossesData.map((l: any) => ({
           id: l.id,
           productId: l.product_id,
           quantity: l.quantity,
@@ -433,7 +525,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         
-        const mappedExpenses = expensesData.map(e => {
+        const mappedExpenses = expensesData.map((e: any) => {
           let status = e.status as 'Pago' | 'Pendente' | 'Vencido';
           
           // If it's pending but the due date has passed, mark as overdue
@@ -468,7 +560,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (movementsData) {
-        setStockMovements(movementsData.map(m => ({
+        setStockMovements(movementsData.map((m: any) => ({
           id: m.id,
           productId: m.product_id,
           type: m.type,
@@ -477,12 +569,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           date: m.date,
           userId: m.user_id,
           userName: m.user_name,
-          productName: productsData?.find(p => p.id === m.product_id)?.name
+          productName: productsData?.find((p: any) => p.id === m.product_id)?.name
         })));
       }
 
       if (inventoriesData) {
-        setInventories(inventoriesData.map(i => ({
+        setInventories(inventoriesData.map((i: any) => ({
           id: i.id,
           date: i.date,
           location: i.location,
@@ -496,7 +588,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (employeesData) {
-        setEmployees(employeesData.map(e => ({
+        setEmployees(employeesData.map((e: any) => ({
           id: e.id,
           fullName: e.full_name,
           cpf: e.cpf,
@@ -509,7 +601,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (systemUsersData) {
-        setSystemUsers(systemUsersData.map(u => ({
+        setSystemUsers(systemUsersData.map((u: any) => ({
           id: u.id,
           username: u.username,
           email: u.email || u.username, // Fallback to username if email is null
@@ -535,7 +627,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
         // Check which profiles are missing
         const missingProfiles = defaultProfiles.filter(dp => 
-          !accessProfilesData.some(ap => ap.name === dp.name)
+          !accessProfilesData.some((ap: any) => ap.name === dp.name)
         );
 
         if (missingProfiles.length > 0) {
@@ -548,7 +640,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           if (!insertError && newProfiles) {
             // Combine existing and new profiles
             const allProfiles = [...accessProfilesData, ...newProfiles];
-            setAccessProfiles(allProfiles.map(p => ({
+            setAccessProfiles(allProfiles.map((p: any) => ({
               id: p.id,
               name: p.name,
               description: p.description
@@ -556,14 +648,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           } else {
             console.error('Error inserting missing profiles:', insertError);
             // Fallback to just showing existing ones
-            setAccessProfiles(accessProfilesData.map(p => ({
+            setAccessProfiles(accessProfilesData.map((p: any) => ({
               id: p.id,
               name: p.name,
               description: p.description
             })));
           }
         } else {
-          setAccessProfiles(accessProfilesData.map(p => ({
+          setAccessProfiles(accessProfilesData.map((p: any) => ({
             id: p.id,
             name: p.name,
             description: p.description
@@ -572,7 +664,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (permissionsData) {
-        setPermissions(permissionsData.map(p => ({
+        setPermissions(permissionsData.map((p: any) => ({
           id: p.id,
           profileId: p.profile_id,
           module: p.module,
@@ -584,7 +676,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (discountLogsData) {
-        setDiscountLogs(discountLogsData.map(d => ({
+        setDiscountLogs(discountLogsData.map((d: any) => ({
           id: d.id,
           saleId: d.venda_id,
           productId: d.produto_id,
@@ -600,7 +692,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (registersData) {
-        const registers = registersData.map(r => ({
+        const registers = registersData.map((r: any) => ({
           id: r.id,
           companyId: r.company_id,
           storeId: r.store_id,
@@ -614,12 +706,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           observation: r.observation
         }));
         setCashRegisters(registers);
-        const active = registers.find(r => r.status === 'open');
+        const active = registers.find((r: any) => r.status === 'open');
         setActiveRegister(active || null);
       }
 
       if (movementsData_cash) {
-        setCashMovements(movementsData_cash.map(m => ({
+        setCashMovements(movementsData_cash.map((m: any) => ({
           id: m.id,
           cashRegisterId: m.cash_register_id,
           type: m.type as 'sangria' | 'suprimento' | 'ajuste',
@@ -631,7 +723,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (closingsData) {
-        setCashClosings(closingsData.map(c => ({
+        setCashClosings(closingsData.map((c: any) => ({
           id: c.id,
           cashRegisterId: c.cash_register_id,
           totalSystem: Number(c.total_system),
@@ -644,7 +736,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (auditLogsData) {
-        setAuditLogs(auditLogsData.map(l => ({
+        setAuditLogs(auditLogsData.map((l: any) => ({
           id: l.id,
           userId: l.user_id,
           action: l.action,
@@ -659,7 +751,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (lotesData) {
-        setLotes(lotesData.map(l => ({
+        setLotes(lotesData.map((l: any) => ({
           id: l.id,
           productId: l.produto_id,
           numeroLote: l.numero_lote,
@@ -685,7 +777,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (paymentMethodsData) {
-        setPaymentMethods(paymentMethodsData.map(m => ({
+        setPaymentMethods(paymentMethodsData.map((m: any) => ({
           id: m.id,
           name: m.name,
           type: m.type,
@@ -697,7 +789,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (maquininhasData) {
-        setMaquininhas(maquininhasData.map(m => ({
+        setMaquininhas(maquininhasData.map((m: any) => ({
           id: m.id,
           nome: m.nome,
           taxa_debito: Number(m.taxa_debito),
@@ -820,67 +912,71 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
 
+        // Set loading to false as soon as we have a user (or know there isn't one)
+        setIsLoading(false);
+
+        // Fetch data in the background
         await fetchData();
 
         // Set up real-time subscriptions
         productsSubscription = supabase
           .channel('products-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData(['products']))
           .subscribe();
 
         salesSubscription = supabase
           .channel('sales-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData(['sales']))
           .subscribe();
 
         customersSubscription = supabase
           .channel('customers-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData(['customers']))
           .subscribe();
 
         suppliersSubscription = supabase
           .channel('suppliers-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => fetchData(['suppliers']))
           .subscribe();
 
         expensesSubscription = supabase
           .channel('expenses-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData(['expenses']))
           .subscribe();
 
         registersSubscription = supabase
           .channel('registers-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => fetchData(['cash_registers']))
           .subscribe();
 
         movimentosSubscription = supabase
           .channel('movements-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_movements' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_movements' }, () => fetchData(['cash_movements']))
           .subscribe();
 
         categoriasSubscription = supabase
           .channel('categorias-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, () => fetchData(['categorias']))
           .subscribe();
 
         subcategoriasSubscription = supabase
           .channel('subcategorias-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategorias' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategorias' }, () => fetchData(['subcategorias']))
           .subscribe();
 
         departamentosSubscription = supabase
           .channel('departamentos-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'departamentos' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'departamentos' }, () => fetchData(['departamentos']))
           .subscribe();
 
         paymentMethodsSubscription = supabase
           .channel('payment-methods-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_methods' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_methods' }, () => fetchData(['payment_methods']))
           .subscribe();
 
         const promotionsSubscription = supabase
           .channel('promotions-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => fetchData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => fetchData(['promotions']))
           .subscribe();
 
       } catch (error) {
@@ -1036,6 +1132,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     localStorage.removeItem('erp_user');
     setUser(null);
+  };
+
+  const changePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error };
   };
 
   const addProduct = async (product: Product, skipFetch?: boolean): Promise<boolean> => {
@@ -1285,11 +1386,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
         const errorMsg = saleError.message || saleError.details || saleError.hint || saleError.code || JSON.stringify(saleError);
         alert(`Erro ao salvar venda: ${errorMsg === '{}' ? `Erro de conexão, permissão ou restrição de banco de dados (Status: ${res.status})` : errorMsg}`);
-        return false;
+        return null;
       } else if (!saleData || saleData.length === 0) {
         console.warn('Sale inserted but no data returned. RLS might be preventing SELECT.');
         alert('Venda salva, mas os itens não puderam ser salvos devido a permissões (RLS).');
-        return false;
+        return null;
       }
 
       if (!saleError && saleData && saleData.length > 0) {
@@ -1976,7 +2077,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       } else {
         alert('Senha é obrigatória para novos usuários.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected error in addSystemUser:', err);
       alert('Erro inesperado ao criar usuário.');
     }
@@ -2059,7 +2160,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.error('Error updating system user:', error);
         alert(`Erro ao atualizar dados: ${error.message}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected error in updateSystemUser:', err);
       alert('Erro inesperado ao atualizar usuário.');
     }
@@ -2090,7 +2191,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.error('Error deleting system user:', error);
         alert(`Erro ao excluir dados: ${error.message}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected error in deleteSystemUser:', err);
       alert('Erro inesperado ao excluir usuário.');
     }
@@ -2128,7 +2229,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     
     // Insert new permissions
     const { error } = await supabase.from('permissions').insert(
-      perms.map(p => ({
+      perms.map((p: any) => ({
         company_id: user?.companyId || null,
         profile_id: profileId,
         module: p.module,
@@ -2414,7 +2515,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         ip: '127.0.0.1' // Should be captured server-side if possible
       }]);
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging audit action:', error);
     }
   };
@@ -2441,8 +2542,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const closeCashRegister = async (informedTotals: { method: string; informed: number; system: number }[], justification?: string) => {
     if (!activeRegister) return;
 
-    const totalSystem = informedTotals.reduce((acc, curr) => acc + curr.system, 0);
-    const totalInformed = informedTotals.reduce((acc, curr) => acc + curr.informed, 0);
+    const totalSystem = informedTotals.reduce((acc: number, curr: any) => acc + curr.system, 0);
+    const totalInformed = informedTotals.reduce((acc: number, curr: any) => acc + curr.informed, 0);
     const totalDifference = totalInformed - totalSystem;
 
     // 1. Update Register Status
@@ -2460,7 +2561,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Insert Sales Summary
-    const summaryToInsert = informedTotals.map(item => ({
+    const summaryToInsert = informedTotals.map((item: any) => ({
       company_id: user?.companyId || null,
       cash_register_id: activeRegister.id,
       payment_method: item.method,
@@ -2717,7 +2818,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error seeding expense categories:', error);
     }
   };
@@ -2887,11 +2988,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       updateCompanySettings,
       updateSystemSettings,
       sendEmailNotification,
-      paymentMethods,
       addPaymentMethod,
       updatePaymentMethod,
       deletePaymentMethod,
-      maquininhas,
       addMaquininha,
       updateMaquininha,
       deleteMaquininha,
@@ -2905,7 +3004,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       seedExpenseCategories,
       fetchData,
       customAlert,
-      setCustomAlert
+      setCustomAlert,
+      changePassword
     }}>
       {children}
     </ERPContext.Provider>

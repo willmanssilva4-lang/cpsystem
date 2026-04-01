@@ -431,7 +431,8 @@ export default function NovaCompraPage() {
           origin: `Compra NF: ${invoiceNumber || 'S/N'} - Fornecedor: ${supplierName}`,
           date: new Date().toISOString(),
           userId: user?.email || 'system',
-          userName: user?.name || 'Sistema'
+          userName: user?.name || 'Sistema',
+          companyId: user?.companyId || ''
         });
       }
 
@@ -450,7 +451,8 @@ export default function NovaCompraPage() {
           issueDate: new Date().toISOString(),
           status: 'Pago',
           paymentDate: new Date().toISOString(),
-          paymentMethod: 'Dinheiro'
+          paymentMethod: 'Dinheiro',
+          companyId: user?.companyId || ''
         });
       } else {
         // A Prazo: Multiple installments
@@ -466,6 +468,7 @@ export default function NovaCompraPage() {
             date: `${inst.dueDate}T12:00:00Z`,
             issueDate: new Date().toISOString(),
             status: 'Pendente',
+            companyId: user?.companyId || ''
           });
         }
       }
@@ -874,15 +877,15 @@ export default function NovaCompraPage() {
               </div>
 
               {/* Summary & Actions */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-4">
-                  <div className="flex items-center gap-4 md:gap-8">
-                    <div>
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-4">
+                  <div className="flex items-center gap-4 md:gap-8 min-w-0">
+                    <div className="min-w-0">
                       <div className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Itens</div>
-                      <div className="text-xl md:text-2xl font-black text-slate-700">{totalItems}</div>
+                      <div className="text-lg md:text-xl font-black text-slate-700 truncate leading-tight">{totalItems}</div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Subtotal</div>
-                      <div className="text-2xl md:text-3xl font-black text-brand-blue tracking-tight">R$ {subtotal.toFixed(2)}</div>
+                      <div className="text-lg md:text-xl lg:text-2xl font-black text-brand-blue tracking-tight truncate leading-tight">R$ {subtotal.toFixed(2)}</div>
                     </div>
                   </div>
                   

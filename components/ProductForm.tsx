@@ -240,6 +240,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     setIsAdjusting(true);
     try {
       await addStockMovement({
+        companyId: user?.companyId || '',
         productId: initialData.id,
         type: 'AJUSTE',
         quantity: adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty,
@@ -270,8 +271,28 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let finalCodigoMercadologico = formData.codigo_mercadologico;
+    if (!finalCodigoMercadologico && formData.subcategoria_id) {
+      const sub = subcategorias.find(s => s.id === formData.subcategoria_id);
+      if (sub) {
+        const cat = categorias.find(c => c.id === sub.categoria_id);
+        if (cat) {
+          const dep = departamentos.find(d => d.id === cat.departamento_id);
+          if (dep) {
+            finalCodigoMercadologico = `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
+          } else {
+            finalCodigoMercadologico = `${cat.codigo || ''}.${sub.codigo || ''}`;
+          }
+        } else {
+          finalCodigoMercadologico = sub.codigo || '';
+        }
+      }
+    }
+
     const finalData = {
       ...formData,
+      codigo_mercadologico: finalCodigoMercadologico,
       stock: calculatedKitStock !== null ? calculatedKitStock : formData.stock
     };
     onSave(finalData);

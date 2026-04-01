@@ -18,8 +18,17 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [sentEmailNotificationIds, setSentEmailNotificationIds] = useState<string[]>([]);
   const sendingRef = React.useRef<Set<string>>(new Set());
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const notifications = useMemo(() => {
+    if (!mounted) return [];
     const notifs: any[] = [];
     
     // Low stock notifications
@@ -79,7 +88,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
     });
 
     return notifs;
-  }, [products, expenses, lotes, readNotificationIds]);
+  }, [products, expenses, lotes, readNotificationIds, mounted]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -132,7 +141,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
   const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
 
   return (
-    <header id="top-bar" name="top-bar" className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
+    <header id="top-bar" className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
       <div className="flex items-center gap-2 md:gap-6">
         <button 
           id="mobile-menu-toggle"
@@ -143,17 +152,17 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
           <Menu size={24} />
         </button>
         
-        <div id="date-display" name="date-display" className="hidden lg:flex items-center gap-2 text-brand-text-sec font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
+        <div id="date-display" className="hidden lg:flex items-center gap-2 text-brand-text-sec font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
           <Calendar size={18} />
           <span className="text-sm">
-            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {mounted ? new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Carregando...'}
           </span>
           <ChevronDown size={16} />
         </div>
       </div>
 
-          <div id="top-bar-actions" name="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
-          <div id="notifications-container" name="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
+          <div id="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
+          <div id="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
             <button 
               id="notifications-toggle"
               name="notifications-toggle"
@@ -219,7 +228,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
             </button>
   
             {!isSuperAdmin && (
-              <Link id="settings-link" name="settings-link" href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
+              <Link id="settings-link" href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
                 <Settings size={20} />
               </Link>
             )}
@@ -229,7 +238,6 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
   
           <div 
             id="user-profile-toggle"
-            name="user-profile-toggle"
             className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-slate-50 p-1 rounded-lg transition-colors"
             onClick={() => !isSuperAdmin && (window.location.href = '/configuracoes')}
           >
@@ -286,14 +294,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
-      <div id="app-layout" name="app-layout" className="flex min-h-screen relative">
+      <div id="app-layout" className="flex min-h-screen relative" suppressHydrationWarning>
           {!isLoginPage && !isPDVPage && (
             <Sidebar 
               isOpen={isMobileMenuOpen} 
               onClose={() => setIsMobileMenuOpen(false)} 
             />
           )}
-          <main id="main-content" name="main-content" data-id="main-content" data-name="main-content" className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
+          <main id="main-content" data-id="main-content" data-name="main-content" className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
             {!isLoginPage && !isPDVPage && (
               <TopBar 
                 user={user} 
@@ -301,7 +309,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 onHelpClick={() => setIsHelpOpen(true)}
               />
             )}
-            <div id="page-content" name="page-content" data-id="page-content" data-name="page-content" className="flex-1">
+            <div id="page-content" data-id="page-content" data-name="page-content" className="flex-1">
               {children}
             </div>
           </main>

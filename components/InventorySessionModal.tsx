@@ -114,6 +114,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         if (physical !== p.stock) {
           const diff = physical - p.stock;
           await addStockMovement({
+            companyId: user?.companyId || '',
             productId: p.id,
             type: 'AJUSTE',
             quantity: diff,
@@ -261,9 +262,9 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
               <div className="flex items-center gap-8">
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Divergência Total</p>
+                  <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Divergência Total</p>
                   <p className={cn(
-                    "text-xl font-black",
+                    "text-lg font-black leading-none",
                     totalDivergenceValue < 0 ? "text-rose-500" : "text-emerald-500"
                   )}>
                     R$ {totalDivergenceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -356,19 +357,19 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Confira os dados antes de finalizar</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Itens Contados</p>
-                    <p className="text-2xl font-black text-slate-700">{itemsCounted}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Itens Contados</p>
+                    <p className="text-xl font-black text-slate-700 leading-none">{itemsCounted}</p>
                   </div>
-                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Com Divergência</p>
-                    <p className="text-2xl font-black text-rose-500">{itemsWithDivergence}</p>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Com Divergência</p>
+                    <p className="text-xl font-black text-rose-500 leading-none">{itemsWithDivergence}</p>
                   </div>
-                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 col-span-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Divergência Financeira Total</p>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 col-span-2">
+                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Divergência Financeira Total</p>
                     <p className={cn(
-                      "text-3xl font-black",
+                      "text-2xl font-black leading-none",
                       totalDivergenceValue < 0 ? "text-rose-500" : "text-emerald-500"
                     )}>
                       R$ {totalDivergenceValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

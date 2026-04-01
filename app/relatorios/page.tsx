@@ -119,6 +119,9 @@ export default function ReportsPage() {
         const cost = product ? product.costPrice : 0;
         profit += (item.price - cost) * item.quantity;
       });
+      
+      // Subtract machine fees from profit
+      profit -= (sale.taxAmount || 0);
 
       const current = chartDataMap.get(dateStr);
       current.total += sale.total;
@@ -465,7 +468,7 @@ export default function ReportsPage() {
                         <p className="text-sm text-slate-500 mt-2">Este relatório está sendo gerado com base nas projeções de vendas e despesas fixas.</p>
                       </div>
                       <div className="h-80 w-full bg-white rounded-3xl border border-slate-100 p-6">
-                        <ResponsiveContainer id="rel-proj-bar-main-resp" name="rel-proj-bar-main-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                        <ResponsiveContainer id="rel-proj-bar-main-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                           <BarChart data={projectionData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
@@ -644,6 +647,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
 
   // Calculate Metrics
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
+  const totalTax = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
@@ -654,7 +658,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     });
   });
 
-  const totalProfit = totalSales - totalCost;
+  const totalProfit = totalSales - totalCost - totalTax;
   const ticketMedio = totalSales / (filteredSales.length || 1);
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
@@ -678,6 +682,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   });
 
   const prevTotalSales = prevFilteredSales.reduce((acc, s) => acc + s.total, 0);
+  const prevTotalTax = prevFilteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
     sale.items.forEach(item => {
@@ -687,7 +692,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     });
   });
 
-  const prevTotalProfit = prevTotalSales - prevTotalCost;
+  const prevTotalProfit = prevTotalSales - prevTotalCost - prevTotalTax;
   const prevTicketMedio = prevFilteredSales.length > 0 ? prevTotalSales / prevFilteredSales.length : 0;
   const prevProfitMargin = prevTotalSales > 0 ? (prevTotalProfit / prevTotalSales) * 100 : 0;
 
@@ -751,7 +756,8 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   // Sellers Ranking
   const sellerStats: Record<string, { total: number, volume: number, margin: number }> = {};
   filteredSales.forEach(sale => {
-    const sellerName = sale.operatorId || 'Sistema';
+    const seller = systemUsers.find(u => u.id === sale.userId);
+    const sellerName = seller?.full_name || seller?.username || 'Sistema';
     if (!sellerStats[sellerName]) {
       sellerStats[sellerName] = { total: 0, volume: 0, margin: 0 };
     }
@@ -879,34 +885,34 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
         
         {/* Metrics Row - 3 Cards like the image */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px]">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lucro Líquido Acumulado</p>
-            <div className="mt-2">
-              <h3 className="text-3xl font-bold text-[#1e293b]">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-              <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${profitTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                {profitTrend >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lucro Líquido Acumulado</p>
+            <div className="mt-1">
+              <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+              <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${profitTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                {profitTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 <span>{Math.abs(profitTrend).toFixed(1)}% vs período anterior</span>
               </div>
             </div>
           </div>
           
-          <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px]">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ticket Médio por Venda</p>
-            <div className="mt-2">
-              <h3 className="text-3xl font-bold text-[#1e293b]">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-              <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${ticketMedioTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                {ticketMedioTrend >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Ticket Médio por Venda</p>
+            <div className="mt-1">
+              <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+              <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${ticketMedioTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                {ticketMedioTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 <span>{Math.abs(ticketMedioTrend).toFixed(1)}% vs período anterior</span>
               </div>
             </div>
           </div>
  
-          <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px]">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Margem de Lucro Bruta</p>
-            <div className="mt-2">
-              <h3 className="text-3xl font-bold text-[#1e293b]">{profitMargin.toFixed(1)}%</h3>
-              <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                {marginTrend >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Margem de Lucro Bruta</p>
+            <div className="mt-1">
+              <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{profitMargin.toFixed(1)}%</h3>
+              <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                {marginTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 <span>{Math.abs(marginTrend).toFixed(1)}% vs período anterior</span>
               </div>
             </div>
@@ -923,7 +929,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
             <div className="flex-1 flex items-center justify-between gap-4">
               <div className="h-64 w-1/2">
-                <ResponsiveContainer id="rel-cat-pie-resp" name="rel-cat-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                   <PieChart>
                     <Pie
                       data={categoryData}
@@ -1026,7 +1032,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
               </div>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer id="rel-proj-bar-resp" name="rel-proj-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+              <ResponsiveContainer id="rel-proj-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                 <BarChart data={secondProjectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
@@ -1052,7 +1058,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
             <div className="flex-1 flex items-center justify-between gap-6">
               <div className="h-56 w-1/2">
-                <ResponsiveContainer id="rel-pay-pie-resp" name="rel-pay-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                   <PieChart>
                     <Pie
                       data={paymentData}
@@ -1158,17 +1164,17 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border">
-          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Caixas Abertos</p>
-          <h4 className="text-2xl font-black text-brand-blue">{filteredRegisters.length}</h4>
+        <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border min-w-0">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest truncate">Caixas Abertos</p>
+          <h4 className="text-xl xl:text-2xl font-black text-brand-blue break-words leading-tight">{filteredRegisters.length}</h4>
         </div>
-        <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100">
-          <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest">Caixas Fechados</p>
-          <h4 className="text-2xl font-black text-rose-600">{filteredRegisters.filter(r => r.status === 'closed').length}</h4>
+        <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 min-w-0">
+          <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest truncate">Caixas Fechados</p>
+          <h4 className="text-xl xl:text-2xl font-black text-rose-600 break-words leading-tight">{filteredRegisters.filter(r => r.status === 'closed').length}</h4>
         </div>
-        <div className="p-6 rounded-3xl bg-brand-text-main text-white shadow-xl shadow-brand-text-main/20">
-          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest">Total em Caixa (Abertos)</p>
-          <h4 className="text-2xl font-black text-brand-text-sec">
+        <div className="p-6 rounded-3xl bg-brand-text-main text-white shadow-xl shadow-brand-text-main/20 min-w-0">
+          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest truncate">Total em Caixa (Abertos)</p>
+          <h4 className="text-xl xl:text-2xl font-black text-brand-text-sec break-words leading-tight">
             {formatCurrency(filteredRegisters.filter(r => r.status === 'open').reduce((acc, r) => acc + r.openingBalance, 0))}
           </h4>
         </div>
@@ -1255,6 +1261,8 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
       .filter(e => ['Impostos', 'Taxas'].includes(e.category))
       .reduce((acc, e) => acc + e.amount, 0);
       
+    const taxasMaquininha = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+      
     const dOp = filteredExpenses
       .filter(e => ['Operacional', 'Fornecedores', 'Utilidades'].includes(e.category))
       .reduce((acc, e) => acc + e.amount, 0);
@@ -1267,7 +1275,7 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
       .filter(e => ['Depreciação', 'Amortização'].includes(e.category))
       .reduce((acc, e) => acc + e.amount, 0);
 
-    return { receitaBruta: rBruta, cmv: costOfGoods, impostos: imp, despesasOp: dOp, despesasAdm: dAdm, depreciacao: dep };
+    return { receitaBruta: rBruta, cmv: costOfGoods, impostos: imp + taxasMaquininha, despesasOp: dOp, despesasAdm: dAdm, depreciacao: dep };
   }, [filteredSales, filteredExpenses, products]);
 
   const receitaLiquida = receitaBruta - impostos;
@@ -1347,13 +1355,13 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {data.length > 0 ? data.map((item, i) => (
-          <div key={i} className="p-6 rounded-3xl border border-brand-border bg-white flex items-center justify-between shadow-sm">
-            <div>
-              <h5 className="text-sm font-black text-brand-text-main uppercase italic">{item.name}</h5>
-              <p className="text-[10px] font-black text-brand-blue/40 uppercase tracking-widest">{item.status}</p>
+          <div key={i} className="p-6 rounded-3xl border border-brand-border bg-white flex items-center justify-between shadow-sm gap-4">
+            <div className="min-w-0 flex-1">
+              <h5 className="text-sm font-black text-brand-text-main uppercase italic truncate" title={item.name}>{item.name}</h5>
+              <p className="text-[10px] font-black text-brand-blue/40 uppercase tracking-widest truncate">{item.status}</p>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-black text-brand-blue">{item.turnover}</p>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-black text-brand-blue truncate">{item.turnover}</p>
               <p className="text-[10px] font-black text-brand-text-main/20 uppercase italic">Giro no Período</p>
             </div>
           </div>
@@ -1692,7 +1700,7 @@ function SalesReport({ startDate, endDate }: { startDate: string, endDate: strin
       
       <div className="h-64 w-full">
         {chartData.length > 0 ? (
-          <ResponsiveContainer id="rel-sales-area-resp" name="rel-sales-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+          <ResponsiveContainer id="rel-sales-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
@@ -1789,7 +1797,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
           </h4>
           <div className="h-64">
             {data.length > 0 ? (
-              <ResponsiveContainer id="rel-pay-pie-2-resp" name="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+              <ResponsiveContainer id="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                 <PieChart>
                   <Pie
                     data={data}
@@ -1904,7 +1912,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
     <div className="space-y-8">
       <div className="h-80 w-full">
         {data.length > 0 ? (
-          <ResponsiveContainer id="rel-hourly-bar-resp" name="rel-hourly-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+          <ResponsiveContainer id="rel-hourly-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
@@ -2048,13 +2056,13 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100">
-          <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest">Total de Perdas (Período)</p>
-          <h4 className="text-2xl font-black text-rose-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalLosses)}</h4>
+        <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 min-w-0">
+          <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest truncate">Total de Perdas (Período)</p>
+          <h4 className="text-lg xl:text-xl font-black text-rose-600 truncate leading-tight">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalLosses)}</h4>
         </div>
-        <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border">
-          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Índice de Quebra</p>
-          <h4 className="text-2xl font-black text-brand-blue">{lossIndex.toFixed(1)}%</h4>
+        <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border min-w-0">
+          <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest truncate">Índice de Quebra</p>
+          <h4 className="text-lg xl:text-xl font-black text-brand-blue truncate leading-tight">{lossIndex.toFixed(1)}%</h4>
         </div>
       </div>
       <table className="w-full text-left border-collapse">
@@ -2217,7 +2225,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="h-64">
           {data.length > 0 ? (
-            <ResponsiveContainer id="rel-cat-bar-resp" name="rel-cat-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+            <ResponsiveContainer id="rel-cat-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
               <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} />

@@ -26,7 +26,21 @@ export default function PDVPage() {
 
   const [quantity, setQuantity] = useState(1);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    // Set initial time in a timeout to avoid synchronous state update in effect
+    const initialTimer = setTimeout(() => {
+      setCurrentTime(new Date());
+    }, 0);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(initialTimer);
+    };
+  }, []);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [selectedCartIndex, setSelectedCartIndex] = useState(-1);
@@ -60,7 +74,7 @@ export default function PDVPage() {
   } | null>(null);
   const [saleDiscount, setSaleDiscount] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
-  const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [completedSale, setCompletedSale] = useState<any | null>(null);
   
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
@@ -115,12 +129,14 @@ export default function PDVPage() {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | null) => {
+    if (!date) return '';
     return formatDateTimeBR(date.toISOString());
   };
 
   const comboDiscount = useMemo(() => {
-    const now = new Date();
+    if (!currentTime) return 0;
+    const now = currentTime;
     const activeCombos = promotions.filter(p => 
       p.status === 'ACTIVE' && 
       p.type === 'COMBO' &&
@@ -166,7 +182,7 @@ export default function PDVPage() {
     });
 
     return totalComboDiscount;
-  }, [cart, promotions, products]);
+  }, [cart, promotions, products, currentTime]);
 
   const subtotal = cart.reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
   const totalItemsDiscount = cart.reduce((acc, item) => acc + (item.discount * item.quantity), 0);
@@ -201,7 +217,8 @@ export default function PDVPage() {
       maquininhaId: paymentData.payments[0]?.maquininhaId, // For compatibility
       taxAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0),
       netAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.netAmount || 0), 0),
-      userId: user?.email
+      userId: user?.email,
+      companyId: user?.companyId || ''
     });
     console.log('DEBUG: Valor de taxAmount enviado para addSale:', paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0));
 
@@ -255,13 +272,13 @@ export default function PDVPage() {
     setPendingDiscount(null);
   };
 
-  const handlePrintReceipt = (sale: Sale) => {
+  const handlePrintReceipt = (sale: any) => {
     const customer = customers.find(c => c.id === sale.customerId);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const itemsHtml = sale.items.map(item => {
+    const itemsHtml = sale.items.map((item: any) => {
       const product = products.find(p => p.id === item.productId);
       return `
         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
@@ -301,7 +318,7 @@ export default function PDVPage() {
           </div>
           
           <div class="footer">
-            <p>Cliente: ${customer?.nome || 'Consumidor Final'}</p>
+            <p>Cliente: ${customer?.name || 'Consumidor Final'}</p>
             <p>Obrigado pela preferência!</p>
           </div>
           

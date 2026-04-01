@@ -110,7 +110,7 @@ export default function FinancePage() {
     const taxasHoje = salesInPeriod.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
 
     // Lucro no Período (Bruto)
-    const lucroHoje = faturamentoHoje - cmvHoje;
+    const lucroHoje = faturamentoHoje - cmvHoje - taxasHoje;
 
     // Saldo em Caixa Real (Baseado em todos os caixas, movimentações e vendas)
     const openingBalances = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
@@ -390,7 +390,7 @@ export default function FinancePage() {
                   </h3>
                 </div>
                 <div className="h-72 w-full">
-                  <ResponsiveContainer id="fin-cash-area-resp" name="fin-cash-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                  <ResponsiveContainer id="fin-cash-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorEntrada" x1="0" y1="0" x2="0" y2="1">

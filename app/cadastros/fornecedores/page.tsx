@@ -68,7 +68,7 @@ export default function FornecedoresPage() {
     };
 
     if (editingId) {
-      await updateSupplier({ id: editingId, ...payload });
+      await updateSupplier({ id: editingId, ...payload } as any);
     } else {
       await addSupplier(payload as any);
     }

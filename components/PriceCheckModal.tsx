@@ -30,7 +30,6 @@ export function PriceCheckModal({ onClose }: PriceCheckModalProps) {
 
     const term = searchTerm.toLowerCase().trim();
     const product = products.find(p => 
-      p.barcode === term || 
       p.sku.toLowerCase() === term || 
       p.name.toLowerCase().includes(term)
     );
@@ -94,7 +93,6 @@ export function PriceCheckModal({ onClose }: PriceCheckModalProps) {
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">{result.name}</h3>
               <div className="flex justify-center gap-4 text-sm font-medium text-slate-500 mb-6">
                 <span>SKU: {result.sku}</span>
-                {result.barcode && <span>EAN: {result.barcode}</span>}
               </div>
               <div className="text-5xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
                 {formatCurrency(result.salePrice)}

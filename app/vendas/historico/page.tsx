@@ -70,7 +70,7 @@ export default function SalesHistoryPage() {
           </div>
           
           <div class="footer">
-            <p>Cliente: ${customer?.nome || 'Consumidor Final'}</p>
+            <p>Cliente: ${customer?.name || 'Consumidor Final'}</p>
             <p>Obrigado pela preferência!</p>
           </div>
           
@@ -88,7 +88,7 @@ export default function SalesHistoryPage() {
     printWindow.document.close();
   };
 
-  if (!hasPermission('vendas', 'historico')) {
+  if (!hasPermission('Vendas', 'view')) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-brand-text-sec font-bold uppercase tracking-widest">Acesso Negado</p>
@@ -170,8 +170,8 @@ export default function SalesHistoryPage() {
                               <p className="text-[10px] text-brand-text-sec font-bold">{formatDateTimeBR(sale.date)}</p>
                             </td>
                             <td className="px-6 py-4">
-                              <p className="font-bold text-brand-text-main">{customer?.nome || 'Consumidor Final'}</p>
-                              <p className="text-[10px] text-brand-text-sec font-bold uppercase">{customer?.cpf || 'Sem CPF'}</p>
+                              <p className="font-bold text-brand-text-main">{customer?.name || 'Consumidor Final'}</p>
+                              <p className="text-[10px] text-brand-text-sec font-bold uppercase">{customer?.document || 'Sem CPF'}</p>
                             </td>
                             <td className="px-6 py-4 text-right">
                               <p className="font-black text-brand-blue">R$ {sale.total.toFixed(2)}</p>
@@ -252,7 +252,7 @@ export default function SalesHistoryPage() {
                         <User size={16} className="text-brand-text-sec" />
                         <span className="font-bold text-brand-text-sec uppercase text-[10px]">Cliente:</span>
                         <span className="font-black italic text-brand-text-main uppercase">
-                          {customers.find(c => c.id === selectedSale.customerId)?.nome || 'Consumidor Final'}
+                          {customers.find(c => c.id === selectedSale.customerId)?.name || 'Consumidor Final'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">

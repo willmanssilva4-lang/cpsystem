@@ -54,7 +54,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
     };
     
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
+      const d = new Date(now.getTime());
       d.setDate(now.getDate() - i);
       d.setHours(0, 0, 0, 0);
       const dateStr = d.toLocaleDateString('pt-BR');
@@ -145,28 +145,28 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm min-w-0">
           <div className="flex items-center gap-3 mb-2">
-            <ArrowUpCircle className="text-emerald-500" size={20} />
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Entradas</span>
+            <ArrowUpCircle className="text-emerald-500 shrink-0" size={20} />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Total Entradas</span>
           </div>
-          <h4 className="text-2xl font-black text-emerald-600 tracking-tight">{formatCurrency(totals.inflows)}</h4>
+          <h4 className="text-lg xl:text-xl font-black text-emerald-600 tracking-tight truncate leading-tight" title={formatCurrency(totals.inflows)}>{formatCurrency(totals.inflows)}</h4>
         </div>
         
-        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm min-w-0">
           <div className="flex items-center gap-3 mb-2">
-            <ArrowDownCircle className="text-rose-500" size={20} />
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Saídas</span>
+            <ArrowDownCircle className="text-rose-500 shrink-0" size={20} />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Total Saídas</span>
           </div>
-          <h4 className="text-2xl font-black text-rose-600 tracking-tight">{formatCurrency(totals.outflows)}</h4>
+          <h4 className="text-lg xl:text-xl font-black text-rose-600 tracking-tight truncate leading-tight" title={formatCurrency(totals.outflows)}>{formatCurrency(totals.outflows)}</h4>
         </div>
         
-        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
+        <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm min-w-0">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="text-indigo-500" size={20} />
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Saldo do Período</span>
+            <TrendingUp className="text-indigo-500 shrink-0" size={20} />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate">Saldo do Período</span>
           </div>
-          <h4 className={cn("text-2xl font-black tracking-tight", totals.balance >= 0 ? "text-indigo-600" : "text-rose-600")}>
+          <h4 className={cn("text-lg xl:text-xl font-black tracking-tight truncate leading-tight", totals.balance >= 0 ? "text-indigo-600" : "text-rose-600")} title={formatCurrency(totals.balance)}>
             {formatCurrency(totals.balance)}
           </h4>
         </div>
@@ -176,7 +176,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
       <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
         <h3 className="text-sm font-black uppercase italic tracking-tight mb-6">Evolução Diária</h3>
         <div className="h-80 w-full">
-          <ResponsiveContainer id="fluxo-daily-area-resp" name="fluxo-daily-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+          <ResponsiveContainer id="fluxo-daily-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
             <AreaChart data={dailyData}>
               <defs>
                 <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">

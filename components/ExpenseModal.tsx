@@ -11,7 +11,7 @@ interface ExpenseModalProps {
 export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const { addExpense, updateExpense, deleteExpense, addExpenseCategory, expenseCategories } = useERP();
+  const { addExpense, updateExpense, deleteExpense, addExpenseCategory, expenseCategories, user } = useERP();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
@@ -89,6 +89,8 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
       }
 
       const expenseData = {
+        companyId: user?.companyId || '',
+        date: formData.issueDate,
         description: formData.description,
         category: formData.category,
         supplier: formData.supplier,

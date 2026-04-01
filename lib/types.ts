@@ -66,6 +66,7 @@ export interface Product {
   subgroup?: string;
   validade?: string;
   has_had_stock?: boolean;
+  barcode?: string;
 }
 
 export interface CashRegister {
@@ -279,6 +280,7 @@ export interface CompanySettings {
     state: string;
   };
   email?: string;
+  phone?: string;
 }
 
 export interface StockMovement {
@@ -340,6 +342,7 @@ export interface AccessProfile {
 export interface SystemUser {
   id: string;
   username: string;
+  full_name?: string;
   email?: string;
   employeeId?: string;
   profileId?: string;

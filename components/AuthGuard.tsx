@@ -11,10 +11,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const redirectingToRef = React.useRef<string | null>(null);
 
-  // Check localStorage as a fallback to avoid race conditions during login
-  const storedUserStr = typeof window !== 'undefined' ? localStorage.getItem('erp_user') : null;
-  const storedUser = storedUserStr ? JSON.parse(storedUserStr) : null;
-  const effectiveUser = user || storedUser;
+  // We rely on the user from context, which is now loaded in a useEffect in ERPProvider.
+  // This ensures that the initial render on client matches server (both will have user=null initially).
+  const effectiveUser = user;
 
   useEffect(() => {
     // Wait for auth to be ready before making decisions
@@ -50,7 +49,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div 
         id="auth-loading-screen" 
-        name="auth-loading-screen"
         data-id="auth-loading-screen"
         data-name="auth-loading-screen"
         className="fixed inset-0 z-[9999] flex items-center justify-center"

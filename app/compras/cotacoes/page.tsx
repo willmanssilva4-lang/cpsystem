@@ -26,6 +26,7 @@ import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 
 export default function CotacoesPage() {
+  const { user } = useERP();
   const [view, setView] = useState<'list' | 'create'>('list');
   const [isLoading, setIsLoading] = useState(false);
   const [productsList, setProductsList] = useState<any[]>([]);
@@ -76,7 +77,7 @@ export default function CotacoesPage() {
       });
       setQuotations(formatted);
     }
-  }, []);
+  }, [user?.companyId]);
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
@@ -96,7 +97,7 @@ export default function CotacoesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchQuotations]);
+  }, [fetchQuotations, user?.companyId]);
 
   useEffect(() => {
     fetchInitialData();
@@ -357,7 +358,7 @@ export default function CotacoesPage() {
 
                   <div className="mt-6 pt-6 border-t border-slate-50 flex items-center justify-between">
                     <div className="flex -space-x-2">
-                      {cot.suppliers.map((s, i) => (
+                      {cot.suppliers.map((s: string, i: number) => (
                         <div key={i} className="w-8 h-8 rounded-full bg-brand-border border-2 border-white flex items-center justify-center text-[10px] font-black text-brand-blue italic uppercase">
                           {s[0]}
                         </div>

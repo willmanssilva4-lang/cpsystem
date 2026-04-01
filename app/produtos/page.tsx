@@ -319,8 +319,9 @@ export default function ProductsPage() {
         composition: formData.composition,
         status: formData.status,
         category: formData.category || 'PADRAO',
-        subgroup: formData.subgroup || 'PADRAO'
-      });
+        subgroup: formData.subgroup || 'PADRAO',
+        companyId: user?.companyId || ''
+      } as any);
     }
 
     if (success) {
@@ -376,7 +377,8 @@ export default function ProductsPage() {
         origin: `Ajuste: ${adjustmentReason}`,
         date: new Date().toISOString(),
         userId: user?.email || 'system',
-        userName: user?.name || 'Sistema'
+        userName: user?.name || 'Sistema',
+        companyId: user?.companyId || ''
       });
       
       alert('Ajuste realizado com sucesso!');
@@ -466,10 +468,10 @@ export default function ProductsPage() {
       {activeTab === 'produtos' && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            <SummaryCard title="Total de Produtos" value={products.length.toString()} icon={Package} color="green" />
-            <SummaryCard title="Estoque Baixo" value={lowStockCount.toString()} icon={AlertCircle} color="red" />
-            <SummaryCard title="Quantidade Total" value={products.reduce((acc, p) => acc + p.stock, 0).toLocaleString()} icon={Package} color="blue" />
-            <SummaryCard title="Estoque Valorizado" value={`R$ ${totalStockValue.toLocaleString()}`} icon={TrendingUp} color="orange" />
+            <SummaryCard title="Total de Produtos" value={products.length.toLocaleString('pt-BR')} icon={Package} color="green" />
+            <SummaryCard title="Estoque Baixo" value={lowStockCount.toLocaleString('pt-BR')} icon={AlertCircle} color="red" />
+            <SummaryCard title="Quantidade Total" value={products.reduce((acc, p) => acc + p.stock, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} icon={Package} color="blue" />
+            <SummaryCard title="Estoque Valorizado" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalStockValue)} icon={TrendingUp} color="orange" />
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -662,8 +664,8 @@ export default function ProductsPage() {
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{getCategoryName(product)}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">{product.stock}</td>
-                      <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="hidden sm:table-cell px-6 py-4">
                         <StatusBadge status={product.stock <= product.minStock ? 'Estoque Baixo' : (product.status === 'Inativo' ? 'Indisponivel' : 'Disponivel')} />
                       </td>
@@ -1308,9 +1310,9 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
               </select>
             </div>
 
-            <div className="p-4 bg-brand-warning/10 rounded-lg border border-brand-warning/20">
-              <p className="text-xs font-medium text-brand-warning mb-1">Impacto Financeiro</p>
-              <p className="text-lg font-bold text-brand-warning">
+            <div className="p-3 bg-brand-warning/5 rounded-xl border border-brand-warning/10">
+              <p className="text-[10px] font-black text-brand-warning uppercase tracking-widest leading-none mb-1">Impacto Financeiro</p>
+              <p className="text-base font-black text-brand-warning leading-none">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(quantity * product.costPrice)}
               </p>
             </div>
@@ -1348,16 +1350,16 @@ function SummaryCard({ title, value, icon: Icon, color }: any) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-      <div className={`p-3 rounded-xl ${colors[color]}`}>
-        <Icon size={32} />
+    <div className="bg-white p-2 md:p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2 min-w-0">
+      <div className={`p-1.5 md:p-2 rounded-xl shrink-0 ${colors[color]}`}>
+        <Icon size={18} className="md:w-5 md:h-5" />
       </div>
-      <div>
-        <p className="text-sm font-bold text-slate-400 mb-1">{title}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-[8px] md:text-[9px] font-black text-slate-400 mb-0.5 truncate uppercase tracking-widest leading-none" title={title}>{title}</p>
         <p className={cn(
-          "text-2xl font-black",
+          "text-xs md:text-sm xl:text-base font-black truncate leading-none",
           color === 'orange' ? "text-brand-warning" : "text-slate-700"
-        )}>{value}</p>
+        )} title={value}>{value}</p>
       </div>
     </div>
   );

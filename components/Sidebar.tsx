@@ -78,12 +78,11 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
     }).filter(Boolean) as any[];
 
   const SidebarContent = (
-    <aside id="sidebar-nav" name="sidebar-nav" className="w-64 bg-brand-blue-support flex flex-col h-full text-white overflow-hidden">
+    <aside id="sidebar-nav" className="w-64 bg-brand-blue-support flex flex-col h-full text-white overflow-hidden">
       <div className="p-8 flex items-center justify-between">
         <Logo size="md" theme="dark" />
         <button 
           id="sidebar-close"
-          name="sidebar-close"
           onClick={onClose}
           className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60"
         >
@@ -128,7 +127,6 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
                         return (
                           <Link
                             id={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
-                            name={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
                             data-id={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
                             data-name={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
                             key={sub.href}
@@ -160,7 +158,6 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
           return (
             <Link
               id={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-              name={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               data-id={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               data-name={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               key={item.href}
@@ -186,7 +183,6 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <button
             id="logout-button"
-            name="logout-button"
             onClick={logout}
             className="relative z-10 w-full flex items-center gap-3 px-6 py-3 rounded-xl transition-all text-sm font-bold text-white/60 hover:bg-rose-500/20 hover:text-rose-400"
           >

@@ -21,10 +21,10 @@ export default function SalesAuditPage() {
         id: log.id,
         type: 'discount',
         date: log.date,
-        user: log.userId,
-        details: `${log.type === 'percentage' ? log.value + '%' : 'R$ ' + log.value.toFixed(2)} de desconto em ${log.saleId ? 'Venda #' + log.saleId.substring(0, 8).toUpperCase() : 'Item'}`,
+        user: log.appliedBy,
+        details: `${log.method === 'percentage' ? log.value + '%' : 'R$ ' + log.value.toFixed(2)} de desconto em ${log.saleId ? 'Venda #' + log.saleId.substring(0, 8).toUpperCase() : 'Item'}`,
         reason: log.reason,
-        severity: log.value > 20 || (log.type === 'value' && log.value > 100) ? 'high' : 'medium'
+        severity: log.value > 20 || (log.method === 'value' && log.value > 100) ? 'high' : 'medium'
       });
     });
 
@@ -54,7 +54,7 @@ export default function SalesAuditPage() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [discountLogs, returns, startDate, endDate, filterType, searchQuery]);
 
-  if (!hasPermission('vendas', 'auditoria')) {
+  if (!hasPermission('Vendas', 'view')) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-brand-text-sec font-bold uppercase tracking-widest">Acesso Negado</p>
@@ -166,7 +166,7 @@ export default function SalesAuditPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <User size={14} className="text-brand-text-sec" />
-                            <span className="font-bold text-brand-text-main uppercase text-xs">{eventUser?.nome || 'Sistema'}</span>
+                            <span className="font-bold text-brand-text-main uppercase text-xs">{eventUser?.full_name || eventUser?.username || 'Sistema'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">

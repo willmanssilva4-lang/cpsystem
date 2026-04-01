@@ -96,7 +96,7 @@ export default function ReturnsPage() {
     setShowConfirmModal(true);
   };
 
-  if (!hasPermission('vendas', 'devolucoes')) {
+  if (!hasPermission('Vendas', 'view')) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-brand-text-sec font-bold uppercase tracking-widest">Acesso Negado</p>

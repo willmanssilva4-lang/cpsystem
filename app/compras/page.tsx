@@ -312,13 +312,13 @@ export default function PurchasingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="p-4 md:p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-border transition-all"
+            className="p-4 md:p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-border transition-all min-w-0"
           >
-            <div className={`${stat.bg} ${stat.color} w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center mb-4`}>
+            <div className={`${stat.bg} ${stat.color} w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center mb-4 shrink-0`}>
               <stat.icon size={20} />
             </div>
-            <div className="text-xl md:text-2xl font-black text-brand-text-main italic tracking-tight truncate">{stat.value}</div>
-            <div className="text-[10px] text-brand-text-main/40 font-bold uppercase italic tracking-wider">{stat.label}</div>
+            <div className="text-base md:text-lg xl:text-xl font-black text-brand-text-main italic tracking-tight truncate leading-tight">{stat.value}</div>
+            <div className="text-[10px] text-brand-text-main/40 font-bold uppercase italic tracking-wider truncate">{stat.label}</div>
           </motion.div>
         ))}
       </div>
@@ -360,7 +360,7 @@ export default function PurchasingPage() {
             </select>
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer id="comp-price-area-resp" name="comp-price-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+            <ResponsiveContainer id="comp-price-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
               <AreaChart data={priceHistory}>
                 <defs>
                   <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -416,7 +416,7 @@ export default function PurchasingPage() {
             </button>
           </div>
           <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer id="comp-supp-bar-resp" name="comp-supp-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+            <ResponsiveContainer id="comp-supp-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
               <BarChart data={supplierPerformance} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
                 <XAxis type="number" hide />

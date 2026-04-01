@@ -67,10 +67,8 @@ export default function DepartamentosPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este departamento?')) return;
-    const { success } = await deleteDepartamento(id);
-    if (success) {
-      setIsModalOpen(false);
-    }
+    await deleteDepartamento(id);
+    setIsModalOpen(false);
   };
 
   return (
@@ -217,11 +215,9 @@ export default function DepartamentosPage() {
                       <button
                         type="button"
                         onClick={async () => {
-                          const { success } = await deleteDepartamento(editingDept.id);
-                          if (success) {
-                            setIsModalOpen(false);
-                            setIsConfirmingDelete(false);
-                          }
+                          await deleteDepartamento(editingDept.id);
+                          setIsModalOpen(false);
+                          setIsConfirmingDelete(false);
                         }}
                         className="px-4 py-2 bg-rose-500 text-white font-bold rounded-xl transition-colors hover:bg-rose-600"
                       >

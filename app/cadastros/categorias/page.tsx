@@ -86,8 +86,8 @@ export default function CategoriasPage() {
   };
 
   const handleDeleteDept = async (id: string) => {
-    const { success } = await deleteDepartamento(id);
-    if (success) setIsDeptModalOpen(false);
+    await deleteDepartamento(id);
+    setIsDeptModalOpen(false);
   };
 
   // Category Handlers
@@ -149,10 +149,8 @@ export default function CategoriasPage() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    const { success } = await deleteCategoria(id);
-    if (success) {
-      setIsCategoryModalOpen(false);
-    }
+    await deleteCategoria(id);
+    setIsCategoryModalOpen(false);
   };
 
   const generateSubcategoryCode = (catId: string) => {
@@ -214,10 +212,8 @@ export default function CategoriasPage() {
   };
 
   const handleDeleteSubcategory = async (id: string) => {
-    const { success } = await deleteSubcategoria(id);
-    if (success) {
-      setIsSubcategoryModalOpen(false);
-    }
+    await deleteSubcategoria(id);
+    setIsSubcategoryModalOpen(false);
   };
 
   const toggleExpandDept = (deptId: string) => {
@@ -740,11 +736,9 @@ export default function CategoriasPage() {
                       <button
                         type="button"
                         onClick={async () => {
-                          const { success } = await deleteSubcategoria(editingSubcategory.id);
-                          if (success) {
-                            setIsSubcategoryModalOpen(false);
-                            setIsConfirmingDeleteSubcategory(false);
-                          }
+                          await deleteSubcategoria(editingSubcategory.id);
+                          setIsSubcategoryModalOpen(false);
+                          setIsConfirmingDeleteSubcategory(false);
                         }}
                         className="px-4 py-2 bg-rose-500 text-white font-bold rounded-xl transition-colors hover:bg-rose-600"
                       >

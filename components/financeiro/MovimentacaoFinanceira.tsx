@@ -16,10 +16,16 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'entrada' | 'saida'>('all');
   const [daysFilter, setDaysFilter] = useState<number>(30);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   const transactions = useMemo(() => {
+    if (!mounted) return [];
     const now = new Date();
     const cutoffDate = new Date();
     cutoffDate.setDate(now.getDate() - daysFilter);
@@ -66,7 +72,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         t.category.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, expenses, cashMovements, daysFilter, typeFilter, searchTerm]);
+  }, [sales, expenses, cashMovements, daysFilter, typeFilter, searchTerm, mounted]);
 
   const totals = useMemo(() => {
     return transactions.reduce((acc, t) => {

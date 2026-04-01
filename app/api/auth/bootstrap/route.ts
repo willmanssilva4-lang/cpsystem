@@ -44,16 +44,19 @@ export async function GET() {
         .select()
         .single();
       
-      if (companyError) throw companyError;
+      if (companyError || !newCompany) throw companyError || new Error('Falha ao criar empresa');
       company = newCompany;
     }
+
+    // Ensure company is not null for TypeScript
+    const companyId = (company as any).id;
 
     // 3. Create or Get Profile
     let { data: profile } = await supabaseAdmin
       .from('access_profiles')
       .select('id')
       .eq('name', 'Administrador')
-      .eq('company_id', company.id)
+      .eq('company_id', companyId)
       .maybeSingle();
 
     if (!profile) {
@@ -62,19 +65,19 @@ export async function GET() {
         .insert([{ 
           name: 'Administrador', 
           description: 'Acesso total ao sistema',
-          company_id: company.id
+          company_id: companyId
         }])
         .select()
         .single();
       
-      if (profileError) throw profileError;
+      if (profileError || !newProfile) throw profileError || new Error('Falha ao criar perfil');
       profile = newProfile;
 
       // Insert permissions for the new profile
       const modules = ['Produtos', 'Vendas', 'Financeiro', 'Estoque', 'Configurações'];
       const permissionsData = modules.map(module => ({
-        profile_id: profile.id,
-        company_id: company.id,
+        profile_id: profile!.id,
+        company_id: companyId,
         module,
         can_view: true,
         can_create: true,
@@ -103,7 +106,7 @@ export async function GET() {
         email_confirm: true,
         user_metadata: {
           full_name: 'Super Admin',
-          company_id: company.id
+          company_id: companyId
         }
       });
       if (updateError) throw updateError;
@@ -114,7 +117,7 @@ export async function GET() {
         email_confirm: true,
         user_metadata: {
           full_name: 'Super Admin',
-          company_id: company.id
+          company_id: companyId
         }
       });
       if (authError) throw authError;
@@ -129,9 +132,9 @@ export async function GET() {
       username: 'admin',
       email: superAdminEmail,
       full_name: 'Super Admin',
-      profile_id: profile.id,
+      profile_id: (profile as any).id,
       active: true,
-      company_id: company.id
+      company_id: companyId
     };
 
     let userError;
