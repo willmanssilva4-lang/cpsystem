@@ -17,9 +17,10 @@ interface DREProps {
   sales: Sale[];
   expenses: Expense[];
   products: Product[];
+  returns?: any[]; // Adicionando returns opcional para compatibilidade
 }
 
-export function DRE({ sales, expenses, products }: DREProps) {
+export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
@@ -45,18 +46,31 @@ export function DRE({ sales, expenses, products }: DREProps) {
 
     sales.forEach(s => years.add(getYear(s.date)));
     expenses.forEach(e => years.add(getYear(e.date)));
+    returns.forEach(r => years.add(getYear(r.date)));
     
     return Array.from(years).sort((a, b) => b - a);
-  }, [sales, expenses]);
+  }, [sales, expenses, returns]);
 
   const dreData = useMemo(() => {
     const getMonthYear = (dateStr: string | Date | undefined) => {
       if (!dateStr) return { month: -1, year: -1 };
-      if (typeof dateStr === 'string' && dateStr.length === 10) {
-        const [year, month] = dateStr.split('-');
-        return { month: parseInt(month, 10) - 1, year: parseInt(year, 10) };
+      
+      // Handle string formats
+      if (typeof dateStr === 'string') {
+        // YYYY-MM-DD
+        if (dateStr.length === 10 && dateStr.includes('-')) {
+          const [year, month] = dateStr.split('-');
+          return { month: parseInt(month, 10) - 1, year: parseInt(year, 10) };
+        }
+        // DD/MM/YYYY
+        if (dateStr.length === 10 && dateStr.includes('/')) {
+          const [day, month, year] = dateStr.split('/');
+          return { month: parseInt(month, 10) - 1, year: parseInt(year, 10) };
+        }
       }
+      
       const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return { month: -1, year: -1 };
       return { month: d.getMonth(), year: d.getFullYear() };
     };
 
@@ -66,11 +80,19 @@ export function DRE({ sales, expenses, products }: DREProps) {
       return month === selectedMonth && year === selectedYear;
     });
 
+    // Filter returns for selected month/year
+    const returnsMonth = returns.filter(r => {
+      const { month, year } = getMonthYear(r.date);
+      return month === selectedMonth && year === selectedYear && r.status !== 'CANCELADO';
+    });
+
     // Receita Bruta (Vendas totais antes dos descontos)
     const receitaBruta = salesMonth.reduce((acc, s) => acc + (s.subtotal || (s.total + (s.discount || 0))), 0);
 
-    // Deduções (Descontos)
-    const deducoes = salesMonth.reduce((acc, s) => acc + (s.discount || 0), 0);
+    // Deduções (Descontos + Devoluções)
+    const descontos = salesMonth.reduce((acc, s) => acc + (s.discount || 0), 0);
+    const devolucoes = returnsMonth.reduce((acc, r) => acc + (r.total || 0), 0);
+    const deducoes = descontos + devolucoes;
 
     // Receita Líquida
     const receitaLiquida = receitaBruta - deducoes;
@@ -91,14 +113,24 @@ export function DRE({ sales, expenses, products }: DREProps) {
     salesMonth.forEach(sale => {
       sale.items.forEach(item => {
         const product = products.find(p => p.id === item.productId);
-        if (product) {
-          cmv += product.costPrice * item.quantity;
-        }
+        // Prioriza o preço de custo gravado no item da venda (histórico)
+        const costPrice = item.costPrice || (product ? product.costPrice : 0);
+        cmv += costPrice * item.quantity;
       });
     });
 
-    // Lucro Bruto
-    const lucroBruto = receitaLiquida - cmv - taxasMaquininhas;
+    // Subtrai o custo das mercadorias devolvidas do CMV
+    returnsMonth.forEach(ret => {
+      ret.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        // Tenta buscar o preço de custo original da venda se possível, senão usa o atual
+        const costPrice = product ? product.costPrice : 0;
+        cmv -= costPrice * item.quantity;
+      });
+    });
+
+    // Lucro Bruto (Receita Líquida - CMV)
+    const lucroBruto = receitaLiquida - cmv;
 
     // Despesas Operacionais (Incluindo contas a pagar para o DRE)
     const expensesMonth = expenses.filter(e => {
@@ -116,7 +148,8 @@ export function DRE({ sales, expenses, products }: DREProps) {
     const totalDespesas = expensesMonth.reduce((acc, e) => acc + e.amount, 0);
 
     // Lucro Líquido (Resultado do Exercício)
-    const lucroLiquido = lucroBruto - totalDespesas;
+    // Lucro Líquido = Lucro Bruto - Taxas Maquininhas - Despesas Operacionais
+    const lucroLiquido = lucroBruto - taxasMaquininhas - totalDespesas;
 
     // Margens
     const margemBruta = receitaLiquida > 0 ? (lucroBruto / receitaLiquida) * 100 : 0;
@@ -135,7 +168,7 @@ export function DRE({ sales, expenses, products }: DREProps) {
       margemBruta,
       margemLiquida
     };
-  }, [sales, expenses, products, selectedMonth, selectedYear]);
+  }, [sales, expenses, products, returns, selectedMonth, selectedYear]);
 
   const pieChartData = useMemo(() => {
     const data = Object.entries(dreData.despesasPorCategoria).map(([name, value]) => ({
@@ -226,15 +259,6 @@ export function DRE({ sales, expenses, products }: DREProps) {
                 <span className="text-base font-black text-emerald-600">{formatCurrency(dreData.receitaLiquida)}</span>
               </div>
 
-              {/* Taxas Financeiras */}
-              <div className="flex justify-between items-center p-3 pl-8 mt-2">
-                <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                  Taxas Financeiras (Maquininhas)
-                </span>
-                <span className="text-sm font-bold text-rose-500">{formatCurrency(dreData.taxasMaquininhas)}</span>
-              </div>
-
               {/* CMV */}
               <div className="flex justify-between items-center p-3 pl-8 mt-2">
                 <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
@@ -253,6 +277,15 @@ export function DRE({ sales, expenses, products }: DREProps) {
                   </span>
                 </div>
                 <span className="text-base font-black text-indigo-600">{formatCurrency(dreData.lucroBruto)}</span>
+              </div>
+
+              {/* Taxas Financeiras */}
+              <div className="flex justify-between items-center p-3 pl-8 mt-2">
+                <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
+                  Taxas Financeiras (Maquininhas)
+                </span>
+                <span className="text-sm font-bold text-rose-500">{formatCurrency(dreData.taxasMaquininhas)}</span>
               </div>
 
               {/* Despesas Operacionais */}

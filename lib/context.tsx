@@ -979,6 +979,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => fetchData(['promotions']))
           .subscribe();
 
+        const returnsSubscription = supabase
+          .channel('returns-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'returns' }, () => fetchData(['returns']))
+          .subscribe();
+
       } catch (error) {
         console.error('Initialization error:', error);
       } finally {
@@ -999,6 +1004,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (subcategoriasSubscription) supabase.removeChannel(subcategoriasSubscription);
       if (departamentosSubscription) supabase.removeChannel(departamentosSubscription);
       if (paymentMethodsSubscription) supabase.removeChannel(paymentMethodsSubscription);
+      // @ts-ignore
+      if (typeof promotionsSubscription !== 'undefined') supabase.removeChannel(promotionsSubscription);
+      // @ts-ignore
+      if (typeof returnsSubscription !== 'undefined') supabase.removeChannel(returnsSubscription);
     };
   }, [fetchData]);
 

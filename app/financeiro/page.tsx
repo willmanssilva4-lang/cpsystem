@@ -604,6 +604,7 @@ export default function FinancePage() {
           sales={sales} 
           expenses={expenses} 
           products={products} 
+          returns={returns}
         />
       )}
 
