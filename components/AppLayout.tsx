@@ -16,8 +16,21 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
   const { products, expenses, lotes, systemSettings, sendEmailNotification } = useERP();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
-  const [sentEmailNotificationIds, setSentEmailNotificationIds] = useState<string[]>([]);
+  const [sentEmailNotificationIds, setSentEmailNotificationIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_sent_email_notifs');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [lastEmailAttempt, setLastEmailAttempt] = useState<number>(0);
   const sendingRef = React.useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_sent_email_notifs', JSON.stringify(sentEmailNotificationIds));
+    }
+  }, [sentEmailNotificationIds]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -94,38 +107,75 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
 
   // Enviar notificações por e-mail
   useEffect(() => {
-    if (!systemSettings?.notifications?.email || !user?.email) return;
+    if (!systemSettings?.notifications?.email || !user?.email || !mounted) return;
+
+    // Cooldown de 1 minuto entre tentativas de envio para evitar rate limits
+    const now = Date.now();
+    if (now - lastEmailAttempt < 60000) return;
 
     // Apenas notificar se houver notificações novas que ainda não foram enviadas ou processadas
     const notificationsToSend = notifications.filter(n => !n.read && !sentEmailNotificationIds.includes(n.id) && !sendingRef.current.has(n.id));
     
     if (notificationsToSend.length > 0) {
-      notificationsToSend.forEach(async (notification) => {
-        sendingRef.current.add(notification.id);
+      const sendGroupedEmail = async () => {
+        const ids = notificationsToSend.map(n => n.id);
+        ids.forEach(id => sendingRef.current.add(id));
+        setLastEmailAttempt(Date.now());
+
+        console.log(`📧 Tentando enviar e-mail agrupado para ${user.email} com ${notificationsToSend.length} alertas`);
         
-        console.log(`📧 Tentando enviar e-mail para ${user.email} sobre: ${notification.title}`);
-        const success = await sendEmailNotification(
-          user.email,
-          `ERP Alerta: ${notification.title}`,
-          notification.message,
-          `
-            <div style="font-family: sans-serif; padding: 20px; color: #334155;">
-              <h2 style="color: #1e40af;">${notification.title}</h2>
-              <p>${notification.message}</p>
-              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-              <p style="font-size: 12px; color: #64748b;">Este é um alerta automático do seu sistema ERP.</p>
+        let subject = `ERP Alerta: ${notificationsToSend[0].title}`;
+        if (notificationsToSend.length > 1) {
+          subject = `ERP Alerta: ${notificationsToSend.length} novas notificações`;
+        }
+
+        const html = `
+          <div style="font-family: sans-serif; padding: 20px; color: #334155;">
+            <h2 style="color: #1e40af;">Resumo de Notificações</h2>
+            <p>Você tem ${notificationsToSend.length} novas notificações que requerem sua atenção:</p>
+            <div style="margin: 20px 0;">
+              ${notificationsToSend.map(n => `
+                <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #1e40af; background-color: #f8fafc;">
+                  <strong style="display: block; color: #1e40af;">${n.title}</strong>
+                  <span style="font-size: 14px;">${n.message}</span>
+                </div>
+              `).join('')}
             </div>
-          `
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #64748b;">Este é um alerta automático do seu sistema ERP.</p>
+          </div>
+        `;
+
+        const result = await sendEmailNotification(
+          user.email,
+          subject,
+          notificationsToSend.map(n => `${n.title}: ${n.message}`).join('\n\n'),
+          html
         );
 
-        if (success) {
-          setSentEmailNotificationIds(prev => [...prev, notification.id]);
+        if (result.success) {
+          setSentEmailNotificationIds(prev => {
+            const newIds = [...new Set([...prev, ...ids])];
+            return newIds.slice(-500); // Manter apenas os últimos 500 para não estourar localStorage
+          });
         } else {
-          sendingRef.current.delete(notification.id);
+          // Se falhou, remove do sendingRef para tentar novamente após o cooldown
+          ids.forEach(id => sendingRef.current.delete(id));
+          // Se foi erro de rate limit, aumenta o cooldown
+          if (result.error?.includes('Rate exceeded')) {
+            setLastEmailAttempt(Date.now() + 300000); // 5 minutos de cooldown extra
+          }
         }
-      });
+      };
+
+      // Debounce de 5 segundos para agrupar notificações que chegam juntas
+      const timer = setTimeout(() => {
+        sendGroupedEmail();
+      }, 5000);
+
+      return () => clearTimeout(timer);
     }
-  }, [notifications, systemSettings, user, sendEmailNotification, sentEmailNotificationIds]);
+  }, [notifications, systemSettings, user, sendEmailNotification, sentEmailNotificationIds, lastEmailAttempt, mounted]);
 
   const markAsRead = (id: string) => {
     if (!readNotificationIds.includes(id)) {

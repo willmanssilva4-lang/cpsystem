@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, Return, ExpenseCategory, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
@@ -200,6 +200,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [customAlert, setCustomAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -248,13 +249,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const fetchData = useCallback(async (targetTables?: string[]) => {
-    // Get current user from localStorage to avoid dependency cycles
-    const storedUser = localStorage.getItem('erp_user');
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    
-    if (!currentUser?.companyId) {
-      return;
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
     }
+
+    return new Promise<void>((resolve) => {
+      fetchTimeoutRef.current = setTimeout(async () => {
+        // Get current user from localStorage to avoid dependency cycles
+        const storedUser = localStorage.getItem('erp_user');
+        const currentUser = storedUser ? JSON.parse(storedUser) : null;
+        
+        if (!currentUser?.companyId) {
+          resolve();
+          return;
+        }
 
     const companyId = currentUser.companyId;
     const shouldFetch = (table: string) => !targetTables || targetTables.includes(table);
@@ -821,8 +829,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       else setExpenses(INITIAL_EXPENSES);
 
       setLosses(INITIAL_LOSSES);
+    } finally {
+      resolve();
     }
-  }, []);
+  }, 500);
+});
+}, [supabase]);
 
   useEffect(() => {
     let productsSubscription: any;
@@ -2307,8 +2319,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           console.error('Erro ao enviar e-mail:', errorData.error || errorData);
         } else {
           const errorText = await response.text();
-          errorMessage = errorText.substring(0, 100);
-          console.error('Erro ao enviar e-mail (não-JSON):', errorMessage);
+          if (errorText.includes('Rate exceeded')) {
+            errorMessage = 'Limite de envio de e-mail atingido. Tente novamente em instantes.';
+          } else {
+            errorMessage = errorText.substring(0, 100);
+          }
+          console.error('Erro ao enviar e-mail (não-JSON):', errorText);
         }
         return { success: false, error: errorMessage };
       }
