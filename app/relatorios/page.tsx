@@ -648,6 +648,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   // Calculate Metrics
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
   const totalTax = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+  const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
@@ -658,7 +659,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     });
   });
 
-  const totalProfit = totalSales - totalCost - totalTax;
+  const totalProfit = totalSales - totalCost - totalTax - totalExpenses;
   const ticketMedio = totalSales / (filteredSales.length || 1);
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
@@ -681,8 +682,15 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     return d >= prevStartDate && d <= prevEndDate;
   });
 
+  const prevFilteredExpenses = expenses.filter(e => {
+    const d = e.date.split('T')[0];
+    return d >= prevStartDate && d <= prevEndDate;
+  });
+
   const prevTotalSales = prevFilteredSales.reduce((acc, s) => acc + s.total, 0);
   const prevTotalTax = prevFilteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+  const prevTotalExpenses = prevFilteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
     sale.items.forEach(item => {
@@ -692,13 +700,21 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     });
   });
 
-  const prevTotalProfit = prevTotalSales - prevTotalCost - prevTotalTax;
+  const prevTotalProfit = prevTotalSales - prevTotalCost - prevTotalTax - prevTotalExpenses;
   const prevTicketMedio = prevFilteredSales.length > 0 ? prevTotalSales / prevFilteredSales.length : 0;
   const prevProfitMargin = prevTotalSales > 0 ? (prevTotalProfit / prevTotalSales) * 100 : 0;
 
-  const profitTrend = prevTotalProfit !== 0 ? ((totalProfit - prevTotalProfit) / Math.abs(prevTotalProfit)) * 100 : 0;
-  const ticketMedioTrend = prevTicketMedio !== 0 ? ((ticketMedio - prevTicketMedio) / prevTicketMedio) * 100 : 0;
-  const marginTrend = prevProfitMargin !== 0 ? profitMargin - prevProfitMargin : 0;
+  const profitTrend = prevTotalProfit !== 0 
+    ? ((totalProfit - prevTotalProfit) / Math.abs(prevTotalProfit)) * 100 
+    : (totalProfit > 0 ? 100 : (totalProfit < 0 ? -100 : 0));
+    
+  const ticketMedioTrend = prevTicketMedio !== 0 
+    ? ((ticketMedio - prevTicketMedio) / prevTicketMedio) * 100 
+    : (ticketMedio > 0 ? 100 : 0);
+    
+  const marginTrend = prevProfitMargin !== 0 
+    ? profitMargin - prevProfitMargin 
+    : (profitMargin !== 0 ? profitMargin : 0);
 
   // Category Data Calculation
   const categoryTotals: Record<string, number> = {};

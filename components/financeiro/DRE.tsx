@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { PieChart as PieChartIcon, Download, Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Sale, Expense, Product } from '@/lib/types';
+import { Sale, Expense, Product, Return, ReturnItem } from '@/lib/types';
 import { 
   PieChart, 
   Pie, 
@@ -17,7 +17,7 @@ interface DREProps {
   sales: Sale[];
   expenses: Expense[];
   products: Product[];
-  returns?: any[]; // Adicionando returns opcional para compatibilidade
+  returns?: Return[]; // Usando o tipo Return
 }
 
 export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
@@ -121,7 +121,7 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
     // Subtrai o custo das mercadorias devolvidas do CMV
     returnsMonth.forEach(ret => {
-      ret.items.forEach(item => {
+      ret.items.forEach((item: ReturnItem) => {
         const product = products.find(p => p.id === item.productId);
         // Tenta buscar o preço de custo original da venda se possível, senão usa o atual
         const costPrice = product ? product.costPrice : 0;
