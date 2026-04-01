@@ -102,7 +102,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       profitPercentage: initialProfitPercentage,
       image: initialData?.image || DEFAULT_IMAGE,
       barcode: '',
-      status: 'Ativo',
+      status: initialData?.status || 'Ativo',
       store: 'Loja Principal',
       codigo_mercadologico: initialData?.codigo_mercadologico || '',
       category: 'PADRAO',

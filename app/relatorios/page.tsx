@@ -635,6 +635,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
+  const [reportType, setReportType] = useState('Relatório de Vendas');
   
   // Filter data based on date range
   const filteredSales = sales.filter(s => {
@@ -843,6 +844,11 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // Stock Metrics
+  const totalProductsInStock = products.reduce((acc, p) => acc + (p.stock > 0 ? 1 : 0), 0);
+  const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
+  const lowStockProductsCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
+
   return (
     <div className="space-y-6 bg-[#f8fafc] -m-8 p-8 min-h-full font-sans">
       <div className="flex flex-col gap-6">
@@ -866,10 +872,14 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             <div className="flex-1 min-w-[200px] space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Tipo de Relatório</label>
               <div className="relative">
-                <select className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none">
-                  <option>Relatório de Vendas</option>
-                  <option>Relatório Financeiro</option>
-                  <option>Relatório de Estoque</option>
+                <select 
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none"
+                >
+                  <option value="Relatório de Vendas">Relatório de Vendas</option>
+                  <option value="Relatório Financeiro">Relatório Financeiro</option>
+                  <option value="Relatório de Estoque">Relatório de Estoque</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
@@ -902,266 +912,358 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
         </div>
         
         {/* Metrics Row - 3 Cards like the image */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lucro Líquido Acumulado</p>
-            <div className="mt-1">
-              <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-              <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${profitTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                {profitTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                <span>{Math.abs(profitTrend).toFixed(1)}% vs período anterior</span>
+        {(reportType === 'Relatório de Vendas' || reportType === 'Relatório Financeiro') && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lucro Líquido Acumulado</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${profitTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                  {profitTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  <span>{Math.abs(profitTrend).toFixed(1)}% vs período anterior</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Ticket Médio por Venda</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${ticketMedioTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                  {ticketMedioTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  <span>{Math.abs(ticketMedioTrend).toFixed(1)}% vs período anterior</span>
+                </div>
+              </div>
+            </div>
+   
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Margem de Lucro Bruta</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{profitMargin.toFixed(1)}%</h3>
+                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
+                  {marginTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  <span>{Math.abs(marginTrend).toFixed(1)}% vs período anterior</span>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Ticket Médio por Venda</p>
-            <div className="mt-1">
-              <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-              <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${ticketMedioTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                {ticketMedioTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                <span>{Math.abs(ticketMedioTrend).toFixed(1)}% vs período anterior</span>
+        )}
+
+        {reportType === 'Relatório de Estoque' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total de Produtos em Estoque</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{totalProductsInStock}</h3>
+                <div className="flex items-center gap-1 text-[10px] font-bold mt-2 text-slate-500">
+                  <Package size={12} />
+                  <span>Produtos únicos com saldo</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Valor Total em Estoque</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                <div className="flex items-center gap-1 text-[10px] font-bold mt-2 text-slate-500">
+                  <DollarSign size={12} />
+                  <span>Baseado no preço de custo</span>
+                </div>
+              </div>
+            </div>
+   
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Produtos com Estoque Baixo</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{lowStockProductsCount}</h3>
+                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${lowStockProductsCount > 0 ? 'text-brand-danger' : 'text-brand-green'}`}>
+                  {lowStockProductsCount > 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                  <span>{lowStockProductsCount > 0 ? 'Atenção necessária' : 'Estoque saudável'}</span>
+                </div>
               </div>
             </div>
           </div>
- 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Margem de Lucro Bruta</p>
-            <div className="mt-1">
-              <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{profitMargin.toFixed(1)}%</h3>
-              <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                {marginTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                <span>{Math.abs(marginTrend).toFixed(1)}% vs período anterior</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Charts & Tables Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Vendas por Categoria - Left Column */}
-          <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h4 className="text-sm font-bold text-[#1e293b]">Vendas por Categoria e Subcategoria (Mês)</h4>
-              <PieIcon size={16} className="text-slate-300" />
-            </div>
-            <div className="flex-1 flex items-center justify-between gap-4">
-              <div className="h-64 w-1/2">
-                <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={2}
-                      dataKey="value"
-                      stroke="#fff"
-                      strokeWidth={2}
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                      formatter={(value: any) => `${value}%`}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+          {(reportType === 'Relatório de Vendas' || reportType === 'Relatório de Estoque') && (
+            <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-sm font-bold text-[#1e293b]">Vendas por Categoria e Subcategoria (Mês)</h4>
+                <PieIcon size={16} className="text-slate-300" />
               </div>
-              <div className="flex-1 space-y-2.5">
-                {categoryData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                      <span className="text-[11px] font-bold text-slate-500 truncate max-w-[120px]">{item.name}</span>
+              <div className="flex-1 flex items-center justify-between gap-4">
+                <div className="h-64 w-1/2">
+                  <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="#fff"
+                        strokeWidth={2}
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                        formatter={(value: any) => `${value}%`}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 space-y-2.5">
+                  {categoryData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                        <span className="text-[11px] font-bold text-slate-500 truncate max-w-[120px]">{item.name}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Desempenho por Assistente IA - Right Column */}
-          <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h4 className="text-sm font-bold text-[#1e293b]">Desempenho por Assistente IA</h4>
-              <Bot size={16} className="text-slate-300" />
-            </div>
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assistente IA</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Vendas (R$)</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Vendas</th>
-                    <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem Média (%)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {sellers.map((s, idx) => (
-                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
-                      <td className="py-4 text-[11px] font-bold text-slate-700">{s.name}</td>
-                      <td className="py-4 text-[11px] font-bold text-slate-700">
-                        R$ {s.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        <TrendingUp size={12} className="inline ml-1 text-brand-green" />
-                      </td>
-                      <td className="py-4 text-[11px] font-bold text-slate-700">{s.volume}</td>
-                      <td className="py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <span className="text-[11px] font-bold text-slate-700">{s.margin}%</span>
-                          {s.margin > 25 ? <TrendingUp size={12} className="text-brand-green" /> : <TrendingDown size={12} className="text-brand-danger" />}
-                        </div>
-                      </td>
+          {reportType === 'Relatório de Vendas' && (
+            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-sm font-bold text-[#1e293b]">Desempenho por Assistente IA</h4>
+                <Bot size={16} className="text-slate-300" />
+              </div>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assistente IA</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Vendas (R$)</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Vendas</th>
+                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem Média (%)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {sellers.map((s, idx) => (
+                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{s.name}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">
+                          R$ {s.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          <TrendingUp size={12} className="inline ml-1 text-brand-green" />
+                        </td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{s.volume}</td>
+                        <td className="py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-[11px] font-bold text-slate-700">{s.margin}%</span>
+                            {s.margin > 25 ? <TrendingUp size={12} className="text-brand-green" /> : <TrendingDown size={12} className="text-brand-danger" />}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Produtos com Estoque Baixo - Right Column */}
+          {reportType === 'Relatório de Estoque' && (
+            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-sm font-bold text-[#1e293b]">Produtos com Estoque Baixo</h4>
+                <Package size={16} className="text-slate-300" />
+              </div>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produto</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estoque Atual</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estoque Mínimo</th>
+                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {products.filter(p => p.stock <= p.minStock && p.has_had_stock).slice(0, 6).map((p, idx) => (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[200px]">{p.name}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{p.stock}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{p.minStock}</td>
+                        <td className="py-4 text-right">
+                          <span className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase ${
+                            p.stock === 0 ? 'bg-brand-danger text-white' : 'bg-brand-warning text-white'
+                          }`}>
+                            {p.stock === 0 ? 'Sem Estoque' : 'Baixo'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {products.filter(p => p.stock <= p.minStock && p.has_had_stock).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-xs text-slate-500 italic">Nenhum produto com estoque baixo.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Projeção de Fluxo de Caixa - Full Width */}
-          <div className="lg:col-span-12 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h4 className="text-sm font-bold text-[#1e293b]">Projeção de Fluxo de Caixa Próximas 4 Semanas</h4>
+          {reportType === 'Relatório Financeiro' && (
+            <div className="lg:col-span-12 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Projeção de Fluxo de Caixa Próximas 4 Semanas</h4>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-[#00E676]"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Entradas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-[#EF4444]"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saídas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-[#1E5EFF]"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Projeção</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full border-2 border-[#1E5EFF] bg-white"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo de Caixa</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#00E676]"></div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Entradas</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#EF4444]"></div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saídas</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-[#1E5EFF]"></div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Projeção</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full border-2 border-[#1E5EFF] bg-white"></div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo de Caixa</span>
-                </div>
-              </div>
-            </div>
-            <div className="h-72 w-full">
-              <ResponsiveContainer id="rel-proj-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                <BarChart data={secondProjectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
-                  <Tooltip 
-                    cursor={{fill: '#F3F4F6'}} 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
-                    formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)}
-                  />
-                  <Bar name="Entradas" dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
-                  <Bar name="Saídas" dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={40} />
-                  <Line name="Saldo" type="monotone" dataKey="balance" stroke="#6366F1" strokeWidth={3} dot={{ r: 5, fill: '#fff', stroke: '#6366F1', strokeWidth: 2 }} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Meios de Pagamento - Bottom Left */}
-          <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h4 className="text-sm font-bold text-[#1e293b]">Relatório de Meios de Pagamento (Análise Profunda)</h4>
-              <CreditCard size={16} className="text-slate-300" />
-            </div>
-            <div className="flex-1 flex items-center justify-between gap-6">
-              <div className="h-56 w-1/2">
-                <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                  <PieChart>
-                    <Pie
-                      data={paymentData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={0}
-                      outerRadius={85}
-                      dataKey="value"
-                      stroke="#fff"
-                      strokeWidth={2}
-                    >
-                      {paymentData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
+              <div className="h-72 w-full">
+                <ResponsiveContainer id="rel-proj-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                  <BarChart data={secondProjectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
                     <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                      formatter={(value: any) => `${value}%`}
+                      cursor={{fill: '#F3F4F6'}} 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
+                      formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)}
                     />
-                  </PieChart>
+                    <Bar name="Entradas" dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar name="Saídas" dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Line name="Saldo" type="monotone" dataKey="balance" stroke="#6366F1" strokeWidth={3} dot={{ r: 5, fill: '#fff', stroke: '#6366F1', strokeWidth: 2 }} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex-1 space-y-4">
-                {paymentData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                      <span className="text-[11px] font-bold text-slate-500">{item.name}</span>
+            </div>
+          )}
+
+          {/* Meios de Pagamento - Bottom Left */}
+          {(reportType === 'Relatório de Vendas' || reportType === 'Relatório Financeiro') && (
+            <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-sm font-bold text-[#1e293b]">Relatório de Meios de Pagamento (Análise Profunda)</h4>
+                <CreditCard size={16} className="text-slate-300" />
+              </div>
+              <div className="flex-1 flex items-center justify-between gap-6">
+                <div className="h-56 w-1/2">
+                  <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                    <PieChart>
+                      <Pie
+                        data={paymentData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={0}
+                        outerRadius={85}
+                        dataKey="value"
+                        stroke="#fff"
+                        strokeWidth={2}
+                      >
+                        {paymentData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                        formatter={(value: any) => `${value}%`}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 space-y-4">
+                  {paymentData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                        <span className="text-[11px] font-bold text-slate-500">{item.name}</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-700">{item.value}%</span>
                     </div>
-                    <span className="text-[11px] font-bold text-slate-700">{item.value}%</span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-center gap-6 mt-6">
+                {paymentData.map((item) => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">{item.name}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex justify-center gap-6 mt-6">
-              {paymentData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">{item.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Contas a Pagar e Receber - Bottom Right */}
-          <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h4 className="text-sm font-bold text-[#1e293b]">Análise de Contas a Pagar e Receber (Próximos 30 Dias)</h4>
-              <Calendar size={16} className="text-slate-300" />
-            </div>
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrição/Fornecedor/Cliente</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor (R$)</th>
-                    <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {accounts.length > 0 ? accounts.map((a, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 text-[11px] font-bold text-slate-700">{a.type}</td>
-                      <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[180px]">{a.desc}</td>
-                      <td className="py-4 text-[11px] font-bold text-slate-700">{a.date}</td>
-                      <td className="py-4 text-[11px] font-bold text-slate-700">R$ {a.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 text-right">
-                        <span className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
-                          a.status === 'Em Dia' ? 'bg-brand-green text-white' : 'bg-brand-warning text-white'
-                        }`}>
-                          {a.status}
-                        </span>
-                      </td>
+          {reportType === 'Relatório Financeiro' && (
+            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-sm font-bold text-[#1e293b]">Análise de Contas a Pagar e Receber (Próximos 30 Dias)</h4>
+                <Calendar size={16} className="text-slate-300" />
+              </div>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrição/Fornecedor/Cliente</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor (R$)</th>
+                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                     </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-xs font-medium text-slate-400 italic">Nenhum lançamento encontrado para este período</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {accounts.length > 0 ? accounts.map((a, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{a.type}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[180px]">{a.desc}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{a.date}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">R$ {a.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-4 text-right">
+                          <span className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
+                            a.status === 'Em Dia' ? 'bg-brand-green text-white' : 'bg-brand-warning text-white'
+                          }`}>
+                            {a.status}
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-xs font-medium text-slate-400 italic">Nenhum lançamento encontrado para este período</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -2293,7 +2293,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('system_settings', JSON.stringify(settings));
   };
 
-  const sendEmailNotification = async (to: string, subject: string, body: string, html?: string, from?: string): Promise<{ success: boolean; error?: string }> => {
+  const sendEmailNotification = useCallback(async (to: string, subject: string, body: string, html?: string, from?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await fetch('/api/notifications/email', {
         method: 'POST',
@@ -2334,7 +2334,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Erro de rede ao enviar e-mail:', error);
       return { success: false, error: error.message || 'Erro de rede' };
     }
-  };
+  }, [companySettings?.email, systemSettings?.notifications?.senderEmail]);
 
   const addPaymentMethod = async (method: Omit<PaymentMethod, 'id'>): Promise<boolean> => {
     const { error } = await supabase.from('payment_methods').insert([{

@@ -667,7 +667,7 @@ export default function ProductsPage() {
                       <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="hidden sm:table-cell px-6 py-4">
-                        <StatusBadge status={product.stock <= product.minStock ? 'Estoque Baixo' : (product.status === 'Inativo' ? 'Indisponivel' : 'Disponivel')} />
+                        <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (product.stock <= product.minStock ? 'Estoque Baixo' : 'Ativo')} />
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button 
@@ -1371,6 +1371,8 @@ function StatusBadge({ status }: { status: string }) {
     'Estoque Baixo': 'bg-amber-100 text-amber-600',
     'Pago': 'bg-brand-blue text-white',
     'Indisponivel': 'bg-brand-danger text-white',
+    'Ativo': 'bg-brand-green text-white',
+    'Inativo': 'bg-slate-200 text-slate-500',
   };
 
   return (
