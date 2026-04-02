@@ -50,6 +50,7 @@ export interface Product {
   sku: string;
   costPrice: number;
   salePrice: number;
+  wholesalePrice?: number;
   stock: number;
   minStock: number;
   image: string;

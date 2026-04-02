@@ -58,6 +58,7 @@ export default function PDVPage() {
   const [showPriceCheckModal, setShowPriceCheckModal] = useState(false);
   const [showProductListModal, setShowProductListModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [isWholesaleMode, setIsWholesaleMode] = useState(false);
   const [showCancelItemModal, setShowCancelItemModal] = useState(false);
   const [showQuickReturnModal, setShowQuickReturnModal] = useState(false);
   const [cancelItemNumber, setCancelItemNumber] = useState('');
@@ -589,6 +590,26 @@ export default function PDVPage() {
         setNumericBuffer('');
       }
 
+      // F11 - Alternar Modo Atacado/Varejo
+      if (e.key === 'F11') {
+        e.preventDefault();
+        setIsWholesaleMode(prev => {
+          const newMode = !prev;
+          // Recalculate cart prices based on the new mode
+          setCart(currentCart => currentCart.map(item => {
+            const newPrice = newMode && item.product.wholesalePrice ? item.product.wholesalePrice : item.product.salePrice;
+            return {
+              ...item,
+              price: newPrice,
+              originalPrice: newPrice,
+              discount: 0 // Reset discount when switching modes to avoid negative prices
+            };
+          }));
+          return newMode;
+        });
+        setNumericBuffer('');
+      }
+
       // F12 - Autorização Rápida
       if (e.key === 'F12') {
         e.preventDefault();
@@ -824,6 +845,8 @@ export default function PDVPage() {
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
 
+    const basePrice = isWholesaleMode && product.wholesalePrice ? product.wholesalePrice : product.salePrice;
+
     const now = new Date();
     const activePromos = promotions.filter(p => 
       p.status === 'ACTIVE' && 
@@ -847,9 +870,9 @@ export default function PDVPage() {
     if (applicablePromo) {
       promoType = applicablePromo.type;
       if (applicablePromo.type === 'PRICE' && applicablePromo.discountValue) {
-        promoDiscount = product.salePrice - applicablePromo.discountValue;
+        promoDiscount = basePrice - applicablePromo.discountValue;
       } else if (applicablePromo.type === 'PERCENTAGE' && applicablePromo.discountValue) {
-        promoDiscount = product.salePrice * (applicablePromo.discountValue / 100);
+        promoDiscount = basePrice * (applicablePromo.discountValue / 100);
       }
     }
 
@@ -864,13 +887,13 @@ export default function PDVPage() {
         const sets = Math.floor(totalQty / applicablePromo.buyQuantity);
         const freeItems = sets * (applicablePromo.buyQuantity - applicablePromo.payQuantity);
         if (freeItems > 0) {
-          const discountPerItem = (freeItems * product.salePrice) / totalQty;
+          const discountPerItem = (freeItems * basePrice) / totalQty;
           newCart[existingIndex].discount = discountPerItem;
-          newCart[existingIndex].product.salePrice = product.salePrice - discountPerItem;
+          newCart[existingIndex].product.salePrice = basePrice - discountPerItem;
           newCart[existingIndex].promotionId = applicablePromo.id;
         } else {
           newCart[existingIndex].discount = 0;
-          newCart[existingIndex].product.salePrice = product.salePrice;
+          newCart[existingIndex].product.salePrice = basePrice;
           newCart[existingIndex].promotionId = undefined;
         }
       } else if (applicablePromo) {
@@ -880,15 +903,15 @@ export default function PDVPage() {
       setCart(newCart);
     } else {
       let initialDiscount = promoDiscount;
-      let initialPrice = product.salePrice - promoDiscount;
+      let initialPrice = basePrice - promoDiscount;
       let promotionId = applicablePromo?.id;
       
       if (applicablePromo?.type === 'BUY_X_GET_Y' && applicablePromo.buyQuantity && applicablePromo.payQuantity) {
         const sets = Math.floor(qty / applicablePromo.buyQuantity);
         const freeItems = sets * (applicablePromo.buyQuantity - applicablePromo.payQuantity);
         if (freeItems > 0) {
-          initialDiscount = (freeItems * product.salePrice) / qty;
-          initialPrice = product.salePrice - initialDiscount;
+          initialDiscount = (freeItems * basePrice) / qty;
+          initialPrice = basePrice - initialDiscount;
         } else {
           promotionId = undefined;
         }
@@ -898,7 +921,7 @@ export default function PDVPage() {
         product: { ...product, salePrice: initialPrice }, 
         quantity: qty, 
         discount: initialDiscount, 
-        originalPrice: product.salePrice,
+        originalPrice: basePrice,
         promotionId: promotionId
       }]);
     }
@@ -925,6 +948,31 @@ export default function PDVPage() {
           <div className="text-center">
             <h1 className="text-xl font-bold tracking-widest uppercase">{companySettings.tradeName || 'MERCADINHO SUPERNICE'}</h1>
           </div>
+          <button
+            onClick={() => {
+              setIsWholesaleMode(prev => {
+                const newMode = !prev;
+                setCart(currentCart => currentCart.map(item => {
+                  const newPrice = newMode && item.product.wholesalePrice ? item.product.wholesalePrice : item.product.salePrice;
+                  return {
+                    ...item,
+                    price: newPrice,
+                    originalPrice: newPrice,
+                    discount: 0
+                  };
+                }));
+                return newMode;
+              });
+            }}
+            className={cn(
+              "ml-4 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border",
+              isWholesaleMode
+                ? "bg-brand-warning/20 text-brand-warning border-brand-warning/30"
+                : "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
+            )}
+          >
+            {isWholesaleMode ? 'Modo Atacado (F11)' : 'Modo Varejo (F11)'}
+          </button>
         </div>
         
         <div className="flex flex-col items-end">

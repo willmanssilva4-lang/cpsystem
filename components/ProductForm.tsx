@@ -91,7 +91,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       costPrice: initialData?.costPrice ?? '',
       salePrice: initialData?.salePrice ?? '',
       termPrice: initialData?.salePrice ?? '',
-      wholesalePrice: initialData?.salePrice ?? '',
+      wholesalePrice: initialData?.wholesalePrice ?? '',
       stock: initialData?.stock || 0,
       minStock: initialData?.minStock || 1,
       controlStock: 'SIM',
