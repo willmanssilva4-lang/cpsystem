@@ -206,7 +206,7 @@ export default function ProductsPage() {
             stock: parseNumber(item.Estoque),
             minStock: parseNumber(item['Estoque Mínimo']),
             status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
-            image: 'https://images.unsplash.com/photo-1605600659873-d808a1d85f8c?q=80&w=400&h=400&auto=format&fit=crop'
+            image: 'https://picsum.photos/seed/product/400/400'
           } as Product, true); // true para skipFetch
 
           if (success) {

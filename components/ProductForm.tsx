@@ -15,7 +15,7 @@ interface ProductFormProps {
 }
 
 // Imagem padrão de uma caixa 3D (placeholder)
-const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1605600659873-d808a1d85f8c?q=80&w=400&h=400&auto=format&fit=crop';
+const DEFAULT_IMAGE = 'https://picsum.photos/seed/product/400/400';
 
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
   const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
