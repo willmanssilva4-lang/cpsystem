@@ -600,7 +600,7 @@ export default function PDVPage() {
             const newPrice = newMode && item.product.wholesalePrice ? item.product.wholesalePrice : item.product.salePrice;
             return {
               ...item,
-              price: newPrice,
+              product: { ...item.product, salePrice: newPrice },
               originalPrice: newPrice,
               discount: 0 // Reset discount when switching modes to avoid negative prices
             };
@@ -956,7 +956,7 @@ export default function PDVPage() {
                   const newPrice = newMode && item.product.wholesalePrice ? item.product.wholesalePrice : item.product.salePrice;
                   return {
                     ...item,
-                    price: newPrice,
+                    product: { ...item.product, salePrice: newPrice },
                     originalPrice: newPrice,
                     discount: 0
                   };

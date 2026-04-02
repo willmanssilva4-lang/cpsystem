@@ -539,7 +539,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço Aprazo:</label>
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço 2:</label>
                   <input 
                     type="number"
                     name="termPrice"
