@@ -876,7 +876,7 @@ export default function PDVPage() {
       }
     }
 
-    const existingIndex = cart.findIndex(item => item.product.id === product.id && item.discount === promoDiscount);
+    const existingIndex = cart.findIndex(item => item.product.id === product.id && item.discount === promoDiscount && item.originalPrice === basePrice);
     
     if (existingIndex >= 0) {
       const newCart = [...cart];
