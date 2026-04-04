@@ -2547,16 +2547,36 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
 }
 
 function StockProfitReport() {
-  const { products } = useERP();
+  const { products, categorias, subcategorias, suppliers } = useERP();
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+  const [selectedSupplier, setSelectedSupplier] = React.useState<string>('all');
 
   const reportData = React.useMemo(() => {
     return products
       .filter(p => p.status !== 'Inativo' && p.stock > 0)
-      .filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      .filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        let matchesCategory = true;
+        if (selectedCategory !== 'all') {
+          if (p.subcategoria_id) {
+            const sub = subcategorias.find(s => s.id === p.subcategoria_id);
+            matchesCategory = sub?.categoria_id === selectedCategory;
+          } else {
+            matchesCategory = false;
+          }
+        }
+
+        let matchesSupplier = true;
+        if (selectedSupplier !== 'all') {
+          // Check both ID and Name for flexibility
+          matchesSupplier = p.supplier === selectedSupplier;
+        }
+
+        return matchesSearch && matchesCategory && matchesSupplier;
+      })
       .map(p => {
         const totalCost = p.stock * p.costPrice;
         const totalSale = p.stock * p.salePrice;
@@ -2575,7 +2595,7 @@ function StockProfitReport() {
         };
       })
       .sort((a, b) => b.potentialProfit - a.potentialProfit);
-  }, [products, searchTerm]);
+  }, [products, searchTerm, selectedCategory, selectedSupplier, subcategorias]);
 
   const totals = reportData.reduce((acc, item) => ({
     cost: acc.cost + item.totalCost,
@@ -2609,17 +2629,73 @@ function StockProfitReport() {
         </div>
       </div>
 
-      <div className="relative">
-        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-          <Search size={18} className="text-slate-400" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+            <Search size={18} className="text-slate-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Pesquisar por produto ou SKU..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300"
+          />
         </div>
-        <input
-          type="text"
-          placeholder="Pesquisar por produto ou SKU..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300"
-        />
+
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Filter size={16} className="text-slate-400" />
+            </div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full pl-10 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none transition-all"
+            >
+              <option value="all">Todas Categorias</option>
+              {categorias.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.nome}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+              <ChevronDown size={16} className="text-slate-400" />
+            </div>
+          </div>
+
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Truck size={16} className="text-slate-400" />
+            </div>
+            <select
+              value={selectedSupplier}
+              onChange={(e) => setSelectedSupplier(e.target.value)}
+              className="w-full pl-10 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none transition-all"
+            >
+              <option value="all">Todos Fornecedores</option>
+              {suppliers.map(sup => (
+                <option key={sup.id} value={sup.name}>{sup.name}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+              <ChevronDown size={16} className="text-slate-400" />
+            </div>
+          </div>
+
+          {(searchTerm || selectedCategory !== 'all' || selectedSupplier !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedCategory('all');
+                setSelectedSupplier('all');
+              }}
+              className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-black uppercase italic transition-all flex items-center gap-2"
+            >
+              <RefreshCw size={16} />
+              Limpar
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">

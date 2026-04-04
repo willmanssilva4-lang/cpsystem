@@ -15,7 +15,7 @@ interface ProductFormProps {
 }
 
 // Imagem padrão de uma caixa 3D (placeholder)
-const DEFAULT_IMAGE = 'https://picsum.photos/seed/product/400/400';
+const DEFAULT_IMAGE = 'https://i.imgur.com/jGU5BUa.png';
 
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
   const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
@@ -25,6 +25,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   const [kitTab, setKitTab] = useState<'info' | 'products' | 'financial'>('info');
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>(pricingSettings.defaultMethod);
   const [searchTerm, setSearchTerm] = useState('');
+  const [imageError, setImageError] = useState(false);
 
   // Adjustment form state
   const [adjustmentType, setAdjustmentType] = useState<'ENTRADA' | 'SAÍDA'>('ENTRADA');
@@ -124,6 +125,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     };
   });
 
+  useEffect(() => {
+    setImageError(false);
+  }, [formData.image]);
+
   const roundPrice = (price: number) => {
     if (!pricingSettings.autoRounding) return Math.round(price * 100) / 100;
     
@@ -222,6 +227,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, image: reader.result as string }));
+        setImageError(false);
       };
       reader.readAsDataURL(file);
     }
@@ -381,7 +387,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
             <form onSubmit={handleSubmit} onKeyDown={handleEnterAsTab} className="p-8 text-brand-text-main">
               <div className="flex flex-col lg:flex-row gap-12">
             {/* Left Side - Form Fields */}
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-6 min-w-0">
               {/* Row 1: Code and Description */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                 <div className="md:col-span-5">
@@ -452,9 +458,25 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       onChange={handleChange}
                       className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
-                      <option value="UN">UN</option>
-                      <option value="KG">KG</option>
-                      <option value="LT">LT</option>
+                      <option value="UN">UN (Unidade)</option>
+                      <option value="KG">KG (Quilograma)</option>
+                      <option value="G">G (Grama)</option>
+                      <option value="LT">LT (Litro)</option>
+                      <option value="ML">ML (Mililitro)</option>
+                      <option value="CX">CX (Caixa)</option>
+                      <option value="PC">PC (Peça)</option>
+                      <option value="PT">PT (Pacote)</option>
+                      <option value="FD">FD (Fardo)</option>
+                      <option value="DZ">DZ (Dúzia)</option>
+                      <option value="M">M (Metro)</option>
+                      <option value="M2">M2 (Metro Quadrado)</option>
+                      <option value="M3">M3 (Metro Cúbico)</option>
+                      <option value="RL">RL (Rolo)</option>
+                      <option value="PR">PR (Par)</option>
+                      <option value="BD">BD (Balde)</option>
+                      <option value="GL">GL (Galão)</option>
+                      <option value="JG">JG (Jogo)</option>
+                      <option value="KT">KT (Kit)</option>
                     </select>
                     <div className="w-6 h-6 flex items-center justify-center text-slate-300 font-bold">?</div>
                   </div>
@@ -472,7 +494,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
               </div>
 
               {/* Row 3: Prices */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço de Compra:</label>
                   <input 
@@ -553,7 +575,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço Atacado</label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <input 
                       type="number"
                       name="wholesalePrice"
@@ -562,9 +584,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         const val = e.target.value;
                         setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
                       }}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                      className="w-24 bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
                     />
-                    <button type="button" className="bg-slate-100 text-slate-500 text-[8px] font-black px-2 py-1 rounded-lg uppercase italic transition-all hover:bg-slate-200">
+                    <button type="button" className="flex-1 bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-2.5 rounded-xl uppercase italic transition-all hover:bg-slate-200 text-center">
                       Mais Preços
                     </button>
                   </div>
@@ -827,25 +849,39 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
               </div>
             </div>
 
-            {/* Right Side - Image Preview */}
             <div className="w-full lg:w-80 flex flex-col gap-6">
-              <div 
-                onClick={triggerFileUpload}
-                className="aspect-square bg-slate-50 rounded-[32px] flex items-center justify-center overflow-hidden relative border-4 border-slate-100 shadow-inner cursor-pointer group"
-              >
-                <Image 
-                  src={formData.image} 
-                  alt="Preview" 
-                  fill
-                  className="object-contain p-6 group-hover:scale-110 transition-transform"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-brand-blue/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <div className="bg-white/90 p-3 rounded-2xl shadow-xl text-brand-blue">
-                    <Upload size={32} />
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*" 
+                className="hidden" 
+              />
+                <div 
+                  onClick={triggerFileUpload}
+                  className="aspect-square bg-slate-50 rounded-[32px] flex items-center justify-center overflow-hidden relative border-4 border-slate-100 shadow-inner cursor-pointer group"
+                >
+                  {!imageError ? (
+                    <Image 
+                      src={formData.image} 
+                      alt="Preview" 
+                      fill
+                      className="object-contain p-6 group-hover:scale-110 transition-transform"
+                      referrerPolicy="no-referrer"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-slate-300">
+                      <ImageIcon size={48} />
+                      <span className="text-[10px] font-black uppercase italic">Sem Imagem</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-brand-blue/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="bg-white/90 p-3 rounded-2xl shadow-xl text-brand-blue">
+                      <Upload size={32} />
+                    </div>
                   </div>
                 </div>
-              </div>
               <div className="flex flex-col gap-2">
                 <label className="block text-[10px] font-bold uppercase text-slate-400 tracking-widest">Imagem do Produto:</label>
                 <div className="flex gap-2">
@@ -868,7 +904,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                 {formData.image.startsWith('data:') && (
                   <button 
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, image: DEFAULT_IMAGE }))}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, image: DEFAULT_IMAGE }));
+                      setImageError(false);
+                    }}
                     className="text-[8px] font-black uppercase italic text-rose-500 text-right"
                   >
                     Remover Upload
@@ -1447,17 +1486,6 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       >
                         <option value="Ativo">Ativo</option>
                         <option value="Inativo">Inativo</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Loja</label>
-                      <select 
-                        name="store"
-                        value={formData.store}
-                        onChange={handleChange}
-                        className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
-                      >
-                        <option value="Loja Principal">Loja Principal</option>
                       </select>
                     </div>
                   </div>

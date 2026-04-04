@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Store, Tag, ListChecks } from 'lucide-react';
+import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -105,7 +105,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         status: 'Concluído',
         type: config.type,
         responsible: config.responsible,
-        notes: `Inventário ${config.type} finalizado. Local: ${config.location}`
+        notes: `Inventário ${config.type} finalizado.`
       });
 
       // 2. Create Stock Movements for divergences
@@ -152,7 +152,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                 {step === 'setup' ? 'Configurar Inventário' : 'Sessão de Inventário'}
               </h2>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
-                {step === 'setup' ? 'Defina os parâmetros da contagem' : `${config.type} - ${config.location}`}
+                {step === 'setup' ? 'Defina os parâmetros da contagem' : config.type}
               </p>
             </div>
           </div>
@@ -168,22 +168,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           <div className="flex-1 overflow-y-auto p-12 flex flex-col items-center justify-center bg-slate-50/30">
             <div className="w-full max-w-md space-y-8">
               <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                    <Store size={12} /> Selecionar Loja / Local
-                  </label>
-                  <select 
-                    value={config.location}
-                    onChange={(e) => setConfig(prev => ({ ...prev, location: e.target.value }))}
-                    className="w-full bg-white border border-slate-200 px-4 py-4 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
-                  >
-                    <option value="Loja Principal">Loja Principal</option>
-                    <option value="Depósito A">Depósito A</option>
-                    <option value="Depósito B">Depósito B</option>
-                    <option value="Showroom">Showroom</option>
-                  </select>
-                </div>
-
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                     <Tag size={12} /> Tipo de Inventário

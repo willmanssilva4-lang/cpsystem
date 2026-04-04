@@ -429,11 +429,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           wholesalePrice: p.wholesale_price ? Number(p.wholesale_price) : undefined,
           stock: p.stock,
           minStock: p.min_stock,
-          image: p.image?.includes('mercadinhosupernice.com.br') ? 'https://picsum.photos/seed/product/200/200' : p.image,
+          image: (!p.image || p.image.includes('mercadinhosupernice.com.br') || p.image.includes('images.unsplash.com/photo-1607170248255') || p.image.includes('picsum.photos/seed/produto')) ? 'https://i.imgur.com/jGU5BUa.png' : p.image,
           composition: p.composition || [],
           status: p.status || 'Ativo',
           codigo_mercadologico: p.codigo_mercadologico,
           subcategoria_id: p.subcategoria_id,
+          supplier: p.supplier,
           validade: p.validade,
           has_had_stock: p.has_had_stock
         }));
@@ -476,7 +477,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           email: c.email,
           totalSpent: Number(c.total_spent),
           status: c.status,
-          image: c.image?.includes('mercadinhosupernice.com.br') ? 'https://i.pravatar.cc/150' : c.image
+          image: c.image?.includes('mercadinhosupernice.com.br') ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=250&auto=format&fit=crop' : c.image
         }));
         setCustomers(mappedCustomers);
         localStorage.setItem('erp_customers', JSON.stringify(mappedCustomers));
