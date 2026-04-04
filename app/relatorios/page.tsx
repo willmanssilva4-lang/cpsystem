@@ -75,6 +75,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
+import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString } from '@/lib/utils';
 import { SalesByProductReport } from '@/components/reports/SalesByProductReport';
 import { SalesReport } from '@/components/reports/SalesReport';
@@ -256,6 +257,7 @@ export default function ReportsPage() {
     { id: 'comissoes', category: 'vendas', title: 'Comissões de Vendedores', description: 'Cálculo detalhado de comissões por período.', icon: DollarSign },
     { id: 'fluxo_caixa', category: 'financeiro', title: 'Fluxo de Caixa', description: 'Projeção de entradas e saídas para os próximos meses.', icon: Activity },
     { id: 'contas_pagar', category: 'financeiro', title: 'Contas a Pagar', description: 'Relatório de compromissos financeiros e vencimentos.', icon: CreditCard },
+    { id: 'relatorio_compras', category: 'financeiro', title: 'Relatório de Compras', description: 'Análise de compras, fornecedores e custos de reposição.', icon: ShoppingBag },
     { id: 'giro_estoque', category: 'estoque', title: 'Giro de Estoque', description: 'Velocidade de saída dos produtos e necessidade de reposição.', icon: RefreshCw },
     { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
@@ -465,6 +467,7 @@ export default function ReportsPage() {
                   {selectedReportView === 'Relatório de Meios de Pagamento (Análise Profunda)' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Compras' && <PurchasesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Lucro no Estoque' && <StockProfitReport />}
                   {selectedReportView === 'Fluxo de Caixa' && (
                     <div className="space-y-6">
@@ -525,7 +528,7 @@ export default function ReportsPage() {
                     </div>
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Lucro no Estoque'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Relatório de Lucro no Estoque'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -2537,6 +2540,114 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
             {costData.length === 0 && (
               <tr>
                 <td colSpan={3} className="py-8 text-center text-slate-400 italic">Nenhuma venda encontrada no período para calcular custos.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { user, suppliers } = useERP();
+  const [purchases, setPurchases] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchPurchases() {
+      if (!user?.companyId) return;
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('purchase_orders')
+          .select(`
+            *,
+            purchase_order_items (
+              id, quantity, unit_price, total_price,
+              products (name)
+            )
+          `)
+          .eq('company_id', user.companyId)
+          .gte('order_date', startDate + 'T00:00:00Z')
+          .lte('order_date', endDate + 'T23:59:59Z')
+          .order('order_date', { ascending: false });
+
+        if (error) throw error;
+        setPurchases(data || []);
+      } catch (error) {
+        console.error('Error fetching purchases:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPurchases();
+  }, [user?.companyId, startDate, endDate]);
+
+  const totalPurchases = purchases.reduce((acc, p) => acc + Number(p.total_amount), 0);
+  const pendingPurchases = purchases.filter(p => p.status === 'Pendente').reduce((acc, p) => acc + Number(p.total_amount), 0);
+  const receivedPurchases = purchases.filter(p => p.status === 'Recebido').reduce((acc, p) => acc + Number(p.total_amount), 0);
+
+  if (isLoading) {
+    return <div className="py-20 text-center text-slate-400">Carregando relatório de compras...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 text-center">
+        <ShoppingBag size={48} className="mx-auto text-slate-400 mb-4" />
+        <h4 className="text-xl font-bold text-slate-800">Relatório de Compras</h4>
+        <p className="text-sm text-slate-500 mt-2">Análise de pedidos de compra, fornecedores e custos de reposição.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total em Compras</p>
+          <h4 className="text-2xl font-black text-slate-800">R$ {totalPurchases.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Compras Recebidas</p>
+          <h4 className="text-2xl font-black text-emerald-600">R$ {receivedPurchases.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Compras Pendentes</p>
+          <h4 className="text-2xl font-black text-amber-600">R$ {pendingPurchases.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Fornecedor</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Status</th>
+              <th className="px-6 py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Valor Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {purchases.map((purchase, idx) => {
+              const supplier = suppliers.find(s => s.id === purchase.supplier_id);
+              return (
+                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700">{new Date(purchase.order_date).toLocaleDateString('pt-BR')}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700 uppercase italic">{supplier?.name || 'Desconhecido'}</td>
+                  <td className="px-6 py-4">
+                    <span className={cn(
+                      "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
+                      purchase.status === 'Recebido' ? "bg-emerald-100 text-emerald-600" : 
+                      purchase.status === 'Cancelado' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                    )}>
+                      {purchase.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-black text-brand-blue">R$ {Number(purchase.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                </tr>
+              );
+            })}
+            {purchases.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-8 text-center text-slate-400 italic">Nenhuma compra encontrada no período.</td>
               </tr>
             )}
           </tbody>

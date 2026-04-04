@@ -152,7 +152,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     formData.composition.forEach(item => {
       const product = products.find(p => p.id === item.productId);
       if (product) {
-        const possible = Math.floor(product.stock / item.quantity);
+        const stock = Number(product.stock) || 0;
+        const possible = Math.floor(stock / item.quantity);
         if (possible < minStock) minStock = possible;
       } else {
         minStock = 0;
@@ -1487,6 +1488,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         <option value="Ativo">Ativo</option>
                         <option value="Inativo">Inativo</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Estoque Calculado</label>
+                      <input 
+                        type="number" 
+                        value={calculatedKitStock !== null ? calculatedKitStock : 0}
+                        readOnly
+                        className="w-full bg-slate-50 border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main/60 outline-none cursor-not-allowed"
+                      />
+                      <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1">Baseado nos produtos do kit</p>
                     </div>
                   </div>
                 )}

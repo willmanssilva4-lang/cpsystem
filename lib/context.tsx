@@ -429,7 +429,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           wholesalePrice: p.wholesale_price ? Number(p.wholesale_price) : undefined,
           stock: p.stock,
           minStock: p.min_stock,
-          image: (!p.image || p.image.includes('mercadinhosupernice.com.br') || p.image.includes('images.unsplash.com/photo-1607170248255') || p.image.includes('picsum.photos/seed/produto')) ? 'https://i.imgur.com/jGU5BUa.png' : p.image,
+          image: (!p.image || p.image.includes('mercadinhosupernice.com.br') || p.image.includes('images.unsplash.com') || p.image.includes('picsum.photos/seed/produto')) ? 'https://i.imgur.com/jGU5BUa.png' : p.image,
           composition: p.composition || [],
           status: p.status || 'Ativo',
           codigo_mercadologico: p.codigo_mercadologico,
@@ -446,7 +446,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             p.composition.forEach((item: CompositionItem) => {
               const component = baseProducts.find((bp: any) => bp.id === item.productId);
               if (component) {
-                const available = Math.floor(component.stock / item.quantity);
+                const stock = Number(component.stock) || 0;
+                const available = Math.floor(stock / item.quantity);
                 if (available < possibleStock) {
                   possibleStock = available;
                 }
