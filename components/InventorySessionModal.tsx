@@ -300,7 +300,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-black text-slate-700 uppercase italic truncate">{product.name}</h4>
+                        <h4 className="text-xs font-black text-slate-700 uppercase italic truncate">{product.name}</h4>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SKU: {product.sku}</p>
                       </div>
 

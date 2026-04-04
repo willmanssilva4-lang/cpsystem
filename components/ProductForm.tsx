@@ -413,7 +413,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
                   />
                 </div>
               </div>
@@ -1486,7 +1486,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                               return (
                                 <div key={product.id} className="p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex justify-between items-center transition-colors">
                                   <div>
-                                    <div className="font-bold text-brand-text-main">{product.name}</div>
+                                    <div className="font-bold text-brand-text-main text-xs">{product.name}</div>
                                     <div className="flex gap-3 text-[10px] font-black uppercase italic mt-1">
                                       <span className={isLowStock ? "text-rose-500" : "text-brand-blue-hover"}>
                                         Estoque: {product.stock} {isLowStock && '(Baixo)'}
@@ -1546,7 +1546,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             return (
                               <div key={item.productId} className="px-2 py-3 grid grid-cols-12 gap-4 items-center bg-white border border-slate-50 rounded-xl hover:border-brand-border transition-colors">
                                 <div className="col-span-5">
-                                  <div className="font-bold text-brand-text-main text-sm truncate">{item.name}</div>
+                                  <div className="font-bold text-brand-text-main text-xs truncate">{item.name}</div>
                                   {isLowStock && <div className="text-[9px] text-rose-500 font-black uppercase italic">⚠️ Estoque Baixo</div>}
                                 </div>
                                 <div className="col-span-2 flex justify-center">

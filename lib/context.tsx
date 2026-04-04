@@ -1274,8 +1274,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       validade: updated.validade || null,
       has_had_stock: updated.stock > 0 || updated.has_had_stock,
       category: updated.category,
-      subgroup: updated.subgroup,
-      wholesale_price: updated.wholesalePrice
+      subgroup: updated.subgroup
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);

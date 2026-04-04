@@ -858,7 +858,7 @@ export default function ProductsPage() {
                     <select 
                       value={adjustmentProductId}
                       onChange={(e) => setAdjustmentProductId(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:ring-4 focus:ring-brand-blue/5 focus:border-brand-blue text-sm font-bold text-slate-700 transition-all outline-none appearance-none"
+                      className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:ring-4 focus:ring-brand-blue/5 focus:border-brand-blue text-xs font-bold text-slate-700 transition-all outline-none appearance-none"
                     >
                       <option value="">Selecione um produto...</option>
                       {products.map(p => (
@@ -1240,7 +1240,7 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
             </div>
             <div>
               <h2 className="text-lg font-semibold text-brand-text-main">Registrar Perda</h2>
-              <p className="text-sm text-brand-text-sec">{product.name}</p>
+              <p className="text-xs text-brand-text-sec">{product.name}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-lg transition-colors text-brand-text-sec">

@@ -263,6 +263,8 @@ export default function ReportsPage() {
     { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
     { id: 'meios_pagamento', category: 'vendas', title: 'Relatório de Meios de Pagamento (Análise Profunda)', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
     { id: 'estorno_devolucao', category: 'financeiro', title: 'Relatório de Estorno e Devolução', description: 'Monitoramento de estornos e devoluções realizadas.', icon: RefreshCw },
+    { id: 'relatorio_custo', category: 'financeiro', title: 'Relatório de Custo', description: 'Análise detalhada dos custos de aquisição e CMV.', icon: Calculator },
+    { id: 'lucro_estoque', category: 'estoque', title: 'Relatório de Lucro no Estoque', description: 'Projeção de lucro bruto baseado no saldo atual de estoque.', icon: TrendingUp },
   ];
 
   const filteredReports = allReports.filter(r => 
@@ -462,6 +464,8 @@ export default function ReportsPage() {
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Meios de Pagamento (Análise Profunda)' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Lucro no Estoque' && <StockProfitReport />}
                   {selectedReportView === 'Fluxo de Caixa' && (
                     <div className="space-y-6">
                       <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
@@ -521,7 +525,7 @@ export default function ReportsPage() {
                     </div>
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Lucro no Estoque'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -2463,6 +2467,199 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
             {filteredReturns.length === 0 && (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-slate-400 italic">Nenhum estorno ou devolução encontrado no período.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CostReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { sales, products } = useERP();
+  
+  const filteredSales = sales.filter(s => {
+    const d = s.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  const costData = React.useMemo(() => {
+    const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        const cost = product ? product.costPrice : 0;
+        if (!stats[item.productId]) {
+          stats[item.productId] = { name: product?.name || 'Desconhecido', qty: 0, totalCost: 0 };
+        }
+        stats[item.productId].qty += item.quantity;
+        stats[item.productId].totalCost += cost * item.quantity;
+      });
+    });
+    return Object.values(stats).sort((a, b) => b.totalCost - a.totalCost);
+  }, [filteredSales, products]);
+
+  const totalCost = costData.reduce((acc, item) => acc + item.totalCost, 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 text-center">
+        <Calculator size={48} className="mx-auto text-slate-400 mb-4" />
+        <h4 className="text-xl font-bold text-slate-800">Relatório de Custo (CMV)</h4>
+        <p className="text-sm text-slate-500 mt-2">Análise detalhada dos custos de aquisição dos produtos vendidos no período.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Custo Total Acumulado</p>
+          <h4 className="text-2xl font-black text-slate-800">R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Qtd Vendida</th>
+              <th className="px-6 py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Custo Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {costData.map((item, idx) => (
+              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-6 py-4 text-sm font-bold text-slate-700 uppercase italic">{item.name}</td>
+                <td className="px-6 py-4 text-sm font-bold text-slate-700 text-center">{item.qty}</td>
+                <td className="px-6 py-4 text-right text-sm font-black text-brand-blue">R$ {item.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            ))}
+            {costData.length === 0 && (
+              <tr>
+                <td colSpan={3} className="py-8 text-center text-slate-400 italic">Nenhuma venda encontrada no período para calcular custos.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StockProfitReport() {
+  const { products } = useERP();
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const reportData = React.useMemo(() => {
+    return products
+      .filter(p => p.status !== 'Inativo' && p.stock > 0)
+      .filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .map(p => {
+        const totalCost = p.stock * p.costPrice;
+        const totalSale = p.stock * p.salePrice;
+        const potentialProfit = totalSale - totalCost;
+        const margin = totalSale > 0 ? (potentialProfit / totalSale) * 100 : 0;
+        return {
+          name: p.name,
+          sku: p.sku,
+          stock: p.stock,
+          costPrice: p.costPrice,
+          salePrice: p.salePrice,
+          totalCost,
+          totalSale,
+          potentialProfit,
+          margin
+        };
+      })
+      .sort((a, b) => b.potentialProfit - a.potentialProfit);
+  }, [products, searchTerm]);
+
+  const totals = reportData.reduce((acc, item) => ({
+    cost: acc.cost + item.totalCost,
+    sale: acc.sale + item.totalSale,
+    profit: acc.profit + item.potentialProfit
+  }), { cost: 0, sale: 0, profit: 0 });
+
+  const totalMargin = totals.sale > 0 ? (totals.profit / totals.sale) * 100 : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="p-8 rounded-3xl bg-emerald-50 border border-emerald-100 text-center">
+        <TrendingUp size={48} className="mx-auto text-emerald-600 mb-4" />
+        <h4 className="text-xl font-bold text-slate-800">Relatório de Lucro no Estoque</h4>
+        <p className="text-sm text-slate-500 mt-2">Projeção de lucro bruto baseado no saldo atual de estoque e preços de venda.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Custo Total em Estoque</p>
+          <h4 className="text-2xl font-black text-slate-800">R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Venda Total Prevista</p>
+          <h4 className="text-2xl font-black text-brand-blue">R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lucro Bruto Potencial</p>
+          <h4 className="text-2xl font-black text-emerald-500">R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+          <p className="text-[10px] font-bold text-emerald-600 mt-1">Margem Média: {totalMargin.toFixed(2)}%</p>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+          <Search size={18} className="text-slate-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Pesquisar por produto ou SKU..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300"
+        />
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Estoque</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Custo Total</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Venda Total</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Lucro Prev.</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Margem</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {reportData.map((item, idx) => (
+              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-6 py-4">
+                  <div className="text-sm font-bold text-slate-700 uppercase italic">{item.name}</div>
+                  <div className="text-[10px] text-slate-400 font-medium">SKU: {item.sku}</div>
+                </td>
+                <td className="px-6 py-4 text-sm font-bold text-slate-700 text-center">{item.stock}</td>
+                <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">R$ {item.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="px-6 py-4 text-right text-sm font-medium text-brand-blue">R$ {item.totalSale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="px-6 py-4 text-right text-sm font-black text-emerald-500">R$ {item.potentialProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="px-6 py-4 text-center">
+                  <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
+                    {item.margin.toFixed(1)}%
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {reportData.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-12 text-center">
+                  <div className="flex flex-col items-center space-y-2">
+                    <Search size={32} className="text-slate-200" />
+                    <p className="text-sm text-slate-400 italic font-medium">Nenhum produto encontrado para &quot;{searchTerm}&quot;</p>
+                  </div>
+                </td>
               </tr>
             )}
           </tbody>
