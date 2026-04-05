@@ -931,7 +931,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
 
         // Fetch data in the background
-        await fetchData();
+        await fetchData(['products', 'sales', 'expenses', 'system_users', 'categorias', 'subcategorias', 'payment_methods', 'companies', 'customers', 'suppliers']);
 
         // Set up real-time subscriptions
         productsSubscription = supabase

@@ -71,7 +71,8 @@ import {
   Area,
   Cell,
   PieChart,
-  Pie
+  Pie,
+  Legend
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
@@ -483,8 +484,9 @@ export default function ReportsPage() {
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
                             <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
                             <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
-                            <Bar dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} />
+                            <Legend formatter={(value) => value === 'inflows' ? 'Entradas' : 'Saídas'} />
+                            <Bar dataKey="inflows" name="Entradas" fill="#10B981" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="outflows" name="Saídas" fill="#F43F5E" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -2552,6 +2554,7 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
 function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { user, suppliers } = useERP();
   const [purchases, setPurchases] = React.useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -2564,8 +2567,7 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
           .select(`
             *,
             purchase_order_items (
-              id, quantity, unit_price, total_price,
-              products (name)
+              id, product_id, quantity, unit_price, total_price
             )
           `)
           .eq('company_id', user.companyId)
@@ -2575,8 +2577,8 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
 
         if (error) throw error;
         setPurchases(data || []);
-      } catch (error) {
-        console.error('Error fetching purchases:', error);
+      } catch (error: any) {
+        console.error('Error fetching purchases:', error.message || error);
       } finally {
         setIsLoading(false);
       }
@@ -2587,6 +2589,12 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
   const totalPurchases = purchases.reduce((acc, p) => acc + Number(p.total_amount), 0);
   const pendingPurchases = purchases.filter(p => p.status === 'Pendente').reduce((acc, p) => acc + Number(p.total_amount), 0);
   const receivedPurchases = purchases.filter(p => p.status === 'Recebido').reduce((acc, p) => acc + Number(p.total_amount), 0);
+
+  const filteredPurchases = purchases.filter(p => {
+    const supplier = suppliers.find(s => s.id === p.supplier_id);
+    const supplierName = supplier?.name?.toLowerCase() || '';
+    return supplierName.includes(searchTerm.toLowerCase());
+  });
 
   if (isLoading) {
     return <div className="py-20 text-center text-slate-400">Carregando relatório de compras...</div>;
@@ -2614,6 +2622,16 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
           <h4 className="text-2xl font-black text-amber-600">R$ {pendingPurchases.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
         </div>
       </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4">
+        <input
+          type="text"
+          placeholder="Buscar por fornecedor..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+        />
+      </div>
       
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
         <table className="w-full text-left border-collapse">
@@ -2626,7 +2644,7 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {purchases.map((purchase, idx) => {
+            {filteredPurchases.map((purchase, idx) => {
               const supplier = suppliers.find(s => s.id === purchase.supplier_id);
               return (
                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
@@ -2645,7 +2663,7 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
                 </tr>
               );
             })}
-            {purchases.length === 0 && (
+            {filteredPurchases.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-slate-400 italic">Nenhuma compra encontrada no período.</td>
               </tr>
