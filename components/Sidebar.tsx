@@ -131,6 +131,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
                             data-name={`nav-subitem-${sub.label.toLowerCase().replace(/\s+/g, '-')}`}
                             key={sub.href}
                             href={sub.href}
+                            prefetch={true}
                             onClick={() => {
                               onClose?.();
                               setExpandedMenus(prev => prev.filter(l => l !== item.label));
@@ -162,6 +163,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
               data-name={`nav-item-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               key={item.href}
               href={item.href}
+              prefetch={true}
               onClick={onClose}
               className={cn(
                 "flex items-center gap-4 px-6 py-3 rounded-xl transition-all text-sm font-bold tracking-wide",

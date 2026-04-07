@@ -17,7 +17,9 @@ import {
   MoreHorizontal,
   ChevronDown,
   Trash2,
-  Package
+  Package,
+  MessageCircle,
+  Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -44,6 +46,8 @@ export default function CotacoesPage() {
   const [statusFilter, setStatusFilter] = useState('Todas as Cotações');
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [quotationDetails, setQuotationDetails] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [quotationToDelete, setQuotationToDelete] = useState<string | null>(null);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,7 +69,7 @@ export default function CotacoesPage() {
           ),
           quotation_suppliers (
             supplier_id,
-            suppliers ( name )
+            suppliers ( name, phone, email )
           ),
           quotation_responses (
             id,
@@ -85,6 +89,51 @@ export default function CotacoesPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const generateQuotationMessage = (supplierName: string) => {
+    if (!quotationDetails) return '';
+    
+    let message = `Olá ${supplierName}, gostaria de solicitar uma cotação para os seguintes itens:\n\n`;
+    
+    quotationDetails.quotation_items.forEach((item: any, index: number) => {
+      message += `${index + 1}. ${item.products.name} - Qtd: ${item.quantity}\n`;
+    });
+    
+    message += `\nPor favor, envie os preços assim que possível. Obrigado!`;
+    return message;
+  };
+
+  const handleSendWhatsApp = (supplier: any) => {
+    const message = generateQuotationMessage(supplier.name);
+    let phone = supplier.phone?.replace(/\D/g, '');
+    
+    if (!phone) {
+      alert('Este fornecedor não possui telefone cadastrado.');
+      return;
+    }
+
+    // Se o número não começar com 55 (Brasil), adiciona o prefixo
+    if (!phone.startsWith('55')) {
+      phone = '55' + phone;
+    }
+    
+    // Usa o formato api.whatsapp.com que costuma ser mais estável para abrir o contato direto
+    const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleSendEmail = (supplier: any) => {
+    const message = generateQuotationMessage(supplier.name);
+    const subject = `Solicitação de Cotação: ${quotationDetails?.title}`;
+    
+    if (!supplier.email) {
+      alert('Este fornecedor não possui e-mail cadastrado.');
+      return;
+    }
+    
+    const mailtoUrl = `mailto:${supplier.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    window.location.href = mailtoUrl;
   };
 
   const handleUpdatePrice = async (productId: string, supplierId: string, price: number) => {
@@ -177,6 +226,41 @@ export default function CotacoesPage() {
       window.location.href = '/compras/novo-pedido';
     } catch (error) {
       console.error('Error approving quotation:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteQuotation = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent opening details
+    setQuotationToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!quotationToDelete) return;
+
+    setIsLoading(true);
+    try {
+      // 1. Delete items
+      await supabase.from('quotation_items').delete().eq('quotation_id', quotationToDelete);
+      
+      // 2. Delete suppliers
+      await supabase.from('quotation_suppliers').delete().eq('quotation_id', quotationToDelete);
+      
+      // 3. Delete responses
+      await supabase.from('quotation_responses').delete().eq('quotation_id', quotationToDelete);
+      
+      // 4. Delete quotation
+      const { error } = await supabase.from('quotations').delete().eq('id', quotationToDelete);
+      
+      if (error) throw error;
+      
+      await fetchQuotations();
+      setShowDeleteConfirm(false);
+      setQuotationToDelete(null);
+    } catch (error) {
+      console.error('Error deleting quotation:', error);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -470,9 +554,18 @@ export default function CotacoesPage() {
                     }`}>
                       {cot.status}
                     </span>
-                    <button className="text-brand-text-main/20 group-hover:text-brand-blue transition-colors">
-                      <MoreHorizontal size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={(e) => handleDeleteQuotation(e, cot.realId)}
+                        className="p-2 text-brand-text-main/20 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        title="Excluir Cotação"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                      <button className="text-brand-text-main/20 group-hover:text-brand-blue transition-colors">
+                        <MoreHorizontal size={20} />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="space-y-1 mb-6">
@@ -754,7 +847,25 @@ export default function CotacoesPage() {
                       <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-center">Qtd</th>
                       {quotationDetails.quotation_suppliers.map((qs: any) => (
                         <th key={qs.supplier_id} className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-blue text-right">
-                          {qs.suppliers.name}
+                          <div className="flex flex-col items-end gap-1">
+                            <span>{qs.suppliers.name}</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <button 
+                                onClick={() => handleSendWhatsApp(qs.suppliers)}
+                                className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
+                                title="Enviar por WhatsApp"
+                              >
+                                <MessageCircle size={14} />
+                              </button>
+                              <button 
+                                onClick={() => handleSendEmail(qs.suppliers)}
+                                className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                title="Enviar por E-mail"
+                              >
+                                <Mail size={14} />
+                              </button>
+                            </div>
+                          </div>
                         </th>
                       ))}
                     </tr>
@@ -851,6 +962,54 @@ export default function CotacoesPage() {
             </div>
           </motion.div>
         ) : null}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDeleteConfirm(false)}
+              className="absolute inset-0 bg-brand-text-main/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl border border-brand-border text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+                <Trash2 size={40} />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Confirmar Exclusão</h3>
+                <p className="text-brand-text-sec font-medium">
+                  Tem certeza que deseja excluir esta cotação? Esta ação não pode ser desfeita.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-6 py-4 bg-slate-50 text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight hover:bg-slate-100 transition-all active:scale-95"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isLoading}
+                  className="px-6 py-4 bg-rose-500 text-white rounded-2xl font-black uppercase italic tracking-tight shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isLoading ? 'Excluindo...' : 'Sim, Excluir'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );
