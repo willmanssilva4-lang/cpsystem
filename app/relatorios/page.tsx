@@ -90,8 +90,8 @@ export default function ReportsPage() {
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
-  const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'));
-  const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [startDate, setStartDate] = useState(toLocalDateString(new Date().toISOString()));
+  const [endDate, setEndDate] = useState(toLocalDateString(new Date().toISOString()));
 
   // Dynamic Data Calculations for Dashboard
   const filteredSales = React.useMemo(() => sales.filter(s => {
@@ -244,7 +244,6 @@ export default function ReportsPage() {
     { id: 'vendas', label: 'Vendas', icon: TrendingUp },
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
     { id: 'estoque', label: 'Estoque', icon: Package },
-    { id: 'fiscal', label: 'Fiscal', icon: FileText },
     { id: 'gerencial', label: 'Gerencial', icon: LayoutGrid },
   ];
 
@@ -259,6 +258,7 @@ export default function ReportsPage() {
     { id: 'fluxo_caixa', category: 'financeiro', title: 'Fluxo de Caixa', description: 'Projeção de entradas e saídas para os próximos meses.', icon: Activity },
     { id: 'contas_pagar', category: 'financeiro', title: 'Contas a Pagar', description: 'Relatório de compromissos financeiros e vencimentos.', icon: CreditCard },
     { id: 'relatorio_compras', category: 'financeiro', title: 'Relatório de Compras', description: 'Análise de compras, fornecedores e custos de reposição.', icon: ShoppingBag },
+    { id: 'estoque_geral', category: 'estoque', title: 'Relatório de Estoque Geral', description: 'Listagem completa de todos os produtos e suas quantidades em estoque.', icon: Package },
     { id: 'giro_estoque', category: 'estoque', title: 'Giro de Estoque', description: 'Velocidade de saída dos produtos e necessidade de reposição.', icon: RefreshCw },
     { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
@@ -470,6 +470,7 @@ export default function ReportsPage() {
                   {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Compras' && <PurchasesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Lucro no Estoque' && <StockProfitReport />}
+                  {selectedReportView === 'Relatório de Estoque Geral' && <GeneralStockReport />}
                   {selectedReportView === 'Fluxo de Caixa' && (
                     <div className="space-y-6">
                       <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
@@ -2556,6 +2557,8 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
   const [purchases, setPurchases] = React.useState<any[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(true);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 15;
 
   React.useEffect(() => {
     async function fetchPurchases() {
@@ -2596,6 +2599,9 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
     return supplierName.includes(searchTerm.toLowerCase());
   });
 
+  const totalPages = Math.ceil(filteredPurchases.length / itemsPerPage);
+  const currentPurchases = filteredPurchases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   if (isLoading) {
     return <div className="py-20 text-center text-slate-400">Carregando relatório de compras...</div>;
   }
@@ -2628,7 +2634,10 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
           type="text"
           placeholder="Buscar por fornecedor..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
           className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
         />
       </div>
@@ -2644,7 +2653,7 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filteredPurchases.map((purchase, idx) => {
+            {currentPurchases.map((purchase, idx) => {
               const supplier = suppliers.find(s => s.id === purchase.supplier_id);
               return (
                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
@@ -2663,13 +2672,328 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
                 </tr>
               );
             })}
-            {filteredPurchases.length === 0 && (
+            {currentPurchases.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-slate-400 italic">Nenhuma compra encontrada no período.</td>
               </tr>
             )}
           </tbody>
         </table>
+
+        {filteredPurchases.length > 0 && (
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-sm text-slate-500 font-medium">
+              Mostrando {currentPurchases.length} de {filteredPurchases.length} compras
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="text-slate-400 px-1">...</span>
+                        )}
+                        <button 
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                            page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GeneralStockReport() {
+  const { products, categorias, subcategorias, suppliers } = useERP();
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+  const [selectedSupplier, setSelectedSupplier] = React.useState<string>('all');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 15;
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedSupplier]);
+
+  const reportData = React.useMemo(() => {
+    return products
+      .filter(p => p.status !== 'Inativo')
+      .filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        let matchesCategory = true;
+        if (selectedCategory !== 'all') {
+          if (p.subcategoria_id) {
+            const sub = subcategorias.find(s => s.id === p.subcategoria_id);
+            matchesCategory = sub?.categoria_id === selectedCategory;
+          } else {
+            matchesCategory = false;
+          }
+        }
+
+        let matchesSupplier = true;
+        if (selectedSupplier !== 'all') {
+          matchesSupplier = p.supplier === selectedSupplier;
+        }
+
+        return matchesSearch && matchesCategory && matchesSupplier;
+      })
+      .map(p => {
+        const sub = subcategorias.find(s => s.id === p.subcategoria_id);
+        const cat = categorias.find(c => c.id === sub?.categoria_id);
+        return {
+          name: p.name,
+          sku: p.sku,
+          category: cat?.nome || 'Sem Categoria',
+          subcategory: sub?.nome || 'Sem Subcategoria',
+          supplier: p.supplier || 'Sem Fornecedor',
+          stock: p.stock,
+          minStock: p.minStock,
+          costPrice: p.costPrice,
+          salePrice: p.salePrice,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, searchTerm, selectedCategory, selectedSupplier, subcategorias, categorias]);
+
+  const totals = reportData.reduce((acc, item) => ({
+    stock: acc.stock + item.stock,
+    cost: acc.cost + (item.stock * item.costPrice),
+    sale: acc.sale + (item.stock * item.salePrice)
+  }), { stock: 0, cost: 0, sale: 0 });
+
+  return (
+    <div className="space-y-6">
+      <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
+        <Package size={48} className="mx-auto text-brand-blue mb-4" />
+        <h4 className="text-xl font-bold text-slate-800">Relatório de Estoque Geral</h4>
+        <p className="text-sm text-slate-500 mt-2">Listagem completa de todos os produtos e suas quantidades em estoque.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total de Itens Físicos</p>
+          <h4 className="text-2xl font-black text-slate-800">{totals.stock.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</h4>
+        </div>
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Custo Total do Estoque</p>
+          <h4 className="text-2xl font-black text-slate-800">R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor de Venda Total</p>
+          <h4 className="text-2xl font-black text-brand-blue">R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+            <Search size={18} className="text-slate-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Pesquisar por produto ou SKU..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder:text-slate-300"
+          />
+        </div>
+
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Filter size={16} className="text-slate-400" />
+            </div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full pl-10 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 appearance-none transition-all"
+            >
+              <option value="all">Todas Categorias</option>
+              {categorias.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.nome}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+              <ChevronDown size={16} className="text-slate-400" />
+            </div>
+          </div>
+
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Truck size={16} className="text-slate-400" />
+            </div>
+            <select
+              value={selectedSupplier}
+              onChange={(e) => setSelectedSupplier(e.target.value)}
+              className="w-full pl-10 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 appearance-none transition-all"
+            >
+              <option value="all">Todos Fornecedores</option>
+              {suppliers.map(sup => (
+                <option key={sup.id} value={sup.name}>{sup.name}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+              <ChevronDown size={16} className="text-slate-400" />
+            </div>
+          </div>
+
+          {(searchTerm || selectedCategory !== 'all' || selectedSupplier !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedCategory('all');
+                setSelectedSupplier('all');
+              }}
+              className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-black uppercase italic transition-all flex items-center gap-2"
+            >
+              <RefreshCw size={16} />
+              Limpar
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Categoria</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Preço Custo</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Preço Venda</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Estoque Atual</th>
+              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {(() => {
+              const totalPages = Math.ceil(reportData.length / itemsPerPage);
+              const currentItems = reportData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+              
+              if (reportData.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center">
+                      <div className="flex flex-col items-center space-y-2">
+                        <Search size={32} className="text-slate-200" />
+                        <p className="text-sm text-slate-400 italic font-medium">Nenhum produto encontrado para &quot;{searchTerm}&quot;</p>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+
+              return currentItems.map((item, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-bold text-slate-700 uppercase italic">{item.name}</div>
+                    <div className="text-[10px] text-slate-400 font-medium">SKU: {item.sku}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-slate-600">{item.category}</div>
+                    <div className="text-[10px] text-slate-400">{item.subcategory}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">R$ {item.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4 text-right text-sm font-medium text-slate-700">R$ {item.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={cn(
+                      "text-sm font-black",
+                      item.stock <= item.minStock ? "text-rose-500" : "text-slate-700"
+                    )}>
+                      {item.stock}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={cn(
+                      "px-2 py-1 rounded-lg text-[10px] font-black",
+                      item.stock <= 0 ? "bg-rose-50 text-rose-600" :
+                      item.stock <= item.minStock ? "bg-amber-50 text-amber-600" :
+                      "bg-emerald-50 text-emerald-600"
+                    )}>
+                      {item.stock <= 0 ? 'Sem Estoque' : item.stock <= item.minStock ? 'Estoque Baixo' : 'Normal'}
+                    </span>
+                  </td>
+                </tr>
+              ));
+            })()}
+          </tbody>
+        </table>
+        
+        {reportData.length > 0 && (
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-sm text-slate-500 font-medium">
+              Mostrando {Math.min(reportData.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(reportData.length, currentPage * itemsPerPage)} de {reportData.length} registros
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(reportData.length / itemsPerPage) }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === Math.ceil(reportData.length / itemsPerPage) || Math.abs(page - currentPage) <= 1)
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="text-slate-400 px-1">...</span>
+                        )}
+                        <button 
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                            page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(reportData.length / itemsPerPage)))}
+                  disabled={currentPage === Math.ceil(reportData.length / itemsPerPage) || Math.ceil(reportData.length / itemsPerPage) === 0}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2680,6 +3004,13 @@ function StockProfitReport() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [selectedSupplier, setSelectedSupplier] = React.useState<string>('all');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 15;
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedSupplier]);
 
   const reportData = React.useMemo(() => {
     return products
@@ -2840,35 +3171,89 @@ function StockProfitReport() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {reportData.map((item, idx) => (
-              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="text-sm font-bold text-slate-700 uppercase italic">{item.name}</div>
-                  <div className="text-[10px] text-slate-400 font-medium">SKU: {item.sku}</div>
-                </td>
-                <td className="px-6 py-4 text-sm font-bold text-slate-700 text-center">{item.stock}</td>
-                <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">R$ {item.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td className="px-6 py-4 text-right text-sm font-medium text-brand-blue">R$ {item.totalSale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td className="px-6 py-4 text-right text-sm font-black text-emerald-500">R$ {item.potentialProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td className="px-6 py-4 text-center">
-                  <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
-                    {item.margin.toFixed(1)}%
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {reportData.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-12 text-center">
-                  <div className="flex flex-col items-center space-y-2">
-                    <Search size={32} className="text-slate-200" />
-                    <p className="text-sm text-slate-400 italic font-medium">Nenhum produto encontrado para &quot;{searchTerm}&quot;</p>
-                  </div>
-                </td>
-              </tr>
-            )}
+            {(() => {
+              const totalPages = Math.ceil(reportData.length / itemsPerPage);
+              const currentItems = reportData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+              
+              if (reportData.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center">
+                      <div className="flex flex-col items-center space-y-2">
+                        <Search size={32} className="text-slate-200" />
+                        <p className="text-sm text-slate-400 italic font-medium">Nenhum produto encontrado para &quot;{searchTerm}&quot;</p>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+
+              return currentItems.map((item, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-bold text-slate-700 uppercase italic">{item.name}</div>
+                    <div className="text-[10px] text-slate-400 font-medium">SKU: {item.sku}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700 text-center">{item.stock}</td>
+                  <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">R$ {item.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4 text-right text-sm font-medium text-brand-blue">R$ {item.totalSale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4 text-right text-sm font-black text-emerald-500">R$ {item.potentialProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
+                      {item.margin.toFixed(1)}%
+                    </span>
+                  </td>
+                </tr>
+              ));
+            })()}
           </tbody>
         </table>
+        
+        {reportData.length > 0 && (
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-sm text-slate-500 font-medium">
+              Mostrando {Math.min(reportData.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(reportData.length, currentPage * itemsPerPage)} de {reportData.length} registros
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(reportData.length / itemsPerPage) }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === Math.ceil(reportData.length / itemsPerPage) || Math.abs(page - currentPage) <= 1)
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="text-slate-400 px-1">...</span>
+                        )}
+                        <button 
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                            page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(reportData.length / itemsPerPage)))}
+                  disabled={currentPage === Math.ceil(reportData.length / itemsPerPage) || Math.ceil(reportData.length / itemsPerPage) === 0}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

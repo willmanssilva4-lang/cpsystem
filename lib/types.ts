@@ -68,6 +68,7 @@ export interface Product {
   validade?: string;
   has_had_stock?: boolean;
   barcode?: string;
+  controlStock?: string;
 }
 
 export interface CashRegister {

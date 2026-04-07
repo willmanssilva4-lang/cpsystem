@@ -2,16 +2,21 @@
 
 import React, { useState, useMemo } from 'react';
 import { useERP } from '@/lib/context';
-import { Search, Calendar, Filter, Eye, Download, Printer, ShoppingCart, User, CreditCard, ChevronRight, Hash } from 'lucide-react';
+import { Search, Calendar, Filter, Eye, Download, Printer, ShoppingCart, User, CreditCard, ChevronLeft, ChevronRight, Hash, ShieldCheck, Trash2 } from 'lucide-react';
 import { Sale } from '@/lib/types';
 import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
+import Link from 'next/link';
 
 export default function SalesHistoryPage() {
-  const { sales, customers, products, hasPermission } = useERP();
+  const { sales, customers, products, hasPermission, deleteSale } = useERP();
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState(getLocalDateString());
   const [endDate, setEndDate] = useState(getLocalDateString());
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
@@ -23,6 +28,9 @@ export default function SalesHistoryPage() {
       return matchesDate && matchesSearch;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, startDate, endDate, searchQuery]);
+
+  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
+  const currentSales = filteredSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handlePrintReceipt = (sale: Sale) => {
     const customer = customers.find(c => c.id === sale.customerId);
@@ -86,6 +94,20 @@ export default function SalesHistoryPage() {
 
     printWindow.document.write(html);
     printWindow.document.close();
+  };
+
+  const handleDeleteSale = async () => {
+    if (!selectedSale) return;
+    setIsDeleting(true);
+    try {
+      await deleteSale(selectedSale.id);
+      setSelectedSale(null);
+      setShowConfirmDelete(false);
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (!hasPermission('Vendas', 'view')) {
@@ -156,8 +178,8 @@ export default function SalesHistoryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-border">
-                    {filteredSales.length > 0 ? (
-                      filteredSales.map((sale) => {
+                    {currentSales.length > 0 ? (
+                      currentSales.map((sale) => {
                         const customer = customers.find(c => c.id === sale.customerId);
                         return (
                           <tr 
@@ -199,6 +221,47 @@ export default function SalesHistoryPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+              <div className="p-4 bg-slate-50/50 border-t border-brand-border flex items-center justify-between">
+                <p className="text-sm text-brand-text-sec font-bold uppercase tracking-widest">
+                  Mostrando {currentSales.length} de {filteredSales.length} vendas
+                </p>
+                
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl border border-brand-border hover:bg-white transition-all disabled:opacity-30"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                      .map((page, idx, arr) => (
+                        <React.Fragment key={page}>
+                          {idx > 0 && arr[idx - 1] !== page - 1 && <span className="text-slate-400">...</span>}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                              page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      ))}
+                  </div>
+
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="p-2 rounded-xl border border-brand-border hover:bg-white transition-all disabled:opacity-30"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -270,9 +333,18 @@ export default function SalesHistoryPage() {
                     >
                       <Printer size={14} /> Imprimir 2ª Via
                     </button>
-                    <button className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-brand-text-sec py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95">
-                      <Download size={14} /> Exportar PDF
+                    <button 
+                      onClick={() => setShowConfirmDelete(true)}
+                      className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95 border-2 border-red-100"
+                    >
+                      <Trash2 size={14} /> Cancelar Venda
                     </button>
+                    <Link 
+                      href={`/vendas/auditoria?query=${selectedSale.id}`}
+                      className="col-span-2 flex items-center justify-center gap-2 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95 border-2 border-brand-blue/20"
+                    >
+                      <ShieldCheck size={14} /> Ver Auditoria Completa
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -287,6 +359,49 @@ export default function SalesHistoryPage() {
             )}
           </div>
         </div>
+
+        {/* Confirm Delete Modal */}
+        {showConfirmDelete && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-3xl border-2 border-brand-border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="bg-red-600 px-6 py-4 flex justify-between items-center text-white">
+                <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
+                  <Trash2 size={24} /> Cancelar Venda
+                </h3>
+                <button onClick={() => setShowConfirmDelete(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
+                  <ChevronRight size={24} className="rotate-90" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="text-center space-y-2">
+                  <p className="text-brand-text-main font-bold text-lg">Tem certeza que deseja cancelar esta venda?</p>
+                  <p className="text-brand-text-sec text-sm uppercase font-black tracking-widest">Cupom: #{selectedSale?.id.substring(0, 8).toUpperCase()}</p>
+                  <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl mt-4">
+                    <p className="text-xs font-medium text-amber-800 text-left">
+                      Esta ação é irreversível. O valor será removido do financeiro e os itens retornarão ao estoque.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowConfirmDelete(false)}
+                    className="flex-1 py-3 bg-white border-2 border-brand-border text-brand-text-main font-bold rounded-xl hover:bg-slate-50 transition-all"
+                    disabled={isDeleting}
+                  >
+                    Voltar
+                  </button>
+                  <button 
+                    onClick={handleDeleteSale}
+                    className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg flex items-center justify-center gap-2"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Cancelando...' : 'Confirmar Cancelamento'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
   );
 }

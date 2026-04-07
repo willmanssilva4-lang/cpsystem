@@ -14,6 +14,35 @@ interface ProductFormProps {
   initialData?: Product;
 }
 
+function QuantityInput({ value, onChange }: { value: number, onChange: (val: number) => void }) {
+  const [displayValue, setDisplayValue] = useState(value.toString().replace('.', ','));
+
+  useEffect(() => {
+    setDisplayValue(value.toString().replace('.', ','));
+  }, [value]);
+
+  return (
+    <input 
+      type="text"
+      inputMode="decimal"
+      value={displayValue}
+      onChange={(e) => {
+        const val = e.target.value;
+        setDisplayValue(val);
+        
+        if (!val.endsWith(',') && !val.endsWith('.')) {
+          const rawValue = val.replace(',', '.');
+          const newQty = parseFloat(rawValue);
+          if (!isNaN(newQty)) {
+            onChange(Math.round(newQty * 1000) / 1000);
+          }
+        }
+      }}
+      className="w-20 bg-slate-50 border border-brand-border px-2 py-1 rounded-lg text-center font-black text-brand-text-main outline-none focus:border-brand-blue-hover"
+    />
+  );
+}
+
 // Imagem padrão de uma caixa 3D (placeholder)
 const DEFAULT_IMAGE = 'https://i.imgur.com/jGU5BUa.png';
 
@@ -95,7 +124,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       wholesalePrice: initialData?.wholesalePrice ?? '',
       stock: initialData?.stock || 0,
       minStock: initialData?.minStock || 1,
-      controlStock: 'SIM',
+      controlStock: initialData?.controlStock || 'SIM',
       subcategoria_id: initialData?.subcategoria_id || '',
       brand: initialData?.brand || 'PADRAO',
       composition: initialData?.composition || [] as CompositionItem[],
@@ -1589,17 +1618,13 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   {isLowStock && <div className="text-[9px] text-rose-500 font-black uppercase italic">⚠️ Estoque Baixo</div>}
                                 </div>
                                 <div className="col-span-2 flex justify-center">
-                                  <input 
-                                    type="number"
-                                    min="1"
-                                    value={item.quantity}
-                                    onChange={(e) => {
-                                      const newQty = parseInt(e.target.value) || 1;
+                                  <QuantityInput 
+                                    value={Number(item.quantity.toFixed(3))}
+                                    onChange={(newQty) => {
                                       const newComp = [...formData.composition];
                                       newComp[index] = { ...item, quantity: newQty };
                                       setFormData(prev => ({ ...prev, composition: newComp }));
                                     }}
-                                    className="w-16 bg-slate-50 border border-brand-border px-2 py-1 rounded-lg text-center font-black text-brand-text-main outline-none focus:border-brand-blue-hover"
                                   />
                                 </div>
                                 <div className="col-span-2 text-right font-bold text-brand-blue/80 text-sm">

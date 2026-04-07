@@ -20,7 +20,7 @@ import { X, Tag, Lock, AlertCircle, Check, Printer } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers } = useERP();
+  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale } = useERP();
   const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string }[]>([]);
   const [barcode, setBarcode] = useState('');
 
@@ -200,6 +200,17 @@ export default function PDVPage() {
   const finalizeSale = async (paymentData: any) => {
     console.log('DEBUG: Finalizando venda, payments:', paymentData.payments);
     console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
+    
+    // Check stock
+    for (const item of cart) {
+      const currentProduct = products.find(p => p.id === item.product.id);
+      console.log('DEBUG: finalizeSale', { product: currentProduct?.name, controlStock: currentProduct?.controlStock, stock: currentProduct?.stock, minStock: currentProduct?.minStock, qty: item.quantity });
+      if (currentProduct && currentProduct.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - item.quantity) < (currentProduct.minStock || 1)) {
+        setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente para esta venda (Estoque: ${currentProduct.stock}, Mínimo: ${currentProduct.minStock || 1}).`, type: 'error' });
+        return;
+      }
+    }
+
     const success = await addSale({
       date: new Date().toISOString(),
       items: cart.map(item => ({
@@ -379,8 +390,11 @@ export default function PDVPage() {
           setSelectedCartIndex(-1);
           setIsNavigatingCart(false);
         } else if (pendingAction.type === 'reverse_sale') {
-          // In a real app, we would call a function to reverse the sale in the database
-          alert(`Venda #${pendingAction.data?.saleId || '1103'} estornada com sucesso! Itens retornados ao estoque.`);
+          const saleId = pendingAction.data?.saleId;
+          if (saleId) {
+            await deleteSale(saleId);
+            setCustomAlert({ message: `Venda #${saleId} estornada com sucesso! Itens retornados ao estoque.`, type: 'success' });
+          }
           setReverseSaleId('');
         }
         setPendingAction(null);
@@ -842,6 +856,34 @@ export default function PDVPage() {
   };
 
   const addToCart = (product: Product, qty: number) => {
+    // Find the product in the state to get the most up-to-date data
+    const currentProduct = products.find(p => p.id === product.id);
+    
+    // Log everything about the product to debug
+    console.log('DEBUG: addToCart - Product Data:', { 
+      id: product.id,
+      name: product.name,
+      controlStockRaw: product.controlStock,
+      controlStockNormalized: product.controlStock?.toUpperCase(),
+      stock: product.stock,
+      minStock: product.minStock,
+      foundInProducts: !!currentProduct,
+      currentProductData: currentProduct
+    });
+    
+    // Check if the product found in state has different data
+    if (currentProduct) {
+      console.log('DEBUG: addToCart - Current Product from state:', {
+        id: currentProduct.id,
+        controlStock: currentProduct.controlStock,
+        stock: currentProduct.stock
+      });
+    }
+    
+    if (currentProduct?.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - qty) < (currentProduct.minStock || 1)) {
+      setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente (Estoque: ${currentProduct.stock}, Mínimo: ${currentProduct.minStock || 1}).`, type: 'warning' });
+      return;
+    }
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
 
@@ -1315,10 +1357,11 @@ export default function PDVPage() {
                   autoFocus
                   value={reverseSaleId}
                   onChange={(e) => setReverseSaleId(e.target.value)}
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === 'Enter' && reverseSaleId) {
                       if (checkActionPermission()) {
-                        alert(`Venda #${reverseSaleId} estornada com sucesso! Itens retornados ao estoque.`);
+                        await deleteSale(reverseSaleId);
+                        setCustomAlert({ message: `Venda #${reverseSaleId} estornada com sucesso! Itens retornados ao estoque.`, type: 'success' });
                         setReverseSaleId('');
                         setShowReverseModal(false);
                       } else {
@@ -1348,10 +1391,11 @@ export default function PDVPage() {
                   Cancelar
                 </button>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (reverseSaleId) {
                       if (checkActionPermission()) {
-                        alert(`Venda #${reverseSaleId} estornada com sucesso! Itens retornados ao estoque.`);
+                        await deleteSale(reverseSaleId);
+                        setCustomAlert({ message: `Venda #${reverseSaleId} estornada com sucesso! Itens retornados ao estoque.`, type: 'success' });
                         setReverseSaleId('');
                         setShowReverseModal(false);
                       } else {
@@ -1669,7 +1713,7 @@ export default function PDVPage() {
       )}
 
       {/* Cash Register Manager Overlay (Force Open) */}
-      {!activeRegister && (
+      {!activeRegister && !isLoading && (
         <div className="fixed inset-0 bg-brand-text-main/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
           <div className="max-w-md w-full">
             <div className="text-center mb-8">

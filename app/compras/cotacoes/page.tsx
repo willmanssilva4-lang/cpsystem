@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 
 export default function CotacoesPage() {
   const { user } = useERP();
-  const [view, setView] = useState<'list' | 'create'>('list');
+  const [view, setView] = useState<'list' | 'create' | 'details'>('list');
   const [isLoading, setIsLoading] = useState(false);
   const [productsList, setProductsList] = useState<any[]>([]);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
@@ -41,8 +41,145 @@ export default function CotacoesPage() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [listSearchTerm, setListSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todas as Cotações');
+  const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  const [quotationDetails, setQuotationDetails] = useState<any>(null);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleViewDetails = async (cot: any) => {
+    setSelectedQuotation(cot);
+    setView('details');
+    setIsLoading(true);
+    try {
+      // Fetch full quotation details including items, suppliers, and responses
+      const { data: qData } = await supabase
+        .from('quotations')
+        .select(`
+          *,
+          quotation_items (
+            id,
+            product_id,
+            quantity,
+            products ( name, sku, cost_price )
+          ),
+          quotation_suppliers (
+            supplier_id,
+            suppliers ( name )
+          ),
+          quotation_responses (
+            id,
+            supplier_id,
+            product_id,
+            price
+          )
+        `)
+        .eq('id', cot.realId)
+        .single();
+      
+      if (qData) {
+        setQuotationDetails(qData);
+      }
+    } catch (error) {
+      console.error('Error fetching quotation details:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdatePrice = async (productId: string, supplierId: string, price: number) => {
+    if (!user?.companyId || !quotationDetails) return;
+
+    // Optimistic update
+    const updatedResponses = [...(quotationDetails.quotation_responses || [])];
+    const existingIndex = updatedResponses.findIndex(r => r.product_id === productId && r.supplier_id === supplierId);
+    
+    if (existingIndex >= 0) {
+      updatedResponses[existingIndex].price = price;
+    } else {
+      updatedResponses.push({
+        id: 'temp-' + Date.now(),
+        supplier_id: supplierId,
+        product_id: productId,
+        price: price
+      });
+    }
+    
+    setQuotationDetails({ ...quotationDetails, quotation_responses: updatedResponses });
+
+    try {
+      // Check if response exists in DB
+      const { data: existing } = await supabase
+        .from('quotation_responses')
+        .select('id')
+        .eq('quotation_id', quotationDetails.id)
+        .eq('supplier_id', supplierId)
+        .eq('product_id', productId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('quotation_responses')
+          .update({ price })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('quotation_responses')
+          .insert({
+            company_id: user.companyId,
+            quotation_id: quotationDetails.id,
+            supplier_id: supplierId,
+            product_id: productId,
+            price
+          });
+      }
+      
+      // Refresh list in background to update best price
+      fetchQuotations();
+    } catch (error) {
+      console.error('Error updating price:', error);
+    }
+  };
+
+  const handleApproveQuotation = async (supplierId: string) => {
+    if (!user?.companyId || !quotationDetails) return;
+    
+    setIsLoading(true);
+    try {
+      // Update quotation status
+      await supabase
+        .from('quotations')
+        .update({ status: 'Finalizada' })
+        .eq('id', quotationDetails.id);
+
+      // Prepare items for Novo Pedido
+      const itemsForOrder = quotationDetails.quotation_items.map((item: any) => {
+        const response = quotationDetails.quotation_responses?.find(
+          (r: any) => r.supplier_id === supplierId && r.product_id === item.product_id
+        );
+        const price = response ? Number(response.price) : 0;
+        
+        return {
+          id: item.product_id,
+          name: item.products.name,
+          stock: '0', // Not relevant here
+          min: '0',
+          suggestedQty: item.quantity,
+          costValue: price
+        };
+      });
+
+      // Save to localStorage
+      localStorage.setItem('replenishment_items', JSON.stringify(itemsForOrder));
+      localStorage.setItem('quotation_supplier_id', supplierId);
+      
+      // Redirect to Novo Pedido
+      window.location.href = '/compras/novo-pedido';
+    } catch (error) {
+      console.error('Error approving quotation:', error);
+      setIsLoading(false);
+    }
+  };
 
   const fetchQuotations = useCallback(async () => {
     if (!user?.companyId) return;
@@ -240,10 +377,13 @@ export default function CotacoesPage() {
     );
   };
 
-  const filteredQuotations = quotations.filter(q => 
-    q.title.toLowerCase().includes(listSearchTerm.toLowerCase()) ||
-    q.id.toLowerCase().includes(listSearchTerm.toLowerCase())
-  );
+  const filteredQuotations = quotations.filter(q => {
+    const matchesSearch = q.title.toLowerCase().includes(listSearchTerm.toLowerCase()) ||
+                          q.id.toLowerCase().includes(listSearchTerm.toLowerCase());
+    
+    if (statusFilter === 'Todas as Cotações') return matchesSearch;
+    return matchesSearch && q.status === statusFilter;
+  });
 
   return (
     <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
@@ -292,10 +432,14 @@ export default function CotacoesPage() {
                   <Filter size={18} />
                   Filtros
                 </button>
-                <select className="flex-1 md:flex-none px-4 py-3 bg-white border border-brand-border rounded-xl text-sm font-bold text-brand-text-main focus:ring-2 focus:ring-brand-blue-hover appearance-none">
-                  <option>Todas as Cotações</option>
-                  <option>Em Aberto</option>
-                  <option>Finalizadas</option>
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="flex-1 md:flex-none px-4 py-3 bg-white border border-brand-border rounded-xl text-sm font-bold text-brand-text-main focus:ring-2 focus:ring-brand-blue-hover appearance-none"
+                >
+                  <option value="Todas as Cotações">Todas as Cotações</option>
+                  <option value="Em Aberto">Em Aberto</option>
+                  <option value="Finalizada">Finalizadas</option>
                 </select>
               </div>
             </div>
@@ -317,6 +461,7 @@ export default function CotacoesPage() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.05 }}
+                  onClick={() => handleViewDetails(cot)}
                   className="group bg-white border border-brand-border rounded-[32px] p-6 hover:border-brand-blue-hover hover:shadow-xl transition-all cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -374,7 +519,7 @@ export default function CotacoesPage() {
             )}
           </div>
         </motion.div>
-        ) : (
+        ) : view === 'create' ? (
           <motion.div
             key="create"
             initial={{ opacity: 0, x: 20 }}
@@ -572,7 +717,140 @@ export default function CotacoesPage() {
               </div>
             </div>
           </motion.div>
-        )}
+        ) : view === 'details' && quotationDetails ? (
+          <motion.div
+            key="details"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-brand-text-main uppercase italic tracking-tight">{quotationDetails.title}</h2>
+                <p className="text-sm font-bold text-brand-text-main/40 uppercase italic tracking-widest">ID: {quotationDetails.id.substring(0, 8).toUpperCase()} • {new Date(quotationDetails.created_at).toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className={`px-4 py-2 rounded-full text-xs font-black uppercase italic tracking-tight ${
+                  quotationDetails.status === 'Em Aberto' ? 'bg-amber-100 text-amber-700' : 'bg-brand-border text-brand-text-main'
+                }`}>
+                  {quotationDetails.status}
+                </span>
+                <button 
+                  onClick={() => setView('list')}
+                  className="px-6 py-3 bg-white border border-brand-border text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight hover:bg-slate-50 transition-all"
+                >
+                  Voltar
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-brand-border">
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40">Produto</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-text-main/40 text-center">Qtd</th>
+                      {quotationDetails.quotation_suppliers.map((qs: any) => (
+                        <th key={qs.supplier_id} className="px-6 py-4 text-[10px] font-black uppercase italic tracking-widest text-brand-blue text-right">
+                          {qs.suppliers.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {quotationDetails.quotation_items.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-bold text-brand-text-main">{item.products.name}</div>
+                          <div className="text-[10px] font-black text-brand-text-main/40 uppercase italic">{item.products.sku || 'Sem SKU'}</div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-black text-brand-text-main/60">{item.quantity} un.</span>
+                        </td>
+                        {quotationDetails.quotation_suppliers.map((qs: any) => {
+                          const response = quotationDetails.quotation_responses?.find(
+                            (r: any) => r.supplier_id === qs.supplier_id && r.product_id === item.product_id
+                          );
+                          const price = response ? Number(response.price) : 0;
+                          
+                          return (
+                            <td key={qs.supplier_id} className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-xs text-slate-400 font-bold">R$</span>
+                                <input 
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={price || ''}
+                                  placeholder="0,00"
+                                  onChange={(e) => handleUpdatePrice(item.product_id, qs.supplier_id, Number(e.target.value))}
+                                  className="w-24 px-2 py-1 bg-white border border-brand-border rounded-lg text-sm text-right font-bold text-slate-700 focus:ring-2 focus:ring-brand-blue-hover"
+                                />
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                    
+                    {/* Totals Row */}
+                    <tr className="bg-slate-50/50 font-black">
+                      <td colSpan={2} className="px-6 py-4 text-right text-brand-text-main uppercase italic tracking-tight">
+                        Total por Fornecedor
+                      </td>
+                      {quotationDetails.quotation_suppliers.map((qs: any) => {
+                        const total = quotationDetails.quotation_items.reduce((acc: number, item: any) => {
+                          const response = quotationDetails.quotation_responses?.find(
+                            (r: any) => r.supplier_id === qs.supplier_id && r.product_id === item.product_id
+                          );
+                          const price = response ? Number(response.price) : 0;
+                          return acc + (price * item.quantity);
+                        }, 0);
+                        
+                        // Find if this is the best total
+                        const allTotals = quotationDetails.quotation_suppliers.map((s: any) => {
+                          return quotationDetails.quotation_items.reduce((acc: number, item: any) => {
+                            const response = quotationDetails.quotation_responses?.find(
+                              (r: any) => r.supplier_id === s.supplier_id && r.product_id === item.product_id
+                            );
+                            const price = response ? Number(response.price) : 0;
+                            return acc + (price * item.quantity);
+                          }, 0);
+                        }).filter((t: number) => t > 0);
+                        
+                        const bestTotal = allTotals.length > 0 ? Math.min(...allTotals) : 0;
+                        const isBest = total > 0 && total === bestTotal;
+
+                        return (
+                          <td key={qs.supplier_id} className="px-6 py-4 text-right">
+                            <div className={`text-lg ${isBest ? 'text-emerald-600' : 'text-brand-text-main'}`}>
+                              R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                            {isBest && (
+                              <div className="text-[10px] text-emerald-600 uppercase tracking-widest mt-1">
+                                Melhor Preço
+                              </div>
+                            )}
+                            {total > 0 && quotationDetails.status === 'Em Aberto' && (
+                              <button 
+                                onClick={() => handleApproveQuotation(qs.supplier_id)}
+                                className="mt-4 w-full py-2 bg-brand-blue text-white rounded-xl text-xs uppercase tracking-tight hover:bg-brand-text-main transition-all"
+                              >
+                                Aprovar
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
     </div>
   );

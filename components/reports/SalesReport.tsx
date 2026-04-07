@@ -3,11 +3,14 @@
 import React, { useMemo, useState } from 'react';
 import { useERP } from '@/lib/context';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { ChevronDown, ChevronUp, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, customers, systemUsers, paymentMethods } = useERP();
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
   
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
@@ -48,6 +51,9 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
       return new Date(2020, Number(m1)-1, Number(d1)).getTime() - new Date(2020, Number(m2)-1, Number(d2)).getTime();
     });
   }, [filteredSales]);
+
+  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
+  const currentSales = filteredSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -125,7 +131,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredSales.length > 0 ? filteredSales.map((sale) => {
+              {currentSales.length > 0 ? currentSales.map((sale) => {
                 const customer = customers.find(c => c.id === sale.customerId);
                 const seller = systemUsers.find(u => u.id === sale.userId);
                 const method = paymentMethods.find(m => m.id === sale.paymentMethod);
@@ -230,6 +236,52 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
             </tbody>
           </table>
         </div>
+
+        {filteredSales.length > 0 && (
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between rounded-b-2xl">
+            <p className="text-sm text-slate-500 font-medium">
+              Mostrando {currentSales.length} de {filteredSales.length} vendas
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="text-slate-400 px-1">...</span>
+                        )}
+                        <button 
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                            page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-500 hover:bg-slate-200"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} className="text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

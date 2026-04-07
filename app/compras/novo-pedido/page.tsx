@@ -15,7 +15,8 @@ import {
   Trash2,
   FileText,
   CheckCircle2,
-  Plus
+  Plus,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -76,6 +77,10 @@ export default function NovaCompraPage() {
   const [itemCost, setItemCost] = useState<number>(0);
   const [itemSalePrice, setItemSalePrice] = useState<number>(0);
   const [itemExpiration, setItemExpiration] = useState('');
+  
+  // Pagination for items table
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Refs for focus management
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -99,19 +104,28 @@ export default function NovaCompraPage() {
           
           // Check for replenishment items
           const savedItems = localStorage.getItem('replenishment_items');
+          const savedSupplierId = localStorage.getItem('quotation_supplier_id');
+          
+          if (savedSupplierId) {
+            setSupplierId(savedSupplierId);
+            localStorage.removeItem('quotation_supplier_id');
+          }
+
           if (savedItems) {
             const parsedItems = JSON.parse(savedItems);
             const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
               const product = productsData.find((prod: any) => prod.id === p.id);
+              const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0));
+              const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.cost_price) || 0);
               return {
                 id: Math.random().toString(36).substr(2, 9),
                 productId: p.id,
                 productName: p.name,
-                qty: Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0)),
-                cost: Number((product as any)?.cost_price) || 0,
+                qty: qty,
+                cost: cost,
                 salePrice: Number((product as any)?.sale_price) || 0,
                 expirationDate: getLocalDateString(),
-                total: Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0)) * (Number((product as any)?.cost_price) || 0)
+                total: qty * cost
               };
             });
             setItems(newItems);
@@ -815,14 +829,21 @@ export default function NovaCompraPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border/50">
-                      {items.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                            Nenhum produto adicionado à compra ainda.
-                          </td>
-                        </tr>
-                      ) : (
-                        items.map((item) => (
+                      {(() => {
+                        const totalPages = Math.ceil(items.length / itemsPerPage);
+                        const currentItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                        
+                        if (items.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                Nenhum produto adicionado à compra ainda.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return currentItems.map((item) => (
                           <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="font-bold text-brand-text-main">{item.productName}</div>
@@ -869,11 +890,56 @@ export default function NovaCompraPage() {
                               </button>
                             </td>
                           </tr>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
+                
+                {items.length > 0 && (
+                  <div className="p-4 bg-slate-50/50 border-t border-brand-border flex items-center justify-between">
+                    <p className="text-sm text-brand-text-main/60 font-medium">
+                      Mostrando {Math.min(items.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(items.length, currentPage * itemsPerPage)} de {items.length} registros
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ArrowLeft size={18} className="text-brand-text-main/40 hover:text-brand-text-main/60" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.ceil(items.length / itemsPerPage) }, (_, i) => i + 1)
+                            .filter(page => page === 1 || page === Math.ceil(items.length / itemsPerPage) || Math.abs(page - currentPage) <= 1)
+                            .map((page, index, array) => (
+                              <React.Fragment key={page}>
+                                {index > 0 && array[index - 1] !== page - 1 && (
+                                  <span className="text-brand-text-main/40 px-1">...</span>
+                                )}
+                                <button 
+                                  onClick={() => setCurrentPage(page)}
+                                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                                    page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-brand-text-main/60 hover:bg-slate-200"
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              </React.Fragment>
+                            ))}
+                        </div>
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(items.length / itemsPerPage)))}
+                          disabled={currentPage === Math.ceil(items.length / itemsPerPage) || Math.ceil(items.length / itemsPerPage) === 0}
+                          className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ArrowRight size={18} className="text-brand-text-main/40 hover:text-brand-text-main/60" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Summary & Actions */}

@@ -36,6 +36,7 @@ interface ERPContextType {
   isLoading: boolean;
   hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete') => boolean;
   discountLogs: DiscountLog[];
+  auditLogs: AuditLog[];
   cashRegisters: CashRegister[];
   cashMovements: CashMovement[];
   cashClosings: CashClosing[];
@@ -259,43 +260,49 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const storedUser = localStorage.getItem('erp_user');
         const currentUser = storedUser ? JSON.parse(storedUser) : null;
         
-        if (!currentUser?.companyId) {
-          resolve();
-          return;
-        }
-
-    const companyId = currentUser.companyId;
-    const shouldFetch = (table: string) => !targetTables || targetTables.includes(table);
+        const companyId = currentUser?.companyId || null;
+        const shouldFetch = (table: string) => !targetTables || targetTables.includes(table);
 
     try {
+      console.log('DEBUG: fetchData called');
       // Define all possible queries
+      // If companyId is null, we fetch records where company_id is null using .is('company_id', null)
+      const buildQuery = (table: string, select = '*') => {
+        let q = supabase.from(table).select(select);
+        if (companyId) {
+          return q.eq('company_id', companyId);
+        } else {
+          return q.is('company_id', null);
+        }
+      };
+
       const queries: Record<string, any> = {
-        products: supabase.from('products').select('*').eq('company_id', companyId).order('name', { ascending: true }),
-        customers: supabase.from('customers').select('*').eq('company_id', companyId).order('name', { ascending: true }),
-        suppliers: supabase.from('suppliers').select('*').eq('company_id', companyId).order('name', { ascending: true }),
-        losses: supabase.from('losses').select('*').eq('company_id', companyId),
-        expenses: supabase.from('expenses').select('*').eq('company_id', companyId),
-        stock_movements: supabase.from('stock_movements').select('*').eq('company_id', companyId).order('date', { ascending: false }).limit(500),
-        inventories: supabase.from('inventories').select('*').eq('company_id', companyId).order('date', { ascending: false }),
-        employees: supabase.from('employees').select('*').eq('company_id', companyId),
-        system_users: supabase.from('system_users').select('*').eq('company_id', companyId),
-        access_profiles: supabase.from('access_profiles').select('*').eq('company_id', companyId),
-        permissions: supabase.from('permissions').select('*').eq('company_id', companyId),
-        departamentos: supabase.from('departamentos').select('*').eq('company_id', companyId),
-        categorias: supabase.from('categorias').select('*').eq('company_id', companyId),
-        expense_categories: supabase.from('expense_categories').select('*').eq('company_id', companyId),
-        subcategorias: supabase.from('subcategorias').select('*').eq('company_id', companyId),
-        vendas_descontos: supabase.from('vendas_descontos').select('*').eq('company_id', companyId),
-        cash_registers: supabase.from('cash_registers').select('*').eq('company_id', companyId).order('opened_at', { ascending: false }).limit(100),
-        cash_movements: supabase.from('cash_movements').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(200),
-        cash_closings: supabase.from('cash_closings').select('*').eq('company_id', companyId).order('closed_at', { ascending: false }).limit(100),
-        audit_logs: supabase.from('audit_logs').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(200),
-        produto_lotes: supabase.from('produto_lotes').select('*').eq('company_id', companyId),
-        payment_methods: supabase.from('payment_methods').select('*').eq('company_id', companyId),
-        maquininhas: supabase.from('maquininhas').select('*').eq('company_id', companyId),
-        promotions: supabase.from('promotions').select('*').eq('company_id', companyId),
-        returns: supabase.from('returns').select('*, return_items(*)').eq('company_id', companyId).order('date', { ascending: false }).limit(100),
-        companies: supabase.from('companies').select('*').eq('id', companyId).single()
+        products: buildQuery('products').order('name', { ascending: true }),
+        customers: buildQuery('customers').order('name', { ascending: true }),
+        suppliers: buildQuery('suppliers').order('name', { ascending: true }),
+        losses: buildQuery('losses'),
+        expenses: buildQuery('expenses'),
+        stock_movements: buildQuery('stock_movements').order('date', { ascending: false }).limit(500),
+        inventories: buildQuery('inventories').order('date', { ascending: false }),
+        employees: buildQuery('employees'),
+        system_users: buildQuery('system_users'),
+        access_profiles: buildQuery('access_profiles'),
+        permissions: buildQuery('permissions'),
+        departamentos: buildQuery('departamentos'),
+        categorias: buildQuery('categorias'),
+        expense_categories: buildQuery('expense_categories'),
+        subcategorias: buildQuery('subcategorias'),
+        vendas_descontos: buildQuery('vendas_descontos'),
+        cash_registers: buildQuery('cash_registers').order('opened_at', { ascending: false }).limit(100),
+        cash_movements: buildQuery('cash_movements').order('created_at', { ascending: false }).limit(200),
+        cash_closings: buildQuery('cash_closings').order('closed_at', { ascending: false }).limit(100),
+        audit_logs: buildQuery('audit_logs').order('created_at', { ascending: false }).limit(200),
+        produto_lotes: buildQuery('produto_lotes'),
+        payment_methods: buildQuery('payment_methods'),
+        maquininhas: buildQuery('maquininhas'),
+        promotions: buildQuery('promotions'),
+        returns: buildQuery('returns', '*, return_items(*)').order('date', { ascending: false }).limit(500),
+        companies: companyId ? supabase.from('companies').select('*').eq('id', companyId).single() : Promise.resolve({ data: null })
       };
 
       // Filter queries based on targetTables
@@ -341,19 +348,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       let salesData;
       if (shouldFetch('sales')) {
         try {
-          const res = await supabase.from('sales').select('*, sale_items(*)').eq('company_id', companyId).order('date', { ascending: false }).limit(500);
+          const res = await buildQuery('sales', '*, sale_items(*)').order('date', { ascending: false }).limit(500);
           if (res.error) throw res.error;
           salesData = res.data;
         } catch (e) {
           console.warn('Failed to fetch sales with join, fetching separately...', e);
           const [salesRes, itemsRes] = await Promise.all([
-            supabase.from('sales').select('*').eq('company_id', companyId).order('date', { ascending: false }).limit(500),
-            supabase.from('sale_items').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(2000)
+            buildQuery('sales').order('date', { ascending: false }).limit(500),
+            buildQuery('sale_items').order('created_at', { ascending: false }).limit(2000)
           ]);
           if (salesRes.data) {
-            salesData = salesRes.data.map(s => ({
+            salesData = salesRes.data.map((s: any) => ({
               ...s,
-              sale_items: itemsRes.data ? itemsRes.data.filter(i => i.sale_id === s.id) : []
+              sale_items: itemsRes.data ? itemsRes.data.filter((i: any) => i.sale_id === s.id) : []
             }));
           }
         }
@@ -379,7 +386,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (returnsData) {
-        setReturns(returnsData.map((r: any) => ({
+        const mappedReturns = returnsData.map((r: any) => ({
           id: r.id,
           saleId: r.sale_id,
           date: r.date,
@@ -394,7 +401,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           refundMethod: r.refund_method,
           userId: r.user_id,
           status: r.status
-        })));
+        }));
+        setReturns(mappedReturns);
+        localStorage.setItem('erp_returns', JSON.stringify(mappedReturns));
       }
 
       if (promotionsData) {
@@ -436,7 +445,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           subcategoria_id: p.subcategoria_id,
           supplier: p.supplier,
           validade: p.validade,
-          has_had_stock: p.has_had_stock
+          has_had_stock: p.has_had_stock,
+          controlStock: p.control_stock
         }));
 
         // Calculate virtual stock for kits
@@ -818,6 +828,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const savedCustomers = localStorage.getItem('erp_customers');
       const savedSales = localStorage.getItem('erp_sales');
       const savedExpenses = localStorage.getItem('erp_expenses');
+      const savedReturns = localStorage.getItem('erp_returns');
 
       if (savedProducts) setProducts(JSON.parse(savedProducts));
       else setProducts(INITIAL_PRODUCTS);
@@ -830,6 +841,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
       else setExpenses(INITIAL_EXPENSES);
+
+      if (savedReturns) setReturns(JSON.parse(savedReturns));
+      else setReturns([]);
 
       setLosses(INITIAL_LOSSES);
     } finally {
@@ -927,11 +941,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
 
+        // Fetch data in the background
+        await fetchData();
+
         // Set loading to false as soon as we have a user (or know there isn't one)
         setIsLoading(false);
-
-        // Fetch data in the background
-        await fetchData(['products', 'sales', 'expenses', 'system_users', 'categorias', 'subcategorias', 'payment_methods', 'companies', 'customers', 'suppliers']);
 
         // Set up real-time subscriptions
         productsSubscription = supabase
@@ -1197,6 +1211,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       codigo_mercadologico: product.codigo_mercadologico,
       validade: product.validade || null,
       has_had_stock: product.stock > 0,
+      control_stock: product.controlStock,
       category: product.category,
       subgroup: product.subgroup
     };
@@ -1204,7 +1219,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (insertData as any).composition;
       if (error.message.includes('status')) delete (insertData as any).status;
@@ -1213,6 +1228,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('category')) delete (insertData as any).category;
       if (error.message.includes('subgroup')) delete (insertData as any).subgroup;
       if (error.message.includes('wholesale_price')) delete (insertData as any).wholesale_price;
+      if (error.message.includes('control_stock')) delete (insertData as any).control_stock;
       
       const retry = await supabase.from('products').insert([insertData]).select();
       data = retry.data;
@@ -1275,6 +1291,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       codigo_mercadologico: updated.codigo_mercadologico,
       validade: updated.validade || null,
       has_had_stock: updated.stock > 0 || updated.has_had_stock,
+      control_stock: updated.controlStock,
       category: updated.category,
       subgroup: updated.subgroup
     };
@@ -1282,7 +1299,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (updateData as any).composition;
       if (error.message.includes('status')) delete (updateData as any).status;
@@ -1291,6 +1308,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('category')) delete (updateData as any).category;
       if (error.message.includes('subgroup')) delete (updateData as any).subgroup;
       if (error.message.includes('wholesale_price')) delete (updateData as any).wholesale_price;
+      if (error.message.includes('control_stock')) delete (updateData as any).control_stock;
 
       const retry = await supabase.from('products').update(updateData).eq('id', updated.id);
       error = retry.error;
@@ -1430,15 +1448,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         const itemsToInsert = sale.items.map(item => {
           const product = products.find(p => p.id === item.productId);
           return {
-            company_id: user?.companyId || null,
             sale_id: saleId,
             product_id: item.productId,
             quantity: item.quantity,
-            price: item.price,
-            cost_price: product?.costPrice || 0,
-            original_price: item.originalPrice || item.price,
-            discount: item.discount || 0,
-            promotion_id: item.promotionId || null
+            price: item.price
           };
         });
         
@@ -1539,7 +1552,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
         await fetchData();
         
-        return { ...sale, id: saleData[0].id };
+        return { ...sale, id: saleId };
       }
       return null;
     } catch (err: any) {
@@ -1612,13 +1625,47 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        // Update the original sale to reflect the return and refund taxes
+        if (returnData.saleId) {
+          const originalSale = sales.find(s => s.id === returnData.saleId);
+          if (originalSale) {
+            const newTotal = Math.max(0, originalSale.total - returnData.total);
+            const taxRatio = originalSale.total > 0 ? (originalSale.taxAmount || 0) / originalSale.total : 0;
+            const newTaxAmount = newTotal * taxRatio;
+            const newNetAmount = newTotal - newTaxAmount;
+            const newSubtotal = Math.max(0, (originalSale.subtotal || originalSale.total) - returnData.total);
+
+            await supabase.from('sales').update({
+              total: newTotal,
+              subtotal: newSubtotal,
+              tax_amount: newTaxAmount,
+              net_amount: newNetAmount
+            }).eq('id', originalSale.id);
+
+            // Update sale_items
+            for (const item of returnData.items) {
+              const saleItem = originalSale.items.find(si => si.productId === item.productId);
+              if (saleItem) {
+                const newQuantity = saleItem.quantity - item.quantity;
+                if (newQuantity <= 0) {
+                  await supabase.from('sale_items').delete().eq('sale_id', originalSale.id).eq('product_id', item.productId);
+                } else {
+                  await supabase.from('sale_items').update({
+                    quantity: newQuantity
+                  }).eq('sale_id', originalSale.id).eq('product_id', item.productId);
+                }
+              }
+            }
+          }
+        }
+
         // If refund method is cash, record cash movement
         if (returnData.refundMethod === 'Dinheiro' && activeRegister) {
           await addCashMovement({
             cashRegisterId: activeRegister.id,
             type: 'sangria',
             amount: returnData.total,
-            reason: `Devolução Venda #${returnData.saleId.substring(0, 8)}`
+            reason: `Devolução Venda ${returnData.saleId ? '#' + returnData.saleId.substring(0, 8) : ''}`
           });
         }
 
@@ -1648,6 +1695,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }]);
 
     if (!error) {
+      await logAuditAction('desconto', 'vendas', log.saleId || 'item', null, log);
       await fetchData();
     } else {
       console.error('Error adding discount log:', error);
@@ -1930,14 +1978,87 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       customer_id: sale.customerId,
       date: sale.date
     }).eq('id', sale.id);
-    if (!error) await fetchData();
+    if (!error) {
+      const oldSale = sales.find(s => s.id === sale.id);
+      await logAuditAction('edição', 'vendas', sale.id, oldSale, sale);
+      await fetchData();
+    }
     else console.error('Error updating sale:', error);
   };
 
   const deleteSale = async (id: string) => {
-    const { error } = await supabase.from('sales').delete().eq('id', id);
-    if (!error) await fetchData();
-    else console.error('Error deleting sale:', error);
+    const oldSale = sales.find(s => s.id === id);
+    if (!oldSale) return;
+
+    try {
+      // 1. Return items to stock
+      for (const item of oldSale.items) {
+        const movePayload = {
+          company_id: user?.companyId || null,
+          product_id: item.productId,
+          type: 'ENTRADA',
+          quantity: item.quantity,
+          origin: `Cancelamento Venda #${id.substring(0, 8)}`,
+          date: new Date().toISOString(),
+          user_id: user?.id || 'Sistema',
+          user_name: user?.name || 'Sistema'
+        };
+        await supabase.from('stock_movements').insert([movePayload]);
+      }
+
+      // 2. Handle Returns (if any) - Set sale_id to NULL instead of deleting
+      // This preserves return history for reports even if sale is deleted
+      await supabase.from('returns').update({ sale_id: null }).eq('sale_id', id);
+
+      // 3. Create an "ESTORNO" return record to track this cancellation
+      const { data: returnRes } = await supabase
+        .from('returns')
+        .insert([{
+          company_id: user?.companyId || null,
+          sale_id: null,
+          date: new Date().toISOString(),
+          total: oldSale.total,
+          type: 'TOTAL',
+          refund_method: oldSale.paymentMethod || 'Estorno',
+          user_id: user?.id || null,
+          status: 'CONCLUÍDO'
+        }])
+        .select();
+
+      if (returnRes && returnRes.length > 0) {
+        const returnId = returnRes[0].id;
+        const itemsToInsert = oldSale.items.map(item => ({
+          company_id: user?.companyId || null,
+          return_id: returnId,
+          product_id: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          reason: `Estorno de Venda #${id.substring(0, 8)}`
+        }));
+        await supabase.from('return_items').insert(itemsToInsert);
+      }
+
+      // 4. Delete sale items
+      await supabase.from('sale_items').delete().eq('sale_id', id);
+
+      // 5. Delete discount logs
+      await supabase.from('vendas_descontos').delete().eq('sale_id', id);
+
+      // 6. Delete the sale itself
+      const { error } = await supabase.from('sales').delete().eq('id', id);
+      
+      if (!error) {
+        await logAuditAction('cancelamento', 'vendas', id, oldSale, null);
+        await fetchData();
+      }
+      else {
+        console.error('Error deleting sale:', error);
+        alert(`Erro ao cancelar venda: ${error.message || JSON.stringify(error)}`);
+      }
+    } catch (err) {
+      console.error('Unexpected error during sale deletion:', err);
+      alert('Ocorreu um erro inesperado ao tentar cancelar a venda.');
+    }
   };
 
   const updateLoss = async (loss: Loss) => {
@@ -2537,6 +2658,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const logAuditAction = async (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => {
     try {
       await supabase.from('audit_logs').insert([{
+        company_id: user?.companyId || null,
         user_id: user?.id || null, // UUID esperado pelo banco
         action,
         module,
@@ -2929,8 +3051,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
-    <ERPContext.Provider value={{ 
+  const contextValue = React.useMemo(() => ({ 
       products, 
       sales, 
       customers, 
@@ -2960,6 +3081,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       hasPermission,
       discountLogs,
+      auditLogs,
       cashRegisters,
       cashMovements,
       cashClosings,
@@ -3038,7 +3160,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       customAlert,
       setCustomAlert,
       changePassword
-    }}>
+    }), [
+      products, sales, customers, suppliers, losses, expenses, departamentos, categorias, expenseCategories, subcategorias,
+      stockMovements, inventories, employees, systemUsers, accessProfiles, permissions, pricingSettings, companySettings,
+      systemSettings, paymentMethods, maquininhas, promotions, returns, user, isSuperAdmin, isLoading, hasPermission,
+      discountLogs, cashRegisters, cashMovements, cashClosings, activeRegister, openCashRegister, closeCashRegister,
+      addCashMovement, suspendCashRegister, blockCashRegister, logAuditAction, addProduct, updateProduct, deleteProduct,
+      addSale, addReturn, addDiscountLog, addCustomer, updateCustomer, deleteCustomer, addSupplier, updateSupplier,
+      deleteSupplier, addLoss, addExpense, addStockMovement, addInventory, updateSale, deleteSale, updateLoss,
+      deleteLoss, updateExpense, deleteExpense, updateStockMovement, deleteStockMovement, updateInventory,
+      deleteInventory, addCategoria, updateCategoria, deleteCategoria, addExpenseCategory, addSubcategoria,
+      updateSubcategoria, deleteSubcategoria, addDepartamento, updateDepartamento, deleteDepartamento, addEmployee,
+      updateEmployee, deleteEmployee, addSystemUser, updateSystemUser, deleteSystemUser, addAccessProfile,
+      updateAccessProfile, deleteAccessProfile, updatePermissions, updatePricingSettings, updateCompanySettings,
+      updateSystemSettings, sendEmailNotification, addPaymentMethod, updatePaymentMethod, deletePaymentMethod,
+      addMaquininha, updateMaquininha, deleteMaquininha, addPromotion, updatePromotion, deletePromotion,
+      lotes, login, logout, seedMercadologicalTree, seedExpenseCategories, fetchData, customAlert, setCustomAlert, changePassword
+    ]);
+
+  return (
+    <ERPContext.Provider value={contextValue}>
       {children}
     </ERPContext.Provider>
   );

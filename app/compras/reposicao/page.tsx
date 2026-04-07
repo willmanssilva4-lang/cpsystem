@@ -29,8 +29,15 @@ export default function ReposicaoPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const [activeTab, setActiveTab] = useState<'all' | 'critical' | 'attention'>('all');
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeTab]);
 
   const fetchData = useCallback(async () => {
     if (!user?.companyId) return;
@@ -270,19 +277,20 @@ export default function ReposicaoPage() {
         </div>
 
         <div className="bg-white rounded-[32px] border border-brand-border overflow-hidden shadow-sm">
-          {isLoading ? (
-            <div className="p-20 text-center space-y-4">
-              <motion.div 
-                animate={{ rotate: 360 }} 
-                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                className="inline-block text-brand-blue"
-              >
-                <RefreshCcw size={48} />
-              </motion.div>
-              <p className="text-brand-text-main/40 font-black uppercase italic tracking-widest">Analisando estoque...</p>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto">
+            {isLoading ? (
+              <div className="p-20 text-center space-y-4">
+                <motion.div 
+                  animate={{ rotate: 360 }} 
+                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                  className="inline-block text-brand-blue"
+                >
+                  <RefreshCcw size={48} />
+                </motion.div>
+                <p className="text-brand-text-main/40 font-black uppercase italic tracking-widest">Analisando estoque...</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-brand-border">
                   <th className="px-6 py-4 w-12">
@@ -306,17 +314,24 @@ export default function ReposicaoPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-20 text-center">
-                      <div className="flex flex-col items-center gap-3 text-brand-text-main/20">
-                        <Package size={48} />
-                        <p className="font-black uppercase italic tracking-widest">Tudo em ordem! Nenhum item precisa de reposição.</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredItems.map((item) => (
+                {(() => {
+                  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+                  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                  
+                  if (filteredItems.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-20 text-center">
+                          <div className="flex flex-col items-center gap-3 text-brand-text-main/20">
+                            <Package size={48} />
+                            <p className="font-black uppercase italic tracking-widest">Tudo em ordem! Nenhum item precisa de reposição.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return currentItems.map((item) => (
                     <tr key={item.id} className={`hover:bg-slate-50/30 transition-colors ${selectedItems.includes(item.id) ? 'bg-slate-50/50' : ''}`}>
                       <td className="px-6 py-4">
                         <input 
@@ -365,10 +380,56 @@ export default function ReposicaoPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
+            )}
+          </div>
+          
+          {filteredItems.length > 0 && (
+            <div className="p-4 bg-slate-50/50 border-t border-brand-border flex items-center justify-between">
+              <p className="text-sm text-brand-text-main/60 font-medium">
+                Mostrando {Math.min(filteredItems.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(filteredItems.length, currentPage * itemsPerPage)} de {filteredItems.length} registros
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ArrowLeft size={18} className="text-brand-text-main/40 hover:text-brand-text-main/60" />
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(filteredItems.length / itemsPerPage) }, (_, i) => i + 1)
+                      .filter(page => page === 1 || page === Math.ceil(filteredItems.length / itemsPerPage) || Math.abs(page - currentPage) <= 1)
+                      .map((page, index, array) => (
+                        <React.Fragment key={page}>
+                          {index > 0 && array[index - 1] !== page - 1 && (
+                            <span className="text-brand-text-main/40 px-1">...</span>
+                          )}
+                          <button 
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                              page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-brand-text-main/60 hover:bg-slate-200"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      ))}
+                  </div>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredItems.length / itemsPerPage)))}
+                    disabled={currentPage === Math.ceil(filteredItems.length / itemsPerPage) || Math.ceil(filteredItems.length / itemsPerPage) === 0}
+                    className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ArrowRight size={18} className="text-brand-text-main/40 hover:text-brand-text-main/60" />
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

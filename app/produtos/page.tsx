@@ -297,6 +297,7 @@ export default function ProductsPage() {
         profitPercentage: Number(formData.profitPercentage),
         composition: formData.composition,
         status: formData.status,
+        controlStock: formData.controlStock,
         subcategoria_id: formData.subcategoria_id,
         category: formData.category || 'PADRAO',
         subgroup: formData.subgroup || 'PADRAO'
@@ -320,6 +321,7 @@ export default function ProductsPage() {
         profitPercentage: Number(formData.profitPercentage),
         composition: formData.composition,
         status: formData.status,
+        controlStock: formData.controlStock,
         category: formData.category || 'PADRAO',
         subgroup: formData.subgroup || 'PADRAO',
         companyId: user?.companyId || ''
@@ -665,7 +667,7 @@ export default function ProductsPage() {
                         </div>
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{getCategoryName(product)}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{product.stock}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{Number.isInteger(product.stock) ? product.stock : product.stock.toFixed(3)}</td>
                       <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="hidden sm:table-cell px-6 py-4">
