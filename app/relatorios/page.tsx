@@ -268,6 +268,8 @@ export default function ReportsPage() {
     { id: 'estorno_devolucao', category: 'financeiro', title: 'Relatório de Estorno e Devolução', description: 'Monitoramento de estornos e devoluções realizadas.', icon: RefreshCw },
     { id: 'relatorio_custo', category: 'financeiro', title: 'Relatório de Custo', description: 'Análise detalhada dos custos de aquisição e CMV.', icon: Calculator },
     { id: 'lucro_estoque', category: 'estoque', title: 'Relatório de Lucro no Estoque', description: 'Projeção de lucro bruto baseado no saldo atual de estoque.', icon: TrendingUp },
+    { id: 'clube_clientes', category: 'gerencial', title: 'Relatório Cliente Clube', description: 'Análise de adesão, economia gerada e frequência de membros do clube.', icon: UserCheck },
+    { id: 'clube_vendas', category: 'vendas', title: 'Vendas Cliente Clube', description: 'Comparativo de vendas entre membros do clube e clientes comuns.', icon: ShoppingCart },
   ];
 
   const filteredReports = allReports.filter(r => 
@@ -471,6 +473,8 @@ export default function ReportsPage() {
                   {selectedReportView === 'Relatório de Compras' && <PurchasesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Lucro no Estoque' && <StockProfitReport />}
                   {selectedReportView === 'Relatório de Estoque Geral' && <GeneralStockReport />}
+                  {selectedReportView === 'Relatório Cliente Clube' && <ClubCustomersReport />}
+                  {selectedReportView === 'Vendas Cliente Clube' && <ClubSalesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Fluxo de Caixa' && (
                     <div className="space-y-6">
                       <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
@@ -531,7 +535,7 @@ export default function ReportsPage() {
                     </div>
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Relatório de Lucro no Estoque'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Relatório de Lucro no Estoque', 'Relatório de Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Relatório de Meios de Pagamento (Análise Profunda)'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -1589,6 +1593,150 @@ function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate
             Nenhuma venda registrada no período selecionado.
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ClubCustomersReport() {
+  const { customers } = useERP();
+  const clubMembers = customers.filter(c => c.isClubMember);
+  
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 rounded-3xl bg-blue-50 border border-blue-100">
+          <p className="text-[10px] font-black uppercase italic text-blue-600 tracking-widest mb-1">Total Membros</p>
+          <h4 className="text-3xl font-black text-slate-800">{clubMembers.length}</h4>
+        </div>
+        <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100">
+          <p className="text-[10px] font-black uppercase italic text-emerald-600 tracking-widest mb-1">Taxa de Adesão</p>
+          <h4 className="text-3xl font-black text-slate-800">
+            {customers.length > 0 ? ((clubMembers.length / customers.length) * 100).toFixed(1) : 0}%
+          </h4>
+        </div>
+        <div className="p-6 rounded-3xl bg-purple-50 border border-purple-100">
+          <p className="text-[10px] font-black uppercase italic text-purple-600 tracking-widest mb-1">Novos (Mês)</p>
+          <h4 className="text-3xl font-black text-slate-800">
+            {clubMembers.filter(c => {
+              if (!c.clubJoinDate) return false;
+              const joinDate = new Date(c.clubJoinDate);
+              const now = new Date();
+              return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
+            }).length}
+          </h4>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente</th>
+              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">CPF</th>
+              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Adesão</th>
+              <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {clubMembers.map((member) => (
+              <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-6 py-4">
+                  <p className="text-sm font-bold text-slate-800 uppercase">{member.name}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{member.phone}</p>
+                </td>
+                <td className="px-6 py-4 text-sm font-medium text-slate-600 text-center">{member.document}</td>
+                <td className="px-6 py-4 text-sm font-medium text-slate-600 text-center">
+                  {member.clubJoinDate ? new Date(member.clubJoinDate).toLocaleDateString('pt-BR') : '-'}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="px-2 py-1 bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-black uppercase italic">
+                    Ativo
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { sales, customers } = useERP();
+  
+  const filteredSales = sales.filter(s => {
+    const d = s.date.split('T')[0];
+    return d >= startDate && d <= endDate;
+  });
+
+  const clubSales = filteredSales.filter(s => {
+    const customer = customers.find(c => c.id === s.customerId);
+    return customer?.isClubMember;
+  });
+
+  const normalSales = filteredSales.filter(s => {
+    const customer = customers.find(c => c.id === s.customerId);
+    return !customer?.isClubMember;
+  });
+
+  const totalClubRevenue = clubSales.reduce((acc, s) => acc + s.total, 0);
+  const totalNormalRevenue = normalSales.reduce((acc, s) => acc + s.total, 0);
+
+  const chartData = [
+    { name: 'Membros Clube', value: totalClubRevenue, color: '#1E5EFF' },
+    { name: 'Clientes Comuns', value: totalNormalRevenue, color: '#94A3B8' }
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+          <h4 className="text-sm font-black text-slate-800 uppercase italic mb-6">Distribuição de Receita</h4>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: any) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
+            <p className="text-[10px] font-black uppercase italic text-slate-400 tracking-widest mb-1">Ticket Médio Clube</p>
+            <h4 className="text-2xl font-black text-slate-800">
+              R$ {clubSales.length > 0 ? (totalClubRevenue / clubSales.length).toLocaleString('pt-BR') : '0,00'}
+            </h4>
+          </div>
+          <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
+            <p className="text-[10px] font-black uppercase italic text-slate-400 tracking-widest mb-1">Ticket Médio Comum</p>
+            <h4 className="text-2xl font-black text-slate-800">
+              R$ {normalSales.length > 0 ? (totalNormalRevenue / normalSales.length).toLocaleString('pt-BR') : '0,00'}
+            </h4>
+          </div>
+          <div className="p-6 rounded-3xl bg-brand-blue/5 border border-brand-blue/10">
+            <p className="text-[10px] font-black uppercase italic text-brand-blue tracking-widest mb-1">Representatividade</p>
+            <h4 className="text-2xl font-black text-brand-blue">
+              {filteredSales.length > 0 ? ((totalClubRevenue / (totalClubRevenue + totalNormalRevenue)) * 100).toFixed(1) : 0}%
+            </h4>
+          </div>
+        </div>
       </div>
     </div>
   );

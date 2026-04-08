@@ -292,16 +292,6 @@ export default function PurchasingPage() {
           <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Compras</h1>
           <p className="text-xs md:text-sm text-brand-blue/60 font-medium font-bold uppercase tracking-widest">Gestão robusta de suprimentos e entradas de mercadorias.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/compras/novo-pedido" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95 text-sm">
-            <Plus size={20} />
-            Novo Pedido
-          </Link>
-          <Link href="/compras/importar-xml" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-brand-border text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight hover:bg-slate-50 transition-all active:scale-95 text-sm">
-            <FileSearch size={20} />
-            Importar XML
-          </Link>
-        </div>
       </div>
 
       {/* Stats Grid */}

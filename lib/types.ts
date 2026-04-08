@@ -51,6 +51,7 @@ export interface Product {
   costPrice: number;
   salePrice: number;
   wholesalePrice?: number;
+  clubPrice?: number; // Preço para cliente clube
   stock: number;
   minStock: number;
   image: string;
@@ -208,6 +209,8 @@ export interface Customer {
   totalSpent: number;
   status: 'Ativo' | 'Inativo' | 'VIP' | 'Em Débito';
   image?: string;
+  isClubMember?: boolean; // Cliente Clube
+  clubJoinDate?: string; // Data de adesão ao clube
 }
 
 export interface Supplier {
@@ -228,7 +231,7 @@ export interface Promotion {
   endDate: string;
   status: 'ACTIVE' | 'INACTIVE';
   targetType: 'PRODUCT' | 'CATEGORY' | 'SUBCATEGORY' | 'ALL';
-  targetId?: string;
+  targetId?: string | string[];
   discountValue?: number;
   buyQuantity?: number;
   payQuantity?: number;
@@ -238,6 +241,7 @@ export interface Promotion {
   limitPerCustomer?: number;
   quantityLimit?: number;
   daysOfWeek?: number[];
+  onlyForClubMembers?: boolean;
 }
 
 export interface Expense {
@@ -258,6 +262,11 @@ export interface Expense {
   isRecurring?: boolean;
   frequency?: 'Mensal' | 'Semanal' | 'Anual';
   status: 'Pago' | 'Pendente' | 'Vencido';
+  origin?: string;
+  type?: string; // Tipo de despesa (Fixa, Variável, etc)
+  interest?: number; // Multa/Juros
+  discount?: number; // Desconto
+  paymentType?: 'À vista' | 'A prazo';
 }
 
 export interface PricingSettings {

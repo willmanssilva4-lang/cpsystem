@@ -77,6 +77,58 @@ export default function PDVPage() {
   const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
   const [completedSale, setCompletedSale] = useState<any | null>(null);
   
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+
+  const removeCustomer = () => {
+    setSelectedCustomer(null);
+    // Recalcular preços do carrinho se necessário
+    setCart(prev => prev.map(item => ({
+      ...item,
+      basePrice: item.product.salePrice // Volta para o preço normal
+    })));
+  };
+
+  const handleCustomerSearch = (value: string) => {
+    setCustomerSearch(value);
+    if (value.length >= 3) {
+      const results = customers.filter(c => 
+        c.name.toLowerCase().includes(value.toLowerCase()) ||
+        c.document.includes(value) ||
+        c.phone.includes(value)
+      );
+      setCustomerSearchResults(results);
+    } else {
+      setCustomerSearchResults([]);
+    }
+  };
+
+  const selectCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setShowCustomerSearch(false);
+    setCustomerSearch('');
+    setCustomerSearchResults([]);
+
+    // Se for cliente clube, aplicar preços especiais no carrinho
+    if (customer.isClubMember) {
+      setCart(prev => prev.map(item => ({
+        ...item,
+        basePrice: item.product.clubPrice || item.product.salePrice
+      })));
+      setCustomAlert?.({
+        message: `CLIENTE CLUBE IDENTIFICADO: ${customer.name}. PREÇOS ESPECIAIS APLICADOS!`,
+        type: 'success'
+      });
+    }
+
+    // Garantir que o foco volte para o campo de busca de produtos
+    setTimeout(() => {
+      barcodeInputRef.current?.focus();
+    }, 100);
+  };
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState<any[]>([]);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,7 +196,8 @@ export default function PDVPage() {
       p.applyAutomatically &&
       new Date(p.startDate) <= now && 
       new Date(p.endDate) >= now &&
-      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay()))
+      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
+      (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
     );
 
     let totalComboDiscount = 0;
@@ -183,7 +236,7 @@ export default function PDVPage() {
     });
 
     return totalComboDiscount;
-  }, [cart, promotions, products, currentTime]);
+  }, [cart, promotions, products, currentTime, selectedCustomer]);
 
   const subtotal = cart.reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
   const totalItemsDiscount = cart.reduce((acc, item) => acc + (item.discount * item.quantity), 0);
@@ -230,7 +283,8 @@ export default function PDVPage() {
       taxAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0),
       netAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.netAmount || 0), 0),
       userId: user?.email,
-      companyId: user?.companyId || ''
+      companyId: user?.companyId || '',
+      customerId: selectedCustomer?.id
     });
     console.log('DEBUG: Valor de taxAmount enviado para addSale:', paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0));
 
@@ -241,6 +295,7 @@ export default function PDVPage() {
       setIsNavigatingCart(false);
       setShowPaymentModal(false);
       setCompletedSale(success);
+      setSelectedCustomer(null);
     }
   };
 
@@ -409,13 +464,31 @@ export default function PDVPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     
     // Only focus barcode input if register is active and no modal is open
-    const isModalOpen = showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || showPriceCheckModal || showProductListModal || showInvoiceModal;
-    if (activeRegister && !isModalOpen && !showHelp && !confirmDialog) {
+    const isModalOpen = !!(showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || showPriceCheckModal || showProductListModal || showInvoiceModal || showCustomerSearch || showHelp || confirmDialog);
+    
+    if (activeRegister && !isModalOpen) {
       barcodeInputRef.current?.focus();
     }
 
     return () => clearInterval(timer);
-  }, [activeRegister, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showOldRegisterWarning, showPriceCheckModal, showProductListModal, showInvoiceModal, showHelp, confirmDialog]);
+  }, [
+    activeRegister, 
+    showProductModal, 
+    showPaymentModal, 
+    showDiscountModal, 
+    showAuthModal, 
+    showSangriaModal, 
+    showSuprimentoModal, 
+    showClosureModal, 
+    showReverseModal, 
+    showOldRegisterWarning, 
+    showPriceCheckModal, 
+    showProductListModal, 
+    showInvoiceModal, 
+    showHelp, 
+    confirmDialog, 
+    showCustomerSearch
+  ]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -492,7 +565,7 @@ export default function PDVPage() {
       // F5 - Inserir Cliente
       if (e.key === 'F5') {
         e.preventDefault();
-        alert('Funcionalidade: Inserir Cliente (F5)');
+        setShowCustomerSearch(true);
         setNumericBuffer('');
       }
 
@@ -727,6 +800,10 @@ export default function PDVPage() {
           setShowQuickReturnModal(false);
         } else if (showDiscountItemModal) {
           setShowDiscountItemModal(false);
+        } else if (showCustomerSearch) {
+          setShowCustomerSearch(false);
+          setCustomerSearch('');
+          setCustomerSearchResults([]);
         } else if (isNavigatingCart) {
           setIsNavigatingCart(false);
           setSelectedCartIndex(-1);
@@ -746,7 +823,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -887,7 +964,12 @@ export default function PDVPage() {
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
 
-    const basePrice = isWholesaleMode && product.wholesalePrice ? product.wholesalePrice : product.salePrice;
+    let basePrice = isWholesaleMode && product.wholesalePrice ? product.wholesalePrice : product.salePrice;
+    
+    // Apply club price if customer is a member
+    if (selectedCustomer?.isClubMember && product.clubPrice) {
+      basePrice = product.clubPrice;
+    }
 
     const now = new Date();
     const activePromos = promotions.filter(p => 
@@ -895,7 +977,8 @@ export default function PDVPage() {
       p.applyAutomatically &&
       new Date(p.startDate) <= now && 
       new Date(p.endDate) >= now &&
-      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay()))
+      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
+      (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
     );
 
     let promoDiscount = 0;
@@ -904,7 +987,7 @@ export default function PDVPage() {
     const productSubcategory = subcategorias.find(s => s.id === product.subcategoria_id);
     
     const applicablePromo = activePromos.find(p => 
-      (p.targetType === 'PRODUCT' && p.targetId === product.id) ||
+      (p.targetType === 'PRODUCT' && (Array.isArray(p.targetId) ? p.targetId.includes(product.id) : p.targetId === product.id)) ||
       (p.targetType === 'CATEGORY' && p.targetId === productSubcategory?.categoria_id) ||
       p.targetType === 'ALL'
     );
@@ -1209,8 +1292,27 @@ export default function PDVPage() {
           </div>
 
         <div className="bg-slate-50 px-4 py-2 flex justify-between items-center border-t border-brand-border">
+          {selectedCustomer ? (
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-sm font-black italic text-brand-blue uppercase">Cliente: {selectedCustomer.name}</span>
+                {selectedCustomer.isClubMember && (
+                  <span className="bg-brand-blue text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase italic animate-pulse">
+                    Cliente Clube Ativo ✅
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={removeCustomer}
+                className="text-[10px] font-black text-rose-600 uppercase italic hover:underline"
+              >
+                Remover (Esc)
+              </button>
+            </div>
+          ) : (
             <span className="text-sm font-bold italic text-brand-text-main">Cliente: CONSUMIDOR FINAL</span>
-          </div>
+          )}
+        </div>
         </div>
       </main>
 
@@ -1782,6 +1884,75 @@ export default function PDVPage() {
               >
                 NÃO (Esc)
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Search Modal */}
+      {showCustomerSearch && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+              <h2 className="text-xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                <Tag className="text-brand-blue" size={24} />
+                Identificar Cliente (F5)
+              </h2>
+              <button 
+                onClick={() => {
+                  setShowCustomerSearch(false);
+                  setCustomerSearch('');
+                  setCustomerSearchResults([]);
+                }}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="relative">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Buscar por Nome, CPF ou Telefone..."
+                  value={customerSearch}
+                  onChange={(e) => handleCustomerSearch(e.target.value)}
+                  className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
+                />
+              </div>
+
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {customerSearchResults.length > 0 ? (
+                  customerSearchResults.map((customer) => (
+                    <button
+                      key={customer.id}
+                      onClick={() => selectCustomer(customer)}
+                      className="w-full p-4 flex items-center justify-between bg-slate-50 dark:bg-slate-800 hover:bg-brand-blue/5 border border-slate-200 dark:border-slate-700 rounded-xl transition-all text-left group"
+                    >
+                      <div>
+                        <p className="text-sm font-black uppercase italic text-slate-900 dark:text-white group-hover:text-brand-blue">{customer.name}</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                          CPF: {customer.document} | Tel: {customer.phone}
+                        </p>
+                      </div>
+                      {customer.isClubMember && (
+                        <span className="bg-brand-blue/10 text-brand-blue text-[8px] font-black px-2 py-1 rounded-lg uppercase italic">
+                          Clube
+                        </span>
+                      )}
+                    </button>
+                  ))
+                ) : customerSearch.length >= 3 ? (
+                  <div className="p-8 text-center text-slate-400 font-bold italic uppercase text-xs">
+                    Nenhum cliente encontrado
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-slate-400 font-bold italic uppercase text-xs">
+                    Digite pelo menos 3 caracteres para buscar
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

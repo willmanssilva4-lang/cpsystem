@@ -142,7 +142,14 @@ export default function PromocoesPage() {
               {filteredPromotions.map((promo) => (
                 <tr key={promo.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-4 px-6">
-                    <div className="font-medium text-gray-900">{promo.name}</div>
+                    <div className="font-medium text-gray-900 flex items-center gap-2">
+                      {promo.name}
+                      {promo.onlyForClubMembers && (
+                        <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-yellow-200 uppercase">
+                          Clube
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-gray-500">
                       {promo.targetType === 'ALL' ? 'Todos os produtos' : 
                        promo.targetType === 'CATEGORY' ? 'Categoria específica' : 'Produto específico'}

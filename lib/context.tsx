@@ -415,7 +415,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           endDate: p.end_date,
           status: p.status,
           targetType: p.target_type,
-          targetId: p.target_id,
+          targetId: (p.target_id && typeof p.target_id === 'string' && p.target_id.startsWith('[')) ? JSON.parse(p.target_id) : p.target_id,
           discountValue: p.discount_value ? Number(p.discount_value) : undefined,
           buyQuantity: p.buy_quantity,
           payQuantity: p.pay_quantity,
@@ -424,7 +424,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           applyAutomatically: p.apply_automatically,
           limitPerCustomer: p.limit_per_customer,
           quantityLimit: p.quantity_limit,
-          daysOfWeek: p.days_of_week
+          daysOfWeek: p.days_of_week,
+          onlyForClubMembers: p.only_for_club_members
         })));
       }
 
@@ -436,6 +437,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           costPrice: Number(p.cost_price),
           salePrice: Number(p.sale_price),
           wholesalePrice: p.wholesale_price ? Number(p.wholesale_price) : undefined,
+          clubPrice: p.club_price ? Number(p.club_price) : undefined,
           stock: p.stock,
           minStock: p.min_stock,
           image: (!p.image || p.image.includes('mercadinhosupernice.com.br') || p.image.includes('images.unsplash.com') || p.image.includes('picsum.photos/seed/produto')) ? 'https://i.imgur.com/jGU5BUa.png' : p.image,
@@ -488,7 +490,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           email: c.email,
           totalSpent: Number(c.total_spent),
           status: c.status,
-          image: c.image?.includes('mercadinhosupernice.com.br') ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=250&auto=format&fit=crop' : c.image
+          image: c.image?.includes('mercadinhosupernice.com.br') ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=250&auto=format&fit=crop' : c.image,
+          isClubMember: c.is_club_member,
+          clubJoinDate: c.club_join_date
         }));
         setCustomers(mappedCustomers);
         localStorage.setItem('erp_customers', JSON.stringify(mappedCustomers));
@@ -573,7 +577,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             observation: e.observation,
             isRecurring: e.is_recurring,
             frequency: e.frequency,
-            status: status
+            status: status,
+            origin: e.origin,
+            type: e.type,
+            interest: e.interest || 0,
+            discount: e.discount || 0,
+            paymentType: e.payment_type
           };
         });
         setExpenses(mappedExpenses);
@@ -1203,6 +1212,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       cost_price: product.costPrice,
       sale_price: product.salePrice,
       wholesale_price: product.wholesalePrice,
+      club_price: product.clubPrice,
       stock: product.stock,
       min_stock: product.minStock,
       image: product.image,
@@ -1283,6 +1293,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       cost_price: updated.costPrice,
       sale_price: updated.salePrice,
       wholesale_price: updated.wholesalePrice,
+      club_price: updated.clubPrice,
       stock: updated.stock,
       min_stock: updated.minStock,
       image: updated.image,
@@ -1711,7 +1722,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       email: customer.email,
       total_spent: customer.totalSpent,
       status: customer.status,
-      image: customer.image
+      image: customer.image,
+      is_club_member: customer.isClubMember,
+      club_join_date: customer.clubJoinDate
     }]);
 
     if (!error) {
@@ -1857,10 +1870,32 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       observation: expense.observation,
       is_recurring: expense.isRecurring,
       frequency: expense.frequency,
-      status: expense.status
+      status: expense.status,
+      origin: expense.origin,
+      type: expense.type,
+      interest: expense.interest || 0,
+      discount: expense.discount || 0,
+      payment_type: expense.paymentType
     }]);
 
     if (!error) {
+      // If added as "Pago", record cash movement if account is "Caixa"
+      if (expense.status === 'Pago' && expense.financialAccount === 'Caixa') {
+        const storedUser = localStorage.getItem('erp_user');
+        const currentUser = storedUser ? JSON.parse(storedUser) : null;
+        const activeReg = cashRegisters.find(r => r.status === 'open');
+        
+        if (activeReg) {
+          await supabase.from('cash_movements').insert([{
+            company_id: user?.companyId || null,
+            cash_register_id: activeReg.id,
+            type: 'sangria',
+            amount: expense.amount,
+            reason: `Despesa: ${expense.description}`,
+            created_by: currentUser?.id
+          }]);
+        }
+      }
       await fetchData();
     } else {
       console.error('Error adding expense:', JSON.stringify(error, null, 2), error);
@@ -1957,7 +1992,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       email: customer.email,
       total_spent: customer.totalSpent,
       status: customer.status,
-      image: customer.image
+      image: customer.image,
+      is_club_member: customer.isClubMember,
+      club_join_date: customer.clubJoinDate
     }).eq('id', customer.id);
     if (!error) await fetchData();
     else console.error('Error updating customer:', error);
@@ -2095,10 +2132,35 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       observation: expense.observation,
       is_recurring: expense.isRecurring,
       frequency: expense.frequency,
-      status: expense.status
+      status: expense.status,
+      origin: expense.origin,
+      type: expense.type,
+      interest: expense.interest || 0,
+      discount: expense.discount || 0,
+      payment_type: expense.paymentType
     }).eq('id', expense.id);
-    if (!error) await fetchData();
-    else console.error('Error updating expense:', error);
+
+    if (!error) {
+      // If status changed to "Pago", record cash movement if account is "Caixa"
+      const oldExpense = expenses.find(e => e.id === expense.id);
+      if (oldExpense && oldExpense.status !== 'Pago' && expense.status === 'Pago' && expense.financialAccount === 'Caixa') {
+        const storedUser = localStorage.getItem('erp_user');
+        const currentUser = storedUser ? JSON.parse(storedUser) : null;
+        const activeReg = cashRegisters.find(r => r.status === 'open');
+        
+        if (activeReg) {
+          await supabase.from('cash_movements').insert([{
+            company_id: user?.companyId || null,
+            cash_register_id: activeReg.id,
+            type: 'sangria',
+            amount: expense.amount,
+            reason: `Pagamento: ${expense.description}`,
+            created_by: currentUser?.id
+          }]);
+        }
+      }
+      await fetchData();
+    } else console.error('Error updating expense:', error);
   };
 
   const deleteExpense = async (id: string) => {
@@ -2990,7 +3052,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       end_date: promotion.endDate,
       status: promotion.status,
       target_type: promotion.targetType,
-      target_id: promotion.targetId,
+      target_id: Array.isArray(promotion.targetId) ? JSON.stringify(promotion.targetId) : promotion.targetId,
       discount_value: promotion.discountValue,
       buy_quantity: promotion.buyQuantity,
       pay_quantity: promotion.payQuantity,
@@ -2999,7 +3061,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       apply_automatically: promotion.applyAutomatically,
       limit_per_customer: promotion.limitPerCustomer,
       quantity_limit: promotion.quantityLimit,
-      days_of_week: promotion.daysOfWeek
+      days_of_week: promotion.daysOfWeek,
+      only_for_club_members: promotion.onlyForClubMembers
     }]);
     if (!error) await fetchData();
     else {
@@ -3021,7 +3084,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       end_date: promotion.endDate,
       status: promotion.status,
       target_type: promotion.targetType,
-      target_id: promotion.targetId,
+      target_id: Array.isArray(promotion.targetId) ? JSON.stringify(promotion.targetId) : promotion.targetId,
       discount_value: promotion.discountValue,
       buy_quantity: promotion.buyQuantity,
       pay_quantity: promotion.payQuantity,
@@ -3030,7 +3093,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       apply_automatically: promotion.applyAutomatically,
       limit_per_customer: promotion.limitPerCustomer,
       quantity_limit: promotion.quantityLimit,
-      days_of_week: promotion.daysOfWeek
+      days_of_week: promotion.daysOfWeek,
+      only_for_club_members: promotion.onlyForClubMembers
     }).eq('id', promotion.id);
     if (!error) await fetchData();
     else {

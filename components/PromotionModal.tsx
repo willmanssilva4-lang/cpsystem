@@ -18,6 +18,8 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
       ...promotion,
       startDate: getLocalDateString(new Date(promotion.startDate)),
       endDate: getLocalDateString(new Date(promotion.endDate)),
+      onlyForClubMembers: promotion.onlyForClubMembers || false,
+      applyAutomatically: promotion.applyAutomatically ?? true,
     } : {
       name: '',
       type: 'PRICE',
@@ -32,6 +34,7 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
       comboItems: [],
       comboPrice: 0,
       applyAutomatically: true,
+      onlyForClubMembers: false,
       limitPerCustomer: 0,
       quantityLimit: 0,
       daysOfWeek: [0, 1, 2, 3, 4, 5, 6]
@@ -42,6 +45,9 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
   const [selectedProducts, setSelectedProducts] = useState<Product[]>(() => {
     if (promotion) {
       if (promotion.targetType === 'PRODUCT' && promotion.targetId) {
+        if (Array.isArray(promotion.targetId)) {
+          return promotion.targetId.map(id => products.find(p => p.id === id)).filter(Boolean) as Product[];
+        }
         const product = products.find(p => p.id === promotion.targetId);
         return product ? [product] : [];
       } else if (promotion.type === 'COMBO' && promotion.comboItems) {
@@ -76,11 +82,15 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
   };
 
   const handleProductSelect = (product: Product) => {
-    if (formData.type === 'COMBO') {
+    if (formData.type === 'COMBO' || formData.targetType === 'PRODUCT') {
       if (!selectedProducts.find(p => p.id === product.id)) {
         const newSelected = [...selectedProducts, product];
         setSelectedProducts(newSelected);
-        setFormData({ ...formData, comboItems: newSelected.map(p => p.id) });
+        if (formData.type === 'COMBO') {
+          setFormData({ ...formData, comboItems: newSelected.map(p => p.id) });
+        } else {
+          setFormData({ ...formData, targetId: newSelected.map(p => p.id) });
+        }
       }
     } else {
       setSelectedProducts([product]);
@@ -94,6 +104,8 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
     setSelectedProducts(newSelected);
     if (formData.type === 'COMBO') {
       setFormData({ ...formData, comboItems: newSelected.map(p => p.id) });
+    } else if (formData.targetType === 'PRODUCT') {
+      setFormData({ ...formData, targetId: newSelected.map(p => p.id) });
     } else {
       setFormData({ ...formData, targetId: '' });
     }
@@ -135,7 +147,10 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Promoção</label>
                 <select
                   value={formData.type}
-                  onChange={e => setFormData({ ...formData, type: e.target.value as any, targetId: '', comboItems: [] })}
+                  onChange={e => {
+                    setFormData({ ...formData, type: e.target.value as any, targetId: '', comboItems: [] });
+                    setSelectedProducts([]);
+                  }}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="PRICE">Preço Promocional</option>
@@ -176,7 +191,10 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
                 <label className="block text-sm font-medium text-gray-700 mb-1">Aplicar em:</label>
                 <select
                   value={formData.targetType}
-                  onChange={e => setFormData({ ...formData, targetType: e.target.value as any, targetId: '' })}
+                  onChange={e => {
+                    setFormData({ ...formData, targetType: e.target.value as any, targetId: '' });
+                    setSelectedProducts([]);
+                  }}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="PRODUCT">Produto Específico</option>
@@ -342,6 +360,18 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
                 />
                 <label htmlFor="applyAutomatically" className="text-sm font-medium text-gray-700">
                   Aplicar no PDV automaticamente
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="onlyForClubMembers"
+                  checked={formData.onlyForClubMembers}
+                  onChange={e => setFormData({ ...formData, onlyForClubMembers: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <label htmlFor="onlyForClubMembers" className="text-sm font-medium text-gray-700">
+                  Apenas para Cliente Clube
                 </label>
               </div>
             </div>

@@ -37,7 +37,7 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
         
         <div className="flex items-center gap-3 w-full md:w-auto">
           <button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-xl font-bold text-xs uppercase italic tracking-widest shadow-lg shadow-brand-blue/20 hover:bg-brand-blue-hover transition-colors">
-            <Plus size={16} /> Nova Conta
+            <Plus size={16} /> Nova Despesa
           </button>
           
           <button className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-brand-blue transition-colors">

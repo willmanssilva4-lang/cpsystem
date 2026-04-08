@@ -78,6 +78,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     salePrice: string | number;
     termPrice: string | number;
     wholesalePrice: string | number;
+    clubPrice: string | number;
     stock: number;
     minStock: number;
     controlStock: string;
@@ -122,6 +123,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       salePrice: initialData?.salePrice ?? '',
       termPrice: initialData?.salePrice ?? '',
       wholesalePrice: initialData?.wholesalePrice ?? '',
+      clubPrice: initialData?.clubPrice ?? '',
       stock: initialData?.stock || 0,
       minStock: initialData?.minStock || 1,
       controlStock: initialData?.controlStock || 'SIM',
@@ -620,6 +622,20 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       Mais Preços
                     </button>
                   </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço Clube:</label>
+                  <input 
+                    type="number"
+                    name="clubPrice"
+                    value={formData.clubPrice}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, clubPrice: val === '' ? '' : Number(val) }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    placeholder="Opcional"
+                  />
                 </div>
               </div>
 

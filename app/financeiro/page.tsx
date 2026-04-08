@@ -40,13 +40,14 @@ import { useERP } from '@/lib/context';
 import { ExpenseModal } from '@/components/ExpenseModal';
 import { ContasPagar } from '@/components/financeiro/ContasPagar';
 import { ContasReceber } from '@/components/financeiro/ContasReceber';
+import { Despesas } from '@/components/financeiro/Despesas';
 import { FluxoCaixa } from '@/components/financeiro/FluxoCaixa';
 import { MovimentacaoFinanceira } from '@/components/financeiro/MovimentacaoFinanceira';
 import { DRE } from '@/components/financeiro/DRE';
 
 export default function FinancePage() {
   const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns } = useERP();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'despesas' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -296,6 +297,13 @@ export default function FinancePage() {
           <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Gestão Completa de Entrada e Saídas</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setShowExpenseModal(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-rose-500 text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 active:scale-95 text-sm"
+          >
+            <Plus size={20} />
+            Nova Despesa
+          </button>
           <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
             <div className="flex items-center gap-2 px-3 py-1.5 border-r border-slate-200 dark:border-slate-700">
               <Calendar size={16} className="text-brand-blue" />
@@ -324,6 +332,7 @@ export default function FinancePage() {
       <div className="flex gap-4 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
         {[
           { id: 'dashboard', label: 'Dashboard' },
+          { id: 'despesas', label: 'Despesas' },
           { id: 'pagar', label: 'Contas a Pagar' },
           { id: 'receber', label: 'Contas a Receber' },
           { id: 'fluxo', label: 'Fluxo de Caixa' },
@@ -573,6 +582,10 @@ export default function FinancePage() {
         </>
       )}
 
+      {activeTab === 'despesas' && (
+        <Despesas expenses={expenses} />
+      )}
+
       {activeTab === 'pagar' && (
         <ContasPagar expenses={expenses} onAdd={() => setShowExpenseModal(true)} />
       )}
@@ -608,7 +621,7 @@ export default function FinancePage() {
         />
       )}
 
-      {activeTab !== 'dashboard' && activeTab !== 'pagar' && activeTab !== 'receber' && activeTab !== 'fluxo' && activeTab !== 'movimentacao' && activeTab !== 'dre' && (
+      {activeTab !== 'dashboard' && activeTab !== 'despesas' && activeTab !== 'pagar' && activeTab !== 'receber' && activeTab !== 'fluxo' && activeTab !== 'movimentacao' && activeTab !== 'dre' && (
         <div className="bg-brand-card p-12 rounded-2xl border border-brand-border shadow-sm text-center">
           <h2 className="text-xl font-black uppercase italic text-slate-700">Tela em construção: {activeTab}</h2>
           <p className="text-slate-500 mt-2">Esta funcionalidade será implementada em breve.</p>
