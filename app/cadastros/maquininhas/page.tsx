@@ -2,16 +2,19 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, CreditCard, Percent, Smartphone } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, CreditCard, Percent, Smartphone, AlertTriangle, X } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { Maquininha } from '@/lib/types';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function MaquininhasPage() {
-  const { maquininhas, addMaquininha, updateMaquininha, deleteMaquininha, hasPermission } = useERP();
+  const { maquininhas, addMaquininha, updateMaquininha, deleteMaquininha, hasPermission, setCustomAlert } = useERP();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [maquininhaToDelete, setMaquininhaToDelete] = useState<Maquininha | null>(null);
   
   const [formData, setFormData] = useState({
     nome: '',
@@ -46,15 +49,22 @@ export default function MaquininhasPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta maquininha?')) {
-      await deleteMaquininha(id);
+  const handleDelete = (maquininha: Maquininha) => {
+    setMaquininhaToDelete(maquininha);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (maquininhaToDelete) {
+      await deleteMaquininha(maquininhaToDelete.id);
+      setShowDeleteConfirm(false);
+      setMaquininhaToDelete(null);
     }
   };
 
   const handleSave = async () => {
     if (!formData.nome) {
-      alert('Preencha o nome da maquininha');
+      setCustomAlert({ message: 'Preencha o nome da maquininha', type: 'warning' });
       return;
     }
 
@@ -280,7 +290,7 @@ export default function MaquininhasPage() {
                           <Edit3 size={16} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(maquininha.id)} 
+                          onClick={() => handleDelete(maquininha)} 
                           className="p-2 text-brand-text-main/40 hover:text-rose-500 bg-white hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all"
                           title="Excluir"
                         >
@@ -295,6 +305,67 @@ export default function MaquininhasPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDeleteConfirm(false)}
+              className="absolute inset-0 bg-brand-text-main/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-brand-border overflow-hidden"
+            >
+              <div className="p-8 text-center space-y-6">
+                <div className="mx-auto w-20 h-20 rounded-full bg-rose-50 flex items-center justify-center text-rose-500">
+                  <AlertTriangle size={40} />
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Confirmar Exclusão</h3>
+                  <p className="text-brand-blue/60 font-medium">
+                    Tem certeza que deseja excluir esta maquininha?
+                  </p>
+                  {maquininhaToDelete && (
+                    <p className="text-brand-text-main font-bold text-lg mt-2">
+                      &quot;{maquininhaToDelete.nome}&quot;
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-4">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-brand-text-main font-black uppercase italic text-sm rounded-2xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    className="px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white font-black uppercase italic text-sm rounded-2xl shadow-lg shadow-rose-500/20 transition-all"
+                  >
+                    Sim, Excluir
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="absolute top-4 right-4 p-2 text-brand-text-main/20 hover:text-brand-text-main transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -49,6 +49,7 @@ export default function ProductsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDepartamento, setSelectedDepartamento] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'Ativo' | 'Inativo' | 'Todos'>('Ativo');
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showDepartamentoMenu, setShowDepartamentoMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,7 +60,7 @@ export default function ProductsPage() {
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedCategory, selectedDepartamento]);
+  }, [search, selectedCategory, selectedDepartamento, statusFilter]);
 
   const getSubcategoriaName = (product: Product) => {
     if (!product.subcategoria_id) return 'Sem Subcategoria';
@@ -268,6 +269,11 @@ export default function ProductsPage() {
                           (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()));
     
     if (!matchesSearch) return false;
+
+    // Filtro de Status
+    if (statusFilter !== 'Todos') {
+      if (p.status !== statusFilter) return false;
+    }
 
     if (selectedCategory || selectedDepartamento) {
       if (!p.subcategoria_id) return false;
@@ -600,6 +606,19 @@ export default function ProductsPage() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Status Filter */}
+                <div className="relative">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    className="flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 outline-none h-10"
+                  >
+                    <option value="Ativo">Ativos</option>
+                    <option value="Inativo">Inativos</option>
+                    <option value="Todos">Ativos e Inativos</option>
+                  </select>
                 </div>
               </div>
               <div className="flex items-center gap-3 w-full md:w-auto">
