@@ -4,8 +4,11 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, Download, Calendar, ArrowDownCircle } from 'lucide-react';
 import { cn, formatDateBR } from '@/lib/utils';
 import { Expense } from '@/lib/types';
+import { useERP } from '@/lib/context';
+import * as XLSX from 'xlsx';
 
 export function Despesas({ expenses }: { expenses: Expense[] }) {
+  const { setCustomAlert } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -24,6 +27,31 @@ export function Despesas({ expenses }: { expenses: Expense[] }) {
     return filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   }, [filteredExpenses]);
 
+  const handleExport = () => {
+    if (filteredExpenses.length === 0) {
+      setCustomAlert({ message: 'Não há despesas para exportar.', type: 'warning' });
+      return;
+    }
+
+    setCustomAlert({ message: 'Exportando despesas...', type: 'info' });
+
+    const dataToExport = filteredExpenses.map(e => ({
+      'Data Pagto': formatDateBR(e.paymentDate || e.date),
+      'Descrição': e.description,
+      'Categoria': e.category,
+      'Forma': e.paymentMethod || '-',
+      'Valor': e.amount,
+      'Origem': e.origin || 'Lançamento Manual'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Despesas");
+    XLSX.writeFile(workbook, "despesas_pagas.xlsx");
+    
+    setCustomAlert({ message: 'Exportação concluída!', type: 'success' });
+  };
+
   return (
     <div className="space-y-6">
       {/* Filters & Actions */}
@@ -40,7 +68,10 @@ export function Despesas({ expenses }: { expenses: Expense[] }) {
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs uppercase italic tracking-widest hover:bg-slate-200 transition-colors">
+          <button 
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-xl font-bold text-xs uppercase italic tracking-widest hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
+          >
             <Download size={16} /> Exportar
           </button>
           <button className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-brand-blue transition-colors">

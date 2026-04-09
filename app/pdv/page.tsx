@@ -487,7 +487,8 @@ export default function PDVPage() {
     showInvoiceModal, 
     showHelp, 
     confirmDialog, 
-    showCustomerSearch
+    showCustomerSearch,
+    completedSale
   ]);
 
   useEffect(() => {
@@ -500,6 +501,17 @@ export default function PDVPage() {
         setNumericBuffer(prev => prev + e.key);
         // Auto-clear buffer after 2 seconds of inactivity
         setTimeout(() => setNumericBuffer(''), 2000);
+        return;
+      }
+
+      if (completedSale) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          setCompletedSale(null);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setCompletedSale(null);
+        }
         return;
       }
 
@@ -823,7 +835,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -994,8 +1006,12 @@ export default function PDVPage() {
 
     if (applicablePromo) {
       promoType = applicablePromo.type;
-      if (applicablePromo.type === 'PRICE' && applicablePromo.discountValue) {
-        promoDiscount = basePrice - applicablePromo.discountValue;
+      if (applicablePromo.type === 'PRICE') {
+        if (applicablePromo.productPrices && applicablePromo.productPrices[product.id]) {
+          promoDiscount = basePrice - applicablePromo.productPrices[product.id];
+        } else if (applicablePromo.discountValue) {
+          promoDiscount = basePrice - applicablePromo.discountValue;
+        }
       } else if (applicablePromo.type === 'PERCENTAGE' && applicablePromo.discountValue) {
         promoDiscount = basePrice * (applicablePromo.discountValue / 100);
       }
@@ -1918,6 +1934,11 @@ export default function PDVPage() {
                   placeholder="Buscar por Nome, CPF ou Telefone..."
                   value={customerSearch}
                   onChange={(e) => handleCustomerSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customerSearchResults.length > 0) {
+                      selectCustomer(customerSearchResults[0]);
+                    }
+                  }}
                   className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 />
               </div>

@@ -102,6 +102,15 @@ export function Dashboard() {
   const ticketMedio = totalSales / (filteredSales.length || 1);
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
+  // Vendas em Oferta
+  const totalPromoSales = filteredSales.reduce((acc, s) => {
+    const promoItemsTotal = s.items
+      .filter(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
+      .reduce((itemAcc, item) => itemAcc + (item.price * item.quantity), 0);
+    return acc + promoItemsTotal;
+  }, 0);
+  const promoSalesCount = filteredSales.filter(s => s.items.some(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
+
   // Previous Period Data for Trends
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -268,7 +277,7 @@ export function Dashboard() {
       </div>
 
       {/* Main Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <MetricCard 
           label="Faturamento Bruto" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSales)}
@@ -300,6 +309,14 @@ export function Dashboard() {
           positive={marginTrend >= 0}
           icon={Percent}
           color="orange"
+        />
+        <MetricCard 
+          label="Vendas em Oferta" 
+          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPromoSales)}
+          trend={`${promoSalesCount} vendas`}
+          positive={true}
+          icon={Zap}
+          color="blue"
         />
       </div>
 

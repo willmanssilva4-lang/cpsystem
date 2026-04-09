@@ -98,6 +98,13 @@ export default function ProductsPage() {
   };
 
   const exportProducts = () => {
+    if (products.length === 0) {
+      setCustomAlert({ message: 'Não há produtos para exportar.', type: 'warning' });
+      return;
+    }
+
+    setCustomAlert({ message: 'Exportando lista de produtos...', type: 'info' });
+
     const worksheet = XLSX.utils.json_to_sheet(products.map(p => ({
       Nome: p.name,
       SKU: p.sku,
@@ -115,6 +122,8 @@ export default function ProductsPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
     XLSX.writeFile(workbook, 'produtos.xlsx');
+
+    setCustomAlert({ message: 'Lista de produtos exportada com sucesso!', type: 'success' });
   };
 
   const [isImporting, setIsImporting] = useState(false);
@@ -617,9 +626,12 @@ export default function ProductsPage() {
               <div className="flex items-center gap-2">
                 <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
                   <Upload size={16} />
-                  <span>Importar Excel</span>
+                  <span>Importar</span>
                 </button>
-                <button onClick={exportProducts} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                <button 
+                  onClick={exportProducts} 
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-lg text-sm font-medium hover:bg-brand-blue/90 transition-colors shadow-md shadow-brand-blue/10"
+                >
                   <Download size={16} />
                   <span>Exportar Excel</span>
                 </button>

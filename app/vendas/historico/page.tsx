@@ -6,9 +6,10 @@ import { Search, Calendar, Filter, Eye, Download, Printer, ShoppingCart, User, C
 import { Sale } from '@/lib/types';
 import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 
 export default function SalesHistoryPage() {
-  const { sales, customers, products, hasPermission, deleteSale } = useERP();
+  const { sales, customers, products, hasPermission, deleteSale, setCustomAlert } = useERP();
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState(getLocalDateString());
   const [endDate, setEndDate] = useState(getLocalDateString());
@@ -110,6 +111,35 @@ export default function SalesHistoryPage() {
     }
   };
 
+  const handleExportExcel = () => {
+    if (filteredSales.length === 0) {
+      setCustomAlert({ message: 'Não há vendas no período selecionado para exportar.', type: 'warning' });
+      return;
+    }
+
+    setCustomAlert({ message: 'Gerando arquivo Excel...', type: 'info' });
+
+    const dataToExport = filteredSales.map(sale => {
+      const customer = customers.find(c => c.id === sale.customerId);
+      return {
+        'Cupom': sale.id.substring(0, 8).toUpperCase(),
+        'Data': formatDateTimeBR(sale.date),
+        'Cliente': customer?.name || 'Consumidor Final',
+        'CPF/CNPJ': customer?.document || 'Sem CPF',
+        'Total': sale.total,
+        'Pagamento': sale.paymentMethod,
+        'Itens': sale.items.length
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Vendas");
+    XLSX.writeFile(workbook, `historico_vendas_${startDate}_${endDate}.xlsx`);
+    
+    setCustomAlert({ message: 'Exportação concluída com sucesso!', type: 'success' });
+  };
+
   if (!hasPermission('Vendas', 'view')) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -149,6 +179,13 @@ export default function SalesHistoryPage() {
               </div>
             </div>
             
+            <button 
+              onClick={handleExportExcel}
+              className="flex items-center gap-2 bg-brand-blue text-white rounded-2xl px-4 py-3 font-bold text-xs uppercase italic tracking-widest hover:bg-brand-blue/90 transition-all shadow-lg shadow-brand-blue/20"
+            >
+              <Download size={16} /> Exportar Excel
+            </button>
+
             <div className="relative flex-1 md:flex-none">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-sec" size={18} />
               <input 

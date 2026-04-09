@@ -80,9 +80,10 @@ import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString } from '@/lib/utils';
 import { SalesByProductReport } from '@/components/reports/SalesByProductReport';
 import { SalesReport } from '@/components/reports/SalesReport';
+import * as XLSX from 'xlsx';
 
 export default function ReportsPage() {
-  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods } = useERP();
+  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods, setCustomAlert } = useERP();
   const [activeReport, setActiveReport] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -264,6 +265,7 @@ export default function ReportsPage() {
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
     { id: 'dre', category: 'gerencial', title: 'DRE Gerencial', description: 'Demonstrativo de resultados, impostos e lucro líquido.', icon: FileBarChart },
     { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
+    { id: 'abc_produtos', category: 'gerencial', title: 'Curva ABC de Produtos', description: 'Classificação de produtos por volume de vendas e faturamento.', icon: Layers },
     { id: 'meios_pagamento', category: 'vendas', title: 'Relatório de Meios de Pagamento (Análise Profunda)', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
     { id: 'estorno_devolucao', category: 'financeiro', title: 'Relatório de Estorno e Devolução', description: 'Monitoramento de estornos e devoluções realizadas.', icon: RefreshCw },
     { id: 'relatorio_custo', category: 'financeiro', title: 'Relatório de Custo', description: 'Análise detalhada dos custos de aquisição e CMV.', icon: Calculator },
@@ -460,6 +462,7 @@ export default function ReportsPage() {
                   {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Curva ABC de Clientes' && <AbcCustomersReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Curva ABC de Produtos' && <AbcProductsReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Comissões de Vendedores' && <CommissionsReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Vendedor' && <SalesBySellerReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Produto' && <SalesByProductReport startDate={startDate} endDate={endDate} />}
@@ -489,7 +492,7 @@ export default function ReportsPage() {
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
                             <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
                             <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
-                            <Legend formatter={(value) => value === 'inflows' ? 'Entradas' : 'Saídas'} />
+                            <Legend />
                             <Bar dataKey="inflows" name="Entradas" fill="#10B981" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="outflows" name="Saídas" fill="#F43F5E" radius={[4, 4, 0, 0]} />
                           </BarChart>
@@ -535,7 +538,7 @@ export default function ReportsPage() {
                     </div>
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Relatório de Lucro no Estoque', 'Relatório de Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Relatório de Meios de Pagamento (Análise Profunda)'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Relatório de Lucro no Estoque', 'Relatório de Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Relatório de Meios de Pagamento (Análise Profunda)'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -646,7 +649,7 @@ function QuickActionButton({ icon: Icon, label, onClick }: { icon: any, label: s
 
 // --- Advanced Performance Dashboard Component ---
 function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: initialEndDate }: { startDate: string, endDate: string }) {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [reportType, setReportType] = useState('Relatório de Vendas');
@@ -679,6 +682,15 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const totalProfit = totalSales - totalCost - totalTax - totalExpenses;
   const ticketMedio = totalSales / (filteredSales.length || 1);
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+
+  // Vendas em Oferta
+  const totalPromoSales = filteredSales.reduce((acc, s) => {
+    const promoItemsTotal = s.items
+      .filter(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
+      .reduce((itemAcc, item) => itemAcc + (item.price * item.quantity), 0);
+    return acc + promoItemsTotal;
+  }, 0);
+  const promoSalesCount = filteredSales.filter(s => s.items.some(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
 
   // Previous Period Data for Trends
   const start = new Date(startDate);
@@ -732,6 +744,62 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const marginTrend = prevProfitMargin !== 0 
     ? profitMargin - prevProfitMargin 
     : (profitMargin !== 0 ? profitMargin : 0);
+
+  const handleExportExcel = () => {
+    setCustomAlert({ message: 'Preparando exportação...', type: 'info' });
+    let dataToExport: any[] = [];
+    let filename = 'relatorio';
+
+    if (reportType === 'Relatório de Vendas') {
+      filename = `vendas_${startDate}_${endDate}`;
+      dataToExport = filteredSales.map(s => {
+        const customer = customers.find(c => c.id === s.customerId);
+        const seller = systemUsers.find(u => u.id === s.userId);
+        const method = paymentMethods.find(m => m.id === s.paymentMethod);
+        return {
+          'Data': new Date(s.date).toLocaleString('pt-BR'),
+          'ID': s.id.substring(0, 8),
+          'Cliente': customer ? customer.name : 'Consumidor Final',
+          'Vendedor': seller ? (seller.full_name || seller.username) : 'Sistema',
+          'Pagamento': method ? method.name : (s.paymentMethod || 'N/A'),
+          'Total': s.total,
+          'Desconto': s.discount || 0,
+          'Taxas': s.taxAmount || 0
+        };
+      });
+    } else if (reportType === 'Relatório Financeiro') {
+      filename = `financeiro_${startDate}_${endDate}`;
+      dataToExport = filteredExpenses.map(e => ({
+        'Data': new Date(e.date).toLocaleDateString('pt-BR'),
+        'Descrição': e.description,
+        'Categoria': e.category,
+        'Valor': e.amount,
+        'Status': 'Pago'
+      }));
+    } else if (reportType === 'Relatório de Estoque') {
+      filename = `estoque_${new Date().toISOString().split('T')[0]}`;
+      dataToExport = products.map(p => ({
+        'Produto': p.name,
+        'SKU': p.sku || 'N/A',
+        'Estoque Atual': p.stock,
+        'Estoque Mínimo': p.minStock,
+        'Preço de Custo': p.costPrice,
+        'Preço de Venda': p.salePrice,
+        'Valor em Estoque': p.stock * p.costPrice
+      }));
+    }
+
+    if (dataToExport.length === 0) {
+      setCustomAlert({ message: 'Nenhum dado encontrado para exportar.', type: 'warning' });
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório");
+    XLSX.writeFile(workbook, `${filename}.xlsx`);
+    setCustomAlert({ message: 'Relatório exportado com sucesso!', type: 'success' });
+  };
 
   // Category Data Calculation
   const categoryTotals: Record<string, number> = {};
@@ -871,8 +939,11 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight text-[#1e293b]">Relatórios Avançados de Desempenho</h2>
             <div className="flex gap-3">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-                <Download size={14} className="text-blue-600" />
+              <button 
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
+              >
+                <Download size={14} />
                 Exportar Excel
               </button>
               <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
@@ -925,9 +996,9 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
           </div>
         </div>
         
-        {/* Metrics Row - 3 Cards like the image */}
+        {/* Metrics Row - 4 Cards */}
         {(reportType === 'Relatório de Vendas' || reportType === 'Relatório Financeiro') && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lucro Líquido Acumulado</p>
               <div className="mt-1">
@@ -957,6 +1028,17 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                 <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
                   {marginTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                   <span>{Math.abs(marginTrend).toFixed(1)}% vs período anterior</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Vendas em Oferta</p>
+              <div className="mt-1">
+                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalPromoSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+                <div className="flex items-center gap-1 text-[10px] font-bold mt-2 text-blue-600">
+                  <Zap size={12} />
+                  <span>{promoSalesCount} vendas com itens em promoção</span>
                 </div>
               </div>
             </div>

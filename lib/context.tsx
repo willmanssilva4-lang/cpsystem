@@ -416,6 +416,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           status: p.status,
           targetType: p.target_type,
           targetId: (p.target_id && typeof p.target_id === 'string' && p.target_id.startsWith('[')) ? JSON.parse(p.target_id) : p.target_id,
+          productPrices: p.product_prices || {},
           discountValue: p.discount_value ? Number(p.discount_value) : undefined,
           buyQuantity: p.buy_quantity,
           payQuantity: p.pay_quantity,
@@ -860,7 +861,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   }, 500);
 });
-}, [supabase]);
+}, []);
 
   useEffect(() => {
     let productsSubscription: any;
@@ -1457,12 +1458,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         await logAuditAction('venda', 'vendas', saleId, null, sale);
 
         const itemsToInsert = sale.items.map(item => {
-          const product = products.find(p => p.id === item.productId);
           return {
+            company_id: user?.companyId || null,
             sale_id: saleId,
             product_id: item.productId,
             quantity: item.quantity,
-            price: item.price
+            price: item.price,
+            original_price: item.originalPrice || item.price,
+            discount: item.discount || 0,
+            promotion_id: item.promotionId || null
           };
         });
         
@@ -1471,7 +1475,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         let { error: itemsError } = await supabase.from('sale_items').insert(itemsToInsert);
         
         if (itemsError && itemsError.message && itemsError.message.includes('column')) {
-          console.warn('Retrying sale_items insert without original_price/discount columns...');
+          console.warn('Retrying sale_items insert without extra columns due to schema error...');
           const fallbackItems = sale.items.map(item => ({
             company_id: user?.companyId || null,
             sale_id: saleId,
@@ -3044,7 +3048,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       alert('Apenas administradores podem criar promoções.');
       return;
     }
-    const { error } = await supabase.from('promotions').insert([{
+
+    const dataToInsert = {
       company_id: user?.companyId || null,
       name: promotion.name,
       type: promotion.type,
@@ -3053,6 +3058,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       status: promotion.status,
       target_type: promotion.targetType,
       target_id: Array.isArray(promotion.targetId) ? JSON.stringify(promotion.targetId) : promotion.targetId,
+      product_prices: promotion.productPrices || {},
       discount_value: promotion.discountValue,
       buy_quantity: promotion.buyQuantity,
       pay_quantity: promotion.payQuantity,
@@ -3063,7 +3069,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       quantity_limit: promotion.quantityLimit,
       days_of_week: promotion.daysOfWeek,
       only_for_club_members: promotion.onlyForClubMembers
-    }]);
+    };
+
+    let { error } = await supabase.from('promotions').insert([dataToInsert]);
+    
+    // Fallback if columns don't exist
+    if (error && error.message && (error.message.includes('product_prices') || error.message.includes('only_for_club_members'))) {
+      const fallbackData = { ...dataToInsert } as any;
+      delete fallbackData.product_prices;
+      delete fallbackData.only_for_club_members;
+      const { error: fallbackError } = await supabase.from('promotions').insert([fallbackData]);
+      error = fallbackError;
+    }
+
     if (!error) await fetchData();
     else {
       console.error('Error adding promotion:', error);
@@ -3076,7 +3094,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       alert('Apenas administradores podem editar promoções.');
       return;
     }
-    const { error } = await supabase.from('promotions').update({
+
+    const dataToUpdate = {
       company_id: user?.companyId || null,
       name: promotion.name,
       type: promotion.type,
@@ -3085,6 +3104,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       status: promotion.status,
       target_type: promotion.targetType,
       target_id: Array.isArray(promotion.targetId) ? JSON.stringify(promotion.targetId) : promotion.targetId,
+      product_prices: promotion.productPrices || {},
       discount_value: promotion.discountValue,
       buy_quantity: promotion.buyQuantity,
       pay_quantity: promotion.payQuantity,
@@ -3095,7 +3115,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       quantity_limit: promotion.quantityLimit,
       days_of_week: promotion.daysOfWeek,
       only_for_club_members: promotion.onlyForClubMembers
-    }).eq('id', promotion.id);
+    };
+
+    let { error } = await supabase.from('promotions').update(dataToUpdate).eq('id', promotion.id);
+
+    // Fallback if columns don't exist
+    if (error && error.message && (error.message.includes('product_prices') || error.message.includes('only_for_club_members'))) {
+      const fallbackData = { ...dataToUpdate } as any;
+      delete fallbackData.product_prices;
+      delete fallbackData.only_for_club_members;
+      const { error: fallbackError } = await supabase.from('promotions').update(fallbackData).eq('id', promotion.id);
+      error = fallbackError;
+    }
+
     if (!error) await fetchData();
     else {
       console.error('Error updating promotion:', error);
@@ -3228,7 +3260,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       products, sales, customers, suppliers, losses, expenses, departamentos, categorias, expenseCategories, subcategorias,
       stockMovements, inventories, employees, systemUsers, accessProfiles, permissions, pricingSettings, companySettings,
       systemSettings, paymentMethods, maquininhas, promotions, returns, user, isSuperAdmin, isLoading, hasPermission,
-      discountLogs, cashRegisters, cashMovements, cashClosings, activeRegister, openCashRegister, closeCashRegister,
+      discountLogs, auditLogs, cashRegisters, cashMovements, cashClosings, activeRegister, openCashRegister, closeCashRegister,
       addCashMovement, suspendCashRegister, blockCashRegister, logAuditAction, addProduct, updateProduct, deleteProduct,
       addSale, addReturn, addDiscountLog, addCustomer, updateCustomer, deleteCustomer, addSupplier, updateSupplier,
       deleteSupplier, addLoss, addExpense, addStockMovement, addInventory, updateSale, deleteSale, updateLoss,

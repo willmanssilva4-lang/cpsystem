@@ -232,6 +232,7 @@ export interface Promotion {
   status: 'ACTIVE' | 'INACTIVE';
   targetType: 'PRODUCT' | 'CATEGORY' | 'SUBCATEGORY' | 'ALL';
   targetId?: string | string[];
+  productPrices?: Record<string, number>;
   discountValue?: number;
   buyQuantity?: number;
   payQuantity?: number;

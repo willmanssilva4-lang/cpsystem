@@ -20,6 +20,7 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
       endDate: getLocalDateString(new Date(promotion.endDate)),
       onlyForClubMembers: promotion.onlyForClubMembers || false,
       applyAutomatically: promotion.applyAutomatically ?? true,
+      productPrices: promotion.productPrices || {},
     } : {
       name: '',
       type: 'PRICE',
@@ -28,6 +29,7 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
       status: 'ACTIVE',
       targetType: 'PRODUCT',
       targetId: '',
+      productPrices: {},
       discountValue: 0,
       buyQuantity: 0,
       payQuantity: 0,
@@ -86,15 +88,18 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
       if (!selectedProducts.find(p => p.id === product.id)) {
         const newSelected = [...selectedProducts, product];
         setSelectedProducts(newSelected);
+        
+        const newPrices = { ...formData.productPrices, [product.id]: product.salePrice };
+
         if (formData.type === 'COMBO') {
-          setFormData({ ...formData, comboItems: newSelected.map(p => p.id) });
+          setFormData({ ...formData, comboItems: newSelected.map(p => p.id), productPrices: newPrices });
         } else {
-          setFormData({ ...formData, targetId: newSelected.map(p => p.id) });
+          setFormData({ ...formData, targetId: newSelected.map(p => p.id), productPrices: newPrices });
         }
       }
     } else {
       setSelectedProducts([product]);
-      setFormData({ ...formData, targetId: product.id });
+      setFormData({ ...formData, targetId: product.id, productPrices: { [product.id]: product.salePrice } });
     }
     setSearchTerm('');
   };
@@ -102,13 +107,27 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
   const removeProduct = (productId: string) => {
     const newSelected = selectedProducts.filter(p => p.id !== productId);
     setSelectedProducts(newSelected);
+    
+    const newPrices = { ...formData.productPrices };
+    delete newPrices[productId];
+
     if (formData.type === 'COMBO') {
-      setFormData({ ...formData, comboItems: newSelected.map(p => p.id) });
+      setFormData({ ...formData, comboItems: newSelected.map(p => p.id), productPrices: newPrices });
     } else if (formData.targetType === 'PRODUCT') {
-      setFormData({ ...formData, targetId: newSelected.map(p => p.id) });
+      setFormData({ ...formData, targetId: newSelected.map(p => p.id), productPrices: newPrices });
     } else {
-      setFormData({ ...formData, targetId: '' });
+      setFormData({ ...formData, targetId: '', productPrices: newPrices });
     }
+  };
+
+  const handlePriceChange = (productId: string, price: number) => {
+    setFormData({
+      ...formData,
+      productPrices: {
+        ...formData.productPrices,
+        [productId]: price
+      }
+    });
   };
 
   const filteredProducts = searchTerm 
@@ -238,10 +257,24 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
                   <div className="mt-4 space-y-2">
                     {selectedProducts.map(product => (
                       <div key={product.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium text-gray-800">{product.name}</p>
                           <p className="text-sm text-gray-500">Preço Normal: R$ {product.salePrice.toFixed(2)}</p>
                         </div>
+                        
+                        {formData.type === 'PRICE' && (
+                          <div className="flex items-center gap-2 mr-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Preço Promo:</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={formData.productPrices?.[product.id] || ''}
+                              onChange={e => handlePriceChange(product.id, parseFloat(e.target.value))}
+                              className="w-24 px-2 py-1 border border-gray-200 rounded text-sm font-bold text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => removeProduct(product.id)}
@@ -275,10 +308,11 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
           </div>
 
           {/* Configurações de Desconto */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-700 border-b pb-2">Tipo de Desconto</h3>
-            
-            {formData.type === 'PRICE' && (
+          {!(formData.type === 'PRICE' && formData.targetType === 'PRODUCT') && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-700 border-b pb-2">Tipo de Desconto</h3>
+              
+              {formData.type === 'PRICE' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Preço Promocional (R$)</label>
                 <input
@@ -344,7 +378,8 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
                 />
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Configurações Extras */}
           <div className="space-y-4">

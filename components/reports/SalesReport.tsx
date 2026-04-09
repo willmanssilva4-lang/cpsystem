@@ -192,9 +192,14 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                                 return (
                                   <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
                                     <div className="flex flex-col">
-                                      <span className="text-xs font-black text-brand-text-main uppercase italic">
-                                        {product ? product.name : 'Produto Desconhecido'}
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black text-brand-text-main uppercase italic">
+                                          {product ? product.name : 'Produto Desconhecido'}
+                                        </span>
+                                        {(item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice)) && (
+                                          <span className="bg-blue-100 text-blue-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase italic">Oferta</span>
+                                        )}
+                                      </div>
                                       <span className="text-[10px] font-bold text-slate-400">
                                         Qtd: {item.quantity} un x {formatCurrency(item.price)}
                                       </span>

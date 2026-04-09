@@ -58,8 +58,33 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  const totals = allData.reduce((acc, curr) => ({
+    qty: acc.qty + curr.qty,
+    total: acc.total + curr.total,
+    profit: acc.profit + curr.profit
+  }), { qty: 0, total: 0, profit: 0 });
+
   return (
     <div className="space-y-6">
+      {/* Totals Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Bruto Vendido</p>
+          <h3 className="text-2xl font-black text-brand-blue italic">{formatCurrency(totals.total)}</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">Soma de todos os produtos</p>
+        </div>
+        <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quantidade Total</p>
+          <h3 className="text-2xl font-black text-brand-text-main italic">{totals.qty} <span className="text-sm">unidades</span></h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">Volume total de saída</p>
+        </div>
+        <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100 shadow-sm">
+          <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mb-1">Lucro Líquido Total</p>
+          <h3 className="text-2xl font-black text-emerald-600 italic">{formatCurrency(totals.profit)}</h3>
+          <p className="text-[10px] font-bold text-emerald-600/40 mt-1 uppercase italic">Após custos e taxas</p>
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
