@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn, formatDateTimeBR, formatDateBR } from '@/lib/utils';
@@ -155,6 +155,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       })()
     };
   });
+
+  useEffect(() => {
+    // Lock body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   useEffect(() => {
     setImageError(false);
@@ -366,8 +374,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-6xl rounded-[32px] shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in duration-300">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center overflow-hidden">
+      <div className="bg-white w-full h-full shadow-2xl border-0 overflow-hidden flex flex-col animate-in zoom-in duration-300">
         {/* Header */}
         <div className="bg-white px-8 py-6 flex justify-between items-center border-b border-slate-100">
           <div className="flex items-center gap-4">
@@ -414,81 +422,407 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-hidden">
           {activeTab === 'geral' && (
             <form onSubmit={handleSubmit} onKeyDown={handleEnterAsTab} className="p-8 text-brand-text-main">
               <div className="flex flex-col lg:flex-row gap-12">
             {/* Left Side - Form Fields */}
-            <div className="flex-1 space-y-6 min-w-0">
-              {/* Row 1: Code and Description */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div className="md:col-span-5">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Código:</label>
-                  <div className="flex gap-2">
-                    <input 
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleChange}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                    <button 
-                      type="button" 
-                      onClick={generateSKU}
-                      className="bg-brand-blue hover:bg-brand-blue-hover text-white text-[10px] font-black px-4 py-2.5 rounded-xl uppercase italic transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
-                    >
-                      Gerar - F1
-                    </button>
+            <div className="flex-1 space-y-8 min-w-0">
+              
+              {/* Section: Identificação */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Identificação</h4>
+                <div className="flex flex-wrap gap-4">
+                  <div className="w-48">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest whitespace-nowrap" title="Código interno do sistema (SKU)">Código Interno:</label>
+                    <div className="flex gap-2">
+                      <input 
+                        name="sku"
+                        value={formData.sku}
+                        onChange={handleChange}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.preventDefault();
+                        }}
+                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200 px-2 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={generateSKU}
+                        className="bg-brand-blue hover:bg-brand-blue-hover text-white text-[10px] font-black px-2.5 py-2.5 rounded-xl uppercase italic transition-all shadow-lg shadow-brand-blue/20 active:scale-95 flex-shrink-0"
+                        title="Gerar Código (F1)"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="md:col-span-7">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Descrição</label>
-                  <input 
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Descrição:</label>
+                    <input 
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Status:</label>
+                    <select 
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="Ativo">ATIVO</option>
+                      <option value="Inativo">INATIVO</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Row 2: Supplier, Brand and Unit */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div className="md:col-span-5">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor</label>
-                  <select 
-                    name="supplier"
-                    value={formData.supplier}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none appearance-none transition-all"
-                  >
-                    <option value="">Selecione um fornecedor</option>
-                    <option value="PADRAO">PADRAO</option>
-                  </select>
+              {/* Section: Classificação */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Classificação</h4>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Departamento:</label>
+                    <select 
+                      value={departamentoId}
+                      onChange={(e) => {
+                        setDepartamentoId(e.target.value);
+                        setCategoryId('');
+                        setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="">Selecione...</option>
+                      {departamentos.map(dept => (
+                        <option key={dept.id} value={dept.id}>{dept.codigo ? `${dept.codigo} - ` : ''}{dept.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
+                    <select 
+                      value={categoryId}
+                      onChange={(e) => {
+                        setCategoryId(e.target.value);
+                        setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="">Selecione...</option>
+                      {categorias
+                        .filter(cat => !departamentoId || cat.departamento_id === departamentoId)
+                        .map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.codigo ? `${cat.codigo} - ` : ''}{cat.nome}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Subcategoria:</label>
+                    <select 
+                      name="subcategoria_id"
+                      value={formData.subcategoria_id}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="">Selecione...</option>
+                      {subcategorias
+                        .filter(sub => !categoryId || sub.categoria_id === categoryId)
+                        .map(sub => (
+                          <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Marca:</label>
+                    <select 
+                      name="brand"
+                      value={formData.brand}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="PADRAO">PADRAO</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor:</label>
+                    <select 
+                      name="supplier"
+                      value={formData.supplier}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none appearance-none transition-all"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="PADRAO">PADRAO</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="md:col-span-4">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Marca:</label>
-                  <select 
-                    name="brand"
-                    value={formData.brand}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="PADRAO">PADRAO</option>
-                  </select>
+              </div>
+
+              {/* Section: Preços */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Preços e Margem</h4>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Custo:</label>
+                    <input 
+                      type="number"
+                      name="costPrice"
+                      value={formData.costPrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const costPrice = val === '' ? 0 : Number(val);
+                        let profitPercentage = Number(formData.profitPercentage);
+                        let salePrice = 0;
+
+                        if (pricingMethod === 'markup') {
+                          salePrice = costPrice * (1 + (profitPercentage / 100));
+                        } else {
+                          const margin = profitPercentage >= 100 ? 99.99 : profitPercentage;
+                          salePrice = costPrice / (1 - (margin / 100));
+                        }
+                        
+                        salePrice = roundPrice(salePrice);
+                        const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                        
+                        let finalProfitPercentage = profitPercentage;
+                        if (costPrice > 0) {
+                          if (pricingMethod === 'markup') {
+                            finalProfitPercentage = (profit / costPrice) * 100;
+                          } else {
+                            finalProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+                          }
+                        }
+
+                        setFormData(prev => ({ ...prev, costPrice: val === '' ? '' : costPrice, salePrice, profit, profitPercentage: Math.round(finalProfitPercentage * 100) / 100 }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Lucro (R$):</label>
+                    <input 
+                      type="number"
+                      name="profit"
+                      value={formData.profit === '' ? '' : Math.round(Number(formData.profit) * 100) / 100}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const profit = val === '' ? '' : Math.round(Number(val) * 100) / 100;
+                        const costPrice = Number(formData.costPrice);
+                        const salePrice = costPrice + (profit === '' ? 0 : profit);
+                        let profitPercentage = 0;
+                        if (pricingMethod === 'markup') {
+                          profitPercentage = costPrice > 0 ? ((profit === '' ? 0 : profit) / costPrice) * 100 : 0;
+                        } else {
+                          profitPercentage = salePrice > 0 ? ((profit === '' ? 0 : profit) / salePrice) * 100 : 0;
+                        }
+                        setFormData(prev => ({ ...prev, profit, salePrice, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+
+                  <div className="w-32">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 tracking-widest">Lucro (%):</label>
+                      <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          disabled={!pricingSettings.allowEditOnProduct}
+                          onClick={() => {
+                            const costPrice = Number(formData.costPrice);
+                            const salePrice = Number(formData.salePrice);
+                            const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                            const newProfitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+                            setPricingMethod('markup');
+                            setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, profit }));
+                          }}
+                          className={cn(
+                            "px-1.5 py-0.5 text-[8px] font-black uppercase italic rounded-md transition-all",
+                            pricingMethod === 'markup' ? "bg-white text-brand-blue shadow-sm" : "text-slate-400 hover:text-slate-600",
+                            !pricingSettings.allowEditOnProduct && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          MKP
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!pricingSettings.allowEditOnProduct}
+                          onClick={() => {
+                            const costPrice = Number(formData.costPrice);
+                            const salePrice = Number(formData.salePrice);
+                            const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                            const newProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+                            setPricingMethod('margin');
+                            setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, profit }));
+                          }}
+                          className={cn(
+                            "px-1.5 py-0.5 text-[8px] font-black uppercase italic rounded-md transition-all",
+                            pricingMethod === 'margin' ? "bg-white text-brand-blue shadow-sm" : "text-slate-400 hover:text-slate-600",
+                            !pricingSettings.allowEditOnProduct && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          MRG
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="number"
+                        name="profitPercentage"
+                        value={(formData.profitPercentage as any) === '' ? '' : Math.round(Number(formData.profitPercentage) * 100) / 100}
+                        readOnly={!pricingSettings.allowEditOnProduct}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const profitPercentage = val === '' ? '' : Number(val);
+                          const costPrice = Number(formData.costPrice);
+                          let salePrice = 0;
+                          if (pricingMethod === 'markup') {
+                            salePrice = costPrice * (1 + ((profitPercentage === '' ? 0 : profitPercentage) / 100));
+                          } else {
+                            const margin = (profitPercentage === '' ? 0 : profitPercentage) >= 100 ? 99.99 : (profitPercentage === '' ? 0 : profitPercentage);
+                            salePrice = costPrice / (1 - (margin / 100));
+                          }
+                          salePrice = roundPrice(salePrice);
+                          const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                          setFormData(prev => ({ ...prev, profitPercentage, salePrice, profit }));
+                        }}
+                        className={cn(
+                          "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
+                          pricingSettings.allowEditOnProduct 
+                            ? "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
+                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        )}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-black text-[10px]">%</span>
+                    </div>
+                  </div>
+
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Venda:</label>
+                    <input 
+                      type="number"
+                      name="salePrice"
+                      value={formData.salePrice}
+                      readOnly={!pricingSettings.allowEditOnProduct}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const salePrice = val === '' ? 0 : Number(val);
+                        const costPrice = Number(formData.costPrice);
+                        const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                        let profitPercentage = 0;
+                        if (pricingMethod === 'markup') {
+                          profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+                        } else {
+                          profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+                        }
+                        setFormData(prev => ({ ...prev, salePrice: val === '' ? '' : salePrice, profit, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
+                      }}
+                      className={cn(
+                        "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
+                        pricingSettings.allowEditOnProduct 
+                          ? "bg-slate-50 text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
+                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      )}
+                    />
+                  </div>
+
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço 2:</label>
+                    <input 
+                      type="number"
+                      name="termPrice"
+                      value={formData.termPrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, termPrice: val === '' ? '' : Number(val) }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Atacado:</label>
+                    <input 
+                      type="number"
+                      name="wholesalePrice"
+                      value={formData.wholesalePrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Clube:</label>
+                    <input 
+                      type="number"
+                      name="clubPrice"
+                      value={formData.clubPrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, clubPrice: val === '' ? '' : Number(val) }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-3">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Unidade:</label>
-                  <div className="flex gap-2 items-center">
+              </div>
+
+              {/* Section: Estoque e Outros */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Estoque e Outros</h4>
+                <div className="flex flex-wrap gap-4">
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Estoque:</label>
+                    <input 
+                      type="number"
+                      name="stock"
+                      value={calculatedKitStock !== null ? calculatedKitStock : formData.stock}
+                      onChange={handleChange}
+                      readOnly={calculatedKitStock !== null}
+                      className={cn(
+                        "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
+                        calculatedKitStock !== null ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5"
+                      )}
+                    />
+                    {calculatedKitStock !== null && (
+                      <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1 text-center">Via Kit</p>
+                    )}
+                  </div>
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Est. Mín:</label>
+                    <input 
+                      type="number"
+                      name="minStock"
+                      value={formData.minStock}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Controlar Est.:</label>
+                    <select 
+                      name="controlStock"
+                      value={formData.controlStock}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="SIM">SIM</option>
+                      <option value="NÃO">NÃO</option>
+                    </select>
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Unidade:</label>
                     <select 
                       name="unit"
                       value={formData.unit}
                       onChange={handleChange}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
                       <option value="UN">UN (Unidade)</option>
                       <option value="KG">KG (Quilograma)</option>
@@ -510,392 +844,71 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <option value="JG">JG (Jogo)</option>
                       <option value="KT">KT (Kit)</option>
                     </select>
-                    <div className="w-6 h-6 flex items-center justify-center text-slate-300 font-bold">?</div>
                   </div>
-                </div>
-                <div className="md:col-span-3">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Validade:</label>
-                  <input 
-                    type="date"
-                    name="validade"
-                    value={formData.validade}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
-                </div>
-              </div>
-
-              {/* Row 3: Prices */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço de Compra:</label>
-                  <input 
-                    type="number"
-                    name="costPrice"
-                    value={formData.costPrice}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const costPrice = val === '' ? 0 : Number(val);
-                      let profitPercentage = Number(formData.profitPercentage);
-                      let salePrice = 0;
-
-                      if (pricingMethod === 'markup') {
-                        salePrice = costPrice * (1 + (profitPercentage / 100));
-                      } else {
-                        const margin = profitPercentage >= 100 ? 99.99 : profitPercentage;
-                        salePrice = costPrice / (1 - (margin / 100));
-                      }
-                      
-                      salePrice = roundPrice(salePrice);
-                      const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                      
-                      // Recalculate profit percentage based on rounded price to keep UI consistent
-                      let finalProfitPercentage = profitPercentage;
-                      if (costPrice > 0) {
-                        if (pricingMethod === 'markup') {
-                          finalProfitPercentage = (profit / costPrice) * 100;
-                        } else {
-                          finalProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
-                        }
-                      }
-
-                      setFormData(prev => ({ ...prev, costPrice: val === '' ? '' : costPrice, salePrice, profit, profitPercentage: Math.round(finalProfitPercentage * 100) / 100 }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço de Venda:</label>
-                  <input 
-                    type="number"
-                    name="salePrice"
-                    value={formData.salePrice}
-                    readOnly={!pricingSettings.allowEditOnProduct}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const salePrice = val === '' ? 0 : Number(val);
-                      const costPrice = Number(formData.costPrice);
-                      const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                      let profitPercentage = 0;
-                      if (pricingMethod === 'markup') {
-                        profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
-                      } else {
-                        profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
-                      }
-                      setFormData(prev => ({ ...prev, salePrice: val === '' ? '' : salePrice, profit, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
-                    }}
-                    className={cn(
-                      "w-full border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                      pricingSettings.allowEditOnProduct 
-                        ? "bg-slate-50 text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
-                        : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    )}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço 2:</label>
-                  <input 
-                    type="number"
-                    name="termPrice"
-                    value={formData.termPrice}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData(prev => ({ ...prev, termPrice: val === '' ? '' : Number(val) }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço Atacado</label>
-                  <div className="flex gap-2 items-center">
+                  <div className="w-36">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Validade:</label>
                     <input 
-                      type="number"
-                      name="wholesalePrice"
-                      value={formData.wholesalePrice}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
-                      }}
-                      className="w-24 bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                      type="date"
+                      name="validade"
+                      value={formData.validade}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
                     />
-                    <button type="button" className="flex-1 bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-2.5 rounded-xl uppercase italic transition-all hover:bg-slate-200 text-center">
-                      Mais Preços
-                    </button>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço Clube:</label>
-                  <input 
-                    type="number"
-                    name="clubPrice"
-                    value={formData.clubPrice}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData(prev => ({ ...prev, clubPrice: val === '' ? '' : Number(val) }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    placeholder="Opcional"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Stock */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Estoque Atual:</label>
-                  <input 
-                    type="number"
-                    name="stock"
-                    value={calculatedKitStock !== null ? calculatedKitStock : formData.stock}
-                    onChange={handleChange}
-                    readOnly={calculatedKitStock !== null}
-                    className={cn(
-                      "w-full border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                      calculatedKitStock !== null ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5"
-                    )}
-                  />
-                  {calculatedKitStock !== null && (
-                    <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1 text-center">Calculado via Kit</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Est. Mínimo:</label>
-                  <input 
-                    type="number"
-                    name="minStock"
-                    value={formData.minStock}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Controlar Estoque</label>
-                  <select 
-                    name="controlStock"
-                    value={formData.controlStock}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="SIM">SIM</option>
-                    <option value="NÃO">NÃO</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 5: Department, Category, Subcategory, Mercadological Code */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Departamento:</label>
-                  <select 
-                    value={departamentoId}
-                    onChange={(e) => {
-                      setDepartamentoId(e.target.value);
-                      setCategoryId('');
-                      setFormData(prev => ({ ...prev, subcategoria_id: '' }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="">Selecione...</option>
-                    {departamentos.map(dept => (
-                      <option key={dept.id} value={dept.id}>{dept.codigo ? `${dept.codigo} - ` : ''}{dept.nome}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
-                  <select 
-                    value={categoryId}
-                    onChange={(e) => {
-                      setCategoryId(e.target.value);
-                      setFormData(prev => ({ ...prev, subcategoria_id: '' }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="">Selecione...</option>
-                    {categorias
-                      .filter(cat => !departamentoId || cat.departamento_id === departamentoId)
-                      .map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.codigo ? `${cat.codigo} - ` : ''}{cat.nome}</option>
-                      ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Subcategoria:</label>
-                  <select 
-                    name="subcategoria_id"
-                    value={formData.subcategoria_id}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="">Selecione...</option>
-                    {subcategorias
-                      .filter(sub => !categoryId || sub.categoria_id === categoryId)
-                      .map(sub => (
-                        <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
-                      ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Cód. Mercadológico:</label>
-                  <input 
-                    type="text"
-                    name="codigo_mercadologico"
-                    value={formData.codigo_mercadologico || ''}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    placeholder={
-                      (() => {
-                        if (!formData.subcategoria_id) return 'Automático';
-                        const sub = subcategorias.find(s => s.id === formData.subcategoria_id);
-                        if (!sub) return 'Automático';
-                        const cat = categorias.find(c => c.id === sub.categoria_id);
-                        if (!cat) return sub.codigo || 'Automático';
-                        const dep = departamentos.find(d => d.id === cat.departamento_id);
-                        if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
-                        return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
-                      })()
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Row 6: Composition */}
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Composição / Ingredientes:</label>
-                  <div className="flex gap-2">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Cód. Mercadológico:</label>
                     <input 
                       type="text"
-                      readOnly
-                      value={formData.composition.length > 0 ? `${formData.composition.length} Itens no Kit` : 'Nenhum'}
-                      className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all cursor-default"
+                      name="codigo_mercadologico"
+                      value={formData.codigo_mercadologico || ''}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                      placeholder={
+                        (() => {
+                          if (!formData.subcategoria_id) return 'Automático';
+                          const sub = subcategorias.find(s => s.id === formData.subcategoria_id);
+                          if (!sub) return 'Automático';
+                          const cat = categorias.find(c => c.id === sub.categoria_id);
+                          if (!cat) return sub.codigo || 'Automático';
+                          const dep = departamentos.find(d => d.id === cat.departamento_id);
+                          if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
+                          return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
+                        })()
+                      }
                     />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowCompositionModal(true)}
-                      className="bg-brand-blue text-white p-2.5 rounded-xl shadow-lg shadow-brand-blue/20 active:scale-95"
-                    >
-                      <Plus size={16} />
-                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* Row 8: Profit */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Lucro:</label>
-                  <input 
-                    type="number"
-                    name="profit"
-                    value={formData.profit === '' ? '' : Math.round(Number(formData.profit) * 100) / 100}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const profit = val === '' ? '' : Math.round(Number(val) * 100) / 100;
-                      const costPrice = Number(formData.costPrice);
-                      const salePrice = costPrice + (profit === '' ? 0 : profit);
-                      let profitPercentage = 0;
-                      if (pricingMethod === 'markup') {
-                        profitPercentage = costPrice > 0 ? ((profit === '' ? 0 : profit) / costPrice) * 100 : 0;
-                      } else {
-                        profitPercentage = salePrice > 0 ? ((profit === '' ? 0 : profit) / salePrice) * 100 : 0;
-                      }
-                      setFormData(prev => ({ ...prev, profit, salePrice, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                  />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 tracking-widest">Lucro (%):</label>
-                    <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                      <button
-                        type="button"
-                        disabled={!pricingSettings.allowEditOnProduct}
-                        onClick={() => {
-                          const costPrice = Number(formData.costPrice);
-                          const salePrice = Number(formData.salePrice);
-                          const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                          const newProfitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
-                          setPricingMethod('markup');
-                          setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, profit }));
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[8px] font-black uppercase italic rounded-md transition-all",
-                          pricingMethod === 'markup' ? "bg-white text-brand-blue shadow-sm" : "text-slate-400 hover:text-slate-600",
-                          !pricingSettings.allowEditOnProduct && "opacity-50 cursor-not-allowed"
-                        )}
+              {/* Section: Composição */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Composição</h4>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Composição / Ingredientes:</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        readOnly
+                        value={formData.composition.length > 0 ? `${formData.composition.length} Itens no Kit` : 'Nenhum'}
+                        className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all cursor-default"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowCompositionModal(true)}
+                        className="bg-brand-blue text-white px-4 py-2.5 rounded-xl shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center gap-2 text-xs font-black uppercase italic"
                       >
-                        Markup
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!pricingSettings.allowEditOnProduct}
-                        onClick={() => {
-                          const costPrice = Number(formData.costPrice);
-                          const salePrice = Number(formData.salePrice);
-                          const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                          const newProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
-                          setPricingMethod('margin');
-                          setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, profit }));
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[8px] font-black uppercase italic rounded-md transition-all",
-                          pricingMethod === 'margin' ? "bg-white text-brand-blue shadow-sm" : "text-slate-400 hover:text-slate-600",
-                          !pricingSettings.allowEditOnProduct && "opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        Margem
+                        <Plus size={16} />
+                        Editar Kit
                       </button>
                     </div>
                   </div>
-                  <div className="relative">
-                    <input 
-                      type="number"
-                      name="profitPercentage"
-                      value={(formData.profitPercentage as any) === '' ? '' : Math.round(Number(formData.profitPercentage) * 100) / 100}
-                      readOnly={!pricingSettings.allowEditOnProduct}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const profitPercentage = val === '' ? '' : Number(val);
-                        const costPrice = Number(formData.costPrice);
-                        let salePrice = 0;
-                        if (pricingMethod === 'markup') {
-                          salePrice = costPrice * (1 + ((profitPercentage === '' ? 0 : profitPercentage) / 100));
-                        } else {
-                          const margin = (profitPercentage === '' ? 0 : profitPercentage) >= 100 ? 99.99 : (profitPercentage === '' ? 0 : profitPercentage);
-                          salePrice = costPrice / (1 - (margin / 100));
-                        }
-                        salePrice = roundPrice(salePrice);
-                        const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                        setFormData(prev => ({ ...prev, profitPercentage, salePrice, profit }));
-                      }}
-                      className={cn(
-                        "w-full border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                        pricingSettings.allowEditOnProduct 
-                          ? "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
-                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      )}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-[10px]">%</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Status:</label>
-                  <select 
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="Ativo">ATIVO</option>
-                    <option value="Inativo">INATIVO</option>
-                  </select>
                 </div>
               </div>
+
             </div>
 
-            <div className="w-full lg:w-80 flex flex-col gap-6">
+            <div className="w-full lg:w-56 flex flex-col gap-6">
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -1436,7 +1449,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto flex-1 bg-slate-50/30">
+              <div className="p-6 overflow-y-auto scrollbar-hide flex-1 bg-slate-50/30">
                 {kitTab === 'info' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -1561,7 +1574,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       />
                       
                       {searchTerm && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-xl z-10 max-h-64 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-xl z-10 max-h-64 overflow-y-auto scrollbar-hide">
                           {products
                             .filter(p => p.id !== initialData?.id)
                             .filter(p => (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm)) && p.status !== 'Inativo')
@@ -1616,7 +1629,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         <div className="col-span-2 text-right">Subtotal</div>
                         <div className="col-span-1 text-center">Ação</div>
                       </div>
-                      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                      <div className="flex-1 overflow-y-auto scrollbar-hide p-2 space-y-2">
                         {formData.composition.length === 0 ? (
                           <div className="h-full flex flex-col items-center justify-center text-brand-text-main/30 gap-2 py-8">
                             <ImageIcon size={48} />

@@ -616,7 +616,6 @@ export default function ProductsPage() {
                     className="flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 outline-none h-10"
                   >
                     <option value="Ativo">Ativos</option>
-                    <option value="Inativo">Inativos</option>
                     <option value="Todos">Ativos e Inativos</option>
                   </select>
                 </div>
@@ -667,8 +666,7 @@ export default function ProductsPage() {
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Produto</th>
                     <th className="hidden md:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estoque</th>
-                    <th className="hidden lg:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Preço de Custo</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Preço de Venda</th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Custo / Venda</th>
                     <th className="hidden sm:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="w-12 px-6 py-3"></th>
                   </tr>
@@ -699,8 +697,11 @@ export default function ProductsPage() {
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{getCategoryName(product)}</td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-700">{Number.isInteger(product.stock) ? product.stock : product.stock.toFixed(3)}</td>
-                      <td className="hidden lg:table-cell px-6 py-4 text-sm font-bold text-slate-700">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700 whitespace-nowrap">
+                        <span className="text-slate-400">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="mx-2 text-slate-300">/</span>
+                        <span className="text-brand-blue">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </td>
                       <td className="hidden sm:table-cell px-6 py-4">
                         <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (product.stock <= product.minStock ? 'Estoque Baixo' : 'Ativo')} />
                       </td>

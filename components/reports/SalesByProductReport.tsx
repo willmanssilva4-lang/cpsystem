@@ -120,6 +120,18 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
               </tr>
             )}
           </tbody>
+          {allData.length > 0 && (
+            <tfoot className="bg-slate-50/50 border-t-2 border-slate-200">
+              <tr>
+                <td className="py-4 px-2 text-sm font-black text-brand-text-main uppercase italic">TOTAIS</td>
+                <td className="py-4 text-sm font-black text-brand-text-main">{totals.qty} un</td>
+                <td className="py-4"></td>
+                <td className="py-4"></td>
+                <td className="py-4 text-right text-sm font-black text-emerald-600">{formatCurrency(totals.profit)}</td>
+                <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(totals.total)}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

@@ -328,16 +328,21 @@ export default function MaquininhasPage() {
                   <AlertTriangle size={40} />
                 </div>
                 
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Confirmar Exclusão</h3>
-                  <p className="text-brand-blue/60 font-medium">
+                <div className="space-y-4">
+                  <h3 className="text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Confirmar Exclusão</h3>
+                  <p className="text-brand-blue/60 font-bold text-lg leading-relaxed">
                     Tem certeza que deseja excluir esta maquininha?
                   </p>
                   {maquininhaToDelete && (
-                    <p className="text-brand-text-main font-bold text-lg mt-2">
-                      &quot;{maquininhaToDelete.nome}&quot;
-                    </p>
+                    <div className="py-4 px-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-brand-text-main font-black text-xl uppercase italic">
+                        &quot;{maquininhaToDelete.nome}&quot;
+                      </p>
+                    </div>
                   )}
+                  <p className="text-brand-danger font-bold text-xs uppercase tracking-widest">
+                    Esta ação não pode ser desfeita.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-4">

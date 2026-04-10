@@ -249,13 +249,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  const pendingResolvesRef = useRef<Array<() => void>>([]);
+
   const fetchData = useCallback(async (targetTables?: string[]) => {
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
 
     return new Promise<void>((resolve) => {
+      pendingResolvesRef.current.push(resolve);
+      
       fetchTimeoutRef.current = setTimeout(async () => {
+        const resolves = [...pendingResolvesRef.current];
+        pendingResolvesRef.current = [];
+        
         // Get current user from localStorage to avoid dependency cycles
         const storedUser = localStorage.getItem('erp_user');
         const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -276,12 +283,47 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      const fetchAll = async (table: string, select = '*', orderBy?: { column: string, ascending: boolean }) => {
+        let allData: any[] = [];
+        let from = 0;
+        const PAGE_SIZE = 1000;
+        let finished = false;
+        
+        while (!finished) {
+          let q = supabase.from(table).select(select).range(from, from + PAGE_SIZE - 1);
+          if (companyId) {
+            q = q.eq('company_id', companyId);
+          } else {
+            q = q.is('company_id', null);
+          }
+          
+          if (orderBy) {
+            q = q.order(orderBy.column, { ascending: orderBy.ascending });
+          }
+          
+          const { data, error } = await q;
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            if (data.length < PAGE_SIZE) {
+              finished = true;
+            } else {
+              from += PAGE_SIZE;
+            }
+          } else {
+            finished = true;
+          }
+        }
+        return { data: allData, error: null };
+      };
+
       const queries: Record<string, any> = {
-        products: buildQuery('products').order('name', { ascending: true }),
-        customers: buildQuery('customers').order('name', { ascending: true }),
-        suppliers: buildQuery('suppliers').order('name', { ascending: true }),
+        products: fetchAll('products', '*', { column: 'name', ascending: true }),
+        customers: fetchAll('customers', '*', { column: 'name', ascending: true }),
+        suppliers: fetchAll('suppliers', '*', { column: 'name', ascending: true }),
         losses: buildQuery('losses'),
-        expenses: buildQuery('expenses'),
+        expenses: fetchAll('expenses'),
         stock_movements: buildQuery('stock_movements').order('date', { ascending: false }).limit(500),
         inventories: buildQuery('inventories').order('date', { ascending: false }),
         employees: buildQuery('employees'),
@@ -297,7 +339,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         cash_movements: buildQuery('cash_movements').order('created_at', { ascending: false }).limit(200),
         cash_closings: buildQuery('cash_closings').order('closed_at', { ascending: false }).limit(100),
         audit_logs: buildQuery('audit_logs').order('created_at', { ascending: false }).limit(200),
-        produto_lotes: buildQuery('produto_lotes'),
+        produto_lotes: fetchAll('produto_lotes'),
         payment_methods: buildQuery('payment_methods'),
         maquininhas: buildQuery('maquininhas'),
         promotions: buildQuery('promotions'),
@@ -857,7 +899,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       setLosses(INITIAL_LOSSES);
     } finally {
-      resolve();
+      resolves.forEach(r => r());
     }
   }, 500);
 });
