@@ -30,8 +30,9 @@ export function PriceCheckModal({ onClose }: PriceCheckModalProps) {
 
     const term = searchTerm.toLowerCase().trim();
     const product = products.find(p => 
-      p.sku.toLowerCase() === term || 
-      p.name.toLowerCase().includes(term)
+      (p.sku.toLowerCase() === term || 
+      p.name.toLowerCase().includes(term)) &&
+      p.product_type !== 'BASE'
     );
 
     if (product) {

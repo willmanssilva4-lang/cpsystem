@@ -96,6 +96,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     subgroup?: string;
     departamento_id?: string;
     validade?: string;
+    product_type?: 'BASE' | 'SALE' | 'KIT';
+    base_product_id?: string;
+    conversion_factor?: number;
   }>(() => {
     let initialProfit = initialData?.profit ?? '';
     let initialProfitPercentage = initialData?.profitPercentage ?? '';
@@ -152,7 +155,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           return new Date(b.dataEntrada).getTime() - new Date(a.dataEntrada).getTime();
         })[0];
         return latestLote.validade || '';
-      })()
+      })(),
+      product_type: initialData?.product_type || 'SALE',
+      base_product_id: initialData?.base_product_id || '',
+      conversion_factor: initialData?.conversion_factor || 1,
     };
   });
 
@@ -201,6 +207,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     return minStock === Infinity ? 0 : minStock;
   }, [formData.composition, products]);
 
+  const calculatedVirtualStock = React.useMemo(() => {
+    if (formData.product_type !== 'SALE' || !formData.base_product_id || !formData.conversion_factor) return null;
+    
+    const baseProduct = products.find(p => p.id === formData.base_product_id);
+    if (baseProduct) {
+      return Math.floor((Number(baseProduct.stock) || 0) / Number(formData.conversion_factor));
+    }
+    return 0;
+  }, [formData.product_type, formData.base_product_id, formData.conversion_factor, products]);
+
   const [categoryId, setCategoryId] = useState('');
   const [departamentoId, setDepartamentoId] = useState('');
 
@@ -235,9 +251,23 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     }
   }, [initialData, subcategorias, categorias]);
 
+  const displayStock = calculatedKitStock !== null 
+    ? calculatedKitStock 
+    : (calculatedVirtualStock !== null ? calculatedVirtualStock : formData.stock);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newState = { ...prev, [name]: value };
+      
+      // Clear base product info if type is not SALE
+      if (name === 'product_type' && value !== 'SALE') {
+        newState.base_product_id = '';
+        newState.conversion_factor = 1;
+      }
+      
+      return newState;
+    });
   };
 
   const generateSKU = () => {
@@ -339,7 +369,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     const finalData = {
       ...formData,
       codigo_mercadologico: finalCodigoMercadologico,
-      stock: calculatedKitStock !== null ? calculatedKitStock : formData.stock
+      stock: displayStock
     };
     onSave(finalData);
   };
@@ -422,7 +452,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           ))}
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           {activeTab === 'geral' && (
             <form onSubmit={handleSubmit} onKeyDown={handleEnterAsTab} className="p-8 text-brand-text-main">
               <div className="flex flex-col lg:flex-row gap-12">
@@ -782,16 +812,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <input 
                       type="number"
                       name="stock"
-                      value={calculatedKitStock !== null ? calculatedKitStock : formData.stock}
+                      value={displayStock}
                       onChange={handleChange}
-                      readOnly={calculatedKitStock !== null}
+                      readOnly={calculatedKitStock !== null || calculatedVirtualStock !== null}
                       className={cn(
                         "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                        calculatedKitStock !== null ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5"
+                        (calculatedKitStock !== null || calculatedVirtualStock !== null) ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5"
                       )}
                     />
                     {calculatedKitStock !== null && (
                       <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1 text-center">Via Kit</p>
+                    )}
+                    {calculatedVirtualStock !== null && (
+                      <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1 text-center">Via Prod. Base</p>
                     )}
                   </div>
                   <div className="w-24">
@@ -880,29 +913,78 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                 </div>
               </div>
 
-              {/* Section: Composição */}
+              {/* Section: Tipo de Produto */}
               <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Composição</h4>
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Tipo de Produto</h4>
                 <div className="flex flex-wrap gap-4">
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Composição / Ingredientes:</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text"
-                        readOnly
-                        value={formData.composition.length > 0 ? `${formData.composition.length} Itens no Kit` : 'Nenhum'}
-                        className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all cursor-default"
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => setShowCompositionModal(true)}
-                        className="bg-brand-blue text-white px-4 py-2.5 rounded-xl shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center gap-2 text-xs font-black uppercase italic"
-                      >
-                        <Plus size={16} />
-                        Editar Kit
-                      </button>
-                    </div>
+                  <div className="w-48">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo:</label>
+                    <select 
+                      name="product_type"
+                      value={formData.product_type}
+                      onChange={handleChange}
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    >
+                      <option value="SALE">PRODUTO DE VENDA</option>
+                      <option value="BASE">PRODUTO BASE (ESTOQUE)</option>
+                      <option value="KIT">KIT / COMBO</option>
+                    </select>
                   </div>
+
+                  {formData.product_type === 'SALE' && (
+                    <>
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Produto Base (Estoque Real):</label>
+                        <select 
+                          name="base_product_id"
+                          value={formData.base_product_id}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                        >
+                          <option value="">Selecione o produto base...</option>
+                          {products.filter(p => p.product_type === 'BASE' && p.id !== initialData?.id).map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                          ))}
+                          {products.filter(p => p.product_type === 'BASE' && p.id !== initialData?.id).length === 0 && (
+                            <option disabled>Nenhum produto base cadastrado</option>
+                          )}
+                        </select>
+                      </div>
+                      <div className="w-40">
+                        <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fator Conversão:</label>
+                        <input 
+                          type="number"
+                          name="conversion_factor"
+                          value={formData.conversion_factor}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                          placeholder="Ex: 950"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {formData.product_type === 'KIT' && (
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Composição / Ingredientes:</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          readOnly
+                          value={formData.composition.length > 0 ? `${formData.composition.length} Itens no Kit` : 'Nenhum'}
+                          className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all cursor-default"
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => setShowCompositionModal(true)}
+                          className="bg-brand-blue text-white px-4 py-2.5 rounded-xl shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center gap-2 text-xs font-black uppercase italic"
+                        >
+                          <Plus size={16} />
+                          Editar Kit
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1163,7 +1245,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-500">Saldo Atual:</span>
-                        <span className="text-sm font-black text-slate-700">{formData.stock} UN</span>
+                        <span className="text-sm font-black text-slate-700">{displayStock} UN</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-500">Ajuste:</span>
@@ -1178,7 +1260,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-700">Novo Saldo:</span>
                         <span className="text-lg font-black text-brand-blue">
-                          {formData.stock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)} UN
+                          {displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)} UN
                         </span>
                       </div>
                     </div>
@@ -1880,7 +1962,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         return;
                       }
                       const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
-                      onSave({ ...formData, costPrice, stock: calculatedKitStock !== null ? calculatedKitStock : formData.stock });
+                      onSave({ ...formData, costPrice, stock: displayStock });
                       setShowCompositionModal(false);
                     }}
                     className="bg-brand-blue-hover hover:bg-brand-text-sec text-white px-8 py-3 rounded-2xl font-black uppercase italic text-xs tracking-widest shadow-lg shadow-brand-blue-hover/30 transition-all active:scale-95"

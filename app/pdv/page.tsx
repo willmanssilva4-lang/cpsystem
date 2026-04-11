@@ -258,8 +258,8 @@ export default function PDVPage() {
     for (const item of cart) {
       const currentProduct = products.find(p => p.id === item.product.id);
       console.log('DEBUG: finalizeSale', { product: currentProduct?.name, controlStock: currentProduct?.controlStock, stock: currentProduct?.stock, minStock: currentProduct?.minStock, qty: item.quantity });
-      if (currentProduct && currentProduct.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - item.quantity) < (currentProduct.minStock || 1)) {
-        setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente para esta venda (Estoque: ${currentProduct.stock}, Mínimo: ${currentProduct.minStock || 1}).`, type: 'error' });
+      if (currentProduct && currentProduct.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - item.quantity) < 0) {
+        setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente para esta venda (Estoque disponível: ${currentProduct.stock}).`, type: 'error' });
         return;
       }
     }
@@ -847,7 +847,7 @@ export default function PDVPage() {
     setBarcode(value);
     
     // Search by barcode (exact match)
-    const product = products.find(p => p.sku === value && p.status !== 'Inativo');
+    const product = products.find(p => p.sku === value && p.status !== 'Inativo' && p.product_type !== 'BASE');
     if (product) {
       setCurrentProduct(product);
       setSearchResults([]);
@@ -859,7 +859,8 @@ export default function PDVPage() {
         const filtered = products.filter(p => 
           (p.name.toLowerCase().includes(value.toLowerCase()) ||
           p.sku.toLowerCase().includes(value.toLowerCase())) &&
-          p.status !== 'Inativo'
+          p.status !== 'Inativo' &&
+          p.product_type !== 'BASE'
         ).slice(0, 50); // Limit results
         setSearchResults(filtered);
         setSelectedIndex(filtered.length > 0 ? 0 : -1);
@@ -898,7 +899,7 @@ export default function PDVPage() {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (searchResults.length === 0 && barcode.length === 0) {
-        setSearchResults(products.filter(p => p.status !== 'Inativo').slice(0, 50));
+        setSearchResults(products.filter(p => p.status !== 'Inativo' && p.product_type !== 'BASE').slice(0, 50));
         setSelectedIndex(0);
       } else {
         setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));

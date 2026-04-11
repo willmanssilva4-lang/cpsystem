@@ -17,6 +17,7 @@ export interface HelpCategory {
 
 export const HELP_CATEGORIES: HelpCategory[] = [
   { id: 'pdv', label: 'PDV', icon: ShoppingCart },
+  { id: 'produtos', label: 'Produtos', icon: BookOpen },
   { id: 'vendas', label: 'Vendas', icon: ShoppingBag },
   { id: 'estoque', label: 'Estoque', icon: Package },
   { id: 'compras', label: 'Compras', icon: Users },
@@ -32,145 +33,159 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'pdv',
     title: 'Como fazer uma venda',
     steps: [
-      'Abra o PDV no menu lateral ou atalho',
-      'Passe o código de barras no leitor ou digite o código do produto',
-      'Pressione F4 se precisar alterar a quantidade do item',
+      'Abra o PDV no menu lateral ou use o atalho correspondente',
+      'Passe o código de barras no leitor ou digite o código/SKU do produto',
+      'Pressione F4 se precisar alterar a quantidade do item antes de bipar',
       'Pressione F10 para iniciar o fechamento da venda',
-      'Escolha a forma de pagamento e confirme com Enter',
-      'Aguarde a impressão do cupom e finalize'
+      'Escolha a forma de pagamento (Dinheiro, Cartão, PIX)',
+      'Confirme o valor recebido e pressione Enter para finalizar',
+      'O sistema registrará a venda e atualizará o estoque automaticamente'
     ],
-    tip: 'Use o atalho F3 para buscar produtos manualmente pelo nome.'
+    tip: 'Use o atalho F3 para buscar produtos manualmente pelo nome ou Alt+L para ver a lista completa.'
   },
   {
     id: 'desconto-pdv',
     category: 'pdv',
-    title: 'Como aplicar desconto',
+    title: 'Como aplicar descontos',
     steps: [
-      'Durante a venda, pressione F6 para desconto no item ou F7 para desconto na venda total',
-      'Informe o valor ou porcentagem do desconto',
-      'Pressione Enter para confirmar',
-      'Caso não tenha permissão, será solicitada a senha do gerente (F12)'
+      'Para desconto no item: Pressione F6, informe o item e o valor/porcentagem',
+      'Para desconto no total: Pressione F7 na tela de fechamento (F10)',
+      'Informe o valor ou porcentagem do desconto desejado',
+      'Pressione Enter para confirmar a aplicação',
+      'Caso o usuário não tenha permissão, será solicitada a senha do gerente'
     ]
   },
   {
     id: 'cancelar-item-pdv',
     category: 'pdv',
-    title: 'Como cancelar item',
+    title: 'Como cancelar itens ou vendas',
     steps: [
-      'Pressione F8 para abrir a tela de cancelamento de item',
-      'Digite o número do item que deseja cancelar (ex: 1, 2, 3)',
-      'Confirme o cancelamento com Enter',
-      'O item será removido e o total da venda atualizado'
+      'Cancelar Item: Pressione F8, digite o número do item na lista e confirme',
+      'Cancelar Venda Total: Pressione F9 antes de finalizar o pagamento',
+      'Confirme a intenção de cancelamento no alerta que aparecerá',
+      'O sistema limpará o carrinho e voltará para o início da venda'
     ]
   },
   {
-    id: 'finalizar-venda-pdv',
+    id: 'consulta-preco-pdv',
     category: 'pdv',
-    title: 'Como finalizar venda',
+    title: 'Como consultar preços rapidamente',
     steps: [
-      'Após inserir todos os itens, pressione F10',
-      'Selecione a forma de pagamento (Dinheiro, Cartão, PIX)',
-      'Informe o valor recebido para cálculo de troco se necessário',
-      'Pressione Enter para concluir a transação'
+      'No PDV, pressione a tecla F3',
+      'Bipe o produto ou digite parte do nome/SKU',
+      'O sistema exibirá o preço de venda e o saldo em estoque',
+      'Pressione ESC para fechar a consulta e continuar a venda'
     ]
   },
+
+  // Produtos
   {
-    id: 'devolucao-pdv',
-    category: 'pdv',
-    title: 'Como fazer uma devolução',
+    id: 'produto-base-estoque',
+    category: 'produtos',
+    title: 'Como cadastrar Produto Base (Estoque Real)',
     steps: [
-      'Acesse o menu Vendas',
-      'Clique em Devoluções / Estornos',
-      'Busque o número do cupom ou nota fiscal',
-      'Selecione o produto que será devolvido',
-      'Informe a quantidade a ser devolvida',
-      'Escolha a forma de devolução (Crédito, Dinheiro, Estorno)',
-      'Clique em confirmar para finalizar'
+      'Vá em Cadastro > Produtos > Novo Produto',
+      'No campo "Tipo de Produto", selecione "PRODUTO BASE (ESTOQUE)"',
+      'Defina a unidade de medida real (ex: ML para líquidos, GR para peso)',
+      'Este produto NÃO aparecerá no PDV para venda direta',
+      'Ele servirá como o "tanque" de estoque para outros produtos de venda'
     ],
-    tip: 'Sempre confira o estado do produto antes de confirmar a devolução.'
+    tip: 'Use este tipo para itens que você compra em fardo/litro mas vende fracionado.'
   },
+  {
+    id: 'produto-venda-estoque',
+    category: 'produtos',
+    title: 'Como cadastrar Produto de Venda (com Conversão)',
+    steps: [
+      'Vá em Cadastro > Produtos > Novo Produto',
+      'No campo "Tipo de Produto", selecione "PRODUTO DE VENDA"',
+      'Selecione o "Produto Base" ao qual este item pertence',
+      'Informe o "Fator de Conversão" (ex: se vende garrafa de 1L e a base é ML, coloque 1000)',
+      'Defina o preço de venda para esta unidade específica',
+      'Ao vender este item, o sistema baixará a quantidade exata do Produto Base'
+    ]
+  },
+  {
+    id: 'produto-kit-estoque',
+    category: 'produtos',
+    title: 'Como cadastrar KIT / Combo',
+    steps: [
+      'Vá em Cadastro > Produtos > Novo Produto',
+      'No campo "Tipo de Produto", selecione "KIT / COMBO"',
+      'Clique em "Composição" para adicionar os itens que compõem o kit',
+      'Selecione os Produtos Base e informe a quantidade de cada um no kit',
+      'O sistema calculará o custo total baseado na composição',
+      'O estoque do KIT é calculado automaticamente baseado na disponibilidade dos itens base'
+    ]
+  },
+
   // Estoque
   {
     id: 'inventario-estoque',
     category: 'estoque',
-    title: 'Como fazer inventário',
+    title: 'Como realizar um Inventário',
     steps: [
       'Acesse Menu > Estoque > Inventário',
-      'Inicie um novo inventário selecionando o setor',
-      'Conte os produtos fisicamente e lance as quantidades no sistema',
-      'Confira as divergências apontadas pelo sistema',
-      'Finalize para atualizar o saldo real do estoque'
+      'Clique em "Novo Inventário" e selecione o setor ou categoria',
+      'Bipe os produtos ou digite a quantidade contada fisicamente',
+      'O sistema mostrará a divergência entre o estoque atual e o contado',
+      'Clique em "Finalizar" para que o sistema ajuste os saldos automaticamente'
     ]
   },
+
+  // Compras
   {
-    id: 'ajuste-estoque',
-    category: 'estoque',
-    title: 'Como ajustar estoque',
+    id: 'registrar-compra',
+    category: 'compras',
+    title: 'Como registrar entrada de mercadorias',
     steps: [
-      'Busque o produto no cadastro de produtos',
-      'Clique na aba Estoque ou no botão Ajustar',
-      'Informe o novo saldo ou a movimentação (entrada/saída)',
-      'Justifique o motivo do ajuste',
-      'Salve as alterações'
-    ]
+      'Acesse Menu > Compras > Nova Compra',
+      'Selecione o fornecedor e a data da nota',
+      'Adicione os produtos comprados e suas quantidades',
+      'Confira se o preço de custo mudou (o sistema atualizará o cadastro)',
+      'Ao finalizar, o estoque será alimentado automaticamente',
+      'O sistema também gerará a conta a pagar no financeiro se desejar'
+    ],
+    tip: 'Se comprar um Produto de Venda, o sistema converterá automaticamente para o estoque do Produto Base.'
   },
-  {
-    id: 'perdas-estoque',
-    category: 'estoque',
-    title: 'Como lançar perdas',
-    steps: [
-      'Vá em Estoque > Movimentações > Lançar Perda',
-      'Selecione o produto e a quantidade perdida',
-      'Informe o motivo (Quebra, Vencimento, Furto, etc)',
-      'Confirme o lançamento para baixar do estoque'
-    ]
-  },
-  {
-    id: 'vencimento-estoque',
-    category: 'estoque',
-    title: 'Como ver produtos vencendo',
-    steps: [
-      'Acesse Relatórios > Estoque > Validade de Produtos',
-      'Filtre pelo período desejado (ex: próximos 30 dias)',
-      'O sistema listará todos os lotes próximos ao vencimento',
-      'Você pode exportar essa lista ou gerar alertas'
-    ]
-  },
+
   // Financeiro
   {
-    id: 'contas-pagar-financeiro',
+    id: 'fechamento-caixa',
     category: 'financeiro',
-    title: 'Como lançar conta a pagar',
+    title: 'Como realizar o Fechamento de Caixa',
     steps: [
-      'Acesse Financeiro > Contas a Pagar > Novo Lançamento',
-      'Selecione o fornecedor e a categoria de despesa',
-      'Informe o valor, data de vencimento e documento',
-      'Defina se a conta é recorrente ou única',
-      'Clique em Salvar'
+      'No final do turno, acesse Financeiro > Fechar Caixa',
+      'Confira os totais por forma de pagamento (Dinheiro, Cartão, etc)',
+      'Realize a "Sangria" do valor que será retirado do caixa físico',
+      'Informe o valor final em mãos para conferência',
+      'Clique em "Confirmar Fechamento" para gerar o relatório do turno'
     ]
   },
   {
-    id: 'pagamento-financeiro',
+    id: 'sangria-suprimento',
     category: 'financeiro',
-    title: 'Como registrar pagamento',
+    title: 'Como fazer Sangria ou Suprimento',
     steps: [
-      'Localize a conta no Contas a Pagar ou Receber',
-      'Clique no botão Baixar ou Pagar',
-      'Confirme a data do pagamento e a conta bancária/caixa utilizada',
-      'Informe descontos ou juros se houver',
-      'Confirme a operação'
+      'Sangria (Retirada): Use Ctrl + S no PDV ou vá em Financeiro',
+      'Suprimento (Entrada): Use Ctrl + U no PDV ou vá em Financeiro',
+      'Informe o valor e o motivo da movimentação',
+      'Confirme para que o saldo do caixa atual seja atualizado',
+      'Essas movimentações aparecerão no relatório de fechamento'
     ]
   },
+
+  // Relatórios
   {
-    id: 'conferir-caixa-financeiro',
-    category: 'financeiro',
-    title: 'Como conferir caixa',
+    id: 'relatorio-vendas',
+    category: 'relatorios',
+    title: 'Como analisar vendas e lucratividade',
     steps: [
-      'No final do expediente, acesse Financeiro > Fluxo de Caixa',
-      'Selecione o caixa e o período',
-      'Compare o saldo físico com o saldo do sistema',
-      'Verifique as sangrias e suprimentos realizados',
-      'Realize o fechamento do caixa'
+      'Acesse Menu > Relatórios > Vendas',
+      'Filtre pelo período desejado (hoje, semana, mês)',
+      'Analise o gráfico de faturamento e o ticket médio',
+      'Veja o "Lucro Bruto" calculado com base no custo vs venda',
+      'Identifique os "Produtos Mais Vendidos" para planejar compras'
     ]
   }
 ];

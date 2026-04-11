@@ -491,11 +491,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           supplier: p.supplier,
           validade: p.validade,
           has_had_stock: p.has_had_stock,
-          controlStock: p.control_stock
+          controlStock: p.control_stock,
+          product_type: p.product_type || 'SALE',
+          base_product_id: p.base_product_id,
+          conversion_factor: p.conversion_factor ? Number(p.conversion_factor) : 1
         }));
 
-        // Calculate virtual stock for kits
+        // Calculate virtual stock for kits and sale products with conversion
         const finalProducts = baseProducts.map((p: any) => {
+          // Case 1: KIT (Composition)
           if (p.composition && p.composition.length > 0) {
             let possibleStock = Infinity;
             p.composition.forEach((item: CompositionItem) => {
@@ -512,6 +516,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             });
             return { ...p, stock: possibleStock === Infinity ? 0 : possibleStock };
           }
+          
+          // Case 2: SALE product with BASE product and conversion factor
+          if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
+            const baseProduct = baseProducts.find((bp: any) => bp.id === p.base_product_id);
+            if (baseProduct) {
+              const virtualStock = Math.floor((Number(baseProduct.stock) || 0) / p.conversion_factor);
+              return { ...p, stock: virtualStock };
+            }
+          }
+          
           return p;
         });
 
@@ -1266,13 +1280,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       has_had_stock: product.stock > 0,
       control_stock: product.controlStock,
       category: product.category,
-      subgroup: product.subgroup
+      subgroup: product.subgroup,
+      product_type: product.product_type || 'SALE',
+      base_product_id: product.base_product_id || null,
+      conversion_factor: (product.conversion_factor === '' || product.conversion_factor === undefined || product.conversion_factor === null) ? 1 : Number(product.conversion_factor)
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (insertData as any).composition;
       if (error.message.includes('status')) delete (insertData as any).status;
@@ -1282,6 +1299,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('subgroup')) delete (insertData as any).subgroup;
       if (error.message.includes('wholesale_price')) delete (insertData as any).wholesale_price;
       if (error.message.includes('control_stock')) delete (insertData as any).control_stock;
+      if (error.message.includes('product_type')) delete (insertData as any).product_type;
+      if (error.message.includes('base_product_id')) delete (insertData as any).base_product_id;
+      if (error.message.includes('conversion_factor')) delete (insertData as any).conversion_factor;
       
       const retry = await supabase.from('products').insert([insertData]).select();
       data = retry.data;
@@ -1289,7 +1309,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       
       if (!error && !skipFetch) {
         setCustomAlert({
-          message: 'Produto salvo, mas alguns campos (como Status, Composição, Cód. Mercadológico ou Validade) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (fix_schema_issues.sql) no seu painel do Supabase.',
+          message: 'Produto salvo, mas alguns campos (como Tipo de Produto, Produto Base ou Fator de Conversão) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (update_product_types.sql) no seu painel do Supabase.',
           type: 'warning'
         });
       }
@@ -1303,7 +1323,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       });
       return false;
     } else if (data) {
-      if (!skipFetch) await fetchData();
+      if (!skipFetch) {
+        // Update local state manually to include fields that might not be in DB yet
+        const newProduct = { ...product, ...insertData, id: data[0].id };
+        setProducts(prev => [newProduct as Product, ...prev]);
+      }
       return true;
     }
     return false;
@@ -1347,13 +1371,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       has_had_stock: updated.stock > 0 || updated.has_had_stock,
       control_stock: updated.controlStock,
       category: updated.category,
-      subgroup: updated.subgroup
+      subgroup: updated.subgroup,
+      product_type: updated.product_type || 'SALE',
+      base_product_id: updated.base_product_id || null,
+      conversion_factor: (updated.conversion_factor === '' || updated.conversion_factor === undefined || updated.conversion_factor === null) ? 1 : Number(updated.conversion_factor)
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (updateData as any).composition;
       if (error.message.includes('status')) delete (updateData as any).status;
@@ -1363,13 +1390,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('subgroup')) delete (updateData as any).subgroup;
       if (error.message.includes('wholesale_price')) delete (updateData as any).wholesale_price;
       if (error.message.includes('control_stock')) delete (updateData as any).control_stock;
+      if (error.message.includes('product_type')) delete (updateData as any).product_type;
+      if (error.message.includes('base_product_id')) delete (updateData as any).base_product_id;
+      if (error.message.includes('conversion_factor')) delete (updateData as any).conversion_factor;
 
       const retry = await supabase.from('products').update(updateData).eq('id', updated.id);
       error = retry.error;
       
       if (!error) {
         setCustomAlert({
-          message: 'Produto atualizado, mas alguns campos (como Status, Composição, Cód. Mercadológico ou Validade) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (fix_schema_issues.sql) no seu painel do Supabase.',
+          message: 'Produto atualizado, mas alguns campos (como Tipo de Produto, Produto Base ou Fator de Conversão) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (update_product_types.sql) no seu painel do Supabase.',
           type: 'warning'
         });
       }
@@ -1383,7 +1413,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       });
       return false;
     } else {
-      await fetchData();
+      // Update local state manually to include fields that might not be in DB yet
+      setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated, ...updateData } : p));
       return true;
     }
   };
@@ -1555,6 +1586,17 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             if (moveError) {
               console.error('Supabase error inserting stock movement:', JSON.stringify(moveError));
               alert(`Erro ao registrar movimentação de estoque: ${JSON.stringify(moveError)}`);
+            }
+
+            if (product.product_type === 'SALE' && product.base_product_id && product.conversion_factor) {
+              const baseProduct = products.find(p => p.id === product.base_product_id);
+              if (baseProduct) {
+                const qtyToDeduct = item.quantity * product.conversion_factor;
+                await supabase.from('products').update({ 
+                  company_id: user?.companyId || null, 
+                  stock: baseProduct.stock - qtyToDeduct 
+                }).eq('id', baseProduct.id);
+              }
             }
 
             if (product.composition && product.composition.length > 0) {
@@ -1968,6 +2010,17 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (product) {
         const updatePayload: any = { company_id: user?.companyId || null };
         
+        if (product.product_type === 'SALE' && product.base_product_id && product.conversion_factor) {
+          const baseProduct = products.find(p => p.id === product.base_product_id);
+          if (baseProduct) {
+            const qtyToAdd = movement.quantity * product.conversion_factor;
+            await supabase.from('products').update({
+              company_id: user?.companyId || null,
+              stock: baseProduct.stock + qtyToAdd
+            }).eq('id', baseProduct.id);
+          }
+        }
+
         if (movement.type !== 'COMPRA') {
           updatePayload.stock = product.stock + movement.quantity;
         }

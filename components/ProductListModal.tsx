@@ -17,7 +17,8 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
   const listRef = useRef<HTMLDivElement>(null);
 
   const filteredProducts = React.useMemo(() => products.filter(p => 
-    p.status !== 'Inativo' && (
+    p.status !== 'Inativo' && 
+    p.product_type !== 'BASE' && (
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.barcode && p.barcode.includes(searchTerm))

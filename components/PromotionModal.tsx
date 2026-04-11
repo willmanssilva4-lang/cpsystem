@@ -131,7 +131,7 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
   };
 
   const filteredProducts = searchTerm 
-    ? products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm))
+    ? products.filter(p => (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm)) && p.product_type !== 'BASE')
     : [];
 
   return (

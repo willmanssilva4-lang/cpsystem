@@ -316,7 +316,10 @@ export default function ProductsPage() {
         controlStock: formData.controlStock,
         subcategoria_id: formData.subcategoria_id,
         category: formData.category || 'PADRAO',
-        subgroup: formData.subgroup || 'PADRAO'
+        subgroup: formData.subgroup || 'PADRAO',
+        product_type: formData.product_type,
+        base_product_id: formData.base_product_id,
+        conversion_factor: Number(formData.conversion_factor || 1)
       });
     } else {
       success = await addProduct({
@@ -341,7 +344,10 @@ export default function ProductsPage() {
         controlStock: formData.controlStock,
         category: formData.category || 'PADRAO',
         subgroup: formData.subgroup || 'PADRAO',
-        companyId: user?.companyId || ''
+        companyId: user?.companyId || '',
+        product_type: formData.product_type,
+        base_product_id: formData.base_product_id,
+        conversion_factor: Number(formData.conversion_factor || 1)
       } as any);
     }
 

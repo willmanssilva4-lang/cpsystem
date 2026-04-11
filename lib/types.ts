@@ -70,6 +70,9 @@ export interface Product {
   has_had_stock?: boolean;
   barcode?: string;
   controlStock?: string;
+  product_type?: 'BASE' | 'SALE' | 'KIT';
+  base_product_id?: string;
+  conversion_factor?: number;
 }
 
 export interface CashRegister {
