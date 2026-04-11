@@ -1266,24 +1266,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       name: product.name,
       subcategoria_id: product.subcategoria_id === '' ? null : product.subcategoria_id,
       sku: product.sku,
-      cost_price: (product.costPrice === '' || product.costPrice === undefined || product.costPrice === null) ? 0 : Number(product.costPrice),
-      sale_price: (product.salePrice === '' || product.salePrice === undefined || product.salePrice === null) ? 0 : Number(product.salePrice),
-      wholesale_price: (product.wholesalePrice === '' || product.wholesalePrice === undefined || product.wholesalePrice === null) ? 0 : Number(product.wholesalePrice),
-      club_price: (product.clubPrice === '' || product.clubPrice === undefined || product.clubPrice === null) ? 0 : Number(product.clubPrice),
-      stock: (product.stock === '' || product.stock === undefined || product.stock === null) ? 0 : Number(product.stock),
-      min_stock: (product.minStock === '' || product.minStock === undefined || product.minStock === null) ? 0 : Number(product.minStock),
+      cost_price: Number(product.costPrice) || 0,
+      sale_price: Number(product.salePrice) || 0,
+      wholesale_price: Number(product.wholesalePrice) || 0,
+      club_price: Number(product.clubPrice) || 0,
+      stock: Number(product.stock) || 0,
+      min_stock: Number(product.minStock) || 0,
       image: product.image,
       composition: product.composition,
-      status: (product.status && String(product.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
+      status: ((product.status && String(product.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
       codigo_mercadologico: product.codigo_mercadologico,
       validade: product.validade || null,
-      has_had_stock: product.stock > 0,
+      has_had_stock: Number(product.stock) > 0,
       control_stock: product.controlStock,
       category: product.category,
       subgroup: product.subgroup,
       product_type: product.product_type || 'SALE',
       base_product_id: product.base_product_id || null,
-      conversion_factor: (product.conversion_factor === '' || product.conversion_factor === undefined || product.conversion_factor === null) ? 1 : Number(product.conversion_factor)
+      conversion_factor: Number(product.conversion_factor) || 1
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
@@ -1325,7 +1325,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else if (data) {
       if (!skipFetch) {
         // Update local state manually to include fields that might not be in DB yet
-        const newProduct = { ...product, ...insertData, id: data[0].id };
+        // We only spread fields that exist in the Product interface
+        const newProduct = { ...product, id: data[0].id };
         setProducts(prev => [newProduct as Product, ...prev]);
       }
       return true;
@@ -1357,24 +1358,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       name: updated.name,
       subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
       sku: updated.sku,
-      cost_price: (updated.costPrice === '' || updated.costPrice === undefined || updated.costPrice === null) ? 0 : Number(updated.costPrice),
-      sale_price: (updated.salePrice === '' || updated.salePrice === undefined || updated.salePrice === null) ? 0 : Number(updated.salePrice),
-      wholesale_price: (updated.wholesalePrice === '' || updated.wholesalePrice === undefined || updated.wholesalePrice === null) ? 0 : Number(updated.wholesalePrice),
-      club_price: (updated.clubPrice === '' || updated.clubPrice === undefined || updated.clubPrice === null) ? 0 : Number(updated.clubPrice),
-      stock: (updated.stock === '' || updated.stock === undefined || updated.stock === null) ? 0 : Number(updated.stock),
-      min_stock: (updated.minStock === '' || updated.minStock === undefined || updated.minStock === null) ? 0 : Number(updated.minStock),
+      cost_price: Number(updated.costPrice) || 0,
+      sale_price: Number(updated.salePrice) || 0,
+      wholesale_price: Number(updated.wholesalePrice) || 0,
+      club_price: Number(updated.clubPrice) || 0,
+      stock: Number(updated.stock) || 0,
+      min_stock: Number(updated.minStock) || 0,
       image: updated.image,
       composition: updated.composition,
-      status: (updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
+      status: ((updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
       codigo_mercadologico: updated.codigo_mercadologico,
       validade: updated.validade || null,
-      has_had_stock: updated.stock > 0 || updated.has_had_stock,
+      has_had_stock: Number(updated.stock) > 0 || updated.has_had_stock,
       control_stock: updated.controlStock,
       category: updated.category,
       subgroup: updated.subgroup,
       product_type: updated.product_type || 'SALE',
       base_product_id: updated.base_product_id || null,
-      conversion_factor: (updated.conversion_factor === '' || updated.conversion_factor === undefined || updated.conversion_factor === null) ? 1 : Number(updated.conversion_factor)
+      conversion_factor: Number(updated.conversion_factor) || 1
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
@@ -1414,7 +1415,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return false;
     } else {
       // Update local state manually to include fields that might not be in DB yet
-      setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated, ...updateData } : p));
+      setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
       return true;
     }
   };
