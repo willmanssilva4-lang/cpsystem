@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -91,8 +91,20 @@ export default function ReportsPage() {
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
-  const [startDate, setStartDate] = useState(toLocalDateString(new Date().toISOString()));
-  const [endDate, setEndDate] = useState(toLocalDateString(new Date().toISOString()));
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  useEffect(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const localDate = `${year}-${month}-${day}`;
+    // eslint-disable-next-line
+    setStartDate(localDate);
+    // eslint-disable-next-line
+    setEndDate(localDate);
+  }, []);
 
   // Dynamic Data Calculations for Dashboard
   const filteredSales = React.useMemo(() => sales.filter(s => {
@@ -202,6 +214,7 @@ export default function ReportsPage() {
 
   // Dados reais por semana para o gráfico de projeção/histórico
   const projectionData = React.useMemo(() => {
+    if (!startDate) return [];
     return [0, 1, 2, 3].map(i => {
       const start = new Date(startDate);
       start.setDate(start.getDate() + (i * 7));
@@ -653,16 +666,30 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [reportType, setReportType] = useState('Relatório de Vendas');
+
+  useEffect(() => {
+    if (initialStartDate) {
+      // eslint-disable-next-line
+      setStartDate(initialStartDate);
+    }
+    if (initialEndDate) {
+      // eslint-disable-next-line
+      setEndDate(initialEndDate);
+    }
+  }, [initialStartDate, initialEndDate]);
+
+  const safeStartDate = startDate || new Date().toISOString().split('T')[0];
+  const safeEndDate = endDate || new Date().toISOString().split('T')[0];
   
   // Filter data based on date range
   const filteredSales = sales.filter(s => {
     const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
+    return d >= safeStartDate && d <= safeEndDate;
   });
 
   const filteredExpenses = expenses.filter(e => {
     const d = e.date.split('T')[0];
-    return d >= startDate && d <= endDate;
+    return d >= safeStartDate && d <= safeEndDate;
   });
 
   // Calculate Metrics
@@ -693,8 +720,8 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const promoSalesCount = filteredSales.filter(s => s.items.some(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
 
   // Previous Period Data for Trends
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = new Date(safeStartDate);
+  const end = new Date(safeEndDate);
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
@@ -751,7 +778,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     let filename = 'relatorio';
 
     if (reportType === 'Relatório de Vendas') {
-      filename = `vendas_${startDate}_${endDate}`;
+      filename = `vendas_${safeStartDate}_${safeEndDate}`;
       dataToExport = filteredSales.map(s => {
         const customer = customers.find(c => c.id === s.customerId);
         const seller = systemUsers.find(u => u.id === s.userId);
@@ -768,7 +795,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
         };
       });
     } else if (reportType === 'Relatório Financeiro') {
-      filename = `financeiro_${startDate}_${endDate}`;
+      filename = `financeiro_${safeStartDate}_${safeEndDate}`;
       dataToExport = filteredExpenses.map(e => ({
         'Data': new Date(e.date).toLocaleDateString('pt-BR'),
         'Descrição': e.description,
@@ -888,8 +915,10 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
 
   // Dados reais por semana para o gráfico de projeção/histórico
   const secondProjectionData = React.useMemo(() => {
+    const sDate = startDate || new Date().toISOString().split('T')[0];
+    const eDate = endDate || new Date().toISOString().split('T')[0];
     return [0, 1, 2, 3].map(i => {
-      const start = new Date(startDate);
+      const start = new Date(sDate);
       start.setDate(start.getDate() + (i * 7));
       const end = new Date(start);
       end.setDate(end.getDate() + 7);
@@ -897,13 +926,13 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
       const weekSales = sales.filter(s => {
         const d = new Date(s.date);
         const dateStr = toLocalDateString(s.date);
-        return dateStr >= startDate && dateStr <= endDate && d >= start && d < end;
+        return dateStr >= sDate && dateStr <= eDate && d >= start && d < end;
       }).reduce((acc, s) => acc + s.total, 0);
       
       const weekExpenses = expenses.filter(e => {
         const d = new Date(e.date);
         const dateStr = toLocalDateString(e.date);
-        return dateStr >= startDate && dateStr <= endDate && d >= start && d < end;
+        return dateStr >= sDate && dateStr <= eDate && d >= start && d < end;
       }).reduce((acc, e) => acc + e.amount, 0);
       
       return {
@@ -945,10 +974,6 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
               >
                 <Download size={14} />
                 Exportar Excel
-              </button>
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-                <Printer size={14} className="text-blue-600" />
-                Imprimir Dashboard
               </button>
             </div>
           </div>

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'next/navigation';
 
 export default function SalesAuditPage() {
-  const { discountLogs, returns, auditLogs, systemUsers, hasPermission } = useERP();
+  const { discountLogs, returns, auditLogs, systemUsers, hasPermission, products } = useERP();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('query') || '';
   
@@ -77,6 +77,66 @@ export default function SalesAuditPage() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [discountLogs, returns, auditLogs, startDate, endDate, filterType, searchQuery]);
+
+  const renderFriendlyData = (data: any) => {
+    if (!data) return null;
+
+    // Check if it's a sale
+    if (data.items && Array.isArray(data.items) && data.total !== undefined) {
+      return (
+        <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-brand-border shadow-inner">
+          <div className="flex justify-between items-center border-b border-brand-border pb-4">
+            <h4 className="text-xs font-black text-brand-text-main uppercase tracking-widest">Resumo da Operação</h4>
+            <span className="text-sm font-black text-brand-blue">TOTAL: R$ {data.total.toFixed(2)}</span>
+          </div>
+          
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Itens</p>
+            {data.items.map((item: any, idx: number) => {
+              const product = products.find(p => p.id === item.productId);
+              return (
+                <div key={idx} className="flex justify-between text-xs font-bold text-brand-text-main">
+                  <span className="flex-1 truncate mr-4">{item.quantity}x {product?.name || 'Produto não encontrado'}</span>
+                  <span className="whitespace-nowrap">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {data.payments && data.payments.length > 0 && (
+            <div className="space-y-3 pt-4 border-t border-brand-border">
+              <p className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Formas de Pagamento</p>
+              {data.payments.map((pay: any, idx: number) => (
+                <div key={idx} className="flex justify-between text-xs font-bold text-brand-text-main">
+                  <span className="uppercase">{pay.method}</span>
+                  <span>R$ {pay.amount.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <div className="pt-4 border-t border-brand-border flex flex-col gap-1">
+            <div className="flex justify-between text-[10px] font-bold text-brand-text-sec uppercase tracking-widest">
+              <span>Subtotal</span>
+              <span>R$ {data.subtotal?.toFixed(2) || data.total.toFixed(2)}</span>
+            </div>
+            {data.discount > 0 && (
+              <div className="flex justify-between text-[10px] font-bold text-rose-500 uppercase tracking-widest">
+                <span>Desconto</span>
+                <span>- R$ {data.discount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs font-black text-brand-text-main uppercase tracking-widest pt-1">
+              <span>Líquido</span>
+              <span>R$ {data.total.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   if (!hasPermission('Vendas', 'view')) {
     return (
@@ -333,23 +393,44 @@ export default function SalesAuditPage() {
                 )}
 
                 {selectedEvent.isAuditLog && (selectedEvent.rawData?.oldData || selectedEvent.rawData?.newData) && (
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Dados da Operação (JSON)</label>
-                    <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-brand-border" />
+                      <label className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Dados da Operação</label>
+                      <div className="h-px flex-1 bg-brand-border" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-6">
                       {selectedEvent.rawData.oldData && (
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Estado Anterior</p>
-                          <pre className="p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
-                            {JSON.stringify(selectedEvent.rawData.oldData, null, 2)}
-                          </pre>
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                            <RotateCcw size={12} /> Estado Anterior
+                          </p>
+                          {renderFriendlyData(selectedEvent.rawData.oldData)}
+                          <details className="group">
+                            <summary className="text-[10px] font-bold text-brand-text-sec uppercase tracking-widest cursor-pointer hover:text-brand-blue transition-colors list-none flex items-center gap-1">
+                              <span>Ver JSON Bruto</span>
+                            </summary>
+                            <pre className="mt-2 p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
+                              {JSON.stringify(selectedEvent.rawData.oldData, null, 2)}
+                            </pre>
+                          </details>
                         </div>
                       )}
                       {selectedEvent.rawData.newData && (
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Novo Estado / Dados Enviados</p>
-                          <pre className="p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
-                            {JSON.stringify(selectedEvent.rawData.newData, null, 2)}
-                          </pre>
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                            <CheckCircle2 size={12} /> Novo Estado / Dados Enviados
+                          </p>
+                          {renderFriendlyData(selectedEvent.rawData.newData)}
+                          <details className="group">
+                            <summary className="text-[10px] font-bold text-brand-text-sec uppercase tracking-widest cursor-pointer hover:text-brand-blue transition-colors list-none flex items-center gap-1">
+                              <span>Ver JSON Bruto</span>
+                            </summary>
+                            <pre className="mt-2 p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
+                              {JSON.stringify(selectedEvent.rawData.newData, null, 2)}
+                            </pre>
+                          </details>
                         </div>
                       )}
                     </div>

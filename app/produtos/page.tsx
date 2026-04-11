@@ -35,7 +35,7 @@ import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert, fetchData } = useERP();
+  const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, deleteInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert, fetchData } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -303,13 +303,14 @@ export default function ProductsPage() {
       success = await updateProduct({
         ...editingProduct,
         ...formData,
-        costPrice: Number(formData.costPrice),
-        salePrice: Number(formData.salePrice),
-        wholesalePrice: formData.wholesalePrice ? Number(formData.wholesalePrice) : undefined,
-        stock: Number(formData.stock),
-        minStock: Number(formData.minStock),
-        profit: Number(formData.profit),
-        profitPercentage: Number(formData.profitPercentage),
+        costPrice: Number(formData.costPrice || 0),
+        salePrice: Number(formData.salePrice || 0),
+        wholesalePrice: Number(formData.wholesalePrice || 0),
+        clubPrice: Number(formData.clubPrice || 0),
+        stock: Number(formData.stock || 0),
+        minStock: Number(formData.minStock || 0),
+        profit: Number(formData.profit || 0),
+        profitPercentage: Number(formData.profitPercentage || 0),
         composition: formData.composition,
         status: formData.status,
         controlStock: formData.controlStock,
@@ -323,17 +324,18 @@ export default function ProductsPage() {
         name: formData.name,
         sku: formData.sku,
         subcategoria_id: formData.subcategoria_id,
-        costPrice: Number(formData.costPrice),
-        salePrice: Number(formData.salePrice),
-        wholesalePrice: formData.wholesalePrice ? Number(formData.wholesalePrice) : undefined,
-        stock: Number(formData.stock),
-        minStock: Number(formData.minStock),
+        costPrice: Number(formData.costPrice || 0),
+        salePrice: Number(formData.salePrice || 0),
+        wholesalePrice: Number(formData.wholesalePrice || 0),
+        clubPrice: Number(formData.clubPrice || 0),
+        stock: Number(formData.stock || 0),
+        minStock: Number(formData.minStock || 0),
         image: formData.image,
         brand: formData.brand,
         unit: formData.unit,
         supplier: formData.supplier,
-        profit: Number(formData.profit),
-        profitPercentage: Number(formData.profitPercentage),
+        profit: Number(formData.profit || 0),
+        profitPercentage: Number(formData.profitPercentage || 0),
         composition: formData.composition,
         status: formData.status,
         controlStock: formData.controlStock,
@@ -668,7 +670,7 @@ export default function ProductsPage() {
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estoque</th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Custo / Venda</th>
                     <th className="hidden sm:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="w-12 px-6 py-3"></th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -705,13 +707,43 @@ export default function ProductsPage() {
                       <td className="hidden sm:table-cell px-6 py-4">
                         <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (product.stock <= product.minStock ? 'Estoque Baixo' : 'Ativo')} />
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right relative">
                         <button 
-                          onClick={() => handleEdit(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === product.id ? null : product.id);
+                          }}
                           className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"
                         >
-                          <Search size={18} />
+                          <Settings2 size={18} />
                         </button>
+
+                        {activeMenuId === product.id && (
+                          <div className="absolute right-8 top-10 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                            <div className="p-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(product);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                              >
+                                <Search size={14} />
+                                Editar Produto
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(product.id);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors mt-1"
+                              >
+                                <Trash2 size={14} />
+                                Excluir Produto
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1098,10 +1130,36 @@ export default function ProductsPage() {
                             {inv.status === 'Concluído' ? 'Finalizado' : 'Em Andamento'}
                           </span>
                         </td>
-                        <td className="px-8 py-5 text-right">
-                          <button className="p-2 text-slate-400 hover:text-brand-blue transition-all">
+                        <td className="px-8 py-5 text-right relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(activeMenuId === inv.id ? null : inv.id);
+                            }}
+                            className="p-2 text-slate-400 hover:text-brand-blue transition-all"
+                          >
                             <Settings2 size={18} />
                           </button>
+                          
+                          {activeMenuId === inv.id && (
+                            <div className="absolute right-8 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                              <div className="p-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Tem certeza que deseja excluir este inventário?')) {
+                                      deleteInventory(inv.id);
+                                    }
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                  Excluir Inventário
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))

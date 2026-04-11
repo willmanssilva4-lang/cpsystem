@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks } from 'lucide-react';
+import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,8 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   });
 
   const [sessionProducts, setSessionProducts] = useState<Product[]>([]);
+  const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
+  const [rotativoSearch, setRotativoSearch] = useState('');
 
   const handleStartSession = () => {
     let filtered = [...products];
@@ -43,9 +45,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         filtered = [];
       }
     } else if (config.type === 'Rotativo') {
-      // For rotativo, maybe pick products with low stock or just a subset
-      // For now, let's just take the first 20 or something, or let user search
-      // But usually rotativo is a specific list. Let's just use all for now but label it.
+      if (selectedRotativoProducts.length === 0) {
+        alert('Selecione pelo menos um produto para o inventário rotativo.');
+        return;
+      }
+      filtered = [...selectedRotativoProducts];
     }
 
     setSessionProducts(filtered);
@@ -58,10 +62,19 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     setStep('counting');
   };
 
-  const filteredProducts = sessionProducts.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  const [showOnlyDivergences, setShowOnlyDivergences] = useState(false);
+
+  const filteredProducts = sessionProducts.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    if (showOnlyDivergences) {
+      const physical = counts[p.id] ?? p.stock;
+      return physical !== p.stock;
+    }
+    
+    return true;
+  });
 
   const handleCountChange = (productId: string, value: string) => {
     const numValue = parseInt(value) || 0;
@@ -206,6 +219,71 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   </div>
                 )}
 
+                {config.type === 'Rotativo' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Adicionar Produtos</label>
+                      <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          type="text"
+                          placeholder="Buscar por nome ou SKU..."
+                          value={rotativoSearch}
+                          onChange={(e) => setRotativoSearch(e.target.value)}
+                          className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
+                        />
+                        {rotativoSearch && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-10 max-h-48 overflow-y-auto">
+                            {products
+                              .filter(p => !selectedRotativoProducts.find(sp => sp.id === p.id))
+                              .filter(p => p.name.toLowerCase().includes(rotativoSearch.toLowerCase()) || p.sku.toLowerCase().includes(rotativoSearch.toLowerCase()))
+                              .slice(0, 10)
+                              .map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRotativoProducts(prev => [...prev, p]);
+                                    setRotativoSearch('');
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
+                                >
+                                  <div>
+                                    <div className="text-sm font-bold text-slate-700">{p.name}</div>
+                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">SKU: {p.sku}</div>
+                                  </div>
+                                  <div className="text-brand-blue">
+                                    <Plus size={16} />
+                                  </div>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {selectedRotativoProducts.length > 0 && (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-2 max-h-40 overflow-y-auto space-y-1">
+                        {selectedRotativoProducts.map(p => (
+                          <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
+                            <div className="truncate pr-4">
+                              <div className="text-xs font-bold text-slate-700 truncate">{p.name}</div>
+                              <div className="text-[9px] text-slate-400 font-black uppercase tracking-widest">SKU: {p.sku}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRotativoProducts(prev => prev.filter(sp => sp.id !== p.id))}
+                              className="text-slate-400 hover:text-rose-500 p-1"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsável</label>
                   <input 
@@ -233,15 +311,28 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           <>
             {/* Search and Stats */}
             <div className="p-6 bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-6">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="text"
-                  placeholder="Buscar produto por nome ou SKU..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                />
+              <div className="flex-1 max-w-xl flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text"
+                    placeholder="Buscar produto por nome ou SKU..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowOnlyDivergences(!showOnlyDivergences)}
+                  className={cn(
+                    "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border",
+                    showOnlyDivergences 
+                      ? "bg-rose-50 text-rose-600 border-rose-200" 
+                      : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  {showOnlyDivergences ? 'Mostrar Todos' : 'Só Divergências'}
+                </button>
               </div>
 
               <div className="flex items-center gap-8">
@@ -377,6 +468,17 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   >
                     Voltar à Contagem
                   </button>
+                  {itemsWithDivergence > 0 && (
+                    <button 
+                      onClick={() => {
+                        setShowOnlyDivergences(true);
+                        setStep('counting');
+                      }}
+                      className="flex-1 py-4 rounded-2xl border border-rose-200 text-rose-500 font-black uppercase italic tracking-widest hover:bg-rose-50 transition-all"
+                    >
+                      Recontar Divergências
+                    </button>
+                  )}
                   <button 
                     onClick={handleFinalize}
                     disabled={isSaving}
