@@ -92,21 +92,19 @@ export default function ReportsPage() {
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  useEffect(() => {
+  const [startDate, setStartDate] = useState(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+  });
+  const [endDate, setEndDate] = useState(() => {
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
-    const localDate = `${year}-${month}-${day}`;
-    const firstDayOfMonth = `${year}-${month}-01`;
-    // eslint-disable-next-line
-    setStartDate(firstDayOfMonth);
-    // eslint-disable-next-line
-    setEndDate(localDate);
-  }, []);
+    return `${year}-${month}-${day}`;
+  });
 
   // Dynamic Data Calculations for Dashboard
   const filteredSales = React.useMemo(() => sales.filter(s => {
@@ -667,18 +665,21 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
-  const [reportType, setReportType] = useState('Relatório de Vendas');
 
-  useEffect(() => {
-    if (initialStartDate) {
-      // eslint-disable-next-line
-      setStartDate(initialStartDate);
-    }
-    if (initialEndDate) {
-      // eslint-disable-next-line
-      setEndDate(initialEndDate);
-    }
-  }, [initialStartDate, initialEndDate]);
+  // Sync state with props if they change
+  const [prevInitialStartDate, setPrevInitialStartDate] = useState(initialStartDate);
+  const [prevInitialEndDate, setPrevInitialEndDate] = useState(initialEndDate);
+
+  if (initialStartDate !== prevInitialStartDate) {
+    setStartDate(initialStartDate);
+    setPrevInitialStartDate(initialStartDate);
+  }
+  if (initialEndDate !== prevInitialEndDate) {
+    setEndDate(initialEndDate);
+    setPrevInitialEndDate(initialEndDate);
+  }
+
+  const [reportType, setReportType] = useState('Relatório de Vendas');
 
   const today = new Date();
   const year = today.getFullYear();
