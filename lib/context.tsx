@@ -199,6 +199,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [companySettings, setCompanySettings] = useState<CompanySettings>(INITIAL_COMPANY_SETTINGS);
   const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; profileId?: string; companyId?: string } | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [customAlert, setCustomAlert] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -997,13 +998,28 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     const init = async () => {
       try {
+        console.log('DEBUG: init started');
+        
+        // Set isAuthReady to true after a short timeout even if getSession hangs
+        // to allow AuthGuard to proceed with whatever state it has (e.g. from localStorage)
+        const authReadyTimeout = setTimeout(() => {
+          console.warn('DEBUG: isAuthReady timeout reached, forcing true');
+          setIsAuthReady(true);
+        }, 3000);
+
         // Check Supabase session first
+        console.log('DEBUG: fetching session');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('DEBUG: session fetched', !!session);
+        
+        clearTimeout(authReadyTimeout);
         
         if (session?.user) {
+          console.log('DEBUG: user found in session', session.user.id);
           // Fetch user details from system_users table
           let userData = null;
           try {
+            console.log('DEBUG: fetching system_user details');
             // Try simple query first to avoid join issues
             const { data, error: userError } = await supabase
               .from('system_users')
@@ -1012,17 +1028,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               .single();
             
             if (userError) {
+              console.warn('DEBUG: system_user fetch error', userError);
               if (userError.code === 'PGRST116') {
                 console.warn('User not found in system_users table');
               } else {
                 console.error('Error fetching system_user:', userError.message);
               }
             } else {
+              console.log('DEBUG: system_user found', data.id);
               userData = data;
               
               // Try to get joined data separately or in a second pass if needed
               // For now, we'll just use the data we have and try to enrich it
               try {
+                console.log('DEBUG: enriching user data');
                 const { data: enrichedData } = await supabase
                   .from('system_users')
                   .select('employees!employee_id(full_name), access_profiles!profile_id(name)')
@@ -1030,6 +1049,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
                   .single();
                 
                 if (enrichedData) {
+                  console.log('DEBUG: user data enriched');
                   userData = { ...userData, ...enrichedData };
                 }
               } catch (enrichErr) {
@@ -1041,6 +1061,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (userData) {
+            console.log('DEBUG: setting user state');
             const user = {
               id: userData.id,
               name: userData.employees?.full_name || userData.username || userData.full_name || session.user.email?.split('@')[0] || 'Usuário',
@@ -1052,6 +1073,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             setUser(user);
             localStorage.setItem('erp_user', JSON.stringify(user));
           } else {
+             console.log('DEBUG: using fallback user');
              // Fallback if user exists in Auth but not in system_users (should be rare due to trigger)
              console.warn('User in Auth but not in system_users, using fallback');
              const fallbackUser = {
@@ -1064,17 +1086,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
              localStorage.setItem('erp_user', JSON.stringify(fallbackUser));
           }
         } else {
+          console.log('DEBUG: no session found');
           // No Supabase session, clear local storage to force re-login
           // This prevents RLS errors on tables that require authentication
           localStorage.removeItem('erp_user');
           setUser(null);
         }
 
-        // Fetch data in the background
-        await fetchData();
+        console.log('DEBUG: setting isAuthReady to true');
+        setIsAuthReady(true);
 
-        // Set loading to false as soon as we have a user (or know there isn't one)
-        setIsLoading(false);
+        // Fetch data in the background
+        console.log('DEBUG: calling fetchData');
+        fetchData().then(() => {
+          console.log('DEBUG: fetchData completed');
+          setIsLoading(false);
+          console.log('DEBUG: init completed');
+        }).catch(err => {
+          console.error('DEBUG: fetchData error', err);
+          setIsLoading(false);
+        });
 
         // Set up real-time subscriptions
         productsSubscription = supabase
@@ -3268,7 +3299,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       returns,
       user,
       isSuperAdmin,
-      isAuthReady: !isLoading,
+      isAuthReady,
       isLoading,
       hasPermission,
       discountLogs,
@@ -3354,7 +3385,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }), [
       products, sales, customers, suppliers, losses, expenses, departamentos, categorias, expenseCategories, subcategorias,
       stockMovements, inventories, employees, systemUsers, accessProfiles, permissions, pricingSettings, companySettings,
-      systemSettings, paymentMethods, maquininhas, promotions, returns, user, isSuperAdmin, isLoading, hasPermission,
+      systemSettings, paymentMethods, maquininhas, promotions, returns, user, isSuperAdmin, isAuthReady, isLoading, hasPermission,
       discountLogs, auditLogs, cashRegisters, cashMovements, cashClosings, activeRegister, openCashRegister, closeCashRegister,
       addCashMovement, suspendCashRegister, blockCashRegister, logAuditAction, addProduct, updateProduct, deleteProduct,
       addSale, addReturn, addDiscountLog, addCustomer, updateCustomer, deleteCustomer, addSupplier, updateSupplier,

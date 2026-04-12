@@ -152,7 +152,6 @@ function CompanySettings() {
 
   useEffect(() => {
     if (companySettings) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(companySettings);
     }
   }, [companySettings]);
