@@ -294,7 +294,11 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
+  const totalStockValue = products.reduce((acc, p) => {
+    const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
+    if (isVirtual) return acc;
+    return acc + (p.stock * p.costPrice);
+  }, 0);
   const lowStockCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
 
   const handleSaveProduct = async (formData: any) => {
@@ -643,7 +647,6 @@ export default function ProductsPage() {
 
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-4">
-                <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue" />
                 <div className="flex items-center gap-2 text-slate-400">
                   <ChevronLeft size={18} className="cursor-pointer hover:text-slate-600" />
                   <ChevronRight size={18} className="cursor-pointer hover:text-slate-600" />
@@ -668,9 +671,6 @@ export default function ProductsPage() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50/50">
                   <tr>
-                    <th className="w-12 px-6 py-3">
-                      <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue" />
-                    </th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Produto</th>
                     <th className="hidden md:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estoque</th>
@@ -683,15 +683,12 @@ export default function ProductsPage() {
                   {currentProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue" />
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="hidden sm:flex w-8 h-8 rounded bg-slate-100 items-center justify-center text-slate-400">
                             <Package size={16} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-700 text-sm md:text-base">{product.name}</span>
+                            <span className="font-semibold text-slate-700 text-xs md:text-sm">{product.name}</span>
                             <div className="flex items-center gap-2">
                               {getCodigoMercadologico(product) && (
                                 <span className="text-[10px] text-brand-blue font-black tracking-widest bg-brand-blue/5 px-1.5 py-0.5 rounded">

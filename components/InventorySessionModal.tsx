@@ -16,7 +16,7 @@ type InventoryStep = 'setup' | 'counting' | 'summary';
 type InventoryType = 'Geral' | 'Rotativo' | 'Categoria';
 
 export function InventorySessionModal({ onClose, onComplete }: InventorySessionModalProps) {
-  const { products, addInventory, addStockMovement, user, subcategorias, categorias } = useERP();
+  const { products, addInventory, addStockMovement, user, subcategorias, categorias, fetchData } = useERP();
   const [step, setStep] = useState<InventoryStep>('setup');
   const [search, setSearch] = useState('');
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -119,7 +119,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         type: config.type,
         responsible: config.responsible,
         notes: `Inventário ${config.type} finalizado.`
-      });
+      }, true); // skipFetch = true
 
       // 2. Create Stock Movements for divergences
       for (const p of sessionProducts) {
@@ -135,10 +135,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             date: new Date().toISOString(),
             userId: user?.email || 'system',
             userName: user?.name || 'Sistema'
-          });
+          }, true); // skipFetch = true
         }
       }
 
+      await fetchData();
       onComplete();
     } catch (error) {
       console.error('Error finalizing inventory:', error);

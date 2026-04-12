@@ -128,8 +128,8 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
                       <Package size={24} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100">{product.name}</h3>
-                      <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100">{product.name}</h3>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         <span>SKU: {product.sku}</span>
                         {product.barcode && <span>EAN: {product.barcode}</span>}
                         <span className={cn(

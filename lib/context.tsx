@@ -62,8 +62,8 @@ interface ERPContextType {
   deleteSupplier: (id: string) => Promise<void>;
   addLoss: (loss: Omit<Loss, 'id'>) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
-  addStockMovement: (movement: Omit<StockMovement, 'id'>) => Promise<void>;
-  addInventory: (inventory: Omit<Inventory, 'id'>) => Promise<boolean>;
+  addStockMovement: (movement: Omit<StockMovement, 'id'>, skipFetch?: boolean) => Promise<void>;
+  addInventory: (inventory: Omit<Inventory, 'id'>, skipFetch?: boolean) => Promise<boolean>;
   addEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (employee: Employee) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
@@ -919,161 +919,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 });
 }, []);
 
-  const logAuditAction = useCallback(async (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => {
-    try {
-      await supabase.from('audit_logs').insert([{
-        company_id: user?.companyId || null,
-        user_id: user?.id || null, // UUID esperado pelo banco
-        action,
-        module,
-        entity_id: entityId,
-        old_data: oldData,
-        new_data: newData,
-        terminal: 'Terminal 01', // Should come from settings/env
-        ip: '127.0.0.1' // Should be captured server-side if possible
-      }]);
-      await fetchData();
-    } catch (error: any) {
-      console.error('Error logging audit action:', error);
-    }
-  }, [user?.companyId, user?.id, fetchData]);
-
-  const hasPermission = useCallback((module: string, action: 'view' | 'create' | 'edit' | 'delete') => {
-    if (!user) return false;
-    const userEmail = user.email?.toLowerCase();
-    
-    // Super Admin only has permission for "Gestão de Empresa"
-    if (userEmail === 'willmanssilva4@gmail.com') {
-      return module === 'Gestão de Empresas';
-    }
-
-    if (user.role === 'Administrador') return true;
-    
-    const profilePerms = permissions.filter(p => p.profileId === user.profileId);
-    const modPerm = profilePerms.find(p => p.module === module);
-    
-    if (!modPerm) return false;
-    
-    switch (action) {
-      case 'view': return modPerm.canView;
-      case 'create': return modPerm.canCreate;
-      case 'edit': return modPerm.canEdit;
-      case 'delete': return modPerm.canDelete;
-      default: return false;
-    }
-  }, [user, permissions]);
-
-  const openCashRegister = useCallback(async (openingBalance: number, observation?: string) => {
-    const { data, error } = await supabase.from('cash_registers').insert([{
-      company_id: user?.companyId || null,
-      operator_id: (await supabase.auth.getUser()).data.user?.id,
-      opening_balance: openingBalance,
-      status: 'open',
-      terminal_id: 'Terminal 01',
-      observation
-    }]).select();
-
-    if (!error && data) {
-      await logAuditAction('abertura', 'caixa', data[0].id, null, { openingBalance, observation });
-      await fetchData();
-    } else {
-      console.error('Error opening cash register:', error);
-      alert('Erro ao abrir caixa: ' + (error?.message || 'Erro desconhecido'));
-    }
-  }, [user?.companyId, logAuditAction, fetchData]);
-
-  const closeCashRegister = useCallback(async (informedTotals: { method: string; informed: number; system: number }[], justification?: string) => {
-    if (!activeRegister) return;
-
-    const totalSystem = informedTotals.reduce((acc: number, curr: any) => acc + curr.system, 0);
-    const totalInformed = informedTotals.reduce((acc: number, curr: any) => acc + curr.informed, 0);
-    const totalDifference = totalInformed - totalSystem;
-
-    // 1. Update Register Status
-    const { error: regError } = await supabase.from('cash_registers').update({
-      company_id: user?.companyId || null,
-      status: 'closed',
-      closed_at: new Date().toISOString(),
-      closed_by: (await supabase.auth.getUser()).data.user?.id
-    }).eq('id', activeRegister.id);
-
-    if (regError) {
-      console.error('Error closing register:', regError);
-      alert('Erro ao fechar caixa: ' + regError.message);
-      return;
-    }
-
-    // 2. Insert Sales Summary
-    const summaryToInsert = informedTotals.map((item: any) => ({
-      company_id: user?.companyId || null,
-      cash_register_id: activeRegister.id,
-      payment_method: item.method,
-      system_total: item.system,
-      informed_total: item.informed,
-      difference: item.informed - item.system
-    }));
-
-    await supabase.from('cash_sales_summary').insert(summaryToInsert);
-
-    // 3. Insert Closing Record
-    const { data: closingData } = await supabase.from('cash_closings').insert([{
-      company_id: user?.companyId || null,
-      cash_register_id: activeRegister.id,
-      total_system: totalSystem,
-      total_informed: totalInformed,
-      total_difference: totalDifference,
-      justification,
-      approved_by: totalDifference === 0 ? (await supabase.auth.getUser()).data.user?.id : null // Auto-approve if no difference
-    }]).select();
-
-    await logAuditAction('fechamento', 'caixa', activeRegister.id, null, { totalSystem, totalInformed, totalDifference, justification });
-    await fetchData();
-  }, [user?.companyId, activeRegister, logAuditAction, fetchData]);
-
-  const addCashMovement = useCallback(async (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => {
-    const { data, error } = await supabase.from('cash_movements').insert([{
-      company_id: user?.companyId || null,
-      cash_register_id: movement.cashRegisterId,
-      type: movement.type,
-      amount: movement.amount,
-      reason: movement.reason,
-      created_by: (await supabase.auth.getUser()).data.user?.id
-    }]).select();
-
-    if (!error && data) {
-      await logAuditAction(movement.type, 'caixa', data[0].id, null, movement);
-      await fetchData();
-    } else {
-      console.error('Error adding cash movement:', error);
-      alert('Erro ao registrar movimentação: ' + (error?.message || 'Erro desconhecido'));
-    }
-  }, [user?.companyId, logAuditAction, fetchData]);
-
-  const suspendCashRegister = useCallback(async () => {
-    if (!activeRegister) return;
-    const { error } = await supabase.from('cash_registers').update({ 
-      company_id: user?.companyId || null,
-      status: 'suspended' 
-    }).eq('id', activeRegister.id);
-    if (!error) {
-      await logAuditAction('suspensao', 'caixa', activeRegister.id);
-      await fetchData();
-    }
-  }, [user?.companyId, activeRegister, logAuditAction, fetchData]);
-
-  const blockCashRegister = useCallback(async (reason: string) => {
-    if (!activeRegister) return;
-    const { error } = await supabase.from('cash_registers').update({ 
-      company_id: user?.companyId || null,
-      status: 'blocked',
-      observation: (activeRegister.observation || '') + ' | Bloqueado: ' + reason 
-    }).eq('id', activeRegister.id);
-    if (!error) {
-      await logAuditAction('bloqueio', 'caixa', activeRegister.id, null, { reason });
-      await fetchData();
-    }
-  }, [user?.companyId, activeRegister, logAuditAction, fetchData]);
-
   useEffect(() => {
     let productsSubscription: any;
     let salesSubscription: any;
@@ -1261,7 +1106,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     };
   }, [fetchData]);
 
-  const login = useCallback(async (username: string, password: string): Promise<{success: boolean, error?: string}> => {
+  const login = async (username: string, password: string): Promise<{success: boolean, error?: string}> => {
     try {
       const cleanInput = username.trim();
       const cleanPassword = password;
@@ -1385,20 +1230,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Login error:', err);
       return { success: false, error: err.message || 'Unknown error occurred' };
     }
-  }, []);
+  };
 
-  const logout = useCallback(async () => {
+  const logout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('erp_user');
     setUser(null);
-  }, []);
+  };
 
-  const changePassword = useCallback(async (newPassword: string) => {
+  const changePassword = async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     return { error };
-  }, []);
+  };
 
-  const addProduct = useCallback(async (product: Product, skipFetch?: boolean): Promise<boolean> => {
+  const addProduct = async (product: Product, skipFetch?: boolean): Promise<boolean> => {
     if (!user?.companyId) return false;
 
     // Check for duplicate SKU (code)
@@ -1421,24 +1266,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       name: product.name,
       subcategoria_id: product.subcategoria_id === '' ? null : product.subcategoria_id,
       sku: product.sku,
-      cost_price: Number(product.costPrice) || 0,
-      sale_price: Number(product.salePrice) || 0,
-      wholesale_price: Number(product.wholesalePrice) || 0,
-      club_price: Number(product.clubPrice) || 0,
-      stock: Number(product.stock) || 0,
-      min_stock: Number(product.minStock) || 0,
+      cost_price: (product.costPrice === undefined || product.costPrice === null) ? 0 : Number(product.costPrice),
+      sale_price: (product.salePrice === undefined || product.salePrice === null) ? 0 : Number(product.salePrice),
+      wholesale_price: (product.wholesalePrice === undefined || product.wholesalePrice === null) ? 0 : Number(product.wholesalePrice),
+      club_price: (product.clubPrice === undefined || product.clubPrice === null) ? 0 : Number(product.clubPrice),
+      stock: (product.stock === undefined || product.stock === null) ? 0 : Number(product.stock),
+      min_stock: (product.minStock === undefined || product.minStock === null) ? 0 : Number(product.minStock),
       image: product.image,
       composition: product.composition,
-      status: ((product.status && String(product.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
+      status: (product.status && String(product.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
       codigo_mercadologico: product.codigo_mercadologico,
       validade: product.validade || null,
-      has_had_stock: Number(product.stock) > 0,
+      has_had_stock: product.stock > 0,
       control_stock: product.controlStock,
       category: product.category,
       subgroup: product.subgroup,
       product_type: product.product_type || 'SALE',
       base_product_id: product.base_product_id || null,
-      conversion_factor: Number(product.conversion_factor) || 1
+      conversion_factor: (product.conversion_factor === '' || product.conversion_factor === undefined || product.conversion_factor === null) ? 1 : Number(product.conversion_factor)
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
@@ -1480,16 +1325,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else if (data) {
       if (!skipFetch) {
         // Update local state manually to include fields that might not be in DB yet
-        // We only spread fields that exist in the Product interface
-        const newProduct = { ...product, id: data[0].id };
+        const newProduct = { ...product, ...insertData, id: data[0].id };
         setProducts(prev => [newProduct as Product, ...prev]);
       }
       return true;
     }
     return false;
-  }, [user?.companyId, products]);
+  };
 
-  const updateProduct = useCallback(async (updated: Product): Promise<boolean> => {
+  const updateProduct = async (updated: Product): Promise<boolean> => {
     if (!user?.companyId) return false;
 
     // Check for duplicate SKU (code) excluding current product
@@ -1513,24 +1357,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       name: updated.name,
       subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
       sku: updated.sku,
-      cost_price: Number(updated.costPrice) || 0,
-      sale_price: Number(updated.salePrice) || 0,
-      wholesale_price: Number(updated.wholesalePrice) || 0,
-      club_price: Number(updated.clubPrice) || 0,
-      stock: Number(updated.stock) || 0,
-      min_stock: Number(updated.minStock) || 0,
+      cost_price: (updated.costPrice === '' || updated.costPrice === undefined || updated.costPrice === null) ? 0 : Number(updated.costPrice),
+      sale_price: (updated.salePrice === '' || updated.salePrice === undefined || updated.salePrice === null) ? 0 : Number(updated.salePrice),
+      wholesale_price: (updated.wholesalePrice === '' || updated.wholesalePrice === undefined || updated.wholesalePrice === null) ? 0 : Number(updated.wholesalePrice),
+      club_price: (updated.clubPrice === '' || updated.clubPrice === undefined || updated.clubPrice === null) ? 0 : Number(updated.clubPrice),
+      stock: (updated.stock === '' || updated.stock === undefined || updated.stock === null) ? 0 : Number(updated.stock),
+      min_stock: (updated.minStock === '' || updated.minStock === undefined || updated.minStock === null) ? 0 : Number(updated.minStock),
       image: updated.image,
       composition: updated.composition,
-      status: ((updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
+      status: (updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
       codigo_mercadologico: updated.codigo_mercadologico,
       validade: updated.validade || null,
-      has_had_stock: Number(updated.stock) > 0 || updated.has_had_stock,
+      has_had_stock: updated.stock > 0 || updated.has_had_stock,
       control_stock: updated.controlStock,
       category: updated.category,
       subgroup: updated.subgroup,
       product_type: updated.product_type || 'SALE',
       base_product_id: updated.base_product_id || null,
-      conversion_factor: Number(updated.conversion_factor) || 1
+      conversion_factor: (updated.conversion_factor === '' || updated.conversion_factor === undefined || updated.conversion_factor === null) ? 1 : Number(updated.conversion_factor)
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
@@ -1570,12 +1414,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return false;
     } else {
       // Update local state manually to include fields that might not be in DB yet
-      setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+      setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated, ...updateData } : p));
       return true;
     }
-  }, [user?.companyId, products]);
+  };
 
-  const deleteProduct = useCallback(async (id: string) => {
+  const deleteProduct = async (id: string) => {
     console.log('Tentando excluir produto:', id);
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
@@ -1589,9 +1433,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('deleteProduct failed:', error);
       throw error;
     }
-  }, [fetchData]);
+  };
 
-  const addSale = useCallback(async (sale: Omit<Sale, 'id'>): Promise<Sale | null> => {
+  const addSale = async (sale: Omit<Sale, 'id'>): Promise<Sale | null> => {
     console.log('DEBUG: addSale recebendo:', sale);
     const tempId = Math.random().toString(36).substring(2, 9);
     const newSale: Sale = { ...sale, id: tempId };
@@ -1815,9 +1659,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       alert(`Erro inesperado ao salvar venda no banco de dados: ${err.message || JSON.stringify(err)}`);
       return null;
     }
-  }, [user?.companyId, user?.id, user?.name, activeRegister?.id, logAuditAction, products, lotes, customers, fetchData]);
+  };
 
-  const addReturn = useCallback(async (returnData: Omit<Return, 'id'>): Promise<boolean> => {
+  const addReturn = async (returnData: Omit<Return, 'id'>): Promise<boolean> => {
     try {
       const { data: returnRes, error: returnError } = await supabase
         .from('returns')
@@ -1933,9 +1777,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error adding return:', error);
       return false;
     }
-  }, [user?.companyId, user?.id, user?.name, products, sales, activeRegister, addCashMovement, logAuditAction, fetchData]);
+  };
 
-  const addDiscountLog = useCallback(async (log: Omit<DiscountLog, 'id'>) => {
+  const addDiscountLog = async (log: Omit<DiscountLog, 'id'>) => {
     const { error } = await supabase.from('vendas_descontos').insert([{
       company_id: user?.companyId || null,
       venda_id: log.saleId,
@@ -1955,9 +1799,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       console.error('Error adding discount log:', error);
     }
-  }, [user?.companyId, logAuditAction, fetchData]);
+  };
 
-  const addCustomer = useCallback(async (customer: Customer) => {
+  const addCustomer = async (customer: Customer) => {
     const { error } = await supabase.from('customers').insert([{
       company_id: user?.companyId || null,
       name: customer.name,
@@ -1974,9 +1818,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const addSupplier = useCallback(async (supplier: Supplier) => {
+  const addSupplier = async (supplier: Supplier) => {
     const { error } = await supabase.from('suppliers').insert([{
       company_id: user?.companyId || null,
       name: supplier.name,
@@ -1989,9 +1833,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateSupplier = useCallback(async (supplier: Supplier) => {
+  const updateSupplier = async (supplier: Supplier) => {
     const { error } = await supabase.from('suppliers').update({
       company_id: user?.companyId || null,
       name: supplier.name,
@@ -2002,15 +1846,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', supplier.id);
     if (!error) await fetchData();
     else console.error('Error updating supplier:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteSupplier = useCallback(async (id: string) => {
+  const deleteSupplier = async (id: string) => {
     const { error } = await supabase.from('suppliers').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting supplier:', error);
-  }, [fetchData]);
+  };
 
-  const addLoss = useCallback(async (loss: Omit<Loss, 'id'>) => {
+  const addLoss = async (loss: Omit<Loss, 'id'>) => {
     const { error } = await supabase.from('losses').insert([{
       company_id: user?.companyId || null,
       product_id: loss.productId,
@@ -2097,9 +1941,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error adding loss:', JSON.stringify(error, null, 2), error);
       throw new Error('Failed to add loss');
     }
-  }, [user?.companyId, user?.email, user?.name, products, lotes, fetchData]);
+  };
 
-  const addExpense = useCallback(async (expense: Omit<Expense, 'id'>) => {
+  const addExpense = async (expense: Omit<Expense, 'id'>) => {
     const { error } = await supabase.from('expenses').insert([{
       company_id: user?.companyId || null,
       description: expense.description,
@@ -2145,9 +1989,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error adding expense:', JSON.stringify(error, null, 2), error);
       throw new Error('Failed to add expense');
     }
-  }, [user?.companyId, cashRegisters, fetchData]);
+  };
 
-  const addStockMovement = useCallback(async (movement: Omit<StockMovement, 'id'>) => {
+  const addStockMovement = async (movement: Omit<StockMovement, 'id'>, skipFetch?: boolean) => {
     const { error } = await supabase.from('stock_movements').insert([{
       company_id: user?.companyId || null,
       product_id: movement.productId,
@@ -2190,15 +2034,17 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           await supabase.from('products').update(updatePayload).eq('id', product.id);
         }
       }
-      await fetchData();
+      if (!skipFetch) {
+        await fetchData();
+      }
     } else {
       console.error('Error adding stock movement:', JSON.stringify(error, null, 2), error);
       alert('Erro ao registrar movimentação. Verifique se a tabela "stock_movements" existe no Supabase.');
       throw new Error('Failed to add stock movement');
     }
-  }, [user?.companyId, products, fetchData]);
+  };
 
-  const addInventory = useCallback(async (inventory: Omit<Inventory, 'id'>) => {
+  const addInventory = async (inventory: Omit<Inventory, 'id'>, skipFetch?: boolean) => {
     const { error } = await supabase.from('inventories').insert([{
       company_id: user?.companyId || null,
       date: inventory.date,
@@ -2212,7 +2058,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }]);
 
     if (!error) {
-      await fetchData();
+      if (!skipFetch) await fetchData();
       return true;
     } else {
       console.error('Error adding inventory:', JSON.stringify(error, null, 2), error);
@@ -2228,7 +2074,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }]);
       
       if (!retryError) {
-        await fetchData();
+        if (!skipFetch) await fetchData();
         return true;
       } else {
         console.error('Retry error adding inventory:', JSON.stringify(retryError, null, 2), retryError);
@@ -2236,9 +2082,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Failed to add inventory');
       }
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateCustomer = useCallback(async (customer: Customer) => {
+  const updateCustomer = async (customer: Customer) => {
     const { error } = await supabase.from('customers').update({
       company_id: user?.companyId || null,
       name: customer.name,
@@ -2253,15 +2099,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', customer.id);
     if (!error) await fetchData();
     else console.error('Error updating customer:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteCustomer = useCallback(async (id: string) => {
+  const deleteCustomer = async (id: string) => {
     const { error } = await supabase.from('customers').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting customer:', error);
-  }, [fetchData]);
+  };
 
-  const updateSale = useCallback(async (sale: Sale) => {
+  const updateSale = async (sale: Sale) => {
     // Note: Updating a sale with items is complex. This is a simplified version.
     const { error } = await supabase.from('sales').update({
       company_id: user?.companyId || null,
@@ -2276,9 +2122,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       await fetchData();
     }
     else console.error('Error updating sale:', error);
-  }, [user?.companyId, sales, logAuditAction, fetchData]);
+  };
 
-  const deleteSale = useCallback(async (id: string) => {
+  const deleteSale = async (id: string) => {
     const oldSale = sales.find(s => s.id === id);
     if (!oldSale) return;
 
@@ -2351,9 +2197,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Unexpected error during sale deletion:', err);
       alert('Ocorreu um erro inesperado ao tentar cancelar a venda.');
     }
-  }, [user?.companyId, user?.id, user?.name, sales, logAuditAction, fetchData]);
+  };
 
-  const updateLoss = useCallback(async (loss: Loss) => {
+  const updateLoss = async (loss: Loss) => {
     const { error } = await supabase.from('losses').update({
       company_id: user?.companyId || null,
       product_id: loss.productId,
@@ -2364,15 +2210,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', loss.id);
     if (!error) await fetchData();
     else console.error('Error updating loss:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteLoss = useCallback(async (id: string) => {
+  const deleteLoss = async (id: string) => {
     const { error } = await supabase.from('losses').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting loss:', error);
-  }, [fetchData]);
+  };
 
-  const updateExpense = useCallback(async (expense: Expense) => {
+  const updateExpense = async (expense: Expense) => {
     const { error } = await supabase.from('expenses').update({
       company_id: user?.companyId || null,
       description: expense.description,
@@ -2416,15 +2262,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       await fetchData();
     } else console.error('Error updating expense:', error);
-  }, [user?.companyId, expenses, cashRegisters, fetchData]);
+  };
 
-  const deleteExpense = useCallback(async (id: string) => {
+  const deleteExpense = async (id: string) => {
     const { error } = await supabase.from('expenses').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting expense:', error);
-  }, [fetchData]);
+  };
 
-  const updateStockMovement = useCallback(async (movement: StockMovement) => {
+  const updateStockMovement = async (movement: StockMovement) => {
     const { error } = await supabase.from('stock_movements').update({
       company_id: user?.companyId || null,
       product_id: movement.productId,
@@ -2437,15 +2283,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', movement.id);
     if (!error) await fetchData();
     else console.error('Error updating stock movement:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteStockMovement = useCallback(async (id: string) => {
+  const deleteStockMovement = async (id: string) => {
     const { error } = await supabase.from('stock_movements').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting stock movement:', error);
-  }, [fetchData]);
+  };
 
-  const updateInventory = useCallback(async (inventory: Inventory) => {
+  const updateInventory = async (inventory: Inventory) => {
     const { error } = await supabase.from('inventories').update({
       company_id: user?.companyId || null,
       date: inventory.date,
@@ -2459,15 +2305,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', inventory.id);
     if (!error) await fetchData();
     else console.error('Error updating inventory:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteInventory = useCallback(async (id: string) => {
+  const deleteInventory = async (id: string) => {
     const { error } = await supabase.from('inventories').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting inventory:', error);
-  }, [fetchData]);
+  };
 
-  const addEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
+  const addEmployee = async (employee: Omit<Employee, 'id'>) => {
     const { error } = await supabase.from('employees').insert([{
       company_id: user?.companyId || null,
       full_name: employee.fullName,
@@ -2480,9 +2326,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }]);
     if (!error) await fetchData();
     else console.error('Error adding employee:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateEmployee = useCallback(async (employee: Employee) => {
+  const updateEmployee = async (employee: Employee) => {
     const { error } = await supabase.from('employees').update({
       company_id: user?.companyId || null,
       full_name: employee.fullName,
@@ -2495,15 +2341,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', employee.id);
     if (!error) await fetchData();
     else console.error('Error updating employee:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteEmployee = useCallback(async (id: string) => {
+  const deleteEmployee = async (id: string) => {
     const { error } = await supabase.from('employees').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting employee:', error);
-  }, [fetchData]);
+  };
 
-  const addSystemUser = useCallback(async (systemUser: Omit<SystemUser, 'id'>, password?: string) => {
+  const addSystemUser = async (systemUser: Omit<SystemUser, 'id'>, password?: string) => {
     try {
       // 1. Create user in Supabase Auth via Server Action/API Route (to use Service Role)
       // We need to do this server-side because the client key cannot create users directly without email confirmation flow usually
@@ -2547,9 +2393,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Unexpected error in addSystemUser:', err);
       alert('Erro inesperado ao criar usuário.');
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateSystemUser = useCallback(async (systemUser: SystemUser, password?: string) => {
+  const updateSystemUser = async (systemUser: SystemUser, password?: string) => {
     try {
       // 1. Update Auth user if password changed or email changed
       // Note: Changing email in Auth usually requires re-confirmation.
@@ -2630,9 +2476,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Unexpected error in updateSystemUser:', err);
       alert('Erro inesperado ao atualizar usuário.');
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteSystemUser = useCallback(async (id: string) => {
+  const deleteSystemUser = async (id: string) => {
     try {
       // 1. Delete from Auth
       const response = await fetch(`/api/admin/users/${id}`, {
@@ -2661,9 +2507,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Unexpected error in deleteSystemUser:', err);
       alert('Erro inesperado ao excluir usuário.');
     }
-  }, [fetchData]);
+  };
 
-  const addAccessProfile = useCallback(async (profile: Omit<AccessProfile, 'id'>) => {
+  const addAccessProfile = async (profile: Omit<AccessProfile, 'id'>) => {
     const { error } = await supabase.from('access_profiles').insert([{
       company_id: user?.companyId || null,
       name: profile.name,
@@ -2671,9 +2517,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }]);
     if (!error) await fetchData();
     else console.error('Error adding access profile:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateAccessProfile = useCallback(async (profile: AccessProfile) => {
+  const updateAccessProfile = async (profile: AccessProfile) => {
     const { error } = await supabase.from('access_profiles').update({
       company_id: user?.companyId || null,
       name: profile.name,
@@ -2681,15 +2527,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }).eq('id', profile.id);
     if (!error) await fetchData();
     else console.error('Error updating access profile:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteAccessProfile = useCallback(async (id: string) => {
+  const deleteAccessProfile = async (id: string) => {
     const { error } = await supabase.from('access_profiles').delete().eq('id', id);
     if (!error) await fetchData();
     else console.error('Error deleting access profile:', error);
-  }, [fetchData]);
+  };
 
-  const updatePermissions = useCallback(async (profileId: string, perms: Omit<Permission, 'id'>[]) => {
+  const updatePermissions = async (profileId: string, perms: Omit<Permission, 'id'>[]) => {
     // Delete existing permissions for profile
     await supabase.from('permissions').delete().eq('profile_id', profileId);
     
@@ -2707,14 +2553,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     );
     if (!error) await fetchData();
     else console.error('Error updating permissions:', error);
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updatePricingSettings = useCallback((settings: PricingSettings) => {
+  const updatePricingSettings = (settings: PricingSettings) => {
     setPricingSettings(settings);
     localStorage.setItem('pricing_settings', JSON.stringify(settings));
-  }, []);
+  };
 
-  const updateCompanySettings = useCallback(async (settings: CompanySettings) => {
+  const updateCompanySettings = async (settings: CompanySettings) => {
     setCompanySettings(settings);
     localStorage.setItem('company_settings', JSON.stringify(settings));
     
@@ -2731,12 +2577,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.error('Error updating company in database:', error);
       }
     }
-  }, [user?.companyId]);
+  };
 
-  const updateSystemSettings = useCallback((settings: SystemSettings) => {
+  const updateSystemSettings = (settings: SystemSettings) => {
     setSystemSettings(settings);
     localStorage.setItem('system_settings', JSON.stringify(settings));
-  }, []);
+  };
 
   const sendEmailNotification = useCallback(async (to: string, subject: string, body: string, html?: string, from?: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -2781,7 +2627,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   }, [companySettings?.email, systemSettings?.notifications?.senderEmail]);
 
-  const addPaymentMethod = useCallback(async (method: Omit<PaymentMethod, 'id'>): Promise<boolean> => {
+  const addPaymentMethod = async (method: Omit<PaymentMethod, 'id'>): Promise<boolean> => {
     const { error } = await supabase.from('payment_methods').insert([{
       company_id: user?.companyId || null,
       name: method.name,
@@ -2802,9 +2648,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       return false;
     }
-  }, [user?.companyId, fetchData, setCustomAlert]);
+  };
 
-  const updatePaymentMethod = useCallback(async (method: PaymentMethod): Promise<boolean> => {
+  const updatePaymentMethod = async (method: PaymentMethod): Promise<boolean> => {
     const { error } = await supabase.from('payment_methods').update({
       company_id: user?.companyId || null,
       name: method.name,
@@ -2825,9 +2671,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       return false;
     }
-  }, [user?.companyId, fetchData, setCustomAlert]);
+  };
 
-  const deletePaymentMethod = useCallback(async (id: string): Promise<boolean> => {
+  const deletePaymentMethod = async (id: string): Promise<boolean> => {
     console.log('Context: deletePaymentMethod called with ID:', id);
     const { data, error } = await supabase.from('payment_methods').delete().eq('id', id);
     
@@ -2840,9 +2686,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       await fetchData();
       return true;
     }
-  }, [fetchData, setCustomAlert]);
+  };
 
-  const addCategoria = useCallback(async (categoria: Omit<Categoria, 'id'>) => {
+  const addCategoria = async (categoria: Omit<Categoria, 'id'>) => {
     const { error } = await supabase.from('categorias').insert([{ ...categoria, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding categoria:', error);
@@ -2850,9 +2696,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const addExpenseCategory = useCallback(async (categoria: Omit<ExpenseCategory, 'id'>) => {
+  const addExpenseCategory = async (categoria: Omit<ExpenseCategory, 'id'>) => {
     const { error } = await supabase.from('expense_categories').insert([{ ...categoria, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding expense category:', error);
@@ -2860,9 +2706,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateCategoria = useCallback(async (categoria: Categoria) => {
+  const updateCategoria = async (categoria: Categoria) => {
     const { error } = await supabase.from('categorias').update({ ...categoria, company_id: user?.companyId || null }).eq('id', categoria.id);
     if (error) {
       console.error('Error updating categoria:', error);
@@ -2870,9 +2716,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteCategoria = useCallback(async (id: string) => {
+  const deleteCategoria = async (id: string) => {
     // First check if there are linked subcategories
     const { data: linkedSubcategories } = await supabase.from('subcategorias').select('id').eq('categoria_id', id);
     
@@ -2890,9 +2736,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       await fetchData();
       return { success: true };
     }
-  }, [fetchData]);
+  };
 
-  const addSubcategoria = useCallback(async (subcategoria: Omit<Subcategoria, 'id'>) => {
+  const addSubcategoria = async (subcategoria: Omit<Subcategoria, 'id'>) => {
     const { error } = await supabase.from('subcategorias').insert([{ ...subcategoria, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding subcategoria:', error);
@@ -2900,9 +2746,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateSubcategoria = useCallback(async (subcategoria: Subcategoria) => {
+  const updateSubcategoria = async (subcategoria: Subcategoria) => {
     const { error } = await supabase.from('subcategorias').update({ ...subcategoria, company_id: user?.companyId || null }).eq('id', subcategoria.id);
     if (error) {
       console.error('Error updating subcategoria:', error);
@@ -2910,9 +2756,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteSubcategoria = useCallback(async (id: string) => {
+  const deleteSubcategoria = async (id: string) => {
     // First check if there are linked products
     const { data: linkedProducts } = await supabase.from('products').select('id').eq('subcategoria_id', id);
     
@@ -2930,9 +2776,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       await fetchData();
       return { success: true };
     }
-  }, [fetchData]);
+  };
 
-  const addDepartamento = useCallback(async (departamento: Omit<Departamento, 'id'>) => {
+  const addDepartamento = async (departamento: Omit<Departamento, 'id'>) => {
     const { error } = await supabase.from('departamentos').insert([{ ...departamento, company_id: user?.companyId || null }]);
     if (error) {
       console.error('Error adding departamento:', error);
@@ -2940,9 +2786,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateDepartamento = useCallback(async (departamento: Departamento) => {
+  const updateDepartamento = async (departamento: Departamento) => {
     const { error } = await supabase.from('departamentos').update({ ...departamento, company_id: user?.companyId || null }).eq('id', departamento.id);
     if (error) {
       console.error('Error updating departamento:', error);
@@ -2950,9 +2796,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } else {
       await fetchData();
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteDepartamento = useCallback(async (id: string) => {
+  const deleteDepartamento = async (id: string) => {
     // First check if there are linked categories
     const { data: linkedCategories } = await supabase.from('categorias').select('id').eq('departamento_id', id);
     
@@ -2970,14 +2816,100 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       await fetchData();
       return { success: true };
     }
-  }, [fetchData]);
+  };
 
-  const addMaquininha = useCallback(async (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => {
+  const logAuditAction = async (action: string, module: string, entityId?: string, oldData?: any, newData?: any) => {
+    try {
+      await supabase.from('audit_logs').insert([{
+        company_id: user?.companyId || null,
+        user_id: user?.id || null, // UUID esperado pelo banco
+        action,
+        module,
+        entity_id: entityId,
+        old_data: oldData,
+        new_data: newData,
+        terminal: 'Terminal 01', // Should come from settings/env
+        ip: '127.0.0.1' // Should be captured server-side if possible
+      }]);
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error logging audit action:', error);
+    }
+  };
+
+  const openCashRegister = async (openingBalance: number, observation?: string) => {
+    const { data, error } = await supabase.from('cash_registers').insert([{
+      company_id: user?.companyId || null,
+      operator_id: (await supabase.auth.getUser()).data.user?.id,
+      opening_balance: openingBalance,
+      status: 'open',
+      terminal_id: 'Terminal 01',
+      observation
+    }]).select();
+
+    if (!error && data) {
+      await logAuditAction('abertura', 'caixa', data[0].id, null, { openingBalance, observation });
+      await fetchData();
+    } else {
+      console.error('Error opening cash register:', error);
+      alert('Erro ao abrir caixa: ' + (error?.message || 'Erro desconhecido'));
+    }
+  };
+
+  const closeCashRegister = async (informedTotals: { method: string; informed: number; system: number }[], justification?: string) => {
+    if (!activeRegister) return;
+
+    const totalSystem = informedTotals.reduce((acc: number, curr: any) => acc + curr.system, 0);
+    const totalInformed = informedTotals.reduce((acc: number, curr: any) => acc + curr.informed, 0);
+    const totalDifference = totalInformed - totalSystem;
+
+    // 1. Update Register Status
+    const { error: regError } = await supabase.from('cash_registers').update({
+      company_id: user?.companyId || null,
+      status: 'closed',
+      closed_at: new Date().toISOString(),
+      closed_by: (await supabase.auth.getUser()).data.user?.id
+    }).eq('id', activeRegister.id);
+
+    if (regError) {
+      console.error('Error closing register:', regError);
+      alert('Erro ao fechar caixa: ' + regError.message);
+      return;
+    }
+
+    // 2. Insert Sales Summary
+    const summaryToInsert = informedTotals.map((item: any) => ({
+      company_id: user?.companyId || null,
+      cash_register_id: activeRegister.id,
+      payment_method: item.method,
+      system_total: item.system,
+      informed_total: item.informed,
+      difference: item.informed - item.system
+    }));
+
+    await supabase.from('cash_sales_summary').insert(summaryToInsert);
+
+    // 3. Insert Closing Record
+    const { data: closingData } = await supabase.from('cash_closings').insert([{
+      company_id: user?.companyId || null,
+      cash_register_id: activeRegister.id,
+      total_system: totalSystem,
+      total_informed: totalInformed,
+      total_difference: totalDifference,
+      justification,
+      approved_by: totalDifference === 0 ? (await supabase.auth.getUser()).data.user?.id : null // Auto-approve if no difference
+    }]).select();
+
+    await logAuditAction('fechamento', 'caixa', activeRegister.id, null, { totalSystem, totalInformed, totalDifference, justification });
+    await fetchData();
+  };
+
+  const addMaquininha = async (maquininha: Omit<Maquininha, 'id' | 'created_at'>) => {
     const { error } = await supabase.from('maquininhas').insert([{ ...maquininha, company_id: user?.companyId || null }]);
     if (!error) await fetchData();
-  }, [user?.companyId, fetchData]);
+  };
 
-  const updateMaquininha = useCallback(async (maquininha: Maquininha) => {
+  const updateMaquininha = async (maquininha: Maquininha) => {
     const { error } = await supabase.from('maquininhas').update({
       company_id: user?.companyId || null,
       nome: maquininha.nome,
@@ -2987,14 +2919,83 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       ativo: maquininha.ativo
     }).eq('id', maquininha.id);
     if (!error) await fetchData();
-  }, [user?.companyId, fetchData]);
+  };
 
-  const deleteMaquininha = useCallback(async (id: string) => {
+  const deleteMaquininha = async (id: string) => {
     const { error } = await supabase.from('maquininhas').delete().eq('id', id);
     if (!error) await fetchData();
-  }, [fetchData]);
+  };
 
-  const seedMercadologicalTree = useCallback(async () => {
+  const addCashMovement = async (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => {
+    const { data, error } = await supabase.from('cash_movements').insert([{
+      company_id: user?.companyId || null,
+      cash_register_id: movement.cashRegisterId,
+      type: movement.type,
+      amount: movement.amount,
+      reason: movement.reason,
+      created_by: (await supabase.auth.getUser()).data.user?.id
+    }]).select();
+
+    if (!error && data) {
+      await logAuditAction(movement.type, 'caixa', data[0].id, null, movement);
+      await fetchData();
+    } else {
+      console.error('Error adding cash movement:', error);
+      alert('Erro ao registrar movimentação: ' + (error?.message || 'Erro desconhecido'));
+    }
+  };
+
+  const suspendCashRegister = async () => {
+    if (!activeRegister) return;
+    const { error } = await supabase.from('cash_registers').update({ 
+      company_id: user?.companyId || null,
+      status: 'suspended' 
+    }).eq('id', activeRegister.id);
+    if (!error) {
+      await logAuditAction('suspensao', 'caixa', activeRegister.id);
+      await fetchData();
+    }
+  };
+
+  const blockCashRegister = async (reason: string) => {
+    if (!activeRegister) return;
+    const { error } = await supabase.from('cash_registers').update({ 
+      company_id: user?.companyId || null,
+      status: 'blocked',
+      observation: (activeRegister.observation || '') + ' | Bloqueado: ' + reason 
+    }).eq('id', activeRegister.id);
+    if (!error) {
+      await logAuditAction('bloqueio', 'caixa', activeRegister.id, null, { reason });
+      await fetchData();
+    }
+  };
+
+  const hasPermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete') => {
+    if (!user) return false;
+    const userEmail = user.email?.toLowerCase();
+    
+    // Super Admin only has permission for "Gestão de Empresas"
+    if (userEmail === 'willmanssilva4@gmail.com') {
+      return module === 'Gestão de Empresas';
+    }
+
+    if (user.role === 'Administrador') return true;
+    
+    const profilePerms = permissions.filter(p => p.profileId === user.profileId);
+    const modPerm = profilePerms.find(p => p.module === module);
+    
+    if (!modPerm) return false;
+    
+    switch (action) {
+      case 'view': return modPerm.canView;
+      case 'create': return modPerm.canCreate;
+      case 'edit': return modPerm.canEdit;
+      case 'delete': return modPerm.canDelete;
+      default: return false;
+    }
+  };
+
+  const seedMercadologicalTree = async () => {
     try {
       console.log('Starting mercadological tree seeding...');
       if (!DEFAULT_MERCADOLOGICAL_TREE || DEFAULT_MERCADOLOGICAL_TREE.length === 0) {
@@ -3102,9 +3103,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error seeding mercadological tree:', error);
       alert(`Erro ao carregar árvore mercadológica: ${error.message || 'Erro desconhecido'}`);
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const seedExpenseCategories = useCallback(async () => {
+  const seedExpenseCategories = async () => {
     const defaultCategories = [
       'Aluguel',
       'Energia Elétrica',
@@ -3137,9 +3138,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('Error seeding expense categories:', error);
     }
-  }, [user?.companyId, fetchData]);
+  };
 
-  const addPromotion = useCallback(async (promotion: Omit<Promotion, 'id'>) => {
+  const addPromotion = async (promotion: Omit<Promotion, 'id'>) => {
     if (user?.role !== 'Administrador') {
       alert('Apenas administradores podem criar promoções.');
       return;
@@ -3183,9 +3184,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error adding promotion:', error);
       alert(`Erro ao adicionar promoção: ${error.message || JSON.stringify(error)}`);
     }
-  }, [user?.role, user?.companyId, fetchData]);
+  };
 
-  const updatePromotion = useCallback(async (promotion: Promotion) => {
+  const updatePromotion = async (promotion: Promotion) => {
     if (user?.role !== 'Administrador') {
       alert('Apenas administradores podem editar promoções.');
       return;
@@ -3229,9 +3230,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error updating promotion:', error);
       alert(`Erro ao atualizar promoção: ${error.message || JSON.stringify(error)}`);
     }
-  }, [user?.role, user?.companyId, fetchData]);
+  };
 
-  const deletePromotion = useCallback(async (id: string) => {
+  const deletePromotion = async (id: string) => {
     if (user?.role !== 'Administrador') {
       throw new Error('Apenas administradores podem excluir promoções.');
     }
@@ -3241,7 +3242,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Error deleting promotion:', error);
       throw error;
     }
-  }, [user?.role, fetchData]);
+  };
 
   const contextValue = React.useMemo(() => ({ 
       products, 
@@ -3353,6 +3354,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       setCustomAlert,
       changePassword
     }), [
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       products, sales, customers, suppliers, losses, expenses, departamentos, categorias, expenseCategories, subcategorias,
       stockMovements, inventories, employees, systemUsers, accessProfiles, permissions, pricingSettings, companySettings,
       systemSettings, paymentMethods, maquininhas, promotions, returns, user, isSuperAdmin, isLoading, hasPermission,

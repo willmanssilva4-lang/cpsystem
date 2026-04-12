@@ -957,7 +957,11 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
 
   // Stock Metrics
   const totalProductsInStock = products.reduce((acc, p) => acc + (p.stock > 0 ? 1 : 0), 0);
-  const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
+  const totalStockValue = products.reduce((acc, p) => {
+    const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
+    if (isVirtual) return acc;
+    return acc + (p.stock * p.costPrice);
+  }, 0);
   const lowStockProductsCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
 
   return (
@@ -3271,6 +3275,9 @@ function StockProfitReport() {
     return products
       .filter(p => p.status !== 'Inativo' && p.stock > 0)
       .filter(p => {
+        const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
+        if (isVirtual) return false;
+
         const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                              p.sku.toLowerCase().includes(searchTerm.toLowerCase());
         
