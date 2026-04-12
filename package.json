@@ -17,7 +17,7 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "latest",
     "motion": "latest",
-    "next": "latest",
+    "next": "15.5.8",
     "react": "latest",
     "react-dom": "latest",
     "react-markdown": "^10.1.0",
