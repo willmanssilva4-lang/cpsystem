@@ -688,7 +688,7 @@ export default function ProductsPage() {
                             <Package size={16} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-slate-700 text-xs md:text-sm">{product.name}</span>
+                            <span className="font-medium text-slate-700 text-xs md:text-sm">{product.name}</span>
                             <div className="flex items-center gap-2">
                               {getCodigoMercadologico(product) && (
                                 <span className="text-[10px] text-brand-blue font-black tracking-widest bg-brand-blue/5 px-1.5 py-0.5 rounded">

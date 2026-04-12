@@ -55,7 +55,8 @@ import {
   RefreshCw,
   AlertTriangle,
   FileBarChart,
-  Bot
+  Bot,
+  User
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -100,8 +101,9 @@ export default function ReportsPage() {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     const localDate = `${year}-${month}-${day}`;
+    const firstDayOfMonth = `${year}-${month}-01`;
     // eslint-disable-next-line
-    setStartDate(localDate);
+    setStartDate(firstDayOfMonth);
     // eslint-disable-next-line
     setEndDate(localDate);
   }, []);
@@ -678,7 +680,12 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     }
   }, [initialStartDate, initialEndDate]);
 
-  const safeStartDate = startDate || new Date().toISOString().split('T')[0];
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const firstDayOfMonth = `${year}-${month}-01`;
+  
+  const safeStartDate = startDate || firstDayOfMonth;
   const safeEndDate = endDate || new Date().toISOString().split('T')[0];
   
   // Filter data based on date range
@@ -851,7 +858,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     .slice(0, 8)
     .map(([name, value], index) => ({
       name,
-      value,
+      value: totalSales > 0 ? Number(((value / totalSales) * 100).toFixed(1)) : 0,
       color: colors[index % colors.length]
     }));
 
@@ -909,6 +916,36 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
       volume: stats.volume,
       margin: Number(stats.margin.toFixed(1)),
       trend: stats.total > 5000 ? 'up' : 'down'
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  // Top Products Ranking
+  const productStats: Record<string, { total: number, quantity: number, margin: number }> = {};
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const productName = product?.name || 'Produto Desconhecido';
+      if (!productStats[productName]) {
+        productStats[productName] = { total: 0, quantity: 0, margin: 0 };
+      }
+      const itemTotal = item.price * item.quantity;
+      const itemCost = (product ? product.costPrice : item.price * 0.7) * item.quantity;
+      const itemMargin = itemTotal > 0 ? ((itemTotal - itemCost) / itemTotal) * 100 : 0;
+      
+      productStats[productName].total += itemTotal;
+      productStats[productName].quantity += item.quantity;
+      productStats[productName].margin = (productStats[productName].margin + itemMargin) / 2;
+    });
+  });
+
+  const topProducts = Object.entries(productStats)
+    .map(([name, stats], index) => ({
+      id: index + 1,
+      name,
+      total: stats.total,
+      quantity: stats.quantity,
+      margin: Number(stats.margin.toFixed(1))
     }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 6);
@@ -1160,19 +1197,19 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
           )}
 
-          {/* Desempenho por Assistente IA - Right Column */}
+          {/* Desempenho por Vendedor - Right Column */}
           {reportType === 'Relatório de Vendas' && (
             <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Desempenho por Assistente IA</h4>
-                <Bot size={16} className="text-slate-300" />
+                <h4 className="text-sm font-bold text-[#1e293b]">Desempenho por Vendedor</h4>
+                <User size={16} className="text-slate-300" />
               </div>
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-slate-100">
                       <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assistente IA</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</th>
                       <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Vendas (R$)</th>
                       <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Vendas</th>
                       <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem Média (%)</th>
@@ -1342,6 +1379,47 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                     <span className="text-[10px] font-bold text-slate-400 uppercase">{item.name}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top Produtos Vendidos - Bottom Right */}
+          {reportType === 'Relatório de Vendas' && (
+            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="text-sm font-bold text-[#1e293b]">Top Produtos Vendidos</h4>
+                <Package size={16} className="text-slate-300" />
+              </div>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produto</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Qtd</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Total (R$)</th>
+                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {topProducts.map((p, idx) => (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[150px]">{p.name}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700 text-center">{p.quantity}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700 text-right">
+                          R$ {p.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-[11px] font-bold text-slate-700">{p.margin}%</span>
+                            {p.margin > 25 ? <TrendingUp size={12} className="text-brand-green" /> : <TrendingDown size={12} className="text-brand-danger" />}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -3259,7 +3337,7 @@ function GeneralStockReport() {
 }
 
 function StockProfitReport() {
-  const { products, categorias, subcategorias, suppliers } = useERP();
+  const { products, categorias, subcategorias, suppliers, pricingSettings } = useERP();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [selectedSupplier, setSelectedSupplier] = React.useState<string>('all');
@@ -3303,7 +3381,14 @@ function StockProfitReport() {
         const totalCost = p.stock * p.costPrice;
         const totalSale = p.stock * p.salePrice;
         const potentialProfit = totalSale - totalCost;
-        const margin = totalSale > 0 ? (potentialProfit / totalSale) * 100 : 0;
+        
+        let margin = 0;
+        if (pricingSettings?.defaultMethod === 'markup') {
+          margin = p.costPrice > 0 ? ((p.salePrice - p.costPrice) / p.costPrice) * 100 : 0;
+        } else {
+          margin = p.salePrice > 0 ? ((p.salePrice - p.costPrice) / p.salePrice) * 100 : 0;
+        }
+
         return {
           name: p.name,
           sku: p.sku,
@@ -3317,7 +3402,7 @@ function StockProfitReport() {
         };
       })
       .sort((a, b) => b.potentialProfit - a.potentialProfit);
-  }, [products, searchTerm, selectedCategory, selectedSupplier, subcategorias]);
+  }, [products, searchTerm, selectedCategory, selectedSupplier, subcategorias, pricingSettings]);
 
   const totals = reportData.reduce((acc, item) => ({
     cost: acc.cost + item.totalCost,
@@ -3325,7 +3410,12 @@ function StockProfitReport() {
     profit: acc.profit + item.potentialProfit
   }), { cost: 0, sale: 0, profit: 0 });
 
-  const totalMargin = totals.sale > 0 ? (totals.profit / totals.sale) * 100 : 0;
+  let totalMargin = 0;
+  if (pricingSettings?.defaultMethod === 'markup') {
+    totalMargin = totals.cost > 0 ? (totals.profit / totals.cost) * 100 : 0;
+  } else {
+    totalMargin = totals.sale > 0 ? (totals.profit / totals.sale) * 100 : 0;
+  }
 
   return (
     <div className="space-y-6">
@@ -3462,7 +3552,7 @@ function StockProfitReport() {
                   <td className="px-6 py-4 text-right text-sm font-black text-emerald-500">R$ {item.potentialProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="px-6 py-4 text-center">
                     <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
-                      {item.margin.toFixed(1)}%
+                      {item.margin.toFixed(2)}%
                     </span>
                   </td>
                 </tr>
