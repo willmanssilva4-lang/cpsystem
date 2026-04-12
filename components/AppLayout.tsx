@@ -10,9 +10,9 @@ import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle } fr
 import Image from 'next/image';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
-import { getLocalDateString } from '@/lib/utils';
+import { getLocalDateString, cn } from '@/lib/utils';
 
-function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: () => void, onHelpClick: () => void }) {
+function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { user: any, onMenuClick: () => void, onHelpClick: () => void, showMenuToggleOnDesktop?: boolean }) {
   const { products, expenses, lotes, systemSettings, sendEmailNotification } = useERP();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -197,7 +197,7 @@ function TopBar({ user, onMenuClick, onHelpClick }: { user: any, onMenuClick: ()
           id="mobile-menu-toggle"
           name="mobile-menu-toggle"
           onClick={onMenuClick}
-          className="lg:hidden p-2 hover:bg-slate-50 rounded-lg transition-colors text-brand-text-main"
+          className={cn("p-2 hover:bg-slate-50 rounded-lg transition-colors text-brand-text-main", !showMenuToggleOnDesktop && "lg:hidden")}
         >
           <Menu size={24} />
         </button>
@@ -341,6 +341,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   
   const isLoginPage = pathname === '/login';
   const isPDVPage = pathname === '/pdv';
+  const isEstoquePage = pathname === '/produtos';
 
   return (
     <AuthGuard>
@@ -349,6 +350,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Sidebar 
               isOpen={isMobileMenuOpen} 
               onClose={() => setIsMobileMenuOpen(false)} 
+              hideOnDesktop={isEstoquePage}
             />
           )}
           <main id="main-content" data-id="main-content" data-name="main-content" className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
@@ -357,6 +359,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 user={user} 
                 onMenuClick={() => setIsMobileMenuOpen(true)} 
                 onHelpClick={() => setIsHelpOpen(true)}
+                showMenuToggleOnDesktop={isEstoquePage}
               />
             )}
             <div id="page-content" data-id="page-content" data-name="page-content" className="flex-1">

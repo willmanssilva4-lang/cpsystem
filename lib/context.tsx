@@ -1264,7 +1264,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let insertData = {
       company_id: user.companyId,
       name: product.name,
-      subcategoria_id: product.subcategoria_id === '' ? null : product.subcategoria_id,
+      subcategoria_id: product.subcategoria_id === '' ? undefined : product.subcategoria_id,
       sku: product.sku,
       cost_price: (product.costPrice === undefined || product.costPrice === null) ? 0 : Number(product.costPrice),
       sale_price: (product.salePrice === undefined || product.salePrice === null) ? 0 : Number(product.salePrice),
@@ -1283,7 +1283,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       subgroup: product.subgroup,
       product_type: product.product_type || 'SALE',
       base_product_id: product.base_product_id || null,
-      conversion_factor: (product.conversion_factor === '' || product.conversion_factor === undefined || product.conversion_factor === null) ? 1 : Number(product.conversion_factor)
+      conversion_factor: (product.conversion_factor === undefined || product.conversion_factor === null || String(product.conversion_factor) === '') ? 1 : Number(product.conversion_factor)
     };
 
     let { data, error } = await supabase.from('products').insert([insertData]).select();
@@ -1355,26 +1355,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let updateData = {
       company_id: user.companyId,
       name: updated.name,
-      subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
+      subcategoria_id: updated.subcategoria_id === '' ? undefined : updated.subcategoria_id,
       sku: updated.sku,
-      cost_price: (updated.costPrice === '' || updated.costPrice === undefined || updated.costPrice === null) ? 0 : Number(updated.costPrice),
-      sale_price: (updated.salePrice === '' || updated.salePrice === undefined || updated.salePrice === null) ? 0 : Number(updated.salePrice),
-      wholesale_price: (updated.wholesalePrice === '' || updated.wholesalePrice === undefined || updated.wholesalePrice === null) ? 0 : Number(updated.wholesalePrice),
-      club_price: (updated.clubPrice === '' || updated.clubPrice === undefined || updated.clubPrice === null) ? 0 : Number(updated.clubPrice),
-      stock: (updated.stock === '' || updated.stock === undefined || updated.stock === null) ? 0 : Number(updated.stock),
-      min_stock: (updated.minStock === '' || updated.minStock === undefined || updated.minStock === null) ? 0 : Number(updated.minStock),
+      cost_price: (updated.costPrice === undefined || updated.costPrice === null || String(updated.costPrice) === '') ? 0 : Number(updated.costPrice),
+      sale_price: (updated.salePrice === undefined || updated.salePrice === null || String(updated.salePrice) === '') ? 0 : Number(updated.salePrice),
+      wholesale_price: (updated.wholesalePrice === undefined || updated.wholesalePrice === null || String(updated.wholesalePrice) === '') ? 0 : Number(updated.wholesalePrice),
+      club_price: (updated.clubPrice === undefined || updated.clubPrice === null || String(updated.clubPrice) === '') ? 0 : Number(updated.clubPrice),
+      stock: (updated.stock === undefined || updated.stock === null || String(updated.stock) === '') ? 0 : Number(updated.stock),
+      min_stock: (updated.minStock === undefined || updated.minStock === null || String(updated.minStock) === '') ? 0 : Number(updated.minStock),
       image: updated.image,
       composition: updated.composition,
-      status: (updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
+      status: ((updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
       codigo_mercadologico: updated.codigo_mercadologico,
-      validade: updated.validade || null,
+      validade: updated.validade || undefined,
       has_had_stock: updated.stock > 0 || updated.has_had_stock,
       control_stock: updated.controlStock,
       category: updated.category,
       subgroup: updated.subgroup,
       product_type: updated.product_type || 'SALE',
-      base_product_id: updated.base_product_id || null,
-      conversion_factor: (updated.conversion_factor === '' || updated.conversion_factor === undefined || updated.conversion_factor === null) ? 1 : Number(updated.conversion_factor)
+      base_product_id: updated.base_product_id || undefined,
+      conversion_factor: (updated.conversion_factor === undefined || updated.conversion_factor === null || String(updated.conversion_factor) === '') ? 1 : Number(updated.conversion_factor)
     };
 
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);

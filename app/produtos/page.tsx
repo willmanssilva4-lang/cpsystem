@@ -506,8 +506,35 @@ export default function ProductsPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white">
-              <div className="flex items-center gap-4 w-full md:w-auto relative">
+            <div className="p-4 border-b border-slate-100 flex flex-col gap-4 bg-white">
+              {/* Top row: Search and Actions */}
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                <div className="relative w-full md:w-96">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    className="w-full pl-10 pr-4 h-10 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue text-sm font-medium text-slate-700 transition-all outline-none"
+                    placeholder="Buscar por produto..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                  <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-lg text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
+                    <Upload size={16} />
+                    <span>Importar</span>
+                  </button>
+                  <button 
+                    onClick={exportProducts} 
+                    className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-lg text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+                  >
+                    <Download size={16} />
+                    <span>Exportar</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom row: Filters */}
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Departamento Filter */}
                 <div className="relative">
                   <button 
@@ -517,7 +544,7 @@ export default function ProductsPage() {
                       setShowCategoryMenu(false);
                     }}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
+                      "flex items-center gap-2 px-3 h-10 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
                       selectedDepartamento ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     )}
                   >
@@ -572,7 +599,7 @@ export default function ProductsPage() {
                       setShowDepartamentoMenu(false);
                     }}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
+                      "flex items-center gap-2 px-3 h-10 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
                       selectedCategory ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     )}
                   >
@@ -625,58 +652,26 @@ export default function ProductsPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 outline-none h-10"
+                    className="flex items-center gap-2 px-3 h-10 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 outline-none appearance-none pr-8"
                   >
                     <option value="Ativo">Ativos</option>
                     <option value="Todos">Ativos e Inativos</option>
                   </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
-              </div>
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <div className="relative w-full md:w-80">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    className="w-full pl-10 pr-4 h-10 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue text-sm font-medium text-slate-700 transition-all outline-none"
-                    placeholder="Buscar por produto..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <ChevronLeft size={18} className="cursor-pointer hover:text-slate-600" />
-                  <ChevronRight size={18} className="cursor-pointer hover:text-slate-600" />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-                  <Upload size={16} />
-                  <span>Importar</span>
-                </button>
-                <button 
-                  onClick={exportProducts} 
-                  className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-lg text-sm font-medium hover:bg-brand-blue/90 transition-colors shadow-md shadow-brand-blue/10"
-                >
-                  <Download size={16} />
-                  <span>Exportar Excel</span>
-                </button>
               </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50/50">
+                <thead className="bg-slate-50/80 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Produto</th>
-                    <th className="hidden md:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Estoque</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Custo / Venda</th>
-                    <th className="hidden sm:table-cell px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Produto</th>
+                    <th className="hidden md:table-cell px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Categoria</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Estoque</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Custo / Venda</th>
+                    <th className="hidden sm:table-cell px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -687,9 +682,9 @@ export default function ProductsPage() {
                           <div className="hidden sm:flex w-8 h-8 rounded bg-slate-100 items-center justify-center text-slate-400">
                             <Package size={16} />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-slate-700 text-xs md:text-sm">{product.name}</span>
-                            <div className="flex items-center gap-2">
+                          <div className="flex flex-col max-w-[180px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[500px]">
+                            <span className="font-medium text-slate-700 text-xs md:text-sm truncate" title={product.name}>{product.name}</span>
+                            <div className="flex items-center gap-2 mt-1">
                               {getCodigoMercadologico(product) && (
                                 <span className="text-[10px] text-brand-blue font-black tracking-widest bg-brand-blue/5 px-1.5 py-0.5 rounded">
                                   {getCodigoMercadologico(product)}
@@ -750,6 +745,17 @@ export default function ProductsPage() {
                       </td>
                     </tr>
                   ))}
+                  {currentProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center justify-center text-slate-400">
+                          <Package size={48} className="mb-4 text-slate-300" />
+                          <p className="text-base font-medium text-slate-600">Nenhum produto encontrado</p>
+                          <p className="text-sm mt-1">Tente ajustar os filtros ou adicione um novo produto.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

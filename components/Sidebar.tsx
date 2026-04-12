@@ -48,7 +48,7 @@ const NAV_ITEMS = [
   { icon: ShieldCheck, label: 'Gestão de Empresas', href: '/admin/companies', superAdminOnly: true },
 ];
 
-export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () => void }) {
+export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, onClose?: () => void, hideOnDesktop?: boolean }) {
   const pathname = usePathname();
   const { logout, hasPermission, user } = useERP();
   
@@ -199,9 +199,11 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-64 h-screen sticky top-0 shrink-0 self-start">
-        {SidebarContent}
-      </div>
+      {!hideOnDesktop && (
+        <div className="hidden lg:block w-64 h-screen sticky top-0 shrink-0 self-start">
+          {SidebarContent}
+        </div>
+      )}
 
       {/* Mobile Sidebar Drawer */}
       <AnimatePresence>
@@ -212,14 +214,14 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+              className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm z-40", !hideOnDesktop && "lg:hidden")}
             />
             <motion.div
               initial={{ x: -256 }}
               animate={{ x: 0 }}
               exit={{ x: -256 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-64 z-50 lg:hidden"
+              className={cn("fixed inset-y-0 left-0 w-64 z-50", !hideOnDesktop && "lg:hidden")}
             >
               {SidebarContent}
             </motion.div>
