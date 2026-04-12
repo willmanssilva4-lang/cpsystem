@@ -53,9 +53,16 @@ export function Dashboard() {
   const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
-    const today = new Date().toLocaleDateString('en-CA');
+    const todayDate = new Date();
+    const year = todayDate.getFullYear();
+    const month = String(todayDate.getMonth() + 1).padStart(2, '0');
+    const day = String(todayDate.getDate()).padStart(2, '0');
+    
+    const today = `${year}-${month}-${day}`;
+    const firstDayOfMonth = `${year}-${month}-01`;
+
     const timer = setTimeout(() => {
-      setStartDate(today);
+      setStartDate(firstDayOfMonth);
       setEndDate(today);
     }, 0);
     return () => clearTimeout(timer);
