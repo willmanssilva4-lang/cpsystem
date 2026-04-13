@@ -318,14 +318,26 @@ export default function SalesHistoryPage() {
                 
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
                   <div className="space-y-4">
-                    <div className="flex justify-between items-end border-b-2 border-dashed border-brand-border pb-4">
-                      <div>
-                        <p className="text-[10px] font-black uppercase text-brand-text-sec tracking-widest">Total do Cupom</p>
-                        <p className="text-4xl font-black text-brand-blue italic">R$ {selectedSale.total.toFixed(2)}</p>
+                    <div className="flex flex-col border-b-2 border-dashed border-brand-border pb-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-[10px] font-black uppercase text-brand-text-sec tracking-widest">Subtotal</p>
+                        <p className="text-sm font-bold text-brand-text-main">R$ {(selectedSale.subtotal || selectedSale.total + (selectedSale.discount || 0)).toFixed(2)}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black uppercase text-brand-text-sec tracking-widest">Itens</p>
-                        <p className="text-xl font-black text-brand-text-main italic">{selectedSale.items.length}</p>
+                      {(selectedSale.discount || 0) > 0 && (
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-[10px] font-black uppercase text-rose-600 tracking-widest">Desconto</p>
+                          <p className="text-sm font-bold text-rose-600">- R$ {(selectedSale.discount || 0).toFixed(2)}</p>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-brand-text-sec tracking-widest">Total do Cupom</p>
+                          <p className="text-4xl font-black text-brand-blue italic">R$ {selectedSale.total.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase text-brand-text-sec tracking-widest">Itens</p>
+                          <p className="text-xl font-black text-brand-text-main italic">{selectedSale.items.length}</p>
+                        </div>
                       </div>
                     </div>
 
@@ -338,7 +350,12 @@ export default function SalesHistoryPage() {
                             <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-brand-border">
                               <div>
                                 <p className="font-bold text-sm text-brand-text-main uppercase leading-tight">{product?.name || 'Produto'}</p>
-                                <p className="text-[10px] text-brand-text-sec font-bold">{item.quantity}x R$ {item.price.toFixed(2)}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[10px] text-brand-text-sec font-bold">{item.quantity}x R$ {item.price.toFixed(2)}</p>
+                                  {(item.discount || 0) > 0 && (
+                                    <span className="text-[9px] font-black text-rose-600 uppercase italic">(- R$ {(item.discount || 0).toFixed(2)})</span>
+                                  )}
+                                </div>
                               </div>
                               <p className="font-black text-brand-blue italic">R$ {(item.quantity * item.price).toFixed(2)}</p>
                             </div>

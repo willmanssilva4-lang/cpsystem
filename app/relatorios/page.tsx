@@ -951,6 +951,28 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
 
+  // Top Customers Ranking
+  const customerStats: Record<string, { total: number, volume: number }> = {};
+  filteredSales.forEach(sale => {
+    const customer = customers.find(c => c.id === sale.customerId);
+    const customerName = customer ? customer.name : 'Consumidor Final';
+    if (!customerStats[customerName]) {
+      customerStats[customerName] = { total: 0, volume: 0 };
+    }
+    customerStats[customerName].total += sale.total;
+    customerStats[customerName].volume += 1;
+  });
+
+  const topCustomers = Object.entries(customerStats)
+    .map(([name, stats], index) => ({
+      id: index + 1,
+      name,
+      total: stats.total,
+      volume: stats.volume
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
   // Dados reais por semana para o gráfico de projeção/histórico
   const secondProjectionData = React.useMemo(() => {
     const sDate = startDate || new Date().toISOString().split('T')[0];
@@ -1179,7 +1201,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                       </Pie>
                       <Tooltip 
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                        formatter={(value: any) => `${value}%`}
+                        formatter={(value: any) => `${Number(value).toFixed(2)}%`}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1198,40 +1220,32 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
           )}
 
-          {/* Desempenho por Vendedor - Right Column */}
+          {/* Ranking de Clientes - Right Column */}
           {reportType === 'Relatório de Vendas' && (
             <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Desempenho por Vendedor</h4>
-                <User size={16} className="text-slate-300" />
+                <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Clientes</h4>
+                <Users size={16} className="text-slate-300" />
               </div>
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-slate-100">
                       <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendedor</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Vendas (R$)</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Vendas</th>
-                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem Média (%)</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente</th>
+                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Comprado (R$)</th>
+                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Qtd Pedidos</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {sellers.map((s, idx) => (
-                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
+                    {topCustomers.map((c, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{s.name}</td>
+                        <td className="py-4 text-[11px] font-bold text-slate-700">{c.name}</td>
                         <td className="py-4 text-[11px] font-bold text-slate-700">
-                          R$ {s.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          <TrendingUp size={12} className="inline ml-1 text-brand-green" />
+                          R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{s.volume}</td>
-                        <td className="py-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <span className="text-[11px] font-bold text-slate-700">{s.margin}%</span>
-                            {s.margin > 25 ? <TrendingUp size={12} className="text-brand-green" /> : <TrendingDown size={12} className="text-brand-danger" />}
-                          </div>
-                        </td>
+                        <td className="py-4 text-right text-[11px] font-bold text-slate-700">{c.volume}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1356,7 +1370,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                       </Pie>
                       <Tooltip 
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                        formatter={(value: any) => `${value}%`}
+                        formatter={(value: any) => `${Number(value).toFixed(2)}%`}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1384,11 +1398,11 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
             </div>
           )}
 
-          {/* Top Produtos Vendidos - Bottom Right */}
+          {/* Ranking de Produtos - Bottom Right */}
           {reportType === 'Relatório de Vendas' && (
             <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Top Produtos Vendidos</h4>
+                <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Produtos</h4>
                 <Package size={16} className="text-slate-300" />
               </div>
               <div className="overflow-x-auto flex-1">

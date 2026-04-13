@@ -16,7 +16,7 @@ import { PriceCheckModal } from '@/components/PriceCheckModal';
 import { ProductListModal } from '@/components/ProductListModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
-import { X, Tag, Lock, AlertCircle, Check, Printer } from 'lucide-react';
+import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
@@ -41,6 +41,28 @@ export default function PDVPage() {
       clearTimeout(initialTimer);
     };
   }, []);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  }, []);
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {
+        setCustomAlert({ message: 'Para usar tela cheia, abra o sistema em uma nova aba do navegador.', type: 'info' });
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [selectedCartIndex, setSelectedCartIndex] = useState(-1);
@@ -773,6 +795,7 @@ export default function PDVPage() {
         }
         if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Alt+H)'); }
         if (key === 'e') { e.preventDefault(); alert('Funcionalidade: Consultar Estoque (Alt+E)'); }
+        if (key === 'z') { e.preventDefault(); toggleFullScreen(); }
       }
 
       // Esc - Sair / Voltar
@@ -1119,7 +1142,13 @@ export default function PDVPage() {
         
         <div className="flex flex-col items-end">
           <div className="flex gap-2 mb-1">
-            <button className="size-6 bg-brand-blue-hover hover:bg-brand-text-sec flex items-center justify-center font-bold text-xs transition-colors">_</button>
+            <button 
+              onClick={toggleFullScreen}
+              title={isFullScreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+              className="size-6 bg-brand-blue-hover hover:bg-brand-text-sec flex items-center justify-center font-bold text-xs transition-colors"
+            >
+              {isFullScreen ? <Minimize size={14} /> : <Maximize size={14} />}
+            </button>
             <button 
               onClick={() => setConfirmDialog({
                 message: 'Deseja sair do PDV?',
@@ -1139,16 +1168,8 @@ export default function PDVPage() {
       {/* Sale Info Bar */}
       <div className="bg-slate-50 px-6 py-1 flex items-center gap-8 text-xs font-bold border-b border-brand-border text-brand-text-main">
         <div className="flex gap-2">
-          <span className="text-brand-blue/60">N° Venda:</span>
-          <span>1104</span>
-        </div>
-        <div className="flex gap-2">
           <span className="text-brand-blue/60">Atendente:</span>
           <span className="uppercase">{user?.name || 'SISTEMA'}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <input type="checkbox" checked readOnly className="size-3 accent-brand-blue" />
-          <span>Leitor Codigo De barras - F2</span>
         </div>
       </div>
 
@@ -1241,7 +1262,7 @@ export default function PDVPage() {
             {cart.length === 0 ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
                 {companySettings?.logo ? (
-                  <div className="relative w-48 h-48 mb-4">
+                  <div className="relative w-80 h-80 mb-8">
                     <Image 
                       src={companySettings.logo} 
                       alt="Logo da Empresa" 
@@ -1251,7 +1272,7 @@ export default function PDVPage() {
                     />
                   </div>
                 ) : (
-                  <Logo className="w-48 h-48 mb-4" />
+                  <Logo className="w-80 h-80 mb-8" />
                 )}
                 <p className="text-xl font-black uppercase italic text-brand-text-main">Caixa Livre</p>
                 <p className="text-sm font-bold text-brand-text-sec">Passe o código de barras ou pesquise um produto para iniciar a venda.</p>
@@ -1453,6 +1474,8 @@ export default function PDVPage() {
           <span>Alt+L - Lista</span>
           <span>|</span>
           <span>Alt+N - NF</span>
+          <span>|</span>
+          <span>Alt+Z - Tela Cheia</span>
         </div>
       </div>
 

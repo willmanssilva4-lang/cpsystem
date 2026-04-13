@@ -246,6 +246,36 @@ export function Dashboard() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 6);
 
+  // Top Products Ranking
+  const productStats: Record<string, { total: number, quantity: number, margin: number }> = {};
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      const productName = product?.name || 'Produto Desconhecido';
+      if (!productStats[productName]) {
+        productStats[productName] = { total: 0, quantity: 0, margin: 0 };
+      }
+      const itemTotal = item.price * item.quantity;
+      const itemCost = (product ? product.costPrice : item.price * 0.7) * item.quantity;
+      const itemMargin = itemTotal > 0 ? ((itemTotal - itemCost) / itemTotal) * 100 : 0;
+      
+      productStats[productName].total += itemTotal;
+      productStats[productName].quantity += item.quantity;
+      productStats[productName].margin = (productStats[productName].margin + itemMargin) / 2;
+    });
+  });
+
+  const topProducts = Object.entries(productStats)
+    .map(([name, stats], index) => ({
+      id: index + 1,
+      name,
+      total: stats.total,
+      quantity: stats.quantity,
+      margin: Number(stats.margin.toFixed(1))
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
   return (
     <div className="space-y-8 p-8">
       {/* Header Section */}
@@ -358,7 +388,7 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" hide />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                <Tooltip />
+                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
                 <Area type="monotone" dataKey="value" stroke="#1E5EFF" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -390,7 +420,7 @@ export function Dashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -413,37 +443,37 @@ export function Dashboard() {
 
       {/* Bottom Grid: Sellers and Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Top Sellers */}
+        {/* Top Products */}
         <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-                <Users size={20} />
+                <Package size={20} />
               </div>
-              <h3 className="text-lg font-black uppercase italic text-brand-text-main">Ranking de Vendedores</h3>
+              <h3 className="text-lg font-black uppercase italic text-brand-text-main">Ranking de Produtos</h3>
             </div>
             <button className="text-xs font-bold text-brand-blue hover:underline">Ver Todos</button>
           </div>
 
           <div className="space-y-4">
-            {sellers.map((seller, index) => (
-              <div key={seller.id} className="flex items-center justify-between p-4 bg-brand-bg rounded-2xl border border-brand-border hover:border-brand-blue/30 transition-all group">
+            {topProducts.map((product, index) => (
+              <div key={product.id} className="flex items-center justify-between p-4 bg-brand-bg rounded-2xl border border-brand-border hover:border-brand-blue/30 transition-all group">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-brand-card flex items-center justify-center text-xs font-black text-brand-text-sec border border-brand-border group-hover:bg-brand-blue group-hover:text-white transition-all">
                     #{index + 1}
                   </div>
-                  <div>
-                    <h4 className="text-sm font-black text-brand-text-main uppercase italic">{seller.name}</h4>
-                    <p className="text-[10px] font-bold text-brand-text-sec uppercase">{seller.volume} vendas realizadas</p>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-black text-brand-text-main uppercase italic truncate max-w-[180px]">{product.name}</h4>
+                    <p className="text-[10px] font-bold text-brand-text-sec uppercase">{product.quantity} unidades vendidas</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-black text-brand-text-main">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seller.total)}</p>
-                  <p className="text-[10px] font-bold text-brand-green uppercase italic">Margem: {seller.margin}%</p>
+                  <p className="text-sm font-black text-brand-text-main">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.total)}</p>
+                  <p className="text-[10px] font-bold text-brand-green uppercase italic">Margem: {product.margin}%</p>
                 </div>
               </div>
             ))}
-            {sellers.length === 0 && (
+            {topProducts.length === 0 && (
               <div className="py-12 text-center">
                 <p className="text-sm font-medium text-brand-text-sec italic">Nenhuma venda registrada no período.</p>
               </div>
