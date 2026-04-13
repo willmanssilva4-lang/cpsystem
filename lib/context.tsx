@@ -995,6 +995,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let subcategoriasSubscription: any;
     let departamentosSubscription: any;
     let paymentMethodsSubscription: any;
+    let promotionsSubscription: any;
+    let returnsSubscription: any;
 
     const init = async () => {
       try {
@@ -1096,82 +1098,88 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.log('DEBUG: setting isAuthReady to true');
         setIsAuthReady(true);
 
-        // Fetch data in the background
-        console.log('DEBUG: calling fetchData');
-        fetchData().then(() => {
-          console.log('DEBUG: fetchData completed');
+        // Fetch data in the background only if user is logged in
+        if (session?.user) {
+          console.log('DEBUG: calling fetchData');
+          fetchData().then(() => {
+            console.log('DEBUG: fetchData completed');
+            setIsLoading(false);
+            console.log('DEBUG: init completed');
+          }).catch(err => {
+            console.error('DEBUG: fetchData error', err);
+            setIsLoading(false);
+          });
+
+          // Set up real-time subscriptions
+          productsSubscription = supabase
+            .channel('products-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData(['products']))
+            .subscribe();
+
+          salesSubscription = supabase
+            .channel('sales-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData(['sales']))
+            .subscribe();
+
+          customersSubscription = supabase
+            .channel('customers-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData(['customers']))
+            .subscribe();
+
+          suppliersSubscription = supabase
+            .channel('suppliers-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => fetchData(['suppliers']))
+            .subscribe();
+
+          expensesSubscription = supabase
+            .channel('expenses-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData(['expenses']))
+            .subscribe();
+
+          registersSubscription = supabase
+            .channel('registers-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => fetchData(['cash_registers']))
+            .subscribe();
+
+          movimentosSubscription = supabase
+            .channel('movements-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_movements' }, () => fetchData(['cash_movements']))
+            .subscribe();
+
+          categoriasSubscription = supabase
+            .channel('categorias-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, () => fetchData(['categorias']))
+            .subscribe();
+
+          subcategoriasSubscription = supabase
+            .channel('subcategorias-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategorias' }, () => fetchData(['subcategorias']))
+            .subscribe();
+
+          departamentosSubscription = supabase
+            .channel('departamentos-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'departamentos' }, () => fetchData(['departamentos']))
+            .subscribe();
+
+          paymentMethodsSubscription = supabase
+            .channel('payment-methods-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_methods' }, () => fetchData(['payment_methods']))
+            .subscribe();
+
+          promotionsSubscription = supabase
+            .channel('promotions-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => fetchData(['promotions']))
+            .subscribe();
+
+          returnsSubscription = supabase
+            .channel('returns-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'returns' }, () => fetchData(['returns']))
+            .subscribe();
+        } else {
+          console.log('DEBUG: No session, skipping initial fetchData and subscriptions');
           setIsLoading(false);
-          console.log('DEBUG: init completed');
-        }).catch(err => {
-          console.error('DEBUG: fetchData error', err);
-          setIsLoading(false);
-        });
-
-        // Set up real-time subscriptions
-        productsSubscription = supabase
-          .channel('products-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData(['products']))
-          .subscribe();
-
-        salesSubscription = supabase
-          .channel('sales-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData(['sales']))
-          .subscribe();
-
-        customersSubscription = supabase
-          .channel('customers-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData(['customers']))
-          .subscribe();
-
-        suppliersSubscription = supabase
-          .channel('suppliers-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => fetchData(['suppliers']))
-          .subscribe();
-
-        expensesSubscription = supabase
-          .channel('expenses-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData(['expenses']))
-          .subscribe();
-
-        registersSubscription = supabase
-          .channel('registers-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => fetchData(['cash_registers']))
-          .subscribe();
-
-        movimentosSubscription = supabase
-          .channel('movements-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_movements' }, () => fetchData(['cash_movements']))
-          .subscribe();
-
-        categoriasSubscription = supabase
-          .channel('categorias-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, () => fetchData(['categorias']))
-          .subscribe();
-
-        subcategoriasSubscription = supabase
-          .channel('subcategorias-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategorias' }, () => fetchData(['subcategorias']))
-          .subscribe();
-
-        departamentosSubscription = supabase
-          .channel('departamentos-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'departamentos' }, () => fetchData(['departamentos']))
-          .subscribe();
-
-        paymentMethodsSubscription = supabase
-          .channel('payment-methods-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_methods' }, () => fetchData(['payment_methods']))
-          .subscribe();
-
-        const promotionsSubscription = supabase
-          .channel('promotions-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => fetchData(['promotions']))
-          .subscribe();
-
-        const returnsSubscription = supabase
-          .channel('returns-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'returns' }, () => fetchData(['returns']))
-          .subscribe();
+          console.log('DEBUG: init completed (no session)');
+        }
 
       } catch (error) {
         console.error('Initialization error:', error);
@@ -1193,10 +1201,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (subcategoriasSubscription) supabase.removeChannel(subcategoriasSubscription);
       if (departamentosSubscription) supabase.removeChannel(departamentosSubscription);
       if (paymentMethodsSubscription) supabase.removeChannel(paymentMethodsSubscription);
-      // @ts-ignore
-      if (typeof promotionsSubscription !== 'undefined') supabase.removeChannel(promotionsSubscription);
-      // @ts-ignore
-      if (typeof returnsSubscription !== 'undefined') supabase.removeChannel(returnsSubscription);
+      if (promotionsSubscription) supabase.removeChannel(promotionsSubscription);
+      if (returnsSubscription) supabase.removeChannel(returnsSubscription);
     };
   }, [fetchData]);
 
@@ -1316,6 +1322,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           setUser(fallbackUser);
           localStorage.setItem('erp_user', JSON.stringify(fallbackUser));
         }
+        
+        // Fetch data immediately after successful login
+        await fetchData();
+        
         return { success: true };
       }
       
@@ -1324,7 +1334,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       console.error('Login error:', err);
       return { success: false, error: err.message || 'Unknown error occurred' };
     }
-  }, []);
+  }, [fetchData]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
