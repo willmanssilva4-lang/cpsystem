@@ -1215,6 +1215,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <option value="Avaria / Quebra">Avaria / Quebra</option>
                       <option value="Vencimento">Vencimento</option>
                       <option value="Bonificação">Bonificação</option>
+                      <option value="Doação">Doação</option>
                       <option value="Outros">Outros</option>
                     </select>
                   </div>

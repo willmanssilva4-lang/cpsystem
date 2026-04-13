@@ -1,3 +1,6 @@
 const bcrypt = require('bcryptjs');
-const hash = bcrypt.hashSync('admin', 10);
-console.log(hash);
+bcrypt.hash('admin', 10).then(hash => {
+  console.log(hash);
+}).catch(err => {
+  console.error(err);
+});

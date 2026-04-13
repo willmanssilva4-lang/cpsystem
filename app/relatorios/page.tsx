@@ -1000,7 +1000,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     if (isVirtual) return acc;
     return acc + (p.stock * p.costPrice);
   }, 0);
-  const lowStockProductsCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
+  const lowStockProductsCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
 
   return (
     <div className="space-y-6 bg-[#f8fafc] -m-8 p-8 min-h-full font-sans">
@@ -1258,7 +1258,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {products.filter(p => p.stock <= p.minStock && p.has_had_stock).slice(0, 6).map((p, idx) => (
+                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).slice(0, 6).map((p, idx) => (
                       <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[200px]">{p.name}</td>
                         <td className="py-4 text-[11px] font-bold text-slate-700">{p.stock}</td>
@@ -1272,7 +1272,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                         </td>
                       </tr>
                     ))}
-                    {products.filter(p => p.stock <= p.minStock && p.has_had_stock).length === 0 && (
+                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length === 0 && (
                       <tr>
                         <td colSpan={4} className="py-8 text-center text-xs text-slate-500 italic">Nenhum produto com estoque baixo.</td>
                       </tr>
@@ -2555,7 +2555,7 @@ function CriticalStockReport({ startDate, endDate }: { startDate: string, endDat
   const { products } = useERP();
   
   const lowStockProducts = products
-    .filter(p => p.stock <= p.minStock)
+    .filter(p => p.status !== 'Inativo' && p.stock <= p.minStock)
     .sort((a, b) => a.stock - b.stock);
 
   return (

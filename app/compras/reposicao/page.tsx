@@ -52,7 +52,7 @@ export default function ReposicaoPage() {
       if (productsError) throw productsError;
 
       // Filter products that need attention (stock <= min_stock)
-      const lowStockProducts = productsData.filter(p => p.stock <= p.min_stock);
+      const lowStockProducts = productsData.filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock);
 
       // 2. For each product, fetch the last supplier and real average sales
       const thirtyDaysAgo = new Date();

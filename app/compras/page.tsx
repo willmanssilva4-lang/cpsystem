@@ -89,8 +89,8 @@ export default function PurchasingPage() {
         
         const monthTotal = monthOrders?.reduce((acc, order) => acc + Number(order.total_amount), 0) || 0;
 
-        const { data: allProducts } = await supabase.from('products').select('id, name, stock, min_stock').eq('company_id', user.companyId);
-        const belowStockCountActual = allProducts?.filter(p => p.stock < p.min_stock).length || 0;
+        const { data: allProducts } = await supabase.from('products').select('id, name, stock, min_stock, status').eq('company_id', user.companyId);
+        const belowStockCountActual = allProducts?.filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock).length || 0;
 
         const { count: activeSuppliersCount } = await supabase
           .from('suppliers')
@@ -161,7 +161,7 @@ export default function PurchasingPage() {
         // Fetch stock alerts
         if (allProducts && allProducts.length > 0) {
           const alerts = allProducts
-            .filter(p => p.stock < p.min_stock)
+            .filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock)
             .slice(0, 5)
             .map((p: any) => ({
               id: p.id,

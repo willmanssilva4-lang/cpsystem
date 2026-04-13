@@ -45,7 +45,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     const notifs: any[] = [];
     
     // Low stock notifications
-    const lowStock = products.filter(p => p.stock <= p.minStock && p.has_had_stock);
+    const lowStock = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock);
     lowStock.forEach(p => {
       notifs.push({
         id: `stock-${p.id}`,

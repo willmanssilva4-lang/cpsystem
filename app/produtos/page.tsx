@@ -299,7 +299,7 @@ export default function ProductsPage() {
     if (isVirtual) return acc;
     return acc + (p.stock * p.costPrice);
   }, 0);
-  const lowStockCount = products.filter(p => p.stock <= p.minStock && p.has_had_stock).length;
+  const lowStockCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
 
   const handleSaveProduct = async (formData: any) => {
     let success = false;
@@ -992,6 +992,7 @@ export default function ProductsPage() {
                     <option value="Avaria / Quebra">Avaria / Quebra</option>
                     <option value="Vencimento">Vencimento</option>
                     <option value="Bonificação">Bonificação</option>
+                    <option value="Doação">Doação</option>
                     <option value="Outros">Outros</option>
                   </select>
                 </div>

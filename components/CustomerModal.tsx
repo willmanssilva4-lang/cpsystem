@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, User, Phone, Mail, FileText, Camera, Trash2 } from 'lucide-react';
+import { X, Save, AlertCircle, User, Phone, Mail, FileText, Trash2 } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { Customer } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 
 interface CustomerModalProps {
   onClose: () => void;
@@ -112,31 +111,6 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
               {error}
             </div>
           )}
-
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative group">
-              <div className="size-24 rounded-3xl bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden">
-                {formData.image ? (
-                  <Image 
-                    src={formData.image} 
-                    alt="Preview" 
-                    fill 
-                    className="object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <Camera size={32} className="text-slate-400" />
-                )}
-              </div>
-              <input 
-                type="text" 
-                placeholder="URL da Imagem"
-                value={formData.image}
-                onChange={e => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                className="mt-2 w-full h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-brand-blue/20"
-              />
-            </div>
-          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1 md:col-span-2">

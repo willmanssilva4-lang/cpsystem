@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import { useERP } from '@/lib/context';
 import { CustomerModal } from '@/components/CustomerModal';
 import { 
@@ -152,14 +151,8 @@ export default function CustomersPage() {
                 selectedCustomer?.id === customer.id ? "bg-slate-50 border-r-4 border-brand-blue" : ""
               )}
             >
-              <div className="size-12 rounded-full overflow-hidden relative border-2 border-white shadow-sm shrink-0">
-                <Image 
-                  src={customer.image || 'https://i.pravatar.cc/150'} 
-                  alt={customer.name}
-                  fill
-                  className="object-cover"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center border-2 border-white shadow-sm shrink-0">
+                <Users size={20} className="text-slate-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start">
@@ -206,14 +199,8 @@ export default function CustomersPage() {
           <div className="space-y-8">
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="relative">
-                <div className="size-32 rounded-3xl overflow-hidden relative shadow-xl border-4 border-white">
-                  <Image 
-                    src={selectedCustomer.image || 'https://i.pravatar.cc/150'} 
-                    alt={selectedCustomer.name}
-                    fill
-                    className="object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="size-32 rounded-3xl bg-slate-100 flex items-center justify-center shadow-xl border-4 border-white">
+                  <Users size={48} className="text-slate-400" />
                 </div>
                 {selectedCustomer.status === 'VIP' && (
                   <div className="absolute -top-3 -right-3 bg-amber-400 text-white p-2 rounded-xl shadow-lg">

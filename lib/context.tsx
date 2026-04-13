@@ -401,9 +401,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             buildQuery('sale_items').order('created_at', { ascending: false }).limit(2000)
           ]);
           if (salesRes.data) {
+            // Group items by sale_id for O(N) lookup
+            const itemsBySaleId = new Map<string, any[]>();
+            if (itemsRes.data) {
+              itemsRes.data.forEach((item: any) => {
+                const items = itemsBySaleId.get(item.sale_id) || [];
+                items.push(item);
+                itemsBySaleId.set(item.sale_id, items);
+              });
+            }
+
             salesData = salesRes.data.map((s: any) => ({
               ...s,
-              sale_items: itemsRes.data ? itemsRes.data.filter((i: any) => i.sale_id === s.id) : []
+              sale_items: itemsBySaleId.get(s.id) || []
             }));
           }
         }
@@ -498,13 +508,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           conversion_factor: p.conversion_factor ? Number(p.conversion_factor) : 1
         }));
 
+        // Create a map for O(1) lookup
+        const productsById = new Map<string, Product>(baseProducts.map((p: any) => [p.id, p]));
+
         // Calculate virtual stock for kits and sale products with conversion
         const finalProducts = baseProducts.map((p: any) => {
           // Case 1: KIT (Composition)
           if (p.composition && p.composition.length > 0) {
             let possibleStock = Infinity;
             p.composition.forEach((item: CompositionItem) => {
-              const component = baseProducts.find((bp: any) => bp.id === item.productId);
+              const component = productsById.get(item.productId);
               if (component) {
                 const stock = Number(component.stock) || 0;
                 const available = Math.floor(stock / item.quantity);
@@ -520,7 +533,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           
           // Case 2: SALE product with BASE product and conversion factor
           if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
-            const baseProduct = baseProducts.find((bp: any) => bp.id === p.base_product_id);
+            const baseProduct = productsById.get(p.base_product_id);
             if (baseProduct) {
               const virtualStock = Math.floor((Number(baseProduct.stock) || 0) / p.conversion_factor);
               return { ...p, stock: virtualStock };
@@ -648,6 +661,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (movementsData) {
+        // Create a map for faster product name lookup
+        const productsMap = new Map<string, string>((productsData || []).map((p: any) => [p.id, p.name]));
+        
         setStockMovements(movementsData.map((m: any) => ({
           id: m.id,
           productId: m.product_id,
@@ -657,7 +673,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           date: m.date,
           userId: m.user_id,
           userName: m.user_name,
-          productName: productsData?.find((p: any) => p.id === m.product_id)?.name
+          productName: productsMap.get(m.product_id)
         })));
       }
 
