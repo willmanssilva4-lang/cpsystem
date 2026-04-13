@@ -949,7 +949,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
       margin: Number(stats.margin.toFixed(1))
     }))
     .sort((a, b) => b.total - a.total)
-    .slice(0, 6);
+    .slice(0, 5);
 
   // Dados reais por semana para o gráfico de projeção/histórico
   const secondProjectionData = React.useMemo(() => {
