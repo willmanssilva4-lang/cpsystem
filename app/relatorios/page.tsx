@@ -78,7 +78,7 @@ import {
 import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { supabase } from '@/lib/supabase';
-import { cn, toLocalDateString } from '@/lib/utils';
+import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 import { SalesByProductReport } from '@/components/reports/SalesByProductReport';
 import { SalesReport } from '@/components/reports/SalesReport';
 import * as XLSX from 'xlsx';
@@ -687,16 +687,16 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const firstDayOfMonth = `${year}-${month}-01`;
   
   const safeStartDate = startDate || firstDayOfMonth;
-  const safeEndDate = endDate || new Date().toISOString().split('T')[0];
+  const safeEndDate = endDate || getLocalDateString();
   
   // Filter data based on date range
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= safeStartDate && d <= safeEndDate;
   });
 
   const filteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
+    const d = toLocalDateString(e.date);
     return d >= safeStartDate && d <= safeEndDate;
   });
 
@@ -738,16 +738,16 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
   const prevEnd = new Date(start);
   prevEnd.setDate(prevEnd.getDate() - 1);
 
-  const prevStartDate = prevStart.toISOString().split('T')[0];
-  const prevEndDate = prevEnd.toISOString().split('T')[0];
+  const prevStartDate = getLocalDateString(prevStart);
+  const prevEndDate = getLocalDateString(prevEnd);
 
   const prevFilteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= prevStartDate && d <= prevEndDate;
   });
 
   const prevFilteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
+    const d = toLocalDateString(e.date);
     return d >= prevStartDate && d <= prevEndDate;
   });
 
@@ -975,8 +975,8 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
 
   // Dados reais por semana para o gráfico de projeção/histórico
   const secondProjectionData = React.useMemo(() => {
-    const sDate = startDate || new Date().toISOString().split('T')[0];
-    const eDate = endDate || new Date().toISOString().split('T')[0];
+    const sDate = startDate || getLocalDateString();
+    const eDate = endDate || getLocalDateString();
     return [0, 1, 2, 3].map(i => {
       const start = new Date(sDate);
       start.setDate(start.getDate() + (i * 7));
@@ -1574,11 +1574,11 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
   const { filteredSales, filteredExpenses } = React.useMemo(() => {
     return {
       filteredSales: sales.filter(s => {
-        const d = s.date.split('T')[0];
+        const d = toLocalDateString(s.date);
         return d >= startDate && d <= endDate;
       }),
       filteredExpenses: expenses.filter(e => {
-        const d = e.date.split('T')[0];
+        const d = toLocalDateString(e.date);
         return d >= startDate && d <= endDate;
       })
     };
@@ -1658,7 +1658,7 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
   const { sales, products } = useERP();
   
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
 
@@ -1717,7 +1717,7 @@ function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate
   const { sales, customers } = useERP();
   
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
 

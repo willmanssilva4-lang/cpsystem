@@ -1002,6 +1002,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let productsSubscription: any;
     let salesSubscription: any;
+    let saleItemsSubscription: any;
     let customersSubscription: any;
     let suppliersSubscription: any;
     let expensesSubscription: any;
@@ -1137,6 +1138,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData(['sales']))
             .subscribe();
 
+          saleItemsSubscription = supabase
+            .channel('sale-items-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'sale_items' }, () => fetchData(['sales']))
+            .subscribe();
+
           customersSubscription = supabase
             .channel('customers-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchData(['customers']))
@@ -1208,6 +1214,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (productsSubscription) supabase.removeChannel(productsSubscription);
       if (salesSubscription) supabase.removeChannel(salesSubscription);
+      if (saleItemsSubscription) supabase.removeChannel(saleItemsSubscription);
       if (customersSubscription) supabase.removeChannel(customersSubscription);
       if (suppliersSubscription) supabase.removeChannel(suppliersSubscription);
       if (expensesSubscription) supabase.removeChannel(expensesSubscription);

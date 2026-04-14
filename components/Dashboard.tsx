@@ -44,7 +44,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
-import { cn, toLocalDateString } from '@/lib/utils';
+import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 
 export function Dashboard() {
   const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission } = useERP();
@@ -82,12 +82,12 @@ export function Dashboard() {
 
   // Filter data based on date range
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
 
   const filteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
+    const d = toLocalDateString(e.date);
     return d >= startDate && d <= endDate;
   });
 
@@ -129,16 +129,16 @@ export function Dashboard() {
   const prevEnd = new Date(start);
   prevEnd.setDate(prevEnd.getDate() - 1);
 
-  const prevStartDate = prevStart.toISOString().split('T')[0];
-  const prevEndDate = prevEnd.toISOString().split('T')[0];
+  const prevStartDate = getLocalDateString(prevStart);
+  const prevEndDate = getLocalDateString(prevEnd);
 
   const prevFilteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= prevStartDate && d <= prevEndDate;
   });
 
   const prevFilteredExpenses = expenses.filter(e => {
-    const d = e.date.split('T')[0];
+    const d = toLocalDateString(e.date);
     return d >= prevStartDate && d <= prevEndDate;
   });
 

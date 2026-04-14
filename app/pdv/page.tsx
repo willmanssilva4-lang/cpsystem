@@ -277,10 +277,14 @@ export default function PDVPage() {
     console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
     
     // Check stock
-    for (const item of cart) {
-      const currentProduct = products.find(p => p.id === item.product.id);
-      console.log('DEBUG: finalizeSale', { product: currentProduct?.name, controlStock: currentProduct?.controlStock, stock: currentProduct?.stock, minStock: currentProduct?.minStock, qty: item.quantity });
-      if (currentProduct && currentProduct.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - item.quantity) < 0) {
+    const cartTotals: Record<string, number> = {};
+    cart.forEach(item => {
+      cartTotals[item.product.id] = (cartTotals[item.product.id] || 0) + item.quantity;
+    });
+
+    for (const [productId, totalQty] of Object.entries(cartTotals)) {
+      const currentProduct = products.find(p => p.id === productId);
+      if (currentProduct && currentProduct.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - totalQty) < 0) {
         setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente para esta venda (Estoque disponível: ${currentProduct.stock}).`, type: 'error' });
         return;
       }
@@ -992,9 +996,19 @@ export default function PDVPage() {
         stock: currentProduct.stock
       });
     }
+
+    // Calculate total quantity of this product already in cart
+    const qtyInCart = cart
+      .filter(item => item.product.id === product.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
     
-    if (currentProduct?.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - qty) < (currentProduct.minStock || 1)) {
-      setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente (Estoque: ${currentProduct.stock}, Mínimo: ${currentProduct.minStock || 1}).`, type: 'warning' });
+    const totalQty = qtyInCart + qty;
+    
+    if (currentProduct?.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - totalQty) < 0) {
+      setCustomAlert({ 
+        message: `Produto ${currentProduct.name} sem estoque suficiente (Estoque: ${currentProduct.stock}, No carrinho: ${qtyInCart}).`, 
+        type: 'warning' 
+      });
       return;
     }
     setIsNavigatingCart(false);
