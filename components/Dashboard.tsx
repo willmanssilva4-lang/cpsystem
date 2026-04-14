@@ -274,7 +274,7 @@ export function Dashboard() {
       margin: Number(stats.margin.toFixed(1))
     }))
     .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+    .slice(0, 3);
 
   return (
     <div className="space-y-8 p-8">
@@ -452,7 +452,7 @@ export function Dashboard() {
               </div>
               <h3 className="text-lg font-black uppercase italic text-brand-text-main">Ranking de Produtos</h3>
             </div>
-            <button className="text-xs font-bold text-brand-blue hover:underline">Ver Todos</button>
+            <a href="/relatorios" className="text-xs font-bold text-brand-blue hover:underline">Ver Todos</a>
           </div>
 
           <div className="space-y-4">

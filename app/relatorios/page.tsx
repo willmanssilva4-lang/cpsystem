@@ -568,18 +568,7 @@ export default function ReportsPage() {
       )}
 
       {/* Main Content: Advanced Performance Dashboard */}
-      <AdvancedPerformanceDashboard startDate={startDate} endDate={endDate} />
-
-      {/* Floating Action Button to open Report Catalog */}
-      <button 
-        onClick={() => setSelectedReportView('Catálogo')}
-        className="fixed bottom-8 right-8 p-5 bg-[#1E5EFF] text-white rounded-full shadow-2xl hover:scale-110 transition-all z-50 group"
-      >
-        <LayoutGrid size={28} />
-        <span className="absolute right-full mr-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
-          Catálogo de Relatórios
-        </span>
-      </button>
+      <AdvancedPerformanceDashboard startDate={startDate} endDate={endDate} onOpenCatalog={() => setSelectedReportView('Catálogo')} />
 
       {/* Toast Notification */}
       {notification && (
@@ -661,7 +650,7 @@ function QuickActionButton({ icon: Icon, label, onClick }: { icon: any, label: s
 }
 
 // --- Advanced Performance Dashboard Component ---
-function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: initialEndDate }: { startDate: string, endDate: string }) {
+function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: initialEndDate, onOpenCatalog }: { startDate: string, endDate: string, onOpenCatalog?: () => void }) {
   const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
@@ -886,6 +875,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
     .map(([name, value], index) => ({
       name,
       value: totalSales > 0 ? Number(((value / totalSales) * 100).toFixed(1)) : 0,
+      totalValue: value,
       color: colors[index % colors.length]
     }));
 
@@ -1032,6 +1022,15 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight text-[#1e293b]">Relatórios Avançados de Desempenho</h2>
             <div className="flex gap-3">
+              {onOpenCatalog && (
+                <button 
+                  onClick={onOpenCatalog}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all shadow-sm"
+                >
+                  <LayoutGrid size={14} />
+                  Catálogo de Relatórios
+                </button>
+              )}
               <button 
                 onClick={handleExportExcel}
                 className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
@@ -1382,7 +1381,12 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
                         <span className="text-[11px] font-bold text-slate-500">{item.name}</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-700">{item.value}%</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-700">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalValue)}
+                        </span>
+                        <span className="text-[11px] font-bold text-brand-blue">({item.value}%)</span>
+                      </div>
                     </div>
                   ))}
                 </div>
