@@ -24,7 +24,8 @@ import {
   Clock,
   Target,
   Zap,
-  Gauge
+  Gauge,
+  Monitor
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -247,33 +248,37 @@ export function Dashboard() {
     .slice(0, 6);
 
   // Top Products Ranking
-  const productStats: Record<string, { total: number, quantity: number, margin: number }> = {};
+  const productStats: Record<string, { total: number, quantity: number, cost: number }> = {};
   filteredSales.forEach(sale => {
     sale.items.forEach(item => {
       const product = products.find(p => p.id === item.productId);
       const productName = product?.name || 'Produto Desconhecido';
       if (!productStats[productName]) {
-        productStats[productName] = { total: 0, quantity: 0, margin: 0 };
+        productStats[productName] = { total: 0, quantity: 0, cost: 0 };
       }
       const itemTotal = item.price * item.quantity;
       const itemCost = (product ? product.costPrice : item.price * 0.7) * item.quantity;
-      const itemMargin = itemTotal > 0 ? ((itemTotal - itemCost) / itemTotal) * 100 : 0;
       
       productStats[productName].total += itemTotal;
       productStats[productName].quantity += item.quantity;
-      productStats[productName].margin = (productStats[productName].margin + itemMargin) / 2;
+      productStats[productName].cost += itemCost;
     });
   });
 
   const topProducts = Object.entries(productStats)
-    .map(([name, stats], index) => ({
-      id: index + 1,
-      name,
-      total: stats.total,
-      quantity: stats.quantity,
-      margin: Number(stats.margin.toFixed(1))
-    }))
-    .sort((a, b) => b.total - a.total)
+    .map(([name, stats], index) => {
+      const profit = stats.total - stats.cost;
+      const margin = stats.total > 0 ? (profit / stats.total) * 100 : 0;
+      return {
+        id: index + 1,
+        name,
+        total: stats.total,
+        quantity: stats.quantity,
+        profit: profit,
+        margin: Number(margin.toFixed(1))
+      };
+    })
+    .sort((a, b) => b.profit - a.profit)
     .slice(0, 3);
 
   return (
@@ -290,7 +295,15 @@ export function Dashboard() {
           <p className="text-brand-text-sec text-sm font-medium ml-13">Visão geral em tempo real da performance do seu negócio.</p>
         </div>
 
-        <div className="flex items-center gap-3 bg-brand-card border border-brand-border p-2 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <a 
+            href="/consulta-preco" 
+            className="flex items-center gap-2 px-4 py-2 bg-brand-blue/10 text-brand-blue rounded-xl text-xs font-black uppercase italic hover:bg-brand-blue hover:text-white transition-all border border-brand-blue/20"
+          >
+            <Monitor size={16} />
+            Terminal de Consulta
+          </a>
+          <div className="flex items-center gap-3 bg-brand-card border border-brand-border p-2 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-bg rounded-xl border border-brand-border">
             <Calendar size={16} className="text-brand-blue" />
             <input 
@@ -312,8 +325,9 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+    </div>
 
-      {/* Main Metrics Grid */}
+    {/* Main Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <MetricCard 
           label="Faturamento Bruto" 
@@ -468,7 +482,9 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-black text-brand-text-main">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.total)}</p>
+                  <p className="text-sm font-black text-brand-text-main" title="Lucro Bruto">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.profit)}
+                  </p>
                   <p className="text-[10px] font-bold text-brand-green uppercase italic">Margem: {product.margin}%</p>
                 </div>
               </div>

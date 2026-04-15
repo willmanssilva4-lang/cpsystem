@@ -1025,7 +1025,7 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
               {onOpenCatalog && (
                 <button 
                   onClick={onOpenCatalog}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all shadow-sm"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
                 >
                   <LayoutGrid size={14} />
                   Catálogo de Relatórios
@@ -2507,9 +2507,11 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
   const { sales, paymentMethods } = useERP();
   
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
+
+  const totalSalesAmount = filteredSales.reduce((acc, s) => acc + s.total, 0);
 
   const paymentTotals: Record<string, number> = {};
   filteredSales.forEach(sale => {
@@ -2524,6 +2526,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
     .map(([name, value], index) => ({
       name: name,
       value,
+      percentage: totalSalesAmount > 0 ? ((value / totalSalesAmount) * 100).toFixed(1) : '0.0',
       total: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value),
       fill: colors[index % colors.length],
       color: colors[index % colors.length]
@@ -2539,7 +2542,10 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
-                <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB' }} formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
+                <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB' }} formatter={(value: any, name: string, props: any) => [
+                  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0) + ` (${props.payload.percentage}%)`,
+                  'Total'
+                ]} />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -2560,7 +2566,10 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pay.color }}></div>
                 <span className="text-sm font-black text-brand-text-main uppercase italic">{pay.name}</span>
               </div>
-              <span className="text-sm font-black text-brand-blue">{pay.total}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-brand-blue">{pay.total}</span>
+                <span className="text-xs font-bold text-brand-text-sec">({pay.percentage}%)</span>
+              </div>
             </div>
           ))}
         </div>

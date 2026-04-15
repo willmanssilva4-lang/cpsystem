@@ -341,12 +341,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   
   const isLoginPage = pathname === '/login';
   const isPDVPage = pathname === '/pdv';
+  const isPriceCheckPage = pathname === '/consulta-preco';
   const isEstoquePage = pathname === '/produtos';
 
   return (
     <AuthGuard>
       <div id="app-layout" className="flex min-h-screen relative" suppressHydrationWarning>
-          {!isLoginPage && !isPDVPage && (
+          {!isLoginPage && !isPDVPage && !isPriceCheckPage && (
             <Sidebar 
               isOpen={isMobileMenuOpen} 
               onClose={() => setIsMobileMenuOpen(false)} 
@@ -354,7 +355,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             />
           )}
           <main id="main-content" data-id="main-content" data-name="main-content" className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
-            {!isLoginPage && !isPDVPage && (
+            {!isLoginPage && !isPDVPage && !isPriceCheckPage && (
               <TopBar 
                 user={user} 
                 onMenuClick={() => setIsMobileMenuOpen(true)} 

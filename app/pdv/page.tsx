@@ -16,7 +16,7 @@ import { PriceCheckModal } from '@/components/PriceCheckModal';
 import { ProductListModal } from '@/components/ProductListModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
-import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize } from 'lucide-react';
+import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
@@ -1156,6 +1156,14 @@ export default function PDVPage() {
         
         <div className="flex flex-col items-end">
           <div className="flex gap-2 mb-1">
+            <a 
+              href="/consulta-preco" 
+              target="_blank"
+              title="Abrir Terminal de Consulta em nova aba"
+              className="size-6 bg-brand-blue-hover hover:bg-brand-text-sec flex items-center justify-center font-bold text-xs transition-colors"
+            >
+              <Monitor size={14} />
+            </a>
             <button 
               onClick={toggleFullScreen}
               title={isFullScreen ? "Sair da Tela Cheia" : "Tela Cheia"}
@@ -1788,6 +1796,9 @@ export default function PDVPage() {
                 <p><span className="font-bold">Ctrl + F</span> - Fechamento de caixa</p>
                 <p><span className="font-bold">Alt + E</span> - Consultar estoque</p>
                 <p><span className="font-bold">Ctrl + P</span> - Consultar preço</p>
+                <a href="/consulta-preco" target="_blank" className="block mt-2 p-2 bg-brand-blue/10 text-brand-blue rounded-lg text-[10px] font-black uppercase italic hover:bg-brand-blue hover:text-white transition-all text-center border border-brand-blue/20">
+                  Abrir Terminal em Nova Aba
+                </a>
                 <p><span className="font-bold">Alt + H</span> - Histórico do cliente</p>
                 <p><span className="font-bold">Alt + L</span> - Lista de produtos</p>
                 <p><span className="font-bold">Alt + N</span> - Nota fiscal</p>
