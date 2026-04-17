@@ -129,7 +129,7 @@ export async function GET() {
     // 5. Create or Update in system_users
     const userData: any = {
       id: userId,
-      username: 'admin',
+      username: 'superadmin',
       email: superAdminEmail,
       full_name: 'Super Admin',
       profile_id: (profile as any).id,

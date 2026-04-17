@@ -224,15 +224,36 @@ export async function GET() {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { data, error } = await supabaseAdmin
+    // Fetch companies
+    const { data: companies, error: companiesError } = await supabaseAdmin
       .from('companies')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (companiesError) throw companiesError;
 
-    return NextResponse.json(data);
+    // Fetch admin users for these companies
+    // We look for users that have the 'Administrador' profile
+    const { data: admins, error: adminsError } = await supabaseAdmin
+      .from('system_users')
+      .select(`
+        email,
+        company_id,
+        access_profiles!inner(name)
+      `)
+      .eq('access_profiles.name', 'Administrador');
+
+    const companiesWithAdmins = (companies || []).map(company => {
+      const admin = (admins || []).find(a => a.company_id === company.id);
+      return {
+        ...company,
+        adminEmail: admin?.email || 'N/A'
+      };
+    });
+
+    return NextResponse.json(companiesWithAdmins);
   } catch (error: any) {
+    console.error('Error in GET companies:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -251,7 +272,7 @@ export async function PUT(req: Request) {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { id, name, document, status } = await req.json();
+    const { id, name, document, status, adminPassword } = await req.json();
 
     if (!id || !name) {
       return NextResponse.json(
@@ -260,17 +281,56 @@ export async function PUT(req: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    // 1. Update Company
+    const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .update({ name, document, status })
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (companyError) throw companyError;
 
-    return NextResponse.json({ success: true, company: data });
+    // 2. Update Admin Password if provided
+    if (adminPassword && adminPassword.trim() !== '') {
+      // Find the admin user for this company
+      const { data: adminUser, error: adminError } = await supabaseAdmin
+        .from('system_users')
+        .select(`
+          id,
+          access_profiles!inner(name)
+        `)
+        .eq('company_id', id)
+        .eq('access_profiles.name', 'Administrador')
+        .maybeSingle();
+      
+      if (adminUser) {
+        // Update Auth Password
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          adminUser.id,
+          { password: adminPassword }
+        );
+        
+        if (authError) {
+          console.error('Error updating auth password:', authError);
+          // Continue anyway, maybe try to update system_users
+        }
+
+        // Update system_users password_hash
+        const passwordHash = await bcrypt.hash(adminPassword, 10);
+        const { error: hashError } = await supabaseAdmin.from('system_users')
+          .update({ password_hash: passwordHash })
+          .eq('id', adminUser.id);
+          
+        if (hashError) {
+          console.error('Error updating password hash:', hashError);
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, company });
   } catch (error: any) {
+    console.error('Error in PUT companies:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

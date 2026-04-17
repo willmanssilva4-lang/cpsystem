@@ -14,6 +14,7 @@ import { getLocalDateString, cn } from '@/lib/utils';
 
 function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { user: any, onMenuClick: () => void, onHelpClick: () => void, showMenuToggleOnDesktop?: boolean }) {
   const { products, expenses, lotes, systemSettings, sendEmailNotification } = useERP();
+  const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [sentEmailNotificationIds, setSentEmailNotificationIds] = useState<string[]>(() => {
@@ -41,7 +42,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
   }, []);
 
   const notifications = useMemo(() => {
-    if (!mounted) return [];
+    if (!mounted || isSuperAdmin) return [];
     const notifs: any[] = [];
     
     // Low stock notifications
@@ -101,7 +102,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     });
 
     return notifs;
-  }, [products, expenses, lotes, readNotificationIds, mounted]);
+  }, [products, expenses, lotes, readNotificationIds, mounted, isSuperAdmin]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -188,8 +189,6 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     setReadNotificationIds(Array.from(new Set([...readNotificationIds, ...allIds])));
   };
 
-  const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
-
   return (
     <header id="top-bar" className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
       <div className="flex items-center gap-2 md:gap-6">
@@ -213,21 +212,23 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
 
           <div id="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
           <div id="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
-            <button 
-              id="notifications-toggle"
-              name="notifications-toggle"
-              className="relative hover:text-brand-blue transition-colors p-1"
-              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            >
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-brand-green text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                {unreadCount}
-              </span>
+            {!isSuperAdmin && (
+              <button 
+                id="notifications-toggle"
+                name="notifications-toggle"
+                className="relative hover:text-brand-blue transition-colors p-1"
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-brand-green text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
             )}
-          </button>
 
-          {isNotificationsOpen && (
+            {!isSuperAdmin && isNotificationsOpen && (
             <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-brand-border overflow-hidden z-50">
               <div className="p-4 border-b border-brand-border flex justify-between items-center bg-slate-50">
                 <h3 className="font-semibold text-brand-text-main">Notificações</h3>
@@ -266,16 +267,18 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
             </div>
           )}
 
-            <button 
-              id="help-toggle"
-              name="help-toggle"
-              onClick={onHelpClick}
-              className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group"
-              title="Modo Ajuda"
-            >
-              <HelpCircle size={20} />
-              <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Ajuda</span>
-            </button>
+            {!isSuperAdmin && (
+              <button 
+                id="help-toggle"
+                name="help-toggle"
+                onClick={onHelpClick}
+                className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group"
+                title="Modo Ajuda"
+              >
+                <HelpCircle size={20} />
+                <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Ajuda</span>
+              </button>
+            )}
   
             {!isSuperAdmin && (
               <Link id="settings-link" href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">

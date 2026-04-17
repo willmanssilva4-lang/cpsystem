@@ -419,6 +419,16 @@ export interface Company {
   address?: string;
   status: 'Ativo' | 'Inativo';
   createdAt: string;
+  adminEmail?: string;
+}
+
+export interface Advertisement {
+  id: string;
+  titulo: string;
+  descricao: string;
+  imagem_url: string;
+  ativo: boolean;
+  company_id?: string;
 }
 
 export const INITIAL_PRODUCTS: Product[] = [];
@@ -426,3 +436,26 @@ export const INITIAL_CUSTOMERS: Customer[] = [];
 export const INITIAL_LOSSES: Loss[] = [];
 export const INITIAL_SALES: Sale[] = [];
 export const INITIAL_EXPENSES: Expense[] = [];
+export const INITIAL_ADS: Advertisement[] = [
+  {
+    id: '1',
+    titulo: 'Ofertas da Semana',
+    descricao: 'Preços imbatíveis em todo o setor de hortifruti!',
+    imagem_url: 'https://picsum.photos/seed/promo1/1200/600',
+    ativo: true
+  },
+  {
+    id: '2',
+    titulo: 'Clube SuperNice',
+    descricao: 'Faça seu cadastro e ganhe descontos exclusivos na hora.',
+    imagem_url: 'https://picsum.photos/seed/promo2/1200/600',
+    ativo: true
+  },
+  {
+    id: '3',
+    titulo: 'Bebidas Geladas',
+    descricao: 'Variedade em cervejas e refrigerantes com o melhor preço.',
+    imagem_url: 'https://picsum.photos/seed/promo3/1200/600',
+    ativo: true
+  }
+];

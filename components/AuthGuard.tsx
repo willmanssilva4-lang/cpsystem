@@ -21,7 +21,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const target = !effectiveUser ? '/login' : (pathname === '/login' ? '/' : null);
+    const isSuperAdminManagement = effectiveUser?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
+    let target = !effectiveUser ? '/login' : (pathname === '/login' ? '/' : null);
+    
+    // Specific redirect for the management superadmin
+    if (effectiveUser && isSuperAdminManagement && pathname === '/') {
+      target = '/admin/companies';
+    }
     
     if (target) {
       // If we are already on the target or navigating to it, don't trigger again

@@ -87,7 +87,8 @@ export function CompaniesManagement({ isModal, onClose }: CompaniesManagementPro
             id: editingCompany.id,
             name: formData.companyName,
             document: formData.companyDocument,
-            status: formData.status
+            status: formData.status,
+            adminPassword: formData.adminPassword
           })
         : JSON.stringify(formData);
 
@@ -313,6 +314,8 @@ export function CompaniesManagement({ isModal, onClose }: CompaniesManagementPro
                                   ...formData,
                                   companyName: company.name,
                                   companyDocument: company.document || '',
+                                  adminEmail: company.adminEmail || '',
+                                  adminPassword: '',
                                   status: company.status || 'Ativo'
                                 });
                                 setIsFormModalOpen(true);
@@ -398,7 +401,7 @@ export function CompaniesManagement({ isModal, onClose }: CompaniesManagementPro
                   </div>
                 )}
 
-                <div className={`grid grid-cols-1 ${editingCompany ? '' : 'md:grid-cols-2'} gap-6`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Company Info */}
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -444,13 +447,13 @@ export function CompaniesManagement({ isModal, onClose }: CompaniesManagementPro
                   </div>
 
                   {/* Admin Info */}
-                  {!editingCompany && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <UserPlus size={16} />
+                      Administrador Master
+                    </h3>
                     <div className="space-y-4">
-                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                        <UserPlus size={16} />
-                        Administrador Master
-                      </h3>
-                      <div className="space-y-4">
+                      {!editingCompany && (
                         <div className="space-y-1.5">
                           <label className="text-sm font-bold text-slate-700 ml-1">Nome do Admin</label>
                           <input
@@ -462,31 +465,34 @@ export function CompaniesManagement({ isModal, onClose }: CompaniesManagementPro
                             className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:border-brand-blue focus:bg-white transition-all outline-none"
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="text-sm font-bold text-slate-700 ml-1">E-mail de Acesso</label>
-                          <input
-                            required
-                            type="email"
-                            value={formData.adminEmail}
-                            onChange={(e) => setFormData({...formData, adminEmail: e.target.value})}
-                            placeholder="admin@empresa.com"
-                            className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:border-brand-blue focus:bg-white transition-all outline-none"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-sm font-bold text-slate-700 ml-1">Senha Inicial</label>
-                          <input
-                            required
-                            type="password"
-                            value={formData.adminPassword}
-                            onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
-                            placeholder="••••••••"
-                            className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:border-brand-blue focus:bg-white transition-all outline-none"
-                          />
-                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-bold text-slate-700 ml-1">E-mail de Acesso</label>
+                        <input
+                          required
+                          disabled={!!editingCompany}
+                          type="email"
+                          value={formData.adminEmail}
+                          onChange={(e) => setFormData({...formData, adminEmail: e.target.value})}
+                          placeholder="admin@empresa.com"
+                          className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:border-brand-blue focus:bg-white transition-all outline-none disabled:opacity-60"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-bold text-slate-700 ml-1">
+                          {editingCompany ? 'Nova Senha (deixe em branco para manter)' : 'Senha Inicial'}
+                        </label>
+                        <input
+                          required={!editingCompany}
+                          type="password"
+                          value={formData.adminPassword}
+                          onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
+                          placeholder="••••••••"
+                          className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:border-brand-blue focus:bg-white transition-all outline-none"
+                        />
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-4 pt-4">

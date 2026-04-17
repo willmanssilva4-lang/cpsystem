@@ -18,6 +18,7 @@ import {
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import TotemAdsManagement from '@/components/admin/TotemAdsManagement';
 
 export default function SettingsPage() {
   const { hasPermission, user } = useERP();
@@ -47,13 +48,14 @@ export default function SettingsPage() {
     { id: 'empresa', label: 'Dados da Empresa', icon: Building2 },
     { id: 'sistema', label: 'Config. do Sistema', icon: Settings },
     { id: 'seguranca', label: 'Segurança', icon: Lock },
+    { id: 'totem', label: 'Gestão do Totem', icon: ImageIcon },
   ];
 
   return (
     <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
       <div className="flex flex-col gap-1">
         <h2 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Configurações</h2>
-        <p className="text-brand-blue/60 font-medium">Gerencie as preferências da empresa, do sistema e segurança.</p>
+        <p className="text-brand-blue/60 font-medium">Gerencie as preferências da empresa, do sistema, segurança e totem.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -83,6 +85,7 @@ export default function SettingsPage() {
             {activeTab === 'empresa' && <CompanySettings />}
             {activeTab === 'sistema' && <SystemSettings />}
             {activeTab === 'seguranca' && <SecuritySettings />}
+            {activeTab === 'totem' && <TotemAdsManagement />}
           </div>
         </div>
       </div>
@@ -517,6 +520,65 @@ function SystemSettings() {
     URL.revokeObjectURL(url);
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm("Atenção! Importar um backup irá SUBSTITUIR os dados no seu navegador. Deseja continuar? (O banco de dados nuvem precisará ser sincronizado separadamente depois se estiver usando Supabase).")) {
+      e.target.value = '';
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const importedData = JSON.parse(text);
+
+      // Define standard keys corresponding to context
+      const keyMap: Record<string, string> = {
+        products: 'erp_products',
+        sales: 'erp_sales',
+        customers: 'erp_customers',
+        suppliers: 'erp_suppliers',
+        expenses: 'erp_expenses',
+        paymentMethods: 'payment_methods',
+        maquininhas: 'maquininhas',
+        promotions: 'promotions',
+        systemSettings: 'system_settings',
+        pricingSettings: 'pricing_settings',
+        companySettings: 'company_settings'
+        // Add others as needed if utilizing LocalStorage exclusively
+      };
+
+      let successCount = 0;
+      for (const [key, value] of Object.entries(importedData)) {
+        if (key === 'exportDate') continue;
+        
+        const storageKey = keyMap[key] || key;
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(value));
+          successCount++;
+        } catch (storageError) {
+          console.warn(`Could not save ${key} to local storage:`, storageError);
+        }
+      }
+
+      alert(`Backup restaurado com sucesso! ${successCount} conjuntos de dados foram importados.`);
+      
+      // Force reload to apply the new state from Context
+      window.location.reload();
+      
+    } catch (err) {
+      console.error("Erro ao importar base:", err);
+      alert("Erro ao ler o arquivo de backup. Verifique se é um arquivo .json válido (Exportado deste sistema).");
+    } finally {
+      setIsImporting(false);
+      e.target.value = '';
+    }
+  };
+
   const handleClearData = async () => {
     console.log('🚀 Iniciando limpeza de dados...');
     setIsClearing(true);
@@ -775,12 +837,30 @@ function SystemSettings() {
                 <h4 className="text-sm font-black text-brand-text-main uppercase italic">Backup Completo</h4>
                 <p className="text-xs text-brand-blue/60 font-medium">Baixe todos os seus dados.</p>
               </div>
-              <button 
-                onClick={handleExportData}
-                className="w-full py-3 bg-white border border-brand-border text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-slate-50 transition-all"
-              >
-                Exportar Agora
-              </button>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={handleExportData}
+                  className="w-full py-3 bg-white border border-brand-border text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-slate-50 transition-all shadow-sm"
+                >
+                  Exportar Agora
+                </button>
+                <label className="w-full py-3 bg-brand-blue border border-brand-blue text-white rounded-2xl font-black uppercase italic text-xs hover:bg-brand-blue-hover transition-all cursor-pointer text-center flex items-center justify-center shadow-lg relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                  Importar Backup (Restaurar)
+                  <input 
+                    type="file" 
+                    accept=".json" 
+                    onChange={handleImportBackup} 
+                    className="hidden" 
+                    disabled={isImporting}
+                  />
+                </label>
+                {isImporting && (
+                  <div className="text-[10px] text-brand-blue text-center font-bold animate-pulse">
+                    Importando dados, aguarde...
+                  </div>
+                )}
+              </div>
             </div>
             <div className="p-6 rounded-3xl border border-rose-100 bg-rose-50/30 space-y-4">
               <div className="space-y-1">

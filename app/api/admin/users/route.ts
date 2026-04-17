@@ -67,8 +67,8 @@ export async function POST(req: Request) {
     if (!email) {
       email = username.trim().toLowerCase();
       if (!email.includes('@')) {
-        if (email === 'admin' || email === 'administrador') {
-          email = 'suporte@cpsstem.com.br';
+        if (email === 'admin' || email === 'administrador' || email === 'superadmin') {
+          email = 'willmanssilva4@gmail.com';
         } else {
           // Sanitize username for email: remove spaces, special chars
           const sanitizedUsername = email.replace(/[^a-z0-9._-]/g, '');

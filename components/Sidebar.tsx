@@ -63,7 +63,7 @@ export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, 
   };
 
   const filteredNavItems = isSuperAdmin 
-    ? NAV_ITEMS.filter(item => item.label === 'Gestão de Empresas').map(item => ({ ...item, href: '/' }))
+    ? NAV_ITEMS.filter(item => item.label === 'Gestão de Empresas').map(item => ({ ...item, href: item.href || (item.subItems ? item.subItems[0].href : '/') }))
     : NAV_ITEMS.map(item => {
       if (item.superAdminOnly && !isSuperAdmin) return null;
       

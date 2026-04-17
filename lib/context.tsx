@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, Return, ExpenseCategory, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES } from './types';
+import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, Return, ExpenseCategory, Advertisement, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES, INITIAL_ADS } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_MERCADOLOGICAL_TREE } from './default-tree';
@@ -30,6 +30,7 @@ interface ERPContextType {
   maquininhas: Maquininha[];
   promotions: Promotion[];
   returns: Return[];
+  advertisements: Advertisement[];
   user: { id: string; name: string; email: string; role: string; profileId?: string; companyId?: string } | null;
   isSuperAdmin: boolean;
   isAuthReady: boolean;
@@ -109,6 +110,9 @@ interface ERPContextType {
   addPromotion: (promotion: Omit<Promotion, 'id'>) => Promise<void>;
   updatePromotion: (promotion: Promotion) => Promise<void>;
   deletePromotion: (id: string) => Promise<void>;
+  addAdvertisement: (ad: Omit<Advertisement, 'id'>) => Promise<void>;
+  updateAdvertisement: (ad: Advertisement) => Promise<void>;
+  deleteAdvertisement: (id: string) => Promise<void>;
   seedMercadologicalTree: () => Promise<void>;
   seedExpenseCategories: () => Promise<void>;
   fetchData: () => Promise<void>;
@@ -194,6 +198,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [maquininhas, setMaquininhas] = useState<Maquininha[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [returns, setReturns] = useState<Return[]>([]);
+  const [advertisements, setAdvertisements] = useState<Advertisement[]>(INITIAL_ADS);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(INITIAL_SYSTEM_SETTINGS);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>(INITIAL_PRICING_SETTINGS);
   const [companySettings, setCompanySettings] = useState<CompanySettings>(INITIAL_COMPANY_SETTINGS);
@@ -224,6 +229,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     loadFromStorage('erp_expenses', setExpenses, []);
     loadFromStorage('payment_methods', setPaymentMethods, []);
     loadFromStorage('maquininhas', setMaquininhas, []);
+    loadFromStorage('advertisements', setAdvertisements, INITIAL_ADS);
     loadFromStorage('system_settings', setSystemSettings, INITIAL_SYSTEM_SETTINGS);
     loadFromStorage('pricing_settings', setPricingSettings, INITIAL_PRICING_SETTINGS);
     loadFromStorage('company_settings', setCompanySettings, INITIAL_COMPANY_SETTINGS);
@@ -959,8 +965,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     if (!user) return false;
     const userEmail = user.email?.toLowerCase();
     
-    // Super Admin only has permission for "Gestão de Empresas"
+    // Super Admin has all permissions, but restricted to specific modules if it's the management email
     if (userEmail === 'willmanssilva4@gmail.com') {
+      // This specific superadmin is ONLY for managing companies
       return module === 'Gestão de Empresas';
     }
 
@@ -1255,8 +1262,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               console.log('Found email for username via API:', emailToUse);
             } else {
               // Not found in DB, fallback to generated email
-              if (cleanInput.toLowerCase() === 'admin' || cleanInput.toLowerCase() === 'administrador') {
-                emailToUse = 'suporte@cpsstem.com.br';
+              if (cleanInput.toLowerCase() === 'admin' || cleanInput.toLowerCase() === 'administrador' || cleanInput.toLowerCase() === 'superadmin') {
+                emailToUse = 'willmanssilva4@gmail.com';
               } else {
                 const sanitizedUsername = cleanInput.toLowerCase().replace(/[^a-z0-9._-]/g, '');
                 emailToUse = `${sanitizedUsername}@example.com`;
@@ -2440,6 +2447,46 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     else console.error('Error deleting inventory:', error);
   }, [fetchData]);
 
+  const addAdvertisement = async (ad: Omit<Advertisement, 'id'>) => {
+    try {
+      const newAd = { ...ad, id: Date.now().toString() };
+      setAdvertisements(prev => {
+        const next = [...prev, newAd];
+        localStorage.setItem('advertisements', JSON.stringify(next));
+        return next;
+      });
+    } catch (error) {
+      console.error('Error adding advertisement:', error);
+      throw error;
+    }
+  };
+
+  const updateAdvertisement = async (ad: Advertisement) => {
+    try {
+      setAdvertisements(prev => {
+        const next = prev.map(a => a.id === ad.id ? ad : a);
+        localStorage.setItem('advertisements', JSON.stringify(next));
+        return next;
+      });
+    } catch (error) {
+      console.error('Error updating advertisement:', error);
+      throw error;
+    }
+  };
+
+  const deleteAdvertisement = async (id: string) => {
+    try {
+      setAdvertisements(prev => {
+        const next = prev.filter(a => a.id !== id);
+        localStorage.setItem('advertisements', JSON.stringify(next));
+        return next;
+      });
+    } catch (error) {
+      console.error('Error deleting advertisement:', error);
+      throw error;
+    }
+  };
+
   const addEmployee = useCallback(async (employee: Omit<Employee, 'id'>) => {
     const { error } = await supabase.from('employees').insert([{
       company_id: user?.companyId || null,
@@ -3330,6 +3377,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       maquininhas,
       promotions,
       returns,
+      advertisements,
       user,
       isSuperAdmin,
       isAuthReady,
@@ -3406,6 +3454,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       addPromotion,
       updatePromotion,
       deletePromotion,
+      addAdvertisement,
+      updateAdvertisement,
+      deleteAdvertisement,
       lotes,
       login,
       logout,
@@ -3418,7 +3469,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }), [
       products, sales, customers, suppliers, losses, expenses, departamentos, categorias, expenseCategories, subcategorias,
       stockMovements, inventories, employees, systemUsers, accessProfiles, permissions, pricingSettings, companySettings,
-      systemSettings, paymentMethods, maquininhas, promotions, returns, user, isSuperAdmin, isAuthReady, isLoading, hasPermission,
+      systemSettings, paymentMethods, maquininhas, promotions, returns, advertisements, user, isSuperAdmin, isAuthReady, isLoading, hasPermission,
       discountLogs, auditLogs, cashRegisters, cashMovements, cashClosings, activeRegister, openCashRegister, closeCashRegister,
       addCashMovement, suspendCashRegister, blockCashRegister, logAuditAction, addProduct, updateProduct, deleteProduct,
       addSale, addReturn, addDiscountLog, addCustomer, updateCustomer, deleteCustomer, addSupplier, updateSupplier,
@@ -3430,6 +3481,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       updateAccessProfile, deleteAccessProfile, updatePermissions, updatePricingSettings, updateCompanySettings,
       updateSystemSettings, sendEmailNotification, addPaymentMethod, updatePaymentMethod, deletePaymentMethod,
       addMaquininha, updateMaquininha, deleteMaquininha, addPromotion, updatePromotion, deletePromotion,
+      addAdvertisement, updateAdvertisement, deleteAdvertisement,
       lotes, login, logout, seedMercadologicalTree, seedExpenseCategories, fetchData, customAlert, setCustomAlert, changePassword
     ]);
 
