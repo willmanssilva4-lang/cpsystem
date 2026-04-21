@@ -396,9 +396,23 @@ export default function PDVPage() {
         </head>
         <body>
           <div class="header">
-            <h2>CUPOM NÃO FISCAL</h2>
-            <p>Venda #${sale.id.substring(0, 8).toUpperCase()}</p>
-            <p>Data: ${formatDateTimeBR(sale.date)}</p>
+            <h2 style="margin: 0; font-size: 18px;">${companySettings.tradeName || 'CP PDV'}</h2>
+            ${companySettings.legalName ? `<p style="margin: 2px 0; font-size: 11px;">${companySettings.legalName}</p>` : ''}
+            <p style="margin: 2px 0; font-size: 11px;">CNPJ: ${companySettings.cnpj || ''} ${companySettings.stateRegistration ? `| IE: ${companySettings.stateRegistration}` : ''}</p>
+            <p style="margin: 2px 0; font-size: 11px;">${companySettings.address.street}, ${companySettings.address.number}</p>
+            <p style="margin: 2px 0; font-size: 11px;">${companySettings.address.neighborhood} - ${companySettings.address.city}/${companySettings.address.state}</p>
+            ${companySettings.phone || companySettings.email ? `
+              <p style="margin: 2px 0; font-size: 11px;">
+                ${companySettings.phone ? `Fone: ${companySettings.phone}` : ''}
+                ${companySettings.phone && companySettings.email ? ' | ' : ''}
+                ${companySettings.email ? `Email: ${companySettings.email}` : ''}
+              </p>
+            ` : ''}
+            <div style="margin-top: 10px; border-top: 1px dashed #000; padding-top: 10px;">
+              <h3 style="margin: 5px 0;">CUPOM NÃO FISCAL</h3>
+              <p style="margin: 2px 0; font-size: 11px;">Venda #${sale.id.substring(0, 8).toUpperCase()}</p>
+              <p style="margin: 2px 0; font-size: 11px;">Data: ${formatDateTimeBR(sale.date)}</p>
+            </div>
           </div>
           
           <div class="items">

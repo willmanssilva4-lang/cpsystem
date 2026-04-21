@@ -204,11 +204,18 @@ function CompanySettings() {
                 onChange={(e) => setFormData(prev => ({ ...prev, stateRegistration: e.target.value }))} 
               />
             </div>
-            <InputGroup 
-              label="E-mail" 
-              value={formData.email || ''} 
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} 
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <InputGroup 
+                label="E-mail" 
+                value={formData.email || ''} 
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} 
+              />
+              <InputGroup 
+                label="Telefone" 
+                value={formData.phone || ''} 
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} 
+              />
+            </div>
           </div>
           <div className="w-full md:w-48 space-y-2">
             <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Logo da Empresa</label>

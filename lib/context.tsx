@@ -1284,10 +1284,44 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailToUse,
-        password: cleanPassword,
-      });
+      // Check if Supabase is configured before trying to sign in
+      const { isSupabaseConfigured } = require('./supabase');
+      if (!isSupabaseConfigured) {
+        return { 
+          success: false, 
+          error: 'O Supabase não está configurado. Por favor, adicione as variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY nos segredos do AI Studio.' 
+        };
+      }
+
+      let authResult;
+      try {
+        const { isSupabaseConfigured } = require('./supabase');
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        
+        if (!isSupabaseConfigured) {
+          return { 
+            success: false, 
+            error: `O Supabase não está configurado corretamente. URL atual: "${supabaseUrl.substring(0, 20)}...". Certifique-se de que a URL comece com https:// e a chave não esteja vazia nos Segredos do AI Studio.` 
+          };
+        }
+
+        authResult = await supabase.auth.signInWithPassword({
+          email: emailToUse,
+          password: cleanPassword,
+        });
+      } catch (err: any) {
+        console.error('Network or fetch error during login:', err);
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        if (err?.message === 'Failed to fetch') {
+          return { 
+            success: false, 
+            error: `Erro de rede ao conectar ao Supabase (${supabaseUrl.substring(0, 25)}...). Verifique se a URL está correta nos Segredos do AI Studio e se você tem conexão com a internet.` 
+          };
+        }
+        return { success: false, error: `Erro de conexão: ${err?.message || 'Erro inesperado'}` };
+      }
+
+      const { data, error } = authResult;
 
       if (error) {
         console.error('Supabase Auth Login error:', error.message);
