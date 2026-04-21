@@ -51,6 +51,8 @@ export interface Product {
   costPrice: number;
   salePrice: number;
   wholesalePrice?: number;
+  wholesaleMinQty?: number;
+  termPrice?: number; // Preço 2
   clubPrice?: number; // Preço para cliente clube
   stock: number;
   minStock: number;

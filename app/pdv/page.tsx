@@ -80,7 +80,7 @@ export default function PDVPage() {
   const [showPriceCheckModal, setShowPriceCheckModal] = useState(false);
   const [showProductListModal, setShowProductListModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [isWholesaleMode, setIsWholesaleMode] = useState(false);
+  const [pricingMode, setPricingMode] = useState<'retail' | 'wholesale' | 'term'>('retail');
   const [showCancelItemModal, setShowCancelItemModal] = useState(false);
   const [showQuickReturnModal, setShowQuickReturnModal] = useState(false);
   const [cancelItemNumber, setCancelItemNumber] = useState('');
@@ -729,14 +729,23 @@ export default function PDVPage() {
         setNumericBuffer('');
       }
 
-      // F11 - Alternar Modo Atacado/Varejo
+      // F11 - Alternar Modo Precificação (Varejo / Atacado / Preço 2)
       if (e.key === 'F11') {
         e.preventDefault();
-        setIsWholesaleMode(prev => {
-          const newMode = !prev;
+        setPricingMode(prev => {
+          const nextMode = prev === 'retail' ? 'wholesale' : prev === 'wholesale' ? 'term' : 'retail';
+          
           // Recalculate cart prices based on the new mode
           setCart(currentCart => currentCart.map(item => {
-            const newPrice = newMode && item.product.wholesalePrice ? item.product.wholesalePrice : item.product.salePrice;
+            let newPrice = item.product.salePrice;
+            if (nextMode === 'wholesale' && item.product.wholesalePrice) {
+              newPrice = item.product.wholesalePrice;
+            } else if (nextMode === 'term' && item.product.termPrice) {
+              newPrice = item.product.termPrice;
+            } else {
+              newPrice = item.product.salePrice;
+            }
+
             return {
               ...item,
               product: { ...item.product, salePrice: newPrice },
@@ -744,7 +753,7 @@ export default function PDVPage() {
               discount: 0 // Reset discount when switching modes to avoid negative prices
             };
           }));
-          return newMode;
+          return nextMode;
         });
         setNumericBuffer('');
       }
@@ -876,7 +885,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, pricingMode]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -1028,11 +1037,33 @@ export default function PDVPage() {
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
 
-    let basePrice = isWholesaleMode && product.wholesalePrice ? product.wholesalePrice : product.salePrice;
+    let basePrice = product.salePrice;
+    if (pricingMode === 'wholesale' && product.wholesalePrice) {
+      basePrice = product.wholesalePrice;
+    } else if (pricingMode === 'term' && product.termPrice) {
+      basePrice = product.termPrice;
+    } else if (pricingMode === 'retail' && product.wholesalePrice && product.wholesaleMinQty && totalQty >= product.wholesaleMinQty) {
+      basePrice = product.wholesalePrice;
+    }
     
     // Apply club price if customer is a member
     if (selectedCustomer?.isClubMember && product.clubPrice) {
       basePrice = product.clubPrice;
+    }
+
+    // Auto-update existing items in cart to wholesale price if threshold reached
+    let currentCartState = [...cart];
+    if (pricingMode === 'retail' && basePrice === product.wholesalePrice && product.wholesalePrice !== product.salePrice) {
+      currentCartState = currentCartState.map(item => {
+        if (item.product.id === product.id && item.originalPrice === product.salePrice) {
+          return {
+            ...item,
+            originalPrice: product.wholesalePrice || product.salePrice,
+            product: { ...item.product, salePrice: (product.wholesalePrice || product.salePrice) - item.discount }
+          };
+        }
+        return item;
+      });
     }
 
     const now = new Date();
@@ -1069,10 +1100,10 @@ export default function PDVPage() {
       }
     }
 
-    const existingIndex = cart.findIndex(item => item.product.id === product.id && item.discount === promoDiscount && item.originalPrice === basePrice);
+    const existingIndex = currentCartState.findIndex(item => item.product.id === product.id && item.discount === promoDiscount && item.originalPrice === basePrice);
     
     if (existingIndex >= 0) {
-      const newCart = [...cart];
+      const newCart = [...currentCartState];
       newCart[existingIndex].quantity += qty;
       
       if (applicablePromo?.type === 'BUY_X_GET_Y' && applicablePromo.buyQuantity && applicablePromo.payQuantity) {
@@ -1110,7 +1141,7 @@ export default function PDVPage() {
         }
       }
 
-      setCart([...cart, { 
+      setCart([...currentCartState, { 
         product: { ...product, salePrice: initialPrice }, 
         quantity: qty, 
         discount: initialDiscount, 
@@ -1143,10 +1174,18 @@ export default function PDVPage() {
           </div>
           <button
             onClick={() => {
-              setIsWholesaleMode(prev => {
-                const newMode = !prev;
+              setPricingMode(prev => {
+                const nextMode = prev === 'retail' ? 'wholesale' : prev === 'wholesale' ? 'term' : 'retail';
                 setCart(currentCart => currentCart.map(item => {
-                  const newPrice = newMode && item.product.wholesalePrice ? item.product.wholesalePrice : item.product.salePrice;
+                  let newPrice = item.product.salePrice;
+                  if (nextMode === 'wholesale' && item.product.wholesalePrice) {
+                    newPrice = item.product.wholesalePrice;
+                  } else if (nextMode === 'term' && item.product.termPrice) {
+                    newPrice = item.product.termPrice;
+                  } else {
+                    newPrice = item.product.salePrice;
+                  }
+
                   return {
                     ...item,
                     product: { ...item.product, salePrice: newPrice },
@@ -1154,17 +1193,19 @@ export default function PDVPage() {
                     discount: 0
                   };
                 }));
-                return newMode;
+                return nextMode;
               });
             }}
             className={cn(
               "ml-4 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border",
-              isWholesaleMode
-                ? "bg-brand-warning/20 text-brand-warning border-brand-warning/30"
-                : "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
+              pricingMode === 'wholesale' && "bg-brand-warning/20 text-brand-warning border-brand-warning/30",
+              pricingMode === 'term' && "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
+              pricingMode === 'retail' && "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
             )}
           >
-            {isWholesaleMode ? 'Modo Atacado (F11)' : 'Modo Varejo (F11)'}
+            {pricingMode === 'retail' && 'Modo Varejo (F11)'}
+            {pricingMode === 'wholesale' && 'Modo Atacado (F11)'}
+            {pricingMode === 'term' && 'Modo Preço 2 (F11)'}
           </button>
         </div>
         

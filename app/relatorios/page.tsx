@@ -75,7 +75,7 @@ import {
   Pie,
   Legend
 } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useERP } from '@/lib/context';
 import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
@@ -2197,50 +2197,283 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
     return d >= startDate && d <= endDate;
   });
 
-  const hourCounts: Record<string, number> = {};
+  const hourCounts: Record<number, number> = {};
+  let totalSales = 0;
+  
   filteredSales.forEach(sale => {
     const dateObj = new Date(sale.date);
-    const hour = dateObj.getHours().toString().padStart(2, '0') + 'h';
+    const hour = dateObj.getHours();
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    totalSales++;
   });
 
-  const data = Object.entries(hourCounts)
-    .map(([hour, salesCount]) => ({ hour, sales: salesCount }))
-    .sort((a, b) => a.hour.localeCompare(b.hour));
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6);
+  const chartData = hours.map(hour => ({
+    hour: `${hour}h`,
+    vendas: hourCounts[hour] || 0,
+    fullHour: hour
+  }));
 
-  let peakHour = 'N/A';
-  let peakSales = 0;
-  data.forEach(d => {
-    if (d.sales > peakSales) {
-      peakSales = d.sales;
-      peakHour = d.hour;
-    }
-  });
+  const maxVendas = Math.max(...Object.values(hourCounts), 0);
+  const peakHourRecord = Object.entries(hourCounts).sort(([, a], [, b]) => b - a)[0] || ["--", 0];
+  const peakHour = peakHourRecord[0];
+  const avgVendas = hours.length > 0 ? (totalSales / hours.length).toFixed(1) : 0;
+
+  const morningSales = hours.filter(h => h < 12).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+  const afternoonSales = hours.filter(h => h >= 12 && h < 18).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+  const eveningSales = hours.filter(h => h >= 18).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
 
   return (
-    <div className="space-y-8">
-      <div className="h-80 w-full">
-        {data.length > 0 ? (
-          <ResponsiveContainer id="rel-hourly-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-              <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#00E676', fontWeight: 700}} />
-              <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '24px', border: '1px solid #E5E7EB' }} />
-              <Bar name="Vendas" dataKey="sales" fill="#00E676" radius={[10, 10, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium">
-            Nenhum dado para exibir no gráfico neste período.
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="max-w-6xl mx-auto"
+    >
+      <div className="bg-white rounded-[3rem] border border-brand-border shadow-2xl overflow-hidden">
+        {/* Cinematic Header */}
+        <div className="bg-brand-text-main px-10 py-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
+              <path fill="#3b82f6" d="M47.7,-62.4C61.4,-52.1,72.2,-37.9,76.5,-22.3C80.8,-6.7,78.6,10.2,71.4,24.8C64.2,39.4,52,51.7,37.9,59.3C23.8,66.9,7.8,69.9,-8,68.6C-23.8,67.3,-39.3,61.8,-51.1,51.8C-62.9,41.8,-71.1,27.3,-73.4,12.3C-75.7,-2.7,-72.1,-18.2,-64,-31.6C-55.9,-44.9,-43.3,-56.1,-29.6,-66.4C-15.9,-76.7,0,-86.1,15.9,-83.4C31.8,-80.7,47.7,-62.4Z" transform="translate(100 100)" />
+            </svg>
           </div>
-        )}
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-brand-blue">
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">Command Center</h3>
+                  <p className="text-brand-blue-hover text-[10px] font-black uppercase mt-1 tracking-widest">Análise de Tráfego de Vendas</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-8 border-t md:border-t-0 border-white/10 pt-6 md:pt-0">
+              <div className="text-center group">
+                <p className="text-[10px] font-black text-white/40 uppercase italic mb-1 group-hover:text-brand-blue transition-colors">Vendas</p>
+                <p className="text-3xl font-black text-white tracking-tighter tabular-nums">{totalSales}</p>
+              </div>
+              <div className="text-center border-l border-white/10 pl-8 group">
+                <p className="text-[10px] font-black text-white/40 uppercase italic mb-1 group-hover:text-brand-blue transition-colors">Pico</p>
+                <div className="flex items-baseline justify-center gap-0.5">
+                  <p className="text-3xl font-black text-brand-blue tracking-tighter tabular-nums">{peakHour}</p>
+                  <span className="text-xs font-black text-white italic">h</span>
+                </div>
+              </div>
+              <div className="text-center border-l border-white/10 pl-8 group">
+                <p className="text-[10px] font-black text-white/40 uppercase italic mb-1 group-hover:text-brand-blue transition-colors">Média</p>
+                <p className="text-3xl font-black text-white tracking-tighter tabular-nums">{avgVendas}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+          {/* Detailed Flow Section */}
+          <div className="lg:col-span-8 flex flex-col justify-between h-[450px]">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-1 h-8 bg-brand-blue rounded-full" />
+                <div>
+                  <h4 className="text-lg font-black text-brand-text-main uppercase italic">Volume Estratégico</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Ondas de consumo por hora</p>
+                </div>
+              </div>
+              <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-3">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 rounded-full bg-brand-blue" />
+                  <div className="w-2 h-2 rounded-full bg-brand-blue/30" />
+                </div>
+                <span className="text-[10px] font-black text-slate-500 uppercase italic">Dados em tempo real</span>
+              </div>
+            </div>
+
+            <div className="flex-1 w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="hour" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b', fontFamily: 'var(--font-mono)' }}
+                    interval={1}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b', fontFamily: 'var(--font-mono)' }}
+                  />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-brand-text-main/90 backdrop-blur-xl p-5 border border-white/10 rounded-3xl shadow-2xl min-w-[160px] animate-in fade-in zoom-in duration-300">
+                             <div className="flex justify-between items-center mb-3">
+                               <span className="text-[11px] font-black text-white italic">{payload[0].payload.hour}</span>
+                               <span className="text-[9px] font-bold text-brand-blue uppercase px-2 py-0.5 bg-brand-blue/10 rounded-full">Análise</span>
+                             </div>
+                             <div className="space-y-1">
+                               <p className="text-3xl font-black text-white tabular-nums leading-none">{payload[0].value}</p>
+                               <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Vendas Concluídas</p>
+                             </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="vendas" 
+                    stroke="#3b82f6" 
+                    strokeWidth={5}
+                    fill="url(#areaGradient)" 
+                    animationDuration={2000}
+                    animationEasing="ease-in-out"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Side Performance Panel */}
+          <div className="lg:col-span-4 space-y-8">
+            <div className="grid grid-cols-2 gap-4">
+               {[
+                 { label: 'Matutino', val: morningSales, icon: <Zap size={14}/>, color: 'text-brand-blue' },
+                 { label: 'Vespertino', val: afternoonSales, icon: <TrendingUp size={14}/>, color: 'text-emerald-500' },
+                 { label: 'Noturno', val: eveningSales, icon: <Clock size={14}/>, color: 'text-brand-text-main' },
+                 { label: 'Pico', val: peakHour + 'h', icon: <Target size={14}/>, color: 'text-brand-blue' }
+               ].map((item, idx) => (
+                 <div key={idx} className="bg-slate-50 border border-slate-100 p-4 rounded-3xl group hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all cursor-default">
+                    <div className={cn("w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform", item.color)}>
+                      {item.icon}
+                    </div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase italic mb-0.5">{item.label}</p>
+                    <p className="text-xl font-black text-brand-text-main tabular-nums">{item.val}</p>
+                 </div>
+               ))}
+            </div>
+
+            <div className="bg-brand-text-main rounded-[2.5rem] p-8 text-white relative shadow-2xl overflow-hidden group">
+               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-brand-blue/10 rounded-full blur-3xl group-hover:bg-brand-blue/20 transition-colors" />
+               <div className="relative z-10">
+                 <h5 className="text-[10px] font-black text-brand-blue uppercase italic tracking-widest mb-4">Relatório de Intensidade</h5>
+                 <div className="space-y-5">
+                   {[
+                     { label: 'Manhã', val: morningSales },
+                     { label: 'Tarde', val: afternoonSales },
+                     { label: 'Noite', val: eveningSales }
+                   ].map((p, i) => {
+                     const total = totalSales || 1;
+                     const percentage = Math.round((p.val / total) * 100);
+                     return (
+                       <div key={i}>
+                         <div className="flex justify-between items-end mb-2 px-1">
+                           <span className="text-[9px] font-black uppercase text-white/40">{p.label}</span>
+                           <span className="text-xs font-black text-brand-blue tabular-nums">{percentage}%</span>
+                         </div>
+                         <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                           <motion.div 
+                             initial={{ width: 0 }}
+                             animate={{ width: `${percentage}%` }}
+                             transition={{ duration: 1.5, delay: i * 0.2 }}
+                             className="h-full bg-brand-blue rounded-full"
+                           />
+                         </div>
+                       </div>
+                     );
+                   })}
+                 </div>
+               </div>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2.5rem] flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <Gauge size={24} />
+              </div>
+              <div>
+                <h5 className="text-xs font-black text-emerald-900 uppercase italic">Operação Otimizada</h5>
+                <p className="text-[10px] font-bold text-emerald-700/70 leading-tight mt-0.5">O pico às <span className="font-black">{peakHour}h</span> sugere reforço no atendimento neste intervalo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pro-Matrix Saturation View */}
+        <div className="bg-slate-50 p-10 border-t border-slate-100">
+           <div className="flex items-center justify-between mb-8">
+             <div>
+               <h4 className="text-xs font-black text-brand-text-main uppercase italic italic tracking-wider">Hourly Saturation Matrix</h4>
+               <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 leading-none">Mapa térmico de ocupação</p>
+             </div>
+             <div className="flex items-center gap-6">
+               <div className="flex items-center gap-2">
+                 <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
+                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Inativo</span>
+               </div>
+               <div className="flex items-center gap-2">
+                 <div className="w-2.5 h-2.5 rounded-full bg-brand-blue" />
+                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Zênite</span>
+               </div>
+             </div>
+           </div>
+
+           <div className="grid grid-cols-9 md:grid-cols-18 gap-3">
+             {hours.map((hour, idx) => {
+               const count = hourCounts[hour] || 0;
+               const intensity = maxVendas > 0 ? (count / maxVendas) : 0;
+               const isPeak = hour.toString() === peakHour;
+
+               return (
+                 <motion.div 
+                   key={hour}
+                   initial={{ scale: 0.8, opacity: 0 }}
+                   animate={{ scale: 1, opacity: 1 }}
+                   transition={{ delay: idx * 0.03 }}
+                   className="flex flex-col items-center gap-2 group"
+                 >
+                   <div 
+                     className={cn(
+                       "w-full aspect-[4/5] rounded-xl flex flex-col items-center justify-end p-2 transition-all duration-500 relative overflow-hidden border",
+                       count > 0 ? "border-brand-blue/10 shadow-lg shadow-brand-blue/5" : "border-slate-200/50"
+                     )}
+                     style={{ 
+                       backgroundColor: count > 0 ? `rgba(59, 130, 246, ${Math.max(0.05, intensity)})` : 'white' 
+                     }}
+                   >
+                     {isPeak && (
+                       <div className="absolute top-1 right-1">
+                         <div className="w-1.5 h-1.5 bg-brand-blue rounded-full animate-ping absolute" />
+                         <div className="w-1.5 h-1.5 bg-brand-blue rounded-full relative" />
+                       </div>
+                     )}
+                     <span className={cn(
+                       "text-[12px] font-black tabular-nums transition-colors duration-500",
+                       count > 0 ? "text-brand-text-main" : "text-slate-300"
+                     )}>{count}</span>
+                   </div>
+                   <span className={cn(
+                     "text-[9px] font-black uppercase tracking-tighter transition-colors",
+                     count > 0 ? "text-brand-text-main" : "text-slate-400"
+                   )}>{hour}h</span>
+                 </motion.div>
+               );
+             })}
+           </div>
+        </div>
       </div>
-      <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border text-center">
-        <p className="text-sm font-black text-brand-text-main uppercase italic">Horário de Pico: {peakHour !== 'N/A' ? `${peakHour.replace('h', ':00')} - ${String(Number(peakHour.replace('h', ''))+1).padStart(2, '0')}:00` : 'N/A'}</p>
-        <p className="text-xs font-medium text-brand-blue/60">Média de {peakSales} transações neste período.</p>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 

@@ -428,14 +428,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (companyData) {
         setCompanySettings(prev => ({
           ...prev,
-          tradeName: companyData.name || prev.tradeName,
-          legalName: companyData.name || prev.legalName,
+          tradeName: companyData.trade_name || companyData.name || prev.tradeName,
+          legalName: companyData.legal_name || companyData.name || prev.legalName,
           cnpj: companyData.document || prev.cnpj,
+          stateRegistration: companyData.state_registration || prev.stateRegistration,
           email: companyData.email || prev.email,
           phone: companyData.phone || prev.phone,
           address: {
             ...prev.address,
-            street: companyData.address || prev.address.street
+            street: companyData.address || prev.address.street,
+            number: companyData.address_number || prev.address.number,
+            neighborhood: companyData.neighborhood || prev.address.neighborhood,
+            city: companyData.city || prev.address.city,
+            state: companyData.state || prev.address.state
           }
         }));
       } else {
@@ -497,6 +502,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           costPrice: Number(p.cost_price),
           salePrice: Number(p.sale_price),
           wholesalePrice: p.wholesale_price ? Number(p.wholesale_price) : undefined,
+          termPrice: p.term_price ? Number(p.term_price) : undefined,
+          wholesaleMinQty: p.wholesale_min_qty ? Number(p.wholesale_min_qty) : 0,
           clubPrice: p.club_price ? Number(p.club_price) : undefined,
           stock: p.stock,
           minStock: p.min_stock,
@@ -1437,6 +1444,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       cost_price: (product.costPrice === undefined || product.costPrice === null) ? 0 : Number(product.costPrice),
       sale_price: (product.salePrice === undefined || product.salePrice === null) ? 0 : Number(product.salePrice),
       wholesale_price: (product.wholesalePrice === undefined || product.wholesalePrice === null) ? 0 : Number(product.wholesalePrice),
+      term_price: (product.termPrice === undefined || product.termPrice === null) ? 0 : Number(product.termPrice),
+      wholesale_min_qty: (product.wholesaleMinQty === undefined || product.wholesaleMinQty === null) ? 0 : Number(product.wholesaleMinQty),
       club_price: (product.clubPrice === undefined || product.clubPrice === null) ? 0 : Number(product.clubPrice),
       stock: (product.stock === undefined || product.stock === null) ? 0 : Number(product.stock),
       min_stock: (product.minStock === undefined || product.minStock === null) ? 0 : Number(product.minStock),
@@ -1457,7 +1466,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('term_price') || error.message.includes('club_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (insertData as any).composition;
       if (error.message.includes('status')) delete (insertData as any).status;
@@ -1466,6 +1475,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('category')) delete (insertData as any).category;
       if (error.message.includes('subgroup')) delete (insertData as any).subgroup;
       if (error.message.includes('wholesale_price')) delete (insertData as any).wholesale_price;
+      if (error.message.includes('term_price')) delete (insertData as any).term_price;
+      if (error.message.includes('wholesale_min_qty')) delete (insertData as any).wholesale_min_qty;
+      if (error.message.includes('club_price')) delete (insertData as any).club_price;
       if (error.message.includes('control_stock')) delete (insertData as any).control_stock;
       if (error.message.includes('product_type')) delete (insertData as any).product_type;
       if (error.message.includes('base_product_id')) delete (insertData as any).base_product_id;
@@ -1528,6 +1540,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       cost_price: (updated.costPrice === undefined || updated.costPrice === null || String(updated.costPrice) === '') ? 0 : Number(updated.costPrice),
       sale_price: (updated.salePrice === undefined || updated.salePrice === null || String(updated.salePrice) === '') ? 0 : Number(updated.salePrice),
       wholesale_price: (updated.wholesalePrice === undefined || updated.wholesalePrice === null || String(updated.wholesalePrice) === '') ? 0 : Number(updated.wholesalePrice),
+      term_price: (updated.termPrice === undefined || updated.termPrice === null || String(updated.termPrice) === '') ? 0 : Number(updated.termPrice),
+      wholesale_min_qty: (updated.wholesaleMinQty === undefined || updated.wholesaleMinQty === null || String(updated.wholesaleMinQty) === '') ? 0 : Number(updated.wholesaleMinQty),
       club_price: (updated.clubPrice === undefined || updated.clubPrice === null || String(updated.clubPrice) === '') ? 0 : Number(updated.clubPrice),
       stock: (updated.stock === undefined || updated.stock === null || String(updated.stock) === '') ? 0 : Number(updated.stock),
       min_stock: (updated.minStock === undefined || updated.minStock === null || String(updated.minStock) === '') ? 0 : Number(updated.minStock),
@@ -1548,7 +1562,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('term_price') || error.message.includes('club_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (updateData as any).composition;
       if (error.message.includes('status')) delete (updateData as any).status;
@@ -1557,6 +1571,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('category')) delete (updateData as any).category;
       if (error.message.includes('subgroup')) delete (updateData as any).subgroup;
       if (error.message.includes('wholesale_price')) delete (updateData as any).wholesale_price;
+      if (error.message.includes('term_price')) delete (updateData as any).term_price;
+      if (error.message.includes('wholesale_min_qty')) delete (updateData as any).wholesale_min_qty;
+      if (error.message.includes('club_price')) delete (updateData as any).club_price;
       if (error.message.includes('control_stock')) delete (updateData as any).control_stock;
       if (error.message.includes('product_type')) delete (updateData as any).product_type;
       if (error.message.includes('base_product_id')) delete (updateData as any).base_product_id;
@@ -2771,16 +2788,38 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('company_settings', JSON.stringify(settings));
     
     if (user?.companyId) {
-      const { error } = await supabase.from('companies').update({
+      const updatePayload: any = {
         name: settings.tradeName,
+        trade_name: settings.tradeName,
+        legal_name: settings.legalName,
         document: settings.cnpj,
+        state_registration: settings.stateRegistration,
         email: settings.email,
         phone: settings.phone,
-        address: settings.address.street // Simplified mapping for now
-      }).eq('id', user.companyId);
+        address: settings.address.street,
+        address_number: settings.address.number,
+        neighborhood: settings.address.neighborhood,
+        city: settings.address.city,
+        state: settings.address.state
+      };
+
+      const { error } = await supabase.from('companies').update(updatePayload).eq('id', user.companyId);
       
       if (error) {
         console.error('Error updating company in database:', error);
+        
+        // Fallback for missing columns
+        if (error.message && error.message.includes('column')) {
+          console.warn('Fallback: updating company with basic fields only...');
+          const basicPayload = {
+            name: settings.tradeName,
+            document: settings.cnpj,
+            email: settings.email,
+            phone: settings.phone,
+            address: settings.address.street
+          };
+          await supabase.from('companies').update(basicPayload).eq('id', user.companyId);
+        }
       }
     }
   }, [user, setCompanySettings]);

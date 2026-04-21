@@ -49,6 +49,7 @@ const DEFAULT_IMAGE = 'https://i.imgur.com/jGU5BUa.png';
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
   const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const termPriceInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'geral' | 'movimentacoes' | 'ajustes' | 'inventario' | 'lotes'>('geral');
   const [showCompositionModal, setShowCompositionModal] = useState(false);
   const [kitTab, setKitTab] = useState<'info' | 'products' | 'financial'>('info');
@@ -78,6 +79,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     salePrice: string | number;
     termPrice: string | number;
     wholesalePrice: string | number;
+    wholesaleMinQty: string | number;
     clubPrice: string | number;
     stock: number;
     minStock: number;
@@ -124,8 +126,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       unit: initialData?.unit || 'UN',
       costPrice: initialData?.costPrice ?? '',
       salePrice: initialData?.salePrice ?? '',
-      termPrice: initialData?.salePrice ?? '',
+      termPrice: initialData?.termPrice ?? '',
       wholesalePrice: initialData?.wholesalePrice ?? '',
+      wholesaleMinQty: initialData?.wholesaleMinQty || 0,
       clubPrice: initialData?.clubPrice ?? '',
       stock: initialData?.stock || 0,
       minStock: initialData?.minStock || 1,
@@ -281,6 +284,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       if (e.key === 'F1') {
         e.preventDefault();
         generateSKU();
+      } else if (e.key === 'F11') {
+        e.preventDefault();
+        termPriceInputRef.current?.focus();
+        termPriceInputRef.current?.select();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -762,6 +769,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   <div className="w-24">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço 2:</label>
                     <input 
+                      ref={termPriceInputRef}
                       type="number"
                       name="termPrice"
                       value={formData.termPrice}
@@ -783,6 +791,21 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         const val = e.target.value;
                         setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
                       }}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+
+                  <div className="w-24">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Qtd. Atacado:</label>
+                    <input 
+                      type="number"
+                      name="wholesaleMinQty"
+                      value={formData.wholesaleMinQty}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, wholesaleMinQty: val === '' ? 0 : Number(val) }));
+                      }}
+                      placeholder="Ex: 3"
                       className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
                     />
                   </div>
