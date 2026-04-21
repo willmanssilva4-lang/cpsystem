@@ -729,18 +729,16 @@ export default function PDVPage() {
         setNumericBuffer('');
       }
 
-      // F11 - Alternar Modo Precificação (Varejo / Atacado / Preço 2)
+      // F11 - Alternar Modo Precificação (Varejo / Preço 2)
       if (e.key === 'F11') {
         e.preventDefault();
         setPricingMode(prev => {
-          const nextMode = prev === 'retail' ? 'wholesale' : prev === 'wholesale' ? 'term' : 'retail';
+          const nextMode = prev === 'retail' ? 'term' : 'retail';
           
           // Recalculate cart prices based on the new mode
           setCart(currentCart => currentCart.map(item => {
             let newPrice = item.product.salePrice;
-            if (nextMode === 'wholesale' && item.product.wholesalePrice) {
-              newPrice = item.product.wholesalePrice;
-            } else if (nextMode === 'term' && item.product.termPrice) {
+            if (nextMode === 'term' && item.product.termPrice) {
               newPrice = item.product.termPrice;
             } else {
               newPrice = item.product.salePrice;
@@ -1175,12 +1173,10 @@ export default function PDVPage() {
           <button
             onClick={() => {
               setPricingMode(prev => {
-                const nextMode = prev === 'retail' ? 'wholesale' : prev === 'wholesale' ? 'term' : 'retail';
+                const nextMode = prev === 'retail' ? 'term' : 'retail';
                 setCart(currentCart => currentCart.map(item => {
                   let newPrice = item.product.salePrice;
-                  if (nextMode === 'wholesale' && item.product.wholesalePrice) {
-                    newPrice = item.product.wholesalePrice;
-                  } else if (nextMode === 'term' && item.product.termPrice) {
+                  if (nextMode === 'term' && item.product.termPrice) {
                     newPrice = item.product.termPrice;
                   } else {
                     newPrice = item.product.salePrice;
@@ -1198,13 +1194,11 @@ export default function PDVPage() {
             }}
             className={cn(
               "ml-4 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border",
-              pricingMode === 'wholesale' && "bg-brand-warning/20 text-brand-warning border-brand-warning/30",
               pricingMode === 'term' && "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
               pricingMode === 'retail' && "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
             )}
           >
             {pricingMode === 'retail' && 'Modo Varejo (F11)'}
-            {pricingMode === 'wholesale' && 'Modo Atacado (F11)'}
             {pricingMode === 'term' && 'Modo Preço 2 (F11)'}
           </button>
         </div>
@@ -1842,6 +1836,7 @@ export default function PDVPage() {
                 <p><span className="font-bold">F8</span> - Cancelar item</p>
                 <p><span className="font-bold">F9</span> - Cancelar venda</p>
                 <p><span className="font-bold">F10</span> - Finalizar venda</p>
+                <p><span className="font-bold">F11</span> - Alternar precificação (Varejo / Preço 2)</p>
                 <p><span className="font-bold">F12</span> - Autorização rápida</p>
               </div>
               <div className="space-y-2">
