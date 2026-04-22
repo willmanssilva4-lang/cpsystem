@@ -25,11 +25,13 @@ import {
   Coins,
   History,
   ArrowLeftRight,
-  ClipboardList
+  ClipboardList,
+  Info
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn, formatDateTimeBR } from '@/lib/utils';
 import { ProductForm } from '@/components/ProductForm';
+import { ProductDetails } from '@/components/ProductDetails';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
 import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
@@ -44,6 +46,7 @@ export default function ProductsPage() {
   const [selectedLossProduct, setSelectedLossProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('produtos');
   const [showInventorySession, setShowInventorySession] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -722,11 +725,22 @@ export default function ProductsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleEdit(product);
+                                  setSelectedProductForDetails(product.id);
+                                  setActiveMenuId(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
                               >
-                                <Search size={14} />
+                                <Info size={14} />
+                                Ver Detalhes
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(product);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                              >
+                                <Edit size={14} />
                                 Editar Produto
                               </button>
                               <button
@@ -1277,7 +1291,7 @@ export default function ProductsPage() {
 
       {productToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-sm p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Produto</h3>
             <p className="text-gray-600 mb-6">Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.</p>
             <div className="flex justify-end gap-3">
@@ -1296,6 +1310,13 @@ export default function ProductsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedProductForDetails && (
+        <ProductDetails 
+          productId={selectedProductForDetails} 
+          onClose={() => setSelectedProductForDetails(null)} 
+        />
       )}
     </div>
   );

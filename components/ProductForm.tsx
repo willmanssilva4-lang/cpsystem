@@ -63,6 +63,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   const [adjustmentReason, setAdjustmentReason] = useState('Correção de Saldo');
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const itemsPerPage = 10;
   const validadeInitialized = useRef(false);
   const [inventoryFilter, setInventoryFilter] = useState({
     date: '',
@@ -1123,57 +1125,109 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {stockMovements
-                      .filter(m => m.productId === initialData?.id)
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((mov) => (
-                        <tr key={mov.id} className="hover:bg-white transition-colors">
-                          <td className="px-6 py-4 text-xs font-bold text-slate-600">
-                            {formatDateTimeBR(mov.date)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={cn(
-                              "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
-                              mov.type === 'ENTRADA' ? "bg-emerald-100 text-emerald-600" : 
-                              mov.type === 'SAÍDA' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
-                            )}>
-                              {mov.type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-xs font-bold text-slate-500">{mov.origin}</td>
-                          <td className={cn(
-                            "px-6 py-4 text-xs font-black text-center",
-                            mov.quantity > 0 ? "text-emerald-500" : "text-rose-500"
-                          )}>
-                            {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
-                          </td>
-                          <td className="px-6 py-4 text-xs font-black text-slate-700 text-center">-</td>
-                          <td className="px-6 py-4 text-xs font-bold text-slate-400">{mov.userName || mov.userId}</td>
-                        </tr>
-                      ))}
-                    {stockMovements.filter(m => m.productId === initialData?.id).length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest italic">
-                          Nenhuma movimentação para este produto
-                        </td>
-                      </tr>
-                    )}
+                    {(() => {
+                      const filtered = stockMovements
+                        .filter(m => m.productId === initialData?.id)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                      
+                      const totalHistoryItems = filtered.length;
+                      const paginated = filtered.slice(
+                        (historyPage - 1) * itemsPerPage,
+                        historyPage * itemsPerPage
+                      );
+
+                      return (
+                        <>
+                          {paginated.map((mov) => (
+                            <tr key={mov.id} className="hover:bg-white transition-colors">
+                              <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                                {formatDateTimeBR(mov.date)}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={cn(
+                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
+                                  mov.type === 'ENTRADA' ? "bg-emerald-100 text-emerald-600" : 
+                                  mov.type === 'SAÍDA' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                                )}>
+                                  {mov.type}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-500">{mov.origin}</td>
+                              <td className={cn(
+                                "px-6 py-4 text-xs font-black text-center",
+                                mov.quantity > 0 ? "text-emerald-500" : "text-rose-500"
+                              )}>
+                                {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
+                              </td>
+                              <td className="px-6 py-4 text-xs font-black text-slate-700 text-center">-</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-400">{mov.userName || mov.userId}</td>
+                            </tr>
+                          ))}
+                          {totalHistoryItems === 0 && (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest italic">
+                                Nenhuma movimentação para este produto
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })()}
                   </tbody>
                 </table>
-                <div className="p-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
-                  <p className="text-sm text-slate-500 font-medium">
-                    Mostrando {stockMovements.filter(m => m.productId === initialData?.id).length} movimentações
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <ChevronLeft size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
-                      <div className="flex items-center gap-1">
-                        <button className="w-8 h-8 rounded-lg text-sm font-bold transition-all bg-brand-blue text-white shadow-md shadow-brand-blue/20">1</button>
-                      </div>
-                      <ChevronRight size={18} className="text-slate-400 cursor-pointer hover:text-slate-600" />
+                {(() => {
+                  const filteredCount = stockMovements.filter(m => m.productId === initialData?.id).length;
+                  const totalHistoryPages = Math.ceil(filteredCount / itemsPerPage);
+                  
+                  return (
+                    <div className="p-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between">
+                      <p className="text-sm text-slate-500 font-medium">
+                        Mostrando {filteredCount > 0 ? (historyPage - 1) * itemsPerPage + 1 : 0} a {Math.min(historyPage * itemsPerPage, filteredCount)} de {filteredCount} movimentações
+                      </p>
+                      {totalHistoryPages > 1 && (
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1">
+                            <button 
+                              type="button"
+                              onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
+                              disabled={historyPage === 1}
+                              className="p-2 text-slate-400 hover:text-brand-blue disabled:opacity-30 transition-colors"
+                            >
+                              <ChevronLeft size={18} />
+                            </button>
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: totalHistoryPages }, (_, i) => i + 1)
+                                .filter(p => totalHistoryPages <= 5 || Math.abs(p - historyPage) <= 1 || p === 1 || p === totalHistoryPages)
+                                .map((p, idx, arr) => (
+                                  <React.Fragment key={p}>
+                                    {idx > 0 && arr[idx-1] !== p - 1 && <span className="text-slate-300">...</span>}
+                                    <button 
+                                      type="button"
+                                      onClick={() => setHistoryPage(p)}
+                                      className={cn(
+                                        "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                                        historyPage === p ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-slate-400 hover:bg-white hover:text-slate-600"
+                                      )}
+                                    >
+                                      {p}
+                                    </button>
+                                  </React.Fragment>
+                                ))}
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={() => setHistoryPage(prev => Math.min(totalHistoryPages, prev + 1))}
+                              disabled={historyPage === totalHistoryPages}
+                              className="p-2 text-slate-400 hover:text-brand-blue disabled:opacity-30 transition-colors"
+                            >
+                              <ChevronRight size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
           )}
