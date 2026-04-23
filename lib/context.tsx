@@ -248,6 +248,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Periodic check for expired promotions
+  useEffect(() => {
+    if (promotions.length === 0) return;
+
+    const checkExpirations = () => {
+      const now = new Date();
+      let hasChanges = false;
+      const updatedPromotions = promotions.map(p => {
+        const promoEndDate = new Date(p.endDate);
+        if (p.status === 'ACTIVE' && promoEndDate < now) {
+          hasChanges = true;
+          return { ...p, status: 'INACTIVE' as const };
+        }
+        return p;
+      });
+
+      if (hasChanges) {
+        setPromotions(updatedPromotions);
+      }
+    };
+
+    const interval = setInterval(checkExpirations, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [promotions]);
+
   useEffect(() => {
     if (user?.email?.toLowerCase() === 'willmanssilva4@gmail.com') {
       setIsSuperAdmin(true);
@@ -471,27 +496,34 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (promotionsData) {
-        setPromotions(promotionsData.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          type: p.type,
-          startDate: p.start_date,
-          endDate: p.end_date,
-          status: p.status,
-          targetType: p.target_type,
-          targetId: (p.target_id && typeof p.target_id === 'string' && p.target_id.startsWith('[')) ? JSON.parse(p.target_id) : p.target_id,
-          productPrices: p.product_prices || {},
-          discountValue: p.discount_value ? Number(p.discount_value) : undefined,
-          buyQuantity: p.buy_quantity,
-          payQuantity: p.pay_quantity,
-          comboItems: p.combo_items,
-          comboPrice: p.combo_price ? Number(p.combo_price) : undefined,
-          applyAutomatically: p.apply_automatically,
-          limitPerCustomer: p.limit_per_customer,
-          quantityLimit: p.quantity_limit,
-          daysOfWeek: p.days_of_week,
-          onlyForClubMembers: p.only_for_club_members
-        })));
+        const now = new Date();
+        setPromotions(promotionsData.map((p: any) => {
+          const promoEndDate = new Date(p.end_date);
+          const isExpired = promoEndDate < now;
+          const status = (p.status === 'ACTIVE' && isExpired) ? 'INACTIVE' : p.status;
+          
+          return {
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            startDate: p.start_date,
+            endDate: p.end_date,
+            status: status as 'ACTIVE' | 'INACTIVE',
+            targetType: p.target_type,
+            targetId: (p.target_id && typeof p.target_id === 'string' && p.target_id.startsWith('[')) ? JSON.parse(p.target_id) : p.target_id,
+            productPrices: p.product_prices || {},
+            discountValue: p.discount_value ? Number(p.discount_value) : undefined,
+            buyQuantity: p.buy_quantity,
+            payQuantity: p.pay_quantity,
+            comboItems: p.combo_items,
+            comboPrice: p.combo_price ? Number(p.combo_price) : undefined,
+            applyAutomatically: p.apply_automatically,
+            limitPerCustomer: p.limit_per_customer,
+            quantityLimit: p.quantity_limit,
+            daysOfWeek: p.days_of_week,
+            onlyForClubMembers: p.only_for_club_members
+          };
+        }));
       }
 
       if (productsData) {

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useERP } from '@/lib/context';
-import { Plus, Search, Filter, Edit, Trash2, Tag, Percent, ShoppingBag, Layers } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Tag, Percent, ShoppingBag, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import PromotionModal from '@/components/PromotionModal';
 import { Promotion } from '@/lib/types';
 
@@ -14,6 +14,14 @@ export default function PromocoesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, typeFilter, statusFilter]);
 
   const handleEdit = (promotion: Promotion) => {
     setEditingPromotion(promotion);
@@ -43,6 +51,13 @@ export default function PromocoesPage() {
     const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  // Cálculos de paginação
+  const totalItems = filteredPromotions.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const paginatedPromotions = filteredPromotions.slice(startIndex, startIndex + itemsPerPage);
 
   const getPromotionTypeLabel = (type: string) => {
     switch (type) {
@@ -124,7 +139,7 @@ export default function PromocoesPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
@@ -139,7 +154,7 @@ export default function PromocoesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredPromotions.map((promo) => (
+              {paginatedPromotions.map((promo) => (
                 <tr key={promo.id} className="hover:bg-gray-50 transition-colors">
                   <td className="py-4 px-6">
                     <div className="font-medium text-gray-900 flex items-center gap-2">
@@ -207,7 +222,7 @@ export default function PromocoesPage() {
                   </td>
                 </tr>
               ))}
-              {filteredPromotions.length === 0 && (
+              {paginatedPromotions.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-gray-500">
                     Nenhuma promoção encontrada.
@@ -217,6 +232,62 @@ export default function PromocoesPage() {
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between overflow-x-auto">
+            <div className="text-sm text-gray-500 whitespace-nowrap mr-4">
+              Mostrando <span className="font-medium text-gray-900">{startIndex + 1}</span> a <span className="font-medium text-gray-900">{endIndex}</span> de <span className="font-medium text-gray-900">{totalItems}</span> promoções
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Lógica simplificada para mostrar apenas algumas páginas se houver muitas
+                  if (
+                    totalPages > 7 &&
+                    page !== 1 &&
+                    page !== totalPages &&
+                    Math.abs(page - currentPage) > 1
+                  ) {
+                    if (page === 2 || page === totalPages - 1) {
+                      return <span key={page} className="px-2 text-gray-400">...</span>;
+                    }
+                    return null;
+                  }
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-200 hover:bg-white text-gray-600'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
