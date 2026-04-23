@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useERP } from '@/lib/context';
-import { Search, Calendar, ShieldCheck, User, Clock, AlertTriangle, Info, CheckCircle2, RotateCcw, Tag, Trash2, Eye, X, Terminal, Globe } from 'lucide-react';
+import { Search, Calendar, ShieldCheck, User, Clock, AlertTriangle, Info, CheckCircle2, RotateCcw, Tag, Trash2, Eye, X, Terminal, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'next/navigation';
@@ -17,6 +17,13 @@ export default function SalesAuditPage() {
   const [endDate, setEndDate] = useState(getLocalDateString());
   const [filterType, setFilterType] = useState<'all' | 'discount' | 'return' | 'venda' | 'cancelamento'>('all');
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, startDate, endDate, filterType]);
 
   const auditEvents = useMemo(() => {
     const events: any[] = [];
@@ -77,6 +84,12 @@ export default function SalesAuditPage() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [discountLogs, returns, auditLogs, startDate, endDate, filterType, searchQuery]);
+
+  const totalPages = Math.ceil(auditEvents.length / itemsPerPage);
+  const paginatedEvents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return auditEvents.slice(start, start + itemsPerPage);
+  }, [auditEvents, currentPage]);
 
   const renderFriendlyData = (data: any) => {
     if (!data) return null;
@@ -225,8 +238,8 @@ export default function SalesAuditPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border">
-                {auditEvents.length > 0 ? (
-                  auditEvents.map((event) => {
+                {paginatedEvents.length > 0 ? (
+                  paginatedEvents.map((event) => {
                     const eventUser = systemUsers.find(u => u.id === event.user || u.email === event.user);
                     return (
                       <tr key={event.id} className="hover:bg-slate-50/50 transition-colors">
@@ -302,8 +315,59 @@ export default function SalesAuditPage() {
           </div>
           <div className="p-4 bg-slate-50/50 border-t border-brand-border flex items-center justify-between">
             <p className="text-sm text-brand-text-sec font-bold uppercase tracking-widest">
-              Mostrando {auditEvents.length} eventos de auditoria
+              Mostrando {Math.min((currentPage - 1) * itemsPerPage + 1, auditEvents.length)} a {Math.min(currentPage * itemsPerPage, auditEvents.length)} de {auditEvents.length} eventos
             </p>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl border border-brand-border text-brand-text-sec hover:bg-white disabled:opacity-30 transition-all font-black uppercase italic text-[10px] flex items-center gap-1"
+                >
+                  <ChevronLeft size={14} />
+                  Anterior
+                </button>
+                
+                <div className="hidden md:flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      if (totalPages <= 5) return true;
+                      return Math.abs(page - currentPage) <= 1 || page === 1 || page === totalPages;
+                    })
+                    .map((page, idx, arr) => (
+                      <React.Fragment key={page}>
+                        {idx > 0 && arr[idx - 1] !== page - 1 && (
+                          <span className="text-brand-text-sec px-1 text-[10px] font-black">...</span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all border ${
+                            currentPage === page 
+                              ? 'bg-brand-blue text-white border-brand-blue shadow-lg shadow-brand-blue/20' 
+                              : 'text-brand-text-sec hover:bg-white border-brand-border'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+
+                <div className="md:hidden flex items-center px-4">
+                  <span className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Pág {currentPage} de {totalPages}</span>
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-xl border border-brand-border text-brand-text-sec hover:bg-white disabled:opacity-30 transition-all font-black uppercase italic text-[10px] flex items-center gap-1"
+                >
+                  Próximo
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
