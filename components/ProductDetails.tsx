@@ -160,6 +160,48 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                   </div>
                 </div>
 
+                {/* Section: Especificações Detalhadas */}
+                {(product.linha || product.sabor || product.gramatura || product.segmento || product.tipo_embalagem) && (
+                  <div className="bg-white rounded-3xl p-6 border border-slate-100 space-y-4 shadow-sm">
+                    <div className="flex items-center gap-2 text-slate-400 border-b border-slate-100 pb-3">
+                      <Layers size={16} />
+                      <h3 className="text-xs font-black uppercase tracking-widest italic">Especificações</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+                      {product.linha && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Linha</p>
+                          <p className="text-xs font-black text-slate-700 uppercase italic">{product.linha}</p>
+                        </div>
+                      )}
+                      {product.segmento && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Segmento</p>
+                          <p className="text-xs font-black text-slate-700 uppercase italic">{product.segmento}</p>
+                        </div>
+                      )}
+                      {product.sabor && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sabor</p>
+                          <p className="text-xs font-black text-slate-700 uppercase italic">{product.sabor}</p>
+                        </div>
+                      )}
+                      {product.gramatura && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Gramatura</p>
+                          <p className="text-xs font-black text-slate-700 uppercase italic">{product.gramatura}</p>
+                        </div>
+                      )}
+                      {product.tipo_embalagem && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tipo de Embalagem</p>
+                          <p className="text-xs font-black text-slate-700 uppercase italic">{product.tipo_embalagem}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Summary Totals */}
                 <div className="grid grid-cols-1 gap-4">
                   <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">

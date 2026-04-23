@@ -121,7 +121,12 @@ export default function ProductsPage() {
       'Preço de Venda': p.salePrice,
       Estoque: p.stock,
       'Estoque Mínimo': p.minStock,
-      Status: p.status
+      Status: p.status,
+      Linha: p.linha || '',
+      Sabor: p.sabor || '',
+      Gramatura: p.gramatura || '',
+      'Tipo de Embalagem': p.tipo_embalagem || '',
+      Segmento: p.segmento || ''
     })));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
@@ -145,7 +150,12 @@ export default function ProductsPage() {
       'Preço de Venda': 20.00,
       Estoque: 100,
       'Estoque Mínimo': 10,
-      Status: 'Ativo'
+      Status: 'Ativo',
+      Linha: 'Tradicional',
+      Sabor: 'Natural',
+      Gramatura: '500g',
+      'Tipo de Embalagem': 'Pacote',
+      Segmento: 'Alimentos'
     }];
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
@@ -219,6 +229,11 @@ export default function ProductsPage() {
             stock: parseNumber(item.Estoque),
             minStock: parseNumber(item['Estoque Mínimo']),
             status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
+            linha: item.Linha ? String(item.Linha) : '',
+            sabor: item.Sabor ? String(item.Sabor) : '',
+            gramatura: item.Gramatura ? String(item.Gramatura) : '',
+            tipo_embalagem: item['Tipo de Embalagem'] ? String(item['Tipo de Embalagem']) : '',
+            segmento: item.Segmento ? String(item.Segmento) : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
           } as Product, true); // true para skipFetch
 
@@ -306,55 +321,33 @@ export default function ProductsPage() {
 
   const handleSaveProduct = async (formData: any) => {
     let success = false;
+    
+    // Preparar os dados numéricos
+    const numericData = {
+      costPrice: Number(formData.costPrice || 0),
+      salePrice: Number(formData.salePrice || 0),
+      wholesalePrice: Number(formData.wholesalePrice || 0),
+      clubPrice: Number(formData.clubPrice || 0),
+      stock: Number(formData.stock || 0),
+      minStock: Number(formData.minStock || 0),
+      profit: Number(formData.profit || 0),
+      profitPercentage: Number(formData.profitPercentage || 0),
+      conversion_factor: Number(formData.conversion_factor || 1)
+    };
+
     if (editingProduct) {
       success = await updateProduct({
         ...editingProduct,
         ...formData,
-        costPrice: Number(formData.costPrice || 0),
-        salePrice: Number(formData.salePrice || 0),
-        wholesalePrice: Number(formData.wholesalePrice || 0),
-        clubPrice: Number(formData.clubPrice || 0),
-        stock: Number(formData.stock || 0),
-        minStock: Number(formData.minStock || 0),
-        profit: Number(formData.profit || 0),
-        profitPercentage: Number(formData.profitPercentage || 0),
-        composition: formData.composition,
-        status: formData.status,
-        controlStock: formData.controlStock,
-        subcategoria_id: formData.subcategoria_id,
-        category: formData.category || 'PADRAO',
-        subgroup: formData.subgroup || 'PADRAO',
-        product_type: formData.product_type,
-        base_product_id: formData.base_product_id,
-        conversion_factor: Number(formData.conversion_factor || 1)
+        ...numericData
       });
     } else {
       success = await addProduct({
+        ...formData,
+        ...numericData,
         id: Math.random().toString(36).substr(2, 9),
-        name: formData.name,
-        sku: formData.sku,
-        subcategoria_id: formData.subcategoria_id,
-        costPrice: Number(formData.costPrice || 0),
-        salePrice: Number(formData.salePrice || 0),
-        wholesalePrice: Number(formData.wholesalePrice || 0),
-        clubPrice: Number(formData.clubPrice || 0),
-        stock: Number(formData.stock || 0),
-        minStock: Number(formData.minStock || 0),
-        image: formData.image,
-        brand: formData.brand,
-        unit: formData.unit,
-        supplier: formData.supplier,
-        profit: Number(formData.profit || 0),
-        profitPercentage: Number(formData.profitPercentage || 0),
-        composition: formData.composition,
-        status: formData.status,
-        controlStock: formData.controlStock,
-        category: formData.category || 'PADRAO',
-        subgroup: formData.subgroup || 'PADRAO',
         companyId: user?.companyId || '',
-        product_type: formData.product_type,
-        base_product_id: formData.base_product_id,
-        conversion_factor: Number(formData.conversion_factor || 1)
+        image: formData.image || 'https://i.imgur.com/jGU5BUa.png'
       } as any);
     }
 

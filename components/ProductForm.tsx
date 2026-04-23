@@ -103,6 +103,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     product_type?: 'BASE' | 'SALE' | 'KIT';
     base_product_id?: string;
     conversion_factor?: number;
+    linha?: string;
+    sabor?: string;
+    gramatura?: string;
+    tipo_embalagem?: string;
+    segmento?: string;
   }>(() => {
     let initialProfit = initialData?.profit ?? '';
     let initialProfitPercentage = initialData?.profitPercentage ?? '';
@@ -164,6 +169,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       product_type: initialData?.product_type || 'SALE',
       base_product_id: initialData?.base_product_id || '',
       conversion_factor: initialData?.conversion_factor || 1,
+      linha: initialData?.linha || '',
+      sabor: initialData?.sabor || '',
+      gramatura: initialData?.gramatura || '',
+      tipo_embalagem: initialData?.tipo_embalagem || '',
+      segmento: initialData?.segmento || '',
     };
   });
 
@@ -595,6 +605,63 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <option value="">Selecione...</option>
                       <option value="PADRAO">PADRAO</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Especificações de Produto */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Especificações</h4>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Linha:</label>
+                    <input 
+                      name="linha"
+                      value={formData.linha}
+                      onChange={handleChange}
+                      placeholder="Ex: Premium, Econômica"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Sabor:</label>
+                    <input 
+                      name="sabor"
+                      value={formData.sabor}
+                      onChange={handleChange}
+                      placeholder="Ex: Chocolate, Morango"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Gramatura:</label>
+                    <input 
+                      name="gramatura"
+                      value={formData.gramatura}
+                      onChange={handleChange}
+                      placeholder="Ex: 500g, 1kg, 200ml"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Segmento:</label>
+                    <input 
+                      name="segmento"
+                      value={formData.segmento}
+                      onChange={handleChange}
+                      placeholder="Ex: Automotivo, Limpeza"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Embalagem:</label>
+                    <input 
+                      name="tipo_embalagem"
+                      value={formData.tipo_embalagem}
+                      onChange={handleChange}
+                      placeholder="Ex: Lata, Plástico, Vidro"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
                   </div>
                 </div>
               </div>
