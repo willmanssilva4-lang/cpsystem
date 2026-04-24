@@ -21,6 +21,7 @@ export default function MaquininhasPage() {
     taxa_debito: '',
     taxa_credito: '',
     taxa_credito_parcelado: '',
+    taxa_pix: '',
     ativo: true
   });
 
@@ -43,6 +44,7 @@ export default function MaquininhasPage() {
       taxa_debito: (maquininha.taxa_debito || 0).toString(),
       taxa_credito: (maquininha.taxa_credito || 0).toString(),
       taxa_credito_parcelado: (maquininha.taxa_credito_parcelado || 0).toString(),
+      taxa_pix: (maquininha.taxa_pix || 0).toString(),
       ativo: maquininha.ativo
     });
     setEditingId(maquininha.id);
@@ -73,6 +75,7 @@ export default function MaquininhasPage() {
       taxa_debito: Number(formData.taxa_debito) || 0,
       taxa_credito: Number(formData.taxa_credito) || 0,
       taxa_credito_parcelado: Number(formData.taxa_credito_parcelado) || 0,
+      taxa_pix: Number(formData.taxa_pix) || 0,
       ativo: formData.ativo
     };
 
@@ -84,7 +87,7 @@ export default function MaquininhasPage() {
 
     setShowForm(false);
     setEditingId(null);
-    setFormData({ nome: '', taxa_debito: '', taxa_credito: '', taxa_credito_parcelado: '', ativo: true });
+    setFormData({ nome: '', taxa_debito: '', taxa_credito: '', taxa_credito_parcelado: '', taxa_pix: '', ativo: true });
   };
 
   if (showForm) {
@@ -165,6 +168,21 @@ export default function MaquininhasPage() {
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa PIX (%)</label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
+                  <input 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.taxa_pix}
+                    onChange={e => setFormData({...formData, taxa_pix: e.target.value})}
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Status</label>
                 <select 
                   value={formData.ativo ? 'true' : 'false'}
@@ -218,7 +236,7 @@ export default function MaquininhasPage() {
           </div>
           <button 
             onClick={() => {
-              setFormData({ nome: '', taxa_debito: '', taxa_credito: '', taxa_credito_parcelado: '', ativo: true });
+              setFormData({ nome: '', taxa_debito: '', taxa_credito: '', taxa_credito_parcelado: '', taxa_pix: '', ativo: true });
               setEditingId(null);
               setShowForm(true);
             }}
@@ -239,6 +257,7 @@ export default function MaquininhasPage() {
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa Débito</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa Crédito</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa Parcelado</th>
+                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxa PIX</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-right">Ações</th>
               </tr>
@@ -271,6 +290,9 @@ export default function MaquininhasPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-brand-text-main/60">{maquininha.taxa_credito_parcelado}%</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-brand-text-main/60">{maquininha.taxa_pix || 0}%</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={cn(

@@ -36,11 +36,12 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const change = Math.max(0, Math.round((receivedAmount - remainingAmount) * 100) / 100);
 
   const selectedMethodObj = activeMethods.find(m => m.name === activeMethod);
-  const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito';
+  const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito' || selectedMethodObj?.type === 'Pix';
 
   const filteredMaquininhas = activeMaquininhas.filter(maq => {
-    if (selectedMethodObj?.type === 'Débito') return Number(maq.taxa_debito) > 0 || maq.nome.toLowerCase().includes('débito') || maq.nome.toLowerCase().includes('debito');
-    if (selectedMethodObj?.type === 'Crédito') return Number(maq.taxa_credito) > 0 || maq.nome.toLowerCase().includes('crédito') || maq.nome.toLowerCase().includes('credito');
+    if (selectedMethodObj?.type === 'Débito') return (maq.taxa_debito || 0) > 0 || maq.nome.toLowerCase().includes('débito') || maq.nome.toLowerCase().includes('debito');
+    if (selectedMethodObj?.type === 'Crédito') return (maq.taxa_credito || 0) > 0 || maq.nome.toLowerCase().includes('crédito') || maq.nome.toLowerCase().includes('credito');
+    if (activeMethod === 'Pix' || selectedMethodObj?.type === 'Pix') return (maq.taxa_pix || 0) > 0 || maq.nome.toLowerCase().includes('pix');
     return true;
   });
 
@@ -50,14 +51,15 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     const maq = activeMaquininhas.find(m => m.id === selectedMaquininhaId);
     if (maq) {
       if (selectedMethodObj?.type === 'Débito') {
-        currentTaxPercentage = Number(maq.taxa_debito);
+        currentTaxPercentage = Number(maq.taxa_debito || 0);
       } else if (selectedMethodObj?.type === 'Crédito') {
-        // For now, assuming single credit payment. Could be expanded for installments.
-        currentTaxPercentage = Number(maq.taxa_credito);
+        currentTaxPercentage = Number(maq.taxa_credito || 0);
+      } else if (selectedMethodObj?.type === 'Pix' || activeMethod === 'Pix') {
+        currentTaxPercentage = Number(maq.taxa_pix || 0);
       }
     }
   } else if (selectedMethodObj) {
-    currentTaxPercentage = Number(selectedMethodObj.taxPercentage);
+    currentTaxPercentage = Number(selectedMethodObj.taxPercentage || 0);
   }
 
   const taxAmount = (totalToPay * currentTaxPercentage) / 100;
@@ -85,11 +87,12 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     if (isCard && selectedMaquininhaId) {
       const maq = activeMaquininhas.find(m => m.id === selectedMaquininhaId);
       if (maq) {
-        if (selectedMethodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito);
-        else if (selectedMethodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito);
+        if (selectedMethodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
+        else if (selectedMethodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
+        else if (selectedMethodObj?.type === 'Pix' || activeMethod === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
       }
     } else if (selectedMethodObj) {
-      partTaxPercentage = Number(selectedMethodObj.taxPercentage);
+      partTaxPercentage = Number(selectedMethodObj.taxPercentage || 0);
     }
 
     const partTaxAmount = Math.round(((amountToApply * partTaxPercentage) / 100) * 100) / 100;

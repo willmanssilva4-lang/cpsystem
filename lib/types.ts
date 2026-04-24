@@ -75,8 +75,6 @@ export interface Product {
   product_type?: 'BASE' | 'SALE' | 'KIT';
   base_product_id?: string;
   conversion_factor?: number;
-  linha?: string;
-  sabor?: string;
   gramatura?: string;
   tipo_embalagem?: string;
   segmento?: string;
@@ -413,6 +411,7 @@ export interface Maquininha {
   taxa_debito: number;
   taxa_credito: number;
   taxa_credito_parcelado: number;
+  taxa_pix?: number;
   ativo: boolean;
   created_at: string;
 }

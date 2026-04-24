@@ -47,7 +47,7 @@ function QuantityInput({ value, onChange }: { value: number, onChange: (val: num
 const DEFAULT_IMAGE = 'https://i.imgur.com/jGU5BUa.png';
 
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
-  const { products, pricingSettings, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
+  const { products, pricingSettings, suppliers, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const termPriceInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'geral' | 'movimentacoes' | 'ajustes' | 'inventario' | 'lotes'>('geral');
@@ -103,8 +103,6 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     product_type?: 'BASE' | 'SALE' | 'KIT';
     base_product_id?: string;
     conversion_factor?: number;
-    linha?: string;
-    sabor?: string;
     gramatura?: string;
     tipo_embalagem?: string;
     segmento?: string;
@@ -169,8 +167,6 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       product_type: initialData?.product_type || 'SALE',
       base_product_id: initialData?.base_product_id || '',
       conversion_factor: initialData?.conversion_factor || 1,
-      linha: initialData?.linha || '',
-      sabor: initialData?.sabor || '',
       gramatura: initialData?.gramatura || '',
       tipo_embalagem: initialData?.tipo_embalagem || '',
       segmento: initialData?.segmento || '',
@@ -600,10 +596,13 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       name="supplier"
                       value={formData.supplier}
                       onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none appearance-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
                       <option value="">Selecione...</option>
                       <option value="PADRAO">PADRAO</option>
+                      {suppliers.map(sup => (
+                        <option key={sup.id} value={sup.name}>{sup.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -613,26 +612,6 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Especificações</h4>
                 <div className="flex flex-wrap gap-4">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Linha:</label>
-                    <input 
-                      name="linha"
-                      value={formData.linha}
-                      onChange={handleChange}
-                      placeholder="Ex: Premium, Econômica"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Sabor:</label>
-                    <input 
-                      name="sabor"
-                      value={formData.sabor}
-                      onChange={handleChange}
-                      placeholder="Ex: Chocolate, Morango"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Gramatura:</label>
                     <input 

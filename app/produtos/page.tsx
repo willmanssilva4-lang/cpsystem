@@ -122,8 +122,7 @@ export default function ProductsPage() {
       Estoque: p.stock,
       'Estoque Mínimo': p.minStock,
       Status: p.status,
-      Linha: p.linha || '',
-      Sabor: p.sabor || '',
+      Marca: p.brand || '',
       Gramatura: p.gramatura || '',
       'Tipo de Embalagem': p.tipo_embalagem || '',
       Segmento: p.segmento || ''
@@ -151,11 +150,11 @@ export default function ProductsPage() {
       Estoque: 100,
       'Estoque Mínimo': 10,
       Status: 'Ativo',
-      Linha: 'Tradicional',
-      Sabor: 'Natural',
+      Marca: 'Marca Exemplo',
       Gramatura: '500g',
       'Tipo de Embalagem': 'Pacote',
-      Segmento: 'Alimentos'
+      Segmento: 'Alimentos',
+      Fornecedor: 'Fornecedor Exemplo'
     }];
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
@@ -229,11 +228,11 @@ export default function ProductsPage() {
             stock: parseNumber(item.Estoque),
             minStock: parseNumber(item['Estoque Mínimo']),
             status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
-            linha: item.Linha ? String(item.Linha) : '',
-            sabor: item.Sabor ? String(item.Sabor) : '',
+            brand: item.Marca ? String(item.Marca) : 'PADRAO',
             gramatura: item.Gramatura ? String(item.Gramatura) : '',
-            tipo_embalagem: item['Tipo de Embalagem'] ? String(item['Tipo de Embalagem']) : '',
+            tipo_embalagem: (item['Tipo de Embalagem'] || item['Tipo de Embalagem:']) ? String(item['Tipo de Embalagem'] || item['Tipo de Embalagem:']) : '',
             segmento: item.Segmento ? String(item.Segmento) : '',
+            supplier: item.Fornecedor ? String(item.Fornecedor) : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
           } as Product, true); // true para skipFetch
 
