@@ -273,8 +273,8 @@ export default function NovaCompraPage() {
   };
 
   const handleAddProduct = () => {
-    if (!selectedProduct || itemQty <= 0 || itemCost < 0 || !itemExpiration) {
-      alert('Preencha todos os campos do produto (Produto, Quantidade, Custo e Validade).');
+    if (!selectedProduct || itemQty <= 0 || itemCost < 0) {
+      alert('Preencha os campos obrigatórios: Produto, Quantidade e Custo.');
       return;
     }
 
@@ -285,7 +285,7 @@ export default function NovaCompraPage() {
       qty: itemQty,
       cost: itemCost,
       salePrice: itemSalePrice,
-      expirationDate: itemExpiration,
+      expirationDate: itemExpiration || '',
       total: itemQty * itemCost
     };
 
@@ -385,7 +385,7 @@ export default function NovaCompraPage() {
           produto_id: item.productId,
           numero_lote: numeroLote,
           data_entrada: `${entryDate}T12:00:00Z`,
-          validade: item.expirationDate,
+          validade: item.expirationDate || null,
           custo_unit: item.cost,
           quantidade_inicial: item.qty,
           saldo_atual: item.qty,
@@ -467,6 +467,7 @@ export default function NovaCompraPage() {
           status: 'Pago',
           paymentDate: new Date().toISOString(),
           paymentMethod: 'Dinheiro',
+          financialAccount: financialAccount || 'Caixa',
           companyId: user?.companyId || ''
         });
       } else {
@@ -483,6 +484,7 @@ export default function NovaCompraPage() {
             date: `${inst.dueDate}T12:00:00Z`,
             issueDate: new Date().toISOString(),
             status: 'Pendente',
+            financialAccount: financialAccount || 'Caixa',
             companyId: user?.companyId || ''
           });
         }
@@ -639,7 +641,7 @@ export default function NovaCompraPage() {
                       >
                         <option value="">Selecione...</option>
                         {financialAccounts.map(f => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
+                          <option key={f.id} value={f.name}>{f.name}</option>
                         ))}
                       </select>
                     </div>
@@ -789,7 +791,7 @@ export default function NovaCompraPage() {
                       </div>
                     </div>
                     <div className="col-span-1 lg:col-span-2 space-y-2">
-                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Validade</label>
+                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Validade (Opcional)</label>
                       <input 
                         ref={expirationInputRef}
                         type="date" 

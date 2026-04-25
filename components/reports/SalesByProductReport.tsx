@@ -46,6 +46,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         name: product ? product.name : 'Produto Desconhecido',
         qty: stats.qty,
         price: stats.qty > 0 ? stats.total / stats.qty : 0,
+        cost: stats.totalCost,
         total: stats.total,
         tax: stats.totalTax,
         profit: stats.total - stats.totalCost - stats.totalTax
@@ -60,14 +61,15 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
 
   const totals = allData.reduce((acc, curr) => ({
     qty: acc.qty + curr.qty,
+    cost: acc.cost + curr.cost,
     total: acc.total + curr.total,
     profit: acc.profit + curr.profit
-  }), { qty: 0, total: 0, profit: 0 });
+  }), { qty: 0, cost: 0, total: 0, profit: 0 });
 
   return (
     <div className="space-y-6">
       {/* Totals Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Bruto Vendido</p>
           <h3 className="text-2xl font-black text-brand-blue italic">{formatCurrency(totals.total)}</h3>
@@ -77,6 +79,11 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quantidade Total</p>
           <h3 className="text-2xl font-black text-brand-text-main italic">{totals.qty} <span className="text-sm">unidades</span></h3>
           <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">Volume total de saída</p>
+        </div>
+        <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 shadow-sm">
+          <p className="text-[10px] font-black text-rose-600/60 uppercase tracking-widest mb-1">Custo Total</p>
+          <h3 className="text-2xl font-black text-rose-600 italic">{formatCurrency(totals.cost)}</h3>
+          <p className="text-[10px] font-bold text-rose-600/40 mt-1 uppercase italic">Investimento em mercadoria</p>
         </div>
         <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100 shadow-sm">
           <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mb-1">Lucro Líquido Total</p>
@@ -92,6 +99,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
               <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
               <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Qtd Vendida</th>
               <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Preço Médio</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Custo Total</th>
               <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Taxas</th>
               <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Lucro Líquido</th>
               <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total Bruto</th>
@@ -103,6 +111,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
                 <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
                 <td className="py-4 text-sm font-bold text-brand-text-main">{row.qty} un</td>
                 <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">{formatCurrency(row.price)}</td>
+                <td className="py-4 text-xs font-black text-rose-600/60 uppercase italic">{formatCurrency(row.cost)}</td>
                 <td className="py-4 text-xs font-black text-brand-danger/60 uppercase italic">{formatCurrency(row.tax)}</td>
                 <td className="py-4 text-right text-sm font-black text-emerald-600">
                   <div className="flex flex-col items-end">
@@ -114,7 +123,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
               </tr>
             )) : (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-sm font-medium text-brand-blue/60">
+                <td colSpan={7} className="py-8 text-center text-sm font-medium text-brand-blue/60">
                   Nenhuma venda encontrada para o período selecionado.
                 </td>
               </tr>
@@ -126,6 +135,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
                 <td className="py-4 px-2 text-sm font-black text-brand-text-main uppercase italic">TOTAIS</td>
                 <td className="py-4 text-sm font-black text-brand-text-main">{totals.qty} un</td>
                 <td className="py-4"></td>
+                <td className="py-4 text-sm font-black text-rose-600">{formatCurrency(totals.cost)}</td>
                 <td className="py-4"></td>
                 <td className="py-4 text-right text-sm font-black text-emerald-600">{formatCurrency(totals.profit)}</td>
                 <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(totals.total)}</td>

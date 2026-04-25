@@ -9,7 +9,7 @@ import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
 export default function SalesHistoryPage() {
-  const { sales, customers, products, hasPermission, deleteSale, setCustomAlert, companySettings } = useERP();
+  const { sales, customers, products, hasPermission, deleteSale, setCustomAlert, companySettings, returns } = useERP();
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState(getLocalDateString());
   const [endDate, setEndDate] = useState(getLocalDateString());
@@ -224,6 +224,7 @@ export default function SalesHistoryPage() {
                       <th className="px-6 py-4 text-left">Cupom / Data</th>
                       <th className="px-6 py-4 text-left">Cliente</th>
                       <th className="px-6 py-4 text-right">Total</th>
+                      <th className="px-6 py-4 text-center">Status</th>
                       <th className="px-6 py-4 text-center">Pagamento</th>
                       <th className="px-6 py-4 text-center">Ação</th>
                     </tr>
@@ -232,14 +233,16 @@ export default function SalesHistoryPage() {
                     {currentSales.length > 0 ? (
                       currentSales.map((sale) => {
                         const customer = customers.find(c => c.id === sale.customerId);
+                        const hasReturn = returns.some(r => r.saleId === sale.id && r.status !== 'CANCELADO');
+                        
                         return (
                           <tr 
                             key={sale.id} 
-                            className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedSale?.id === sale.id ? 'bg-blue-50/50' : ''}`}
+                            className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedSale?.id === sale.id ? 'bg-blue-50/50' : ''} ${sale.status === 'Cancelada' ? 'opacity-60' : ''}`}
                             onClick={() => setSelectedSale(sale)}
                           >
                             <td className="px-6 py-4">
-                              <p className="font-black italic text-brand-text-main uppercase leading-tight">#{sale.id.substring(0, 8).toUpperCase()}</p>
+                              <p className={`font-black italic uppercase leading-tight ${sale.status === 'Cancelada' ? 'text-red-500 line-through' : 'text-brand-text-main'}`}>#{sale.id.substring(0, 8).toUpperCase()}</p>
                               <p className="text-[10px] text-brand-text-sec font-bold">{formatDateTimeBR(sale.date)}</p>
                             </td>
                             <td className="px-6 py-4">
@@ -249,6 +252,21 @@ export default function SalesHistoryPage() {
                             <td className="px-6 py-4 text-right">
                               <p className="font-black text-brand-blue">R$ {sale.total.toFixed(2)}</p>
                               <p className="text-[10px] text-brand-text-sec font-bold uppercase">{sale.items.length} Itens</p>
+                            </td>
+                            <td className="px-6 py-4 text-center flex flex-col items-center gap-1 justify-center">
+                               {sale.status === 'Cancelada' ? (
+                                 <span className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                                   Cancelada
+                                 </span>
+                               ) : hasReturn ? (
+                                 <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-[9px] font-black uppercase tracking-widest">
+                                   Estornada/Devolvida
+                                 </span>
+                               ) : (
+                                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[9px] font-black uppercase tracking-widest">
+                                   Concluída
+                                 </span>
+                               )}
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black uppercase tracking-widest text-brand-text-sec">
@@ -331,6 +349,20 @@ export default function SalesHistoryPage() {
                 </div>
                 
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+                  {selectedSale.status === 'Cancelada' && (
+                    <div className="bg-red-50 border-2 border-dashed border-red-200 rounded-xl p-4 flex items-center justify-center">
+                      <p className="text-red-600 font-black italic uppercase tracking-widest text-sm flex items-center gap-2">
+                        <Trash2 size={16} /> Venda Cancelada
+                      </p>
+                    </div>
+                  )}
+                  {selectedSale.status !== 'Cancelada' && returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') && (
+                    <div className="bg-yellow-50 border-2 border-dashed border-yellow-200 rounded-xl p-4 flex items-center justify-center">
+                      <p className="text-yellow-700 font-black italic uppercase tracking-widest text-sm flex items-center gap-2">
+                        <ShoppingCart size={16} /> Venda com Devolução/Estorno
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-4">
                     <div className="flex flex-col border-b-2 border-dashed border-brand-border pb-4">
                       <div className="flex justify-between items-center mb-1">
@@ -403,7 +435,8 @@ export default function SalesHistoryPage() {
                     </button>
                     <button 
                       onClick={() => setShowConfirmDelete(true)}
-                      className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95 border-2 border-red-100"
+                      disabled={selectedSale.status === 'Cancelada'}
+                      className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95 border-2 border-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 size={14} /> Cancelar Venda
                     </button>

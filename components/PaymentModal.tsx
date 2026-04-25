@@ -12,10 +12,10 @@ interface PaymentModalProps {
   onFinalize: (paymentData: any) => void;
 }
 
-type PaymentMethod = 'Dinheiro' | 'Pix' | 'Crédito' | 'Fiado';
+type PaymentMethod = 'Dinheiro' | 'Pix' | 'Crédito' | 'Fiado' | 'Voucher';
 
 export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) {
-  const { user, paymentMethods, maquininhas } = useERP();
+  const { user, paymentMethods, maquininhas, getVoucherByCode, updateVoucher } = useERP();
   const activeMethods = paymentMethods.filter(m => m.active);
   const activeMaquininhas = maquininhas.filter(m => m.ativo);
   
@@ -23,6 +23,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const [selectedMaquininhaId, setSelectedMaquininhaId] = useState<string>('');
   const [highlightedMaquininhaIndex, setHighlightedMaquininhaIndex] = useState(0);
   const [payments, setPayments] = useState<any[]>([]);
+
+  const [voucherCode, setVoucherCode] = useState('');
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
 
   const [discount, setDiscount] = useState(0);
   const [cashAmount, setCashAmount] = useState(0);
@@ -37,6 +41,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
   const selectedMethodObj = activeMethods.find(m => m.name === activeMethod);
   const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito' || selectedMethodObj?.type === 'Pix';
+  const isVoucher = selectedMethodObj?.type === 'Voucher' || activeMethod === 'Voucher';
 
   const filteredMaquininhas = activeMaquininhas.filter(maq => {
     if (selectedMethodObj?.type === 'Débito') return (maq.taxa_debito || 0) > 0 || maq.nome.toLowerCase().includes('débito') || maq.nome.toLowerCase().includes('debito');
@@ -129,15 +134,61 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     setPayments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleFinalize = useCallback(() => {
+  const handleVoucherApply = useCallback(async () => {
+    if (!voucherCode) return;
+    setIsValidatingVoucher(true);
+    setVoucherError(null);
+
+    const voucher = getVoucherByCode(voucherCode);
+    if (!voucher) {
+      setVoucherError('CUPOM INVÁLIDO OU JÁ UTILIZADO');
+      setIsValidatingVoucher(false);
+      return;
+    }
+
+    const valueToUse = Math.min(voucher.currentValue, remainingAmount);
+    if (valueToUse <= 0) {
+      setVoucherError('VALOR INSUFICIENTE NO CUPOM');
+      setIsValidatingVoucher(false);
+      return;
+    }
+
+    const newPayment = {
+      method: activeMethod,
+      amount: valueToUse,
+      voucherCode: voucher.code,
+      voucherId: voucher.id,
+      taxAmount: 0,
+      netAmount: valueToUse,
+      taxPercentage: 0
+    };
+
+    setPayments(prev => [...prev, newPayment]);
+    setVoucherCode('');
+    setIsValidatingVoucher(false);
+    
+    // Update voucher current value locally (will be synced on finalize or handled in addSale)
+    // Actually, it's better to update it on finalize
+  }, [voucherCode, getVoucherByCode, remainingAmount, activeMethod]);
+
+  const handleFinalize = useCallback(async () => {
     if (remainingAmount > 0) {
-      // If there's a pending amount in receivedAmount, add it first? 
-      // Better to force explicit "Add" or just handle the last one
-      if (receivedAmount > 0 || (isCard && selectedMaquininhaId)) {
-        // Auto-add if user clicks finalize and there's valid input
-        // But for safety, let's just alert or require explicit add
-      }
       if (remainingAmount > 0) return;
+    }
+
+    // Process voucher updates before finalizing
+    for (const p of payments) {
+      if (p.voucherId) {
+        const voucher = getVoucherByCode(p.voucherCode);
+        if (voucher) {
+          const newValue = Math.max(0, voucher.currentValue - p.amount);
+          await updateVoucher({
+            ...voucher,
+            currentValue: newValue,
+            status: newValue <= 0 ? 'Utilizado' : 'Ativo'
+          });
+        }
+      }
     }
 
     onFinalize({
@@ -148,7 +199,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       totalPaid,
       change
     });
-  }, [onFinalize, payments, discount, subtotal, totalToPay, totalPaid, remainingAmount, receivedAmount, isCard, selectedMaquininhaId, change]);
+  }, [onFinalize, payments, discount, subtotal, totalToPay, totalPaid, remainingAmount, change, getVoucherByCode, updateVoucher]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -364,33 +415,69 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                     </div>
                   )}
 
-                  <div className="space-y-1">
-                    <label className="text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="number"
-                        value={receivedAmount || ''}
-                        placeholder={remainingAmount.toFixed(2)}
-                        onChange={(e) => setReceivedAmount(Number(e.target.value))}
-                        onFocus={(e) => e.target.select()}
-                        className="flex-1 min-w-0 p-4 text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all"
-                        autoFocus
-                      />
-                      <button 
-                        onClick={addPayment}
-                        disabled={remainingAmount <= 0}
-                        className="shrink-0 px-4 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50 whitespace-nowrap"
-                      >
-                        Adicionar
-                      </button>
+                  {isVoucher ? (
+                    <div className="space-y-3 bg-brand-blue/5 p-4 rounded-2xl border-2 border-brand-blue/10">
+                      <label className="text-sm font-black italic text-brand-blue">Informar Código do Cupom</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          value={voucherCode}
+                          onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                          placeholder="EX: ABC123DEF"
+                          className="flex-1 min-w-0 p-4 text-xl font-black border-2 border-brand-blue/20 rounded-xl focus:border-brand-blue outline-none uppercase"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleVoucherApply();
+                            }
+                          }}
+                        />
+                        <button 
+                          onClick={handleVoucherApply}
+                          disabled={!voucherCode || isValidatingVoucher}
+                          className="shrink-0 px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50"
+                        >
+                          {isValidatingVoucher ? '...' : 'Validar'}
+                        </button>
+                      </div>
+                      {voucherError && (
+                        <p className="text-[10px] font-black text-red-500 uppercase italic flex items-center gap-1">
+                          <Settings size={10} /> {voucherError}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-black italic text-slate-500">Troco</label>
-                    <div className="w-full p-4 text-2xl font-black bg-slate-100 rounded-xl text-right">
-                      R$ {(remainingAmount === 0 && payments.length > 0 ? lastChange : change).toFixed(2)}
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="number"
+                            value={receivedAmount || ''}
+                            placeholder={remainingAmount.toFixed(2)}
+                            onChange={(e) => setReceivedAmount(Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            className="flex-1 min-w-0 p-4 text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all"
+                            autoFocus
+                          />
+                          <button 
+                            onClick={addPayment}
+                            disabled={remainingAmount <= 0}
+                            className="shrink-0 px-4 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50 whitespace-nowrap"
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-black italic text-slate-500">Troco</label>
+                        <div className="w-full p-4 text-2xl font-black bg-slate-100 rounded-xl text-right">
+                          R$ {(remainingAmount === 0 && payments.length > 0 ? lastChange : change).toFixed(2)}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

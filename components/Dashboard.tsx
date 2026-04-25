@@ -466,7 +466,7 @@ export function Dashboard() {
               </div>
               <h3 className="text-lg font-black uppercase italic text-brand-text-main">Ranking de Produtos</h3>
             </div>
-            <a href="/relatorios" className="text-xs font-bold text-brand-blue hover:underline">Ver Todos</a>
+            <a href="/relatorios?report=vendas_produto" className="text-xs font-bold text-brand-blue hover:underline">Ver Todos</a>
           </div>
 
           <div className="space-y-4">

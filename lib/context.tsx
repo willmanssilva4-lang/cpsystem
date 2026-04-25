@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, Return, ExpenseCategory, Advertisement, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES, INITIAL_ADS } from './types';
+import { Product, Sale, Customer, Supplier, Loss, Expense, PricingSettings, CompanySettings, CompositionItem, StockMovement, Inventory, Employee, SystemUser, AccessProfile, Permission, SystemSettings, DiscountLog, CashRegister, CashMovement, CashSalesSummary, CashClosing, AuditLog, PaymentMethod, Departamento, Categoria, Subcategoria, ProductLote, Maquininha, Promotion, Return, Voucher, ExpenseCategory, Advertisement, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_LOSSES, INITIAL_SALES, INITIAL_EXPENSES, INITIAL_ADS } from './types';
 import { supabase } from './supabase';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_MERCADOLOGICAL_TREE } from './default-tree';
@@ -30,6 +30,7 @@ interface ERPContextType {
   maquininhas: Maquininha[];
   promotions: Promotion[];
   returns: Return[];
+  vouchers: Voucher[];
   advertisements: Advertisement[];
   user: { id: string; name: string; email: string; role: string; profileId?: string; companyId?: string } | null;
   isSuperAdmin: boolean;
@@ -54,6 +55,9 @@ interface ERPContextType {
   deleteProduct: (id: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id'>) => Promise<Sale | null>;
   addReturn: (returnData: Omit<Return, 'id'>) => Promise<boolean>;
+  addVoucher: (voucher: Omit<Voucher, 'id' | 'createdAt'>) => Promise<Voucher | null>;
+  updateVoucher: (voucher: Voucher) => Promise<boolean>;
+  getVoucherByCode: (code: string) => Voucher | undefined;
   addDiscountLog: (log: Omit<DiscountLog, 'id'>) => Promise<void>;
   addCustomer: (customer: Customer) => void;
   updateCustomer: (customer: Customer) => Promise<void>;
@@ -198,6 +202,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [maquininhas, setMaquininhas] = useState<Maquininha[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [returns, setReturns] = useState<Return[]>([]);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>(INITIAL_ADS);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(INITIAL_SYSTEM_SETTINGS);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>(INITIAL_PRICING_SETTINGS);
@@ -376,6 +381,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         maquininhas: buildQuery('maquininhas'),
         promotions: buildQuery('promotions'),
         returns: buildQuery('returns', '*, return_items(*)').order('date', { ascending: false }).limit(500),
+        vouchers: buildQuery('vouchers').order('created_at', { ascending: false }),
         companies: companyId ? supabase.from('companies').select('*').eq('id', companyId).single() : Promise.resolve({ data: null })
       };
 
@@ -416,20 +422,21 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const maquininhasData = data.maquininhas;
       const promotionsData = data.promotions;
       const returnsData = data.returns;
+      const vouchersData = data.vouchers;
       const companyData = data.companies;
 
       // Fetch sales separately if needed
       let salesData;
       if (shouldFetch('sales')) {
         try {
-          const res = await buildQuery('sales', '*, sale_items(*)').order('date', { ascending: false }).limit(500);
+          const res = await buildQuery('sales', '*, sale_items(*)').order('date', { ascending: false }).limit(2000);
           if (res.error) throw res.error;
           salesData = res.data;
         } catch (e) {
           console.warn('Failed to fetch sales with join, fetching separately...', e);
           const [salesRes, itemsRes] = await Promise.all([
-            buildQuery('sales').order('date', { ascending: false }).limit(500),
-            buildQuery('sale_items').order('created_at', { ascending: false }).limit(2000)
+            buildQuery('sales').order('date', { ascending: false }).limit(2000),
+            buildQuery('sale_items').order('created_at', { ascending: false }).limit(8000)
           ]);
           if (salesRes.data) {
             // Group items by sale_id for O(N) lookup
@@ -481,7 +488,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           date: r.date,
           items: (r.return_items || []).map((ri: any) => ({
             productId: ri.product_id,
-            quantity: ri.quantity,
+            quantity: Number(ri.quantity || 0),
             price: Number(ri.price),
             reason: ri.reason
           })),
@@ -493,6 +500,22 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }));
         setReturns(mappedReturns);
         localStorage.setItem('erp_returns', JSON.stringify(mappedReturns));
+      }
+
+      if (vouchersData) {
+        const mappedVouchers = vouchersData.map((v: any) => ({
+          id: v.id,
+          code: v.code,
+          initialValue: Number(v.initial_value),
+          currentValue: Number(v.current_value),
+          customerId: v.customer_id,
+          saleId: v.sale_id,
+          returnId: v.return_id,
+          status: v.status,
+          createdAt: v.created_at
+        }));
+        setVouchers(mappedVouchers);
+        localStorage.setItem('erp_vouchers', JSON.stringify(mappedVouchers));
       }
 
       if (promotionsData) {
@@ -637,11 +660,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           paymentMethod: s.payment_method,
           customerId: s.customer_id,
           userId: s.user_id,
+          status: s.status || 'Concluída',
           taxAmount: s.tax_amount ? Number(s.tax_amount) : 0,
           netAmount: s.net_amount ? Number(s.net_amount) : Number(s.total),
           items: (s.sale_items || []).map((si: any) => ({
             productId: si.product_id,
-            quantity: si.quantity,
+            quantity: Number(si.quantity || 0),
             price: Number(si.price),
             costPrice: Number(si.cost_price || 0),
             originalPrice: si.original_price ? Number(si.original_price) : Number(si.price),
@@ -929,14 +953,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (paymentMethodsData) {
-        setPaymentMethods(paymentMethodsData.map((m: any) => ({
+        let methods = paymentMethodsData.map((m: any) => ({
           id: m.id,
           name: m.name,
           type: m.type,
           taxPercentage: Number(m.tax_percentage),
           taxFixed: Number(m.tax_value),
           active: m.active
-        })));
+        }));
+
+        // Ensure "Vale Crédito" exists for the voucher system
+        const hasVoucher = methods.some((m: any) => m.type === 'Voucher' || m.name === 'Vale Crédito');
+        if (!hasVoucher) {
+          methods.push({
+            id: 'voucher-default',
+            name: 'Vale Crédito',
+            type: 'Voucher',
+            taxPercentage: 0,
+            taxFixed: 0,
+            active: true
+          });
+        }
+        
+        setPaymentMethods(methods);
         localStorage.setItem('payment_methods', JSON.stringify(paymentMethodsData));
       }
 
@@ -1898,8 +1937,93 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, activeRegister, logAuditAction, products, lotes, customers, fetchData]);
 
+  const addVoucher = useCallback(async (voucherData: Omit<Voucher, 'id' | 'createdAt'>): Promise<Voucher | null> => {
+    try {
+      const { data: res, error } = await supabase
+        .from('vouchers')
+        .insert([{
+          company_id: user?.companyId || null,
+          code: voucherData.code,
+          initial_value: voucherData.initialValue,
+          current_value: voucherData.currentValue,
+          customer_id: voucherData.customerId,
+          sale_id: voucherData.saleId,
+          return_id: voucherData.returnId,
+          status: voucherData.status
+        }])
+        .select();
+
+      if (error) {
+        console.error('Error inserting voucher:', error);
+        // Fallback
+        const newVoucher: Voucher = {
+          ...voucherData,
+          id: Math.random().toString(36).substring(2, 9),
+          createdAt: new Date().toISOString()
+        };
+        setVouchers(prev => [...prev, newVoucher]);
+        return newVoucher;
+      }
+
+      if (res && res.length > 0) {
+        const mapped = {
+          id: res[0].id,
+          code: res[0].code,
+          initialValue: Number(res[0].initial_value),
+          currentValue: Number(res[0].current_value),
+          customerId: res[0].customer_id,
+          saleId: res[0].sale_id,
+          returnId: res[0].return_id,
+          status: res[0].status,
+          createdAt: res[0].created_at
+        };
+        setVouchers(prev => [...prev, mapped]);
+        return mapped;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error in addVoucher:', err);
+      return null;
+    }
+  }, [user]);
+
+  const updateVoucher = useCallback(async (voucher: Voucher): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('vouchers')
+        .update({
+          current_value: voucher.currentValue,
+          status: voucher.status
+        })
+        .eq('id', voucher.id);
+
+      if (error) {
+        console.error('Error updating voucher:', error);
+        setVouchers(prev => prev.map(v => v.id === voucher.id ? voucher : v));
+        return true;
+      }
+
+      setVouchers(prev => prev.map(v => v.id === voucher.id ? voucher : v));
+      return true;
+    } catch (err) {
+      console.error('Error in updateVoucher:', err);
+      return false;
+    }
+  }, []);
+
+  const getVoucherByCode = useCallback((code: string) => {
+    return vouchers.find(v => v.code.toUpperCase() === code.toUpperCase() && v.status === 'Ativo');
+  }, [vouchers]);
+
   const addReturn = useCallback(async (returnData: Omit<Return, 'id'>): Promise<boolean> => {
     try {
+      let voucherCode = returnData.voucherCode;
+
+      // Handle Store Credit by generating a voucher if not already provided
+      if (returnData.refundMethod === 'Crédito em Loja' && !voucherCode) {
+        voucherCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      }
+
       const { data: returnRes, error: returnError } = await supabase
         .from('returns')
         .insert([{
@@ -1910,7 +2034,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           type: returnData.type,
           refund_method: returnData.refundMethod,
           user_id: user?.id || null,
-          status: returnData.status
+          status: returnData.status,
+          voucher_code: voucherCode
         }])
         .select();
 
@@ -1925,6 +2050,18 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       if (returnRes && returnRes.length > 0) {
         const returnId = returnRes[0].id;
+
+        // Create the voucher if needed
+        if (returnData.refundMethod === 'Crédito em Loja' && voucherCode) {
+          await addVoucher({
+            code: voucherCode,
+            initialValue: returnData.total,
+            currentValue: returnData.total,
+            saleId: returnData.saleId,
+            returnId: returnId,
+            status: 'Ativo'
+          });
+        }
 
         const itemsToInsert = returnData.items.map(item => ({
           company_id: user?.companyId || null,
@@ -2381,16 +2518,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         await supabase.from('stock_movements').insert([movePayload]);
       }
 
-      // 2. Handle Returns (if any) - Set sale_id to NULL instead of deleting
-      // This preserves return history for reports even if sale is deleted
-      await supabase.from('returns').update({ sale_id: null }).eq('sale_id', id);
-
-      // 3. Create an "ESTORNO" return record to track this cancellation
+      // 2. Not touching existing returns so they stay linked to this sale
+      // Create an "ESTORNO" return record to track this cancellation
       const { data: returnRes } = await supabase
         .from('returns')
         .insert([{
           company_id: user?.companyId || null,
-          sale_id: null,
+          sale_id: id,
           date: new Date().toISOString(),
           total: oldSale.total,
           type: 'TOTAL',
@@ -2413,17 +2547,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         await supabase.from('return_items').insert(itemsToInsert);
       }
 
-      // 4. Delete sale items
-      await supabase.from('sale_items').delete().eq('sale_id', id);
-
-      // 5. Delete discount logs
-      await supabase.from('vendas_descontos').delete().eq('sale_id', id);
-
-      // 6. Delete the sale itself
-      const { error } = await supabase.from('sales').delete().eq('id', id);
+      // 3. Mark the sale as cancelled instead of deleting
+      const { error } = await supabase.from('sales').update({ status: 'Cancelada' }).eq('id', id);
       
       if (!error) {
-        await logAuditAction('cancelamento', 'vendas', id, oldSale, null);
+        await logAuditAction('cancelamento', 'vendas', id, oldSale, { status: 'Cancelada' });
         await fetchData();
       }
       else {
@@ -3503,6 +3631,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       maquininhas,
       promotions,
       returns,
+      vouchers,
       advertisements,
       user,
       isSuperAdmin,
@@ -3526,6 +3655,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       deleteProduct,
       addSale, 
       addReturn,
+      addVoucher,
+      updateVoucher,
+      getVoucherByCode,
       addDiscountLog,
       addCustomer,
       updateCustomer,
@@ -3595,10 +3727,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }), [
       products, sales, customers, suppliers, losses, expenses, departamentos, categorias, expenseCategories, subcategorias,
       stockMovements, inventories, employees, systemUsers, accessProfiles, permissions, pricingSettings, companySettings,
-      systemSettings, paymentMethods, maquininhas, promotions, returns, advertisements, user, isSuperAdmin, isAuthReady, isLoading, hasPermission,
+      systemSettings, paymentMethods, maquininhas, promotions, returns, vouchers, advertisements, user, isSuperAdmin, isAuthReady, isLoading, hasPermission,
       discountLogs, auditLogs, cashRegisters, cashMovements, cashClosings, activeRegister, openCashRegister, closeCashRegister,
       addCashMovement, suspendCashRegister, blockCashRegister, logAuditAction, addProduct, updateProduct, deleteProduct,
-      addSale, addReturn, addDiscountLog, addCustomer, updateCustomer, deleteCustomer, addSupplier, updateSupplier,
+      addSale, addReturn, addVoucher, updateVoucher, getVoucherByCode, addDiscountLog, addCustomer, updateCustomer, deleteCustomer, addSupplier, updateSupplier,
       deleteSupplier, addLoss, addExpense, addStockMovement, addInventory, updateSale, deleteSale, updateLoss,
       deleteLoss, updateExpense, deleteExpense, updateStockMovement, deleteStockMovement, updateInventory,
       deleteInventory, addCategoria, updateCategoria, deleteCategoria, addExpenseCategory, addSubcategoria,

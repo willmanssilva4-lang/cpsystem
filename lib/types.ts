@@ -154,6 +154,19 @@ export interface Return {
   refundMethod: string;
   userId: string;
   status: 'CONCLUÍDO' | 'CANCELADO';
+  voucherCode?: string;
+}
+
+export interface Voucher {
+  id: string;
+  code: string;
+  initialValue: number;
+  currentValue: number;
+  customerId?: string;
+  saleId?: string;
+  returnId?: string;
+  status: 'Ativo' | 'Utilizado' | 'Cancelado';
+  createdAt: string;
 }
 
 export interface SaleItem {
@@ -173,6 +186,8 @@ export interface SalePayment {
   taxAmount?: number;
   netAmount?: number;
   taxPercentage?: number;
+  voucherCode?: string;
+  voucherId?: string;
 }
 
 export interface Sale {
@@ -191,6 +206,7 @@ export interface Sale {
   maquininhaId?: string;
   taxAmount?: number;
   netAmount?: number;
+  status?: string; // 'Concluída' | 'Cancelada'
 }
 
 export interface DiscountLog {

@@ -15,6 +15,8 @@ export default function ReturnsPage() {
   const [refundMethod, setRefundMethod] = useState('Dinheiro');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [generatedVoucher, setGeneratedVoucher] = useState<string | null>(null);
+  const [refundValue, setRefundValue] = useState(0);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +57,13 @@ export default function ReturnsPage() {
       return acc + (saleItem ? saleItem.price * item.quantity : 0);
     }, 0);
 
+    let voucherCode = undefined;
+    if (refundMethod === 'Crédito em Loja') {
+      voucherCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      setGeneratedVoucher(voucherCode);
+    }
+    setRefundValue(total);
+
     const success = await addReturn({
       saleId: selectedSale.id,
       date: new Date().toISOString(),
@@ -71,7 +80,8 @@ export default function ReturnsPage() {
       type: selectedItems.length === selectedSale.items.length ? 'TOTAL' : 'PARCIAL',
       refundMethod,
       userId: user?.id || 'Sistema',
-      status: 'CONCLUÍDO'
+      status: 'CONCLUÍDO',
+      voucherCode
     });
 
     if (success) {
@@ -357,9 +367,22 @@ export default function ReturnsPage() {
               <CheckCircle2 size={40} />
             </div>
             <h3 className="text-2xl font-black italic mb-4 text-brand-text-main uppercase">Concluído!</h3>
-            <p className="text-brand-text-sec mb-8">A devolução foi registrada com sucesso e o estoque foi atualizado.</p>
+            <p className="text-brand-text-sec mb-2">A devolução foi registrada com sucesso e o estoque foi atualizado.</p>
+            
+            {generatedVoucher && (
+              <div className="my-6 p-6 bg-brand-blue/5 border-2 border-dashed border-brand-blue rounded-2xl">
+                <p className="text-[10px] font-black uppercase text-brand-blue tracking-[0.2em] mb-2">Cupom de Crédito Gerado</p>
+                <p className="text-4xl font-black italic text-brand-text-main tracking-tighter mb-2">{generatedVoucher}</p>
+                <p className="text-[10px] font-bold text-brand-text-sec uppercase">Valor: R$ {refundValue.toFixed(2)}</p>
+                <p className="text-[9px] text-brand-text-sec italic mt-2">* Entregue este código ao cliente para uso no próximo checkout.</p>
+              </div>
+            )}
+
             <button 
-              onClick={() => setShowSuccessModal(false)}
+              onClick={() => {
+                setShowSuccessModal(false);
+                setGeneratedVoucher(null);
+              }}
               className="w-full py-4 bg-brand-blue hover:bg-brand-blue-hover text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-blue/20"
             >
               Entendido

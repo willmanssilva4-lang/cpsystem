@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -84,13 +85,37 @@ import { SalesReport } from '@/components/reports/SalesReport';
 import * as XLSX from 'xlsx';
 
 export default function ReportsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Carregando relatórios...</div>}>
+      <ReportsContent />
+    </Suspense>
+  );
+}
+
+function ReportsContent() {
   const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods, setCustomAlert } = useERP();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeReport, setActiveReport] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
+
+  // Handle report query parameter
+  useEffect(() => {
+    const reportId = searchParams.get('report');
+    if (reportId) {
+      const report = allReports.find(r => r.id === reportId);
+      if (report) {
+        handleReportClick(report.title);
+        // Clear the query param without refreshing the page
+        const newPath = window.location.pathname;
+        router.replace(newPath);
+      }
+    }
+  }, [searchParams]);
   const [activeCentralTab, setActiveCentralTab] = useState('vendas');
   const [startDate, setStartDate] = useState(() => {
     const today = new Date();
@@ -121,7 +146,7 @@ export default function ReportsPage() {
   const dynamicSalesData = React.useMemo(() => {
     const chartDataMap = new Map();
     filteredSales.forEach(sale => {
-      const d = sale.date.split('T')[0];
+      const d = toLocalDateString(sale.date);
       const dateObj = new Date(d);
       dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
       const dateStr = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}`;
@@ -568,7 +593,12 @@ export default function ReportsPage() {
       )}
 
       {/* Main Content: Advanced Performance Dashboard */}
-      <AdvancedPerformanceDashboard startDate={startDate} endDate={endDate} onOpenCatalog={() => setSelectedReportView('Catálogo')} />
+      <AdvancedPerformanceDashboard 
+        startDate={startDate} 
+        endDate={endDate} 
+        onOpenCatalog={() => setSelectedReportView('Catálogo')} 
+        onViewReport={(reportName) => handleReportClick(reportName)}
+      />
 
       {/* Toast Notification */}
       {notification && (
@@ -650,7 +680,17 @@ function QuickActionButton({ icon: Icon, label, onClick }: { icon: any, label: s
 }
 
 // --- Advanced Performance Dashboard Component ---
-function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: initialEndDate, onOpenCatalog }: { startDate: string, endDate: string, onOpenCatalog?: () => void }) {
+function AdvancedPerformanceDashboard({ 
+  startDate: initialStartDate, 
+  endDate: initialEndDate, 
+  onOpenCatalog,
+  onViewReport 
+}: { 
+  startDate: string, 
+  endDate: string, 
+  onOpenCatalog?: () => void,
+  onViewReport?: (reportName: string) => void
+}) {
   const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
@@ -1406,7 +1446,15 @@ function AdvancedPerformanceDashboard({ startDate: initialStartDate, endDate: in
           {reportType === 'Relatório de Vendas' && (
             <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Produtos</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Produtos</h4>
+                  <button 
+                    onClick={() => onViewReport?.('Vendas por Produto')}
+                    className="text-[10px] font-bold text-brand-blue hover:underline ml-2"
+                  >
+                    Ver Todos
+                  </button>
+                </div>
                 <Package size={16} className="text-slate-300" />
               </div>
               <div className="overflow-x-auto flex-1">
@@ -1874,10 +1922,13 @@ function ClubCustomersReport() {
 function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, customers } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
   const clubSales = filteredSales.filter(s => {
     const customer = customers.find(c => c.id === s.customerId);
@@ -1953,10 +2004,13 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
 function CommissionsReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, systemUsers, employees } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
   const salesByUser: Record<string, number> = {};
   filteredSales.forEach(sale => {
@@ -2046,10 +2100,13 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
   const { sales, products, subcategorias, categorias } = useERP();
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
   const categoryTotals: Record<string, number> = {};
   const categoryProducts: Record<string, Record<string, { name: string, quantity: number, total: number }>> = {};
@@ -2192,10 +2249,13 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
 function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
   const hourCounts: Record<number, number> = {};
   let totalSales = 0;
@@ -2231,7 +2291,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
     >
       <div className="bg-white rounded-[3rem] border border-brand-border shadow-2xl overflow-hidden">
         {/* Cinematic Header */}
-        <div className="bg-brand-text-main px-10 py-8 relative overflow-hidden">
+        <div className="bg-slate-700 px-10 py-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
             <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
               <path fill="#3b82f6" d="M47.7,-62.4C61.4,-52.1,72.2,-37.9,76.5,-22.3C80.8,-6.7,78.6,10.2,71.4,24.8C64.2,39.4,52,51.7,37.9,59.3C23.8,66.9,7.8,69.9,-8,68.6C-23.8,67.3,-39.3,61.8,-51.1,51.8C-62.9,41.8,-71.1,27.3,-73.4,12.3C-75.7,-2.7,-72.1,-18.2,-64,-31.6C-55.9,-44.9,-43.3,-56.1,-29.6,-66.4C-15.9,-76.7,0,-86.1,15.9,-83.4C31.8,-80.7,47.7,-62.4Z" transform="translate(100 100)" />
@@ -2245,7 +2305,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
                   <Activity size={20} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">Command Center</h3>
+                  <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">Central de Comando</h3>
                   <p className="text-brand-blue-hover text-[10px] font-black uppercase mt-1 tracking-widest">Análise de Tráfego de Vendas</p>
                 </div>
               </div>
@@ -2365,7 +2425,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
                ))}
             </div>
 
-            <div className="bg-brand-text-main rounded-[2.5rem] p-8 text-white relative shadow-2xl overflow-hidden group">
+            <div className="bg-slate-700 rounded-[2.5rem] p-8 text-white relative shadow-2xl overflow-hidden group">
                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-brand-blue/10 rounded-full blur-3xl group-hover:bg-brand-blue/20 transition-colors" />
                <div className="relative z-10">
                  <h5 className="text-[10px] font-black text-brand-blue uppercase italic tracking-widest mb-4">Relatório de Intensidade</h5>
@@ -2414,17 +2474,17 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
         <div className="bg-slate-50 p-10 border-t border-slate-100">
            <div className="flex items-center justify-between mb-8">
              <div>
-               <h4 className="text-xs font-black text-brand-text-main uppercase italic italic tracking-wider">Hourly Saturation Matrix</h4>
+               <h4 className="text-xs font-black text-brand-text-main uppercase italic italic tracking-wider">Matriz de Saturação Horária</h4>
                <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 leading-none">Mapa térmico de ocupação</p>
              </div>
              <div className="flex items-center gap-6">
                <div className="flex items-center gap-2">
                  <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Inativo</span>
+                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Sem Vendas</span>
                </div>
                <div className="flex items-center gap-2">
                  <div className="w-2.5 h-2.5 rounded-full bg-brand-blue" />
-                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Zênite</span>
+                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Pico de Vendas</span>
                </div>
              </div>
            </div>
@@ -2573,7 +2633,8 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
   const { losses, products, sales } = useERP();
 
   const filteredLosses = losses.filter(l => {
-    const d = l.date.split('T')[0];
+    if (!l.date) return false;
+    const d = toLocalDateString(l.date);
     return d >= startDate && d <= endDate;
   });
 
@@ -2637,7 +2698,7 @@ function DiscountAuditReport({ startDate, endDate }: { startDate: string, endDat
   const { discountLogs, products } = useERP();
   
   const filteredLogs = discountLogs.filter(log => {
-    const d = log.date.split('T')[0];
+    const d = toLocalDateString(log.date);
     return d >= startDate && d <= endDate;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -2958,10 +3019,13 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
 function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, systemUsers, employees } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
   const salesByUser: Record<string, { total: number, count: number }> = {};
   filteredSales.forEach(sale => {
@@ -3030,13 +3094,16 @@ function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDat
 function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { returns, products } = useERP();
 
-  const filteredReturns = returns.filter(r => {
-    const d = r.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredReturns = React.useMemo(() => {
+    return returns.filter(r => {
+      if (!r.date) return false;
+      const d = toLocalDateString(r.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [returns, startDate, endDate]);
 
   const getProductNames = (items: any[]) => {
-    return items.map(item => {
+    return (items || []).map(item => {
       const product = products.find(p => p.id === item.productId);
       return product ? product.name : 'Produto Desconhecido';
     }).join(', ');
@@ -3061,11 +3128,13 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
           <tbody className="divide-y divide-slate-50">
             {filteredReturns.map((ret) => (
               <tr key={ret.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="py-4 text-sm font-medium text-slate-600">{new Date(ret.date).toLocaleDateString('pt-BR')}</td>
+                <td className="py-4 text-sm font-medium text-slate-600">
+                  {ret.date ? new Date(ret.date).toLocaleDateString('pt-BR') : 'N/A'}
+                </td>
                 <td className="py-4 text-sm font-bold text-slate-800">{ret.type}</td>
                 <td className="py-4 text-sm font-medium text-slate-600">{getProductNames(ret.items)}</td>
                 <td className="py-4 text-sm font-medium text-slate-600">{ret.refundMethod}</td>
-                <td className="py-4 text-right text-sm font-black text-brand-danger">{formatCurrency(ret.total)}</td>
+                <td className="py-4 text-right text-sm font-black text-brand-danger">{formatCurrency(Number(ret.total || 0))}</td>
               </tr>
             ))}
             {filteredReturns.length === 0 && (
@@ -3083,25 +3152,30 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
 function CostReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
   const costData = React.useMemo(() => {
     const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
         const product = products.find(p => p.id === item.productId);
-        const cost = product ? product.costPrice : 0;
+        const cost = Number(item.costPrice || 0) || (product ? Number(product.costPrice || 0) : 0);
         if (!stats[item.productId]) {
-          stats[item.productId] = { name: product?.name || 'Desconhecido', qty: 0, totalCost: 0 };
+          stats[item.productId] = { name: product?.name || 'Produto Desconhecido', qty: 0, totalCost: 0 };
         }
-        stats[item.productId].qty += item.quantity;
-        stats[item.productId].totalCost += cost * item.quantity;
+        stats[item.productId].qty += Number(item.quantity || 0);
+        stats[item.productId].totalCost += cost * Number(item.quantity || 0);
       });
     });
-    return Object.values(stats).sort((a, b) => b.totalCost - a.totalCost);
+    return Object.values(stats)
+      .filter(item => item.qty > 0)
+      .sort((a, b) => b.totalCost - a.totalCost);
   }, [filteredSales, products]);
 
   const totalCost = costData.reduce((acc, item) => acc + item.totalCost, 0);

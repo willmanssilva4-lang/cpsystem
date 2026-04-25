@@ -14,7 +14,8 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
   
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
-      const d = s.date.split('T')[0];
+      if (!s.date) return false;
+      const d = s.date.substring(0, 10);
       return d >= startDate && d <= endDate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, startDate, endDate]);
@@ -76,9 +77,9 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
           <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total Pedidos</p>
           <p className="text-xl font-black text-brand-text-main">{totalOrders}</p>
         </div>
-        <div className="p-4 rounded-2xl bg-brand-text-main text-white">
-          <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest">Lucro Estimado</p>
-          <p className="text-xl font-black text-brand-text-sec">{formatCurrency(estimatedProfit)}</p>
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+          <p className="text-[10px] font-black text-emerald-600/60 uppercase italic tracking-widest">Lucro Estimado</p>
+          <p className="text-xl font-black text-emerald-600">{formatCurrency(estimatedProfit)}</p>
         </div>
       </div>
       
@@ -102,14 +103,10 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
 
       <div className="space-y-4">
         <h5 className="text-sm font-black text-brand-text-main uppercase italic">Resumo por Canal</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div className="flex justify-between items-center p-4 bg-slate-50/50 rounded-2xl">
             <span className="text-sm font-bold text-brand-text-main uppercase italic">Loja Física (PDV)</span>
             <span className="text-sm font-black text-brand-blue">{formatCurrency(totalRevenue)} (100%)</span>
-          </div>
-          <div className="flex justify-between items-center p-4 bg-slate-50/50 rounded-2xl">
-            <span className="text-sm font-bold text-brand-text-main uppercase italic">Delivery / Online</span>
-            <span className="text-sm font-black text-brand-blue">R$ 0,00 (0%)</span>
           </div>
         </div>
       </div>
