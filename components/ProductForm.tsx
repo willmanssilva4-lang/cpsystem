@@ -106,6 +106,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     gramatura?: string;
     tipo_embalagem?: string;
     segmento?: string;
+    section?: string;
   }>(() => {
     let initialProfit = initialData?.profit ?? '';
     let initialProfitPercentage = initialData?.profitPercentage ?? '';
@@ -170,6 +171,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       gramatura: initialData?.gramatura || '',
       tipo_embalagem: initialData?.tipo_embalagem || '',
       segmento: initialData?.segmento || '',
+      section: initialData?.section || '',
     };
   });
 
@@ -227,6 +229,30 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     }
     return 0;
   }, [formData.product_type, formData.base_product_id, formData.conversion_factor, products]);
+
+  const uniqueSegmentos = React.useMemo(() => {
+    const segs = new Set<string>();
+    departamentos.forEach(d => { 
+      if (d.segmento) {
+        d.segmento.split(',').forEach(s => segs.add(s.trim()));
+      }
+    });
+    products.forEach(p => { if (p.segmento) segs.add(p.segmento); });
+    if (formData.segmento) segs.add(formData.segmento);
+    return Array.from(segs).filter(Boolean).sort();
+  }, [departamentos, products, formData.segmento]);
+
+  const uniqueSecoes = React.useMemo(() => {
+    const secs = new Set<string>();
+    departamentos.forEach(d => { 
+      if (d.secao) {
+        d.secao.split(',').forEach(s => secs.add(s.trim()));
+      }
+    });
+    products.forEach(p => { if (p.section) secs.add(p.section); });
+    if (formData.section) secs.add(formData.section);
+    return Array.from(secs).filter(Boolean).sort();
+  }, [departamentos, products, formData.section]);
 
   const [categoryId, setCategoryId] = useState('');
   const [departamentoId, setDepartamentoId] = useState('');
@@ -625,12 +651,34 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Segmento:</label>
                     <input 
+                      list="segmentos-list"
                       name="segmento"
-                      value={formData.segmento}
+                      value={formData.segmento || ''}
                       onChange={handleChange}
-                      placeholder="Ex: Automotivo, Limpeza"
+                      placeholder="Ex: Automotivo"
                       className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
                     />
+                    <datalist id="segmentos-list">
+                      {uniqueSegmentos.map(seg => (
+                        <option key={seg} value={seg} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Seção:</label>
+                    <input 
+                      list="secoes-list"
+                      name="section"
+                      value={formData.section || ''}
+                      onChange={handleChange}
+                      placeholder="Ex: Frios"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                    <datalist id="secoes-list">
+                      {uniqueSecoes.map(sec => (
+                        <option key={sec} value={sec} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Embalagem:</label>
@@ -1740,6 +1788,38 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
                           ))}
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Segmento</label>
+                      <input 
+                        list="segmentos-list-quick"
+                        name="segmento"
+                        value={formData.segmento || ''}
+                        onChange={handleChange}
+                        placeholder="Ex: Automotivo"
+                        className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+                      />
+                      <datalist id="segmentos-list-quick">
+                        {uniqueSegmentos.map(seg => (
+                          <option key={seg} value={seg} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Seção</label>
+                      <input 
+                        list="secoes-list-quick"
+                        name="section"
+                        value={formData.section || ''}
+                        onChange={handleChange}
+                        placeholder="Ex: Frios"
+                        className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+                      />
+                      <datalist id="secoes-list-quick">
+                        {uniqueSecoes.map(sec => (
+                          <option key={sec} value={sec} />
+                        ))}
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Status</label>

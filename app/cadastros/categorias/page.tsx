@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
 import { useERP } from '@/lib/context';
@@ -26,6 +26,16 @@ export default function CategoriasPage() {
     seedExpenseCategories
   } = useERP();
 
+  const uniqueSegmentos = useMemo(() => {
+    const all = departamentos.flatMap(d => (d.segmento || '').split(',').map(s => s.trim()).filter(Boolean));
+    return Array.from(new Set(all)).sort();
+  }, [departamentos]);
+
+  const uniqueSecoes = useMemo(() => {
+    const all = departamentos.flatMap(d => (d.secao || '').split(',').map(s => s.trim()).filter(Boolean));
+    return Array.from(new Set(all)).sort();
+  }, [departamentos]);
+
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -37,11 +47,15 @@ export default function CategoriasPage() {
   const [isConfirmingSeed, setIsConfirmingSeed] = useState(false);
   const [isConfirmingFinanceSeed, setIsConfirmingFinanceSeed] = useState(false);
   
+  const [categorySearch, setCategorySearch] = useState('');
+  const [pendingSegment, setPendingSegment] = useState('');
+  const [pendingSection, setPendingSection] = useState('');
+  
   const [editingDept, setEditingDept] = useState<any | null>(null);
   const [editingCategory, setEditingCategory] = useState<Categoria | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategoria | null>(null);
   
-  const [deptForm, setDeptForm] = useState({ nome: '', codigo: '', ativo: true });
+  const [deptForm, setDeptForm] = useState({ nome: '', codigo: '', ativo: true, segmento: '', secao: '' });
   const [categoryForm, setCategoryForm] = useState({ nome: '', departamento_id: '', codigo: '' });
   const [subcategoryForm, setSubcategoryForm] = useState({ nome: '', categoria_id: '', codigo: '' });
 
@@ -50,9 +64,11 @@ export default function CategoriasPage() {
   // Dept Handlers
   const handleOpenDeptModal = (dept?: any) => {
     setIsConfirmingDeleteDept(false);
+    setPendingSegment('');
+    setPendingSection('');
     if (dept) {
       setEditingDept(dept);
-      setDeptForm({ nome: dept.nome, codigo: dept.codigo || '', ativo: dept.ativo });
+      setDeptForm({ nome: dept.nome, codigo: dept.codigo || '', ativo: dept.ativo, segmento: dept.segmento || '', secao: dept.secao || '' });
     } else {
       let nextCode = '01';
       if (departamentos && departamentos.length > 0) {
@@ -63,7 +79,7 @@ export default function CategoriasPage() {
         nextCode = String(maxCode + 1).padStart(2, '0');
       }
       setEditingDept(null);
-      setDeptForm({ nome: '', codigo: nextCode, ativo: true });
+      setDeptForm({ nome: '', codigo: nextCode, ativo: true, segmento: '', secao: '' });
     }
     setIsDeptModalOpen(true);
   };
@@ -73,13 +89,39 @@ export default function CategoriasPage() {
       alert('O nome do departamento é obrigatório.');
       return;
     }
+
+    // Process pending values
+    let finalSegmento = deptForm.segmento;
+    if (pendingSegment.trim()) {
+      const segments = (finalSegmento || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!segments.includes(pendingSegment.trim())) {
+        finalSegmento = [...segments, pendingSegment.trim()].join(', ');
+      }
+    }
+
+    let finalSecao = deptForm.secao;
+    if (pendingSection.trim()) {
+      const sections = (finalSecao || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!sections.includes(pendingSection.trim())) {
+        finalSecao = [...sections, pendingSection.trim()].join(', ');
+      }
+    }
+
+    const payload = { 
+      ...deptForm, 
+      segmento: finalSegmento, 
+      secao: finalSecao 
+    };
+
     try {
       if (editingDept) {
-        await updateDepartamento({ ...editingDept, ...deptForm });
+        await updateDepartamento({ ...editingDept, ...payload });
       } else {
-        await addDepartamento(deptForm);
+        await addDepartamento(payload);
       }
       setIsDeptModalOpen(false);
+      setPendingSegment('');
+      setPendingSection('');
     } catch (error) {
       console.error('Error saving dept:', error);
     }
@@ -277,9 +319,13 @@ export default function CategoriasPage() {
             <FolderTree size={20} />
             <span className="font-bold uppercase tracking-wide text-xs">Departamentos Cadastrados</span>
           </div>
-          <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">
-            {departamentos.length} Departamentos
-          </span>
+          <div className="flex items-center gap-4 text-[10px] uppercase font-black tracking-widest text-slate-400">
+            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{uniqueSegmentos.length} Segmentos</span>
+            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{uniqueSecoes.length} Seções</span>
+            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{departamentos.length} Departamentos</span>
+            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{categorias.length} Categorias</span>
+            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{subcategorias.length} Subcategorias</span>
+          </div>
         </div>
         
         <div className="divide-y divide-slate-100">
@@ -298,7 +344,17 @@ export default function CategoriasPage() {
                     <h3 className="font-black text-brand-text-main text-xl italic uppercase tracking-tight">
                       {dept.nome}
                     </h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      {(dept.segmento || '').split(',').map(s => s.trim()).filter(Boolean).map((seg, idx) => (
+                        <span key={idx} className="text-[10px] uppercase font-black tracking-widest text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full">
+                          Seg: {seg} ({departamentos.filter(d => (d.segmento || '').includes(seg)).length})
+                        </span>
+                      ))}
+                      {(dept.secao || '').split(',').map(s => s.trim()).filter(Boolean).map((sec, idx) => (
+                        <span key={idx} className="text-[10px] uppercase font-black tracking-widest text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full">
+                          Seç: {sec} ({departamentos.filter(d => (d.secao || '').includes(sec)).length})
+                        </span>
+                      ))}
                       <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
                         {categorias.filter(c => c.departamento_id === dept.id).length} Categorias
                       </span>
@@ -364,35 +420,196 @@ export default function CategoriasPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-3xl border border-brand-border">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Código</label>
-                    <input
-                      type="text"
-                      value={deptForm.codigo}
-                      onChange={(e) => setDeptForm({ ...deptForm, codigo: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all"
-                      placeholder="Ex: 01"
-                    />
+                {/* Basic Info & Classification */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: Core Fields */}
+                  <div className="space-y-6">
+                    <div className="bg-slate-50 p-6 rounded-[24px] border border-brand-border space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Edit2 size={16} className="text-brand-blue" />
+                        <span className="font-black text-[10px] uppercase tracking-widest text-brand-text-main/60">Informações Básicas</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="space-y-2 col-span-1">
+                          <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Código</label>
+                          <input
+                            type="text"
+                            value={deptForm.codigo}
+                            onChange={(e) => setDeptForm({ ...deptForm, codigo: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all shadow-sm"
+                            placeholder="Ex: 01"
+                          />
+                        </div>
+                        <div className="space-y-2 col-span-3">
+                          <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Nome do Departamento *</label>
+                          <input
+                            type="text"
+                            value={deptForm.nome}
+                            onChange={(e) => setDeptForm({ ...deptForm, nome: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-brand-text-main font-bold uppercase focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all shadow-sm"
+                            placeholder="EX: MERCEARIA"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="ativo-modal"
+                            checked={deptForm.ativo}
+                            onChange={(e) => setDeptForm({ ...deptForm, ativo: e.target.checked })}
+                            className="w-5 h-5 rounded-md border-brand-border text-brand-blue focus:ring-brand-blue-hover cursor-pointer"
+                          />
+                          <label htmlFor="ativo-modal" className="text-sm font-bold text-brand-text-main cursor-pointer select-none">
+                            Departamento Ativo
+                          </label>
+                        </div>
+                        <button
+                          onClick={handleSaveDept}
+                          className="px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-brand-blue/20"
+                        >
+                          <Save size={18} />
+                          Salvar Alterações
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Stats or Tips could go here */}
+                    {editingDept && (
+                      <div className="bg-brand-blue/5 p-6 rounded-[24px] border border-brand-blue/10">
+                        <div className="flex items-center gap-2 mb-4 text-brand-blue">
+                          <FolderTree size={16} />
+                          <span className="font-black text-[10px] uppercase tracking-widest">Resumo da Árvore</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-center">
+                          <div className="bg-white p-3 rounded-2xl border border-brand-blue/10">
+                            <div className="text-2xl font-black text-brand-blue italic">{categorias.filter(c => c.departamento_id === editingDept.id).length}</div>
+                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Categorias</div>
+                          </div>
+                          <div className="bg-white p-3 rounded-2xl border border-brand-blue/10">
+                            <div className="text-2xl font-black text-brand-blue italic">
+                              {subcategorias.filter(s => {
+                                const cat = categorias.find(c => c.id === s.categoria_id);
+                                return cat && cat.departamento_id === editingDept.id;
+                              }).length}
+                            </div>
+                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Subcategorias</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Nome do Departamento *</label>
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        value={deptForm.nome}
-                        onChange={(e) => setDeptForm({ ...deptForm, nome: e.target.value.toUpperCase() })}
-                        className="flex-1 px-4 py-3 bg-white border border-brand-border rounded-xl text-brand-text-main font-bold uppercase focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all"
-                        placeholder="EX: MERCEARIA"
-                      />
-                      <button
-                        onClick={handleSaveDept}
-                        className="px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-brand-blue/20"
-                      >
-                        <Save size={18} />
-                        Salvar
-                      </button>
+
+                  {/* Right Column: Classification (Segment/Section) */}
+                  <div className="space-y-6">
+                    <div className="bg-slate-50 p-6 rounded-[24px] border border-brand-border space-y-6 h-full">
+                      <div className="flex items-center gap-2">
+                        <Plus size={16} className="text-brand-blue" />
+                        <span className="font-black text-[10px] uppercase tracking-widest text-brand-text-main/60">Classificação e Filtros</span>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1 leading-none">Segmento(s) Associado(s)</label>
+                          <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-white rounded-xl border border-dashed border-slate-300">
+                            {(deptForm.segmento || '').split(',').map(s => s.trim()).filter(Boolean).length === 0 && (
+                              <span className="text-xs text-slate-400 italic p-1">Nenhum segmento...</span>
+                            )}
+                            {(deptForm.segmento || '').split(',').map(s => s.trim()).filter(Boolean).map((seg, idx) => (
+                              <span key={idx} className="flex items-center gap-1.5 text-[10px] uppercase font-black tracking-tight text-white bg-brand-blue px-2.5 py-1.5 rounded-lg shadow-sm group">
+                                {seg} ({departamentos.filter(d => (d.segmento || '').includes(seg)).length})
+                                <button 
+                                  onClick={() => {
+                                    const segments = (deptForm.segmento || '').split(',').map(s => s.trim()).filter(Boolean);
+                                    const newSegments = segments.filter((_, i) => i !== idx);
+                                    setDeptForm({ ...deptForm, segmento: newSegments.join(', ') });
+                                  }}
+                                  className="hover:scale-125 transition-transform"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              list="segmentos-list-form"
+                              value={pendingSegment}
+                              onChange={(e) => setPendingSegment(e.target.value.toUpperCase())}
+                              className="flex-1 px-4 py-2.5 bg-white border border-brand-border rounded-xl text-sm font-bold text-brand-text-main focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all shadow-sm"
+                              placeholder="Adicione ou selecione um segmento..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const val = pendingSegment.trim();
+                                  if (val) {
+                                    const segments = (deptForm.segmento || '').split(',').map(s => s.trim()).filter(Boolean);
+                                    if (!segments.includes(val)) {
+                                      setDeptForm({ ...deptForm, segmento: [...segments, val].join(', ') });
+                                    }
+                                    setPendingSegment('');
+                                  }
+                                }
+                              }}
+                            />
+                            <datalist id="segmentos-list-form">
+                              {uniqueSegmentos.map(s => <option key={s} value={s} />)}
+                            </datalist>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1 leading-none">Seção(ões) Associada(s)</label>
+                          <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-white rounded-xl border border-dashed border-slate-300">
+                             {(deptForm.secao || '').split(',').map(s => s.trim()).filter(Boolean).length === 0 && (
+                              <span className="text-xs text-slate-400 italic p-1">Nenhuma seção...</span>
+                            )}
+                            {(deptForm.secao || '').split(',').map(s => s.trim()).filter(Boolean).map((sec, idx) => (
+                              <span key={idx} className="flex items-center gap-1.5 text-[10px] uppercase font-black tracking-tight text-white bg-emerald-600 px-2.5 py-1.5 rounded-lg shadow-sm">
+                                {sec} ({departamentos.filter(d => (d.secao || '').includes(sec)).length})
+                                <button 
+                                  onClick={() => {
+                                    const sections = (deptForm.secao || '').split(',').map(s => s.trim()).filter(Boolean);
+                                    const newSections = sections.filter((_, i) => i !== idx);
+                                    setDeptForm({ ...deptForm, secao: newSections.join(', ') });
+                                  }}
+                                  className="hover:scale-125 transition-transform"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              list="secoes-list-form"
+                              value={pendingSection}
+                              onChange={(e) => setPendingSection(e.target.value.toUpperCase())}
+                              className="flex-1 px-4 py-2.5 bg-white border border-brand-border rounded-xl text-sm font-bold text-brand-text-main focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all shadow-sm"
+                              placeholder="Adicione ou selecione uma seção..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const val = pendingSection.trim();
+                                  if (val) {
+                                    const sections = (deptForm.secao || '').split(',').map(s => s.trim()).filter(Boolean);
+                                    if (!sections.includes(val)) {
+                                      setDeptForm({ ...deptForm, secao: [...sections, val].join(', ') });
+                                    }
+                                    setPendingSection('');
+                                  }
+                                }
+                              }}
+                            />
+                            <datalist id="secoes-list-form">
+                              {uniqueSecoes.map(s => <option key={s} value={s} />)}
+                            </datalist>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -400,32 +617,45 @@ export default function CategoriasPage() {
                 {/* Mercadological Tree Section */}
                 {editingDept && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <h3 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight flex items-center gap-2">
-                        <ChevronRight size={20} className="text-brand-blue" />
-                        Categorias e Subcategorias
+                        <FolderTree size={20} className="text-brand-blue" />
+                        Estrutura de Categorias
                       </h3>
-                      <button
-                        onClick={() => {
-                          setEditingCategory(null);
-                          setCategoryForm({ nome: '', departamento_id: editingDept.id, codigo: generateCategoryCode(editingDept.id) });
-                          setIsCategoryModalOpen(true);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-brand-blue/10 text-brand-blue rounded-xl font-bold uppercase text-xs tracking-tight hover:bg-brand-blue hover:text-white transition-all active:scale-95"
-                      >
-                        <Plus size={16} />
-                        Nova Categoria
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            placeholder="Buscar categorias..."
+                            value={categorySearch}
+                            onChange={(e) => setCategorySearch(e.target.value)}
+                            className="pl-9 pr-4 py-2 bg-slate-50 border border-brand-border rounded-xl text-xs font-bold text-brand-text-main focus:ring-2 focus:ring-brand-blue-hover outline-none transition-all w-48"
+                          />
+                          <Plus size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingCategory(null);
+                            setCategoryForm({ nome: '', departamento_id: editingDept.id, codigo: generateCategoryCode(editingDept.id) });
+                            setIsCategoryModalOpen(true);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-xl font-bold uppercase text-[10px] tracking-tight hover:bg-brand-text-main transition-all active:scale-95 shadow-sm"
+                        >
+                          <Plus size={14} />
+                          Nova Categoria
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="border border-brand-border rounded-3xl overflow-hidden divide-y divide-slate-100">
+                    <div className="border border-brand-border rounded-[24px] overflow-hidden divide-y divide-slate-100 bg-white">
                       {categorias.filter(c => c.departamento_id === editingDept.id).length === 0 ? (
-                        <div className="p-12 text-center text-slate-400 bg-slate-50/50">
+                        <div className="p-12 text-center text-slate-400 bg-slate-50/30">
                           <p className="font-medium italic">Nenhuma categoria cadastrada para este departamento.</p>
                         </div>
                       ) : (
                         categorias
                           .filter(c => c.departamento_id === editingDept.id)
+                          .filter(c => c.nome.toLowerCase().includes(categorySearch.toLowerCase()) || (c.codigo || '').includes(categorySearch))
                           .map(category => {
                             const categorySubs = subcategorias.filter(sub => sub.categoria_id === category.id);
                             const isCatExpanded = expandedCategory === category.id;

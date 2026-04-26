@@ -576,7 +576,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           conversion_factor: p.conversion_factor ? Number(p.conversion_factor) : 1,
           gramatura: p.gramatura,
           tipo_embalagem: p.tipo_embalagem,
-          segmento: p.segmento
+          segmento: p.segmento,
+          section: p.section
         }));
 
         // Create a map for O(1) lookup
@@ -1539,6 +1540,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       gramatura: product.gramatura,
       tipo_embalagem: product.tipo_embalagem,
       segmento: product.segmento,
+      section: product.section,
       supplier: product.supplier
     };
 
@@ -1564,6 +1566,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('gramatura')) delete (insertData as any).gramatura;
       if (error.message.includes('tipo_embalagem')) delete (insertData as any).tipo_embalagem;
       if (error.message.includes('segmento')) delete (insertData as any).segmento;
+      if (error.message.includes('section')) delete (insertData as any).section;
       if (error.message.includes('supplier')) delete (insertData as any).supplier;
       
       const retry = await supabase.from('products').insert([insertData]).select();
@@ -1643,6 +1646,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       gramatura: updated.gramatura,
       tipo_embalagem: updated.tipo_embalagem,
       segmento: updated.segmento,
+      section: updated.section,
       supplier: updated.supplier
     };
 
@@ -1668,6 +1672,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('gramatura')) delete (updateData as any).gramatura;
       if (error.message.includes('tipo_embalagem')) delete (updateData as any).tipo_embalagem;
       if (error.message.includes('segmento')) delete (updateData as any).segmento;
+      if (error.message.includes('section')) delete (updateData as any).section;
       if (error.message.includes('supplier')) delete (updateData as any).supplier;
 
       const retry = await supabase.from('products').update(updateData).eq('id', updated.id);
@@ -3237,7 +3242,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   }, [fetchData]);
 
   const addDepartamento = useCallback(async (departamento: Omit<Departamento, 'id'>) => {
-    const { error } = await supabase.from('departamentos').insert([{ ...departamento, company_id: user?.companyId || null }]);
+    let { error } = await supabase.from('departamentos').insert([{ ...departamento, company_id: user?.companyId || null }]);
+    if (error && error.message && (error.message.includes('segmento') || error.message.includes('secao'))) {
+      const { segmento, secao, ...rest } = departamento;
+      const retry = await supabase.from('departamentos').insert([{ ...rest, company_id: user?.companyId || null }]);
+      error = retry.error;
+    }
     if (error) {
       console.error('Error adding departamento:', error);
       alert('Erro ao adicionar departamento');
@@ -3247,7 +3257,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchData]);
 
   const updateDepartamento = useCallback(async (departamento: Departamento) => {
-    const { error } = await supabase.from('departamentos').update({ ...departamento, company_id: user?.companyId || null }).eq('id', departamento.id);
+    const { id, created_at, ...updateData } = departamento as any;
+    let { error } = await supabase.from('departamentos').update({ ...updateData, company_id: user?.companyId || null }).eq('id', id);
+    if (error && error.message && (error.message.includes('segmento') || error.message.includes('secao'))) {
+      const { segmento, secao, ...rest } = updateData;
+      const retry = await supabase.from('departamentos').update({ ...rest, company_id: user?.companyId || null }).eq('id', id);
+      error = retry.error;
+    }
     if (error) {
       console.error('Error updating departamento:', error);
       alert('Erro ao atualizar departamento');

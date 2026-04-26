@@ -22,6 +22,8 @@ export interface Departamento {
   codigo?: string;
   nome: string;
   ativo: boolean;
+  segmento?: string;
+  secao?: string;
 }
 
 export interface ExpenseCategory {
@@ -78,6 +80,7 @@ export interface Product {
   gramatura?: string;
   tipo_embalagem?: string;
   segmento?: string;
+  section?: string;
 }
 
 export interface CashRegister {
