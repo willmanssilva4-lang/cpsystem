@@ -36,6 +36,18 @@ export default function CategoriasPage() {
     return Array.from(new Set(all)).sort();
   }, [departamentos]);
 
+  const sortedDepartamentos = useMemo(() => {
+    return [...departamentos].sort((a, b) => 
+      (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }, [departamentos]);
+
+  const sortedCategorias = useMemo(() => {
+    return [...categorias].sort((a, b) => 
+      (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }, [categorias]);
+
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -329,12 +341,12 @@ export default function CategoriasPage() {
         </div>
         
         <div className="divide-y divide-slate-100">
-          {departamentos.length === 0 ? (
+          {sortedDepartamentos.length === 0 ? (
             <div className="p-12 text-center text-slate-400">
               <p className="font-medium">Nenhum departamento cadastrado.</p>
             </div>
           ) : (
-            departamentos.map((dept) => (
+            sortedDepartamentos.map((dept) => (
               <div key={dept.id} className="group flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-brand-blue/10 rounded-2xl flex items-center justify-center text-brand-blue font-black text-xl italic">
@@ -648,16 +660,18 @@ export default function CategoriasPage() {
                     </div>
 
                     <div className="border border-brand-border rounded-[24px] overflow-hidden divide-y divide-slate-100 bg-white">
-                      {categorias.filter(c => c.departamento_id === editingDept.id).length === 0 ? (
+                      {sortedCategorias.filter(c => c.departamento_id === editingDept.id).length === 0 ? (
                         <div className="p-12 text-center text-slate-400 bg-slate-50/30">
                           <p className="font-medium italic">Nenhuma categoria cadastrada para este departamento.</p>
                         </div>
                       ) : (
-                        categorias
+                        sortedCategorias
                           .filter(c => c.departamento_id === editingDept.id)
                           .filter(c => c.nome.toLowerCase().includes(categorySearch.toLowerCase()) || (c.codigo || '').includes(categorySearch))
                           .map(category => {
-                            const categorySubs = subcategorias.filter(sub => sub.categoria_id === category.id);
+                            const categorySubs = subcategorias
+                              .filter(sub => sub.categoria_id === category.id)
+                              .sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' }));
                             const isCatExpanded = expandedCategory === category.id;
 
                             return (
