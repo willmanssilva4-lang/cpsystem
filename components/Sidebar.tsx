@@ -18,7 +18,8 @@ import {
   X,
   Tag,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Ticket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
       { icon: ShoppingCart, label: 'PDV', href: '/pdv' },
       { icon: ClipboardList, label: 'Histórico de Vendas', href: '/vendas/historico' },
       { icon: Tag, label: 'Devoluções / Estornos', href: '/vendas/devolucoes' },
+      { icon: Ticket, label: 'Vales de Crédito', href: '/vendas/vales' },
       { icon: BarChart3, label: 'Auditoria de Vendas', href: '/vendas/auditoria' },
     ]
   },

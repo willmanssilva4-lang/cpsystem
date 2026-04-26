@@ -2547,6 +2547,22 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         await supabase.from('return_items').insert(itemsToInsert);
       }
 
+      // Restore vouchers if the sale was paid with vouchers
+      if (oldSale.payments && oldSale.payments.length > 0) {
+        for (const payment of oldSale.payments) {
+          if (payment.voucherId || payment.voucherCode) {
+            const voucher = vouchers.find(v => (payment.voucherId && v.id === payment.voucherId) || (payment.voucherCode && v.code === payment.voucherCode));
+            if (voucher) {
+              const newValue = voucher.currentValue + payment.amount;
+              await supabase.from('vouchers').update({
+                current_value: newValue,
+                status: 'Ativo'
+              }).eq('id', voucher.id);
+            }
+          }
+        }
+      }
+
       // 3. Mark the sale as cancelled instead of deleting
       const { error } = await supabase.from('sales').update({ status: 'Cancelada' }).eq('id', id);
       
@@ -2555,12 +2571,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         await fetchData();
       }
       else {
-        console.error('Error deleting sale:', error);
-        alert(`Erro ao cancelar venda: ${error.message || JSON.stringify(error)}`);
+        console.error('Error deleting sale:', error, error?.message, error?.details);
+        
+        // Se falhou por não ter a coluna 'status' (PGRST204) ou outro erro, tentamos a exclusão física do item como fallback (comportamento antigo)
+        const errorMessage = error?.message || '';
+        if (errorMessage.includes('status') || errorMessage.includes('schema') || error?.code === 'PGRST204') {
+            console.warn('Fallback: Coluna status não existe, executando delete normal.');
+            await supabase.from('sale_items').delete().eq('sale_id', id);
+            await supabase.from('vendas_descontos').delete().eq('sale_id', id);
+            const { error: deleteError } = await supabase.from('sales').delete().eq('id', id);
+            
+            if (!deleteError) {
+                await logAuditAction('excluir', 'vendas', id, oldSale, null);
+                await fetchData();
+            } else {
+                alert(`Erro ao excluir venda (fallback): ${deleteError.message || JSON.stringify(deleteError)}`);
+            }
+        } else {
+            alert(`Erro ao cancelar venda: ${error?.message || JSON.stringify(error)}`);
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected error during sale deletion:', err);
-      alert('Ocorreu um erro inesperado ao tentar cancelar a venda.');
+      alert(`Ocorreu um erro inesperado ao tentar cancelar a venda: ${err?.message || 'Erro Desconhecido'}`);
     }
   }, [user, sales, logAuditAction, fetchData]);
 

@@ -146,9 +146,22 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       return;
     }
 
-    const valueToUse = Math.min(voucher.currentValue, remainingAmount);
+    // Check if this voucher is already applied in current payments
+    const alreadyAppliedAmount = payments
+      .filter(p => p.voucherId === voucher.id)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const availableValue = voucher.currentValue - alreadyAppliedAmount;
+
+    if (availableValue <= 0) {
+      setVoucherError('ESTE CUPOM JÁ FOI UTILIZADO NESSA COMPRA');
+      setIsValidatingVoucher(false);
+      return;
+    }
+
+    const valueToUse = Math.min(availableValue, remainingAmount);
     if (valueToUse <= 0) {
-      setVoucherError('VALOR INSUFICIENTE NO CUPOM');
+      setVoucherError('O VALOR DA VENDA JÁ FOI ATINGIDO');
       setIsValidatingVoucher(false);
       return;
     }
@@ -177,17 +190,22 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     }
 
     // Process voucher updates before finalizing
+    const voucherTotals: Record<string, number> = {};
     for (const p of payments) {
-      if (p.voucherId) {
-        const voucher = getVoucherByCode(p.voucherCode);
-        if (voucher) {
-          const newValue = Math.max(0, voucher.currentValue - p.amount);
-          await updateVoucher({
-            ...voucher,
-            currentValue: newValue,
-            status: newValue <= 0 ? 'Utilizado' : 'Ativo'
-          });
-        }
+      if (p.voucherCode) {
+        voucherTotals[p.voucherCode] = (voucherTotals[p.voucherCode] || 0) + p.amount;
+      }
+    }
+
+    for (const [code, amountUsed] of Object.entries(voucherTotals)) {
+      const voucher = getVoucherByCode(code);
+      if (voucher) {
+        const newValue = Math.max(0, voucher.currentValue - amountUsed);
+        await updateVoucher({
+          ...voucher,
+          currentValue: newValue,
+          status: newValue <= 0 ? 'Utilizado' : 'Ativo'
+        });
       }
     }
 
@@ -223,6 +241,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             selectMaquininha(filteredMaquininhas[highlightedMaquininhaIndex]);
           }
         } else if (remainingAmount > 0) {
+          if (activeMethod === 'Vale Crédito') {
+             return;
+          }
+
           const amountToApply = Math.round((receivedAmount || remainingAmount) * 100) / 100;
           
           // Se o valor for suficiente para quitar, finaliza direto
@@ -428,6 +450,8 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
+                              e.nativeEvent.stopImmediatePropagation();
+                              e.stopPropagation();
                               e.preventDefault();
                               handleVoucherApply();
                             }

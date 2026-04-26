@@ -283,7 +283,7 @@ export default function SalesHistoryPage() {
                       })
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center">
+                        <td colSpan={6} className="px-6 py-12 text-center">
                           <p className="text-brand-text-sec font-bold uppercase tracking-widest opacity-50">Nenhuma venda encontrada</p>
                         </td>
                       </tr>
@@ -422,6 +422,13 @@ export default function SalesHistoryPage() {
                         <CreditCard size={16} className="text-brand-text-sec" />
                         <span className="font-bold text-brand-text-sec uppercase text-[10px]">Pagamento:</span>
                         <span className="font-black italic text-brand-text-main uppercase">{selectedSale.paymentMethod}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <ShieldCheck size={16} className="text-brand-text-sec" />
+                        <span className="font-bold text-brand-text-sec uppercase text-[10px]">Status:</span>
+                        <span className={`font-black italic uppercase ${selectedSale.status === 'Cancelada' ? 'text-red-500' : returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') ? 'text-yellow-600' : 'text-green-600'}`}>
+                          {selectedSale.status === 'Cancelada' ? 'Cancelada' : returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') ? 'Estornada/Devolvida' : 'Concluída'}
+                        </span>
                       </div>
                     </div>
                   </div>
