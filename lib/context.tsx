@@ -574,6 +574,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           product_type: p.product_type || 'SALE',
           base_product_id: p.base_product_id,
           conversion_factor: p.conversion_factor ? Number(p.conversion_factor) : 1,
+          brand: p.brand,
           gramatura: p.gramatura,
           tipo_embalagem: p.tipo_embalagem,
           segmento: p.segmento,

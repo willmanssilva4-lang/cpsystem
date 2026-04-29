@@ -291,14 +291,14 @@ export default function ProductsPage() {
             stock: parseNumber(item.Estoque || item['Estoque:'] || item.estoque),
             minStock: parseNumber(item['Estoque Mínimo'] || item['Estoque Mínimo:'] || item.estoque_minimo),
             status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
-            brand: (item.Marca || item['Marca:'] || item.marca) ? String(item.Marca || item['Marca:'] || item.marca).trim() : 'PADRAO',
+            brand: (item.Marca || item['Marca:'] || item['Marca'] || item.marca || item.brand || item.Brand) ? String(item.Marca || item['Marca:'] || item['Marca'] || item.marca || item.brand || item.Brand).trim() : 'PADRAO',
             gramatura: (item.Gramatura || item['Gramatura:'] || item.gramatura) ? String(item.Gramatura || item['Gramatura:'] || item.gramatura) : '',
             tipo_embalagem: (item['Tipo de Embalagem'] || item['Tipo de Embalagem:'] || item.tipo_embalagem) ? String(item['Tipo de Embalagem'] || item['Tipo de Embalagem:'] || item.tipo_embalagem) : '',
             segmento: (item.Segmento || item['Segmento:'] || item.segmento) ? String(item.Segmento || item['Segmento:'] || item.segmento) : '',
             category: (item.Categoria || item['Categoria:'] || item.categoria) ? String(item.Categoria || item['Categoria:'] || item.categoria) : (item.Departamento || item['Departamento:'] || item.departamento || 'PADRAO'),
             subgroup: 'PADRAO',
             section: (item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) ? String(item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) : '',
-            supplier: (item.Fornecedor || item['Fornecedor:'] || item.fornecedor) ? String(item.Fornecedor || item['Fornecedor:'] || item.fornecedor) : '',
+            supplier: (item.Fornecedor || item['Fornecedor:'] || item['Fornecedor'] || item.fornecedor || item.supplier || item.Supplier) ? String(item.Fornecedor || item['Fornecedor:'] || item['Fornecedor'] || item.fornecedor || item.supplier || item.Supplier).trim() : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
           } as Product, true); // true para skipFetch
 

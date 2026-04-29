@@ -639,18 +639,24 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   </div>
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor:</label>
-                    <select 
+                    <input 
+                      list="suppliers-list"
                       name="supplier"
                       value={formData.supplier}
                       onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="PADRAO">PADRAO</option>
+                      placeholder="Ex: Fornecedor PADRAO"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                    <datalist id="suppliers-list">
+                      <option value="PADRAO" />
                       {suppliers.map(sup => (
-                        <option key={sup.id} value={sup.name}>{sup.name}</option>
+                        <option key={sup.id} value={sup.name} />
                       ))}
-                    </select>
+                      {/* Also add unique values from products */}
+                      {Array.from(new Set(products.map(p => p.supplier).filter(Boolean))).map(s => (
+                         <option key={s} value={s} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
               </div>
