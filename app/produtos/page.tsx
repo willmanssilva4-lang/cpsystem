@@ -235,10 +235,27 @@ export default function ProductsPage() {
           setImportProgress({ current: i + 1, total: totalItems });
 
           let subcategoria_id = '';
-          if (item.Subcategoria) {
-            const sub = subcategorias.find(s => s.nome.toLowerCase() === String(item.Subcategoria).toLowerCase());
-            if (sub) {
-              subcategoria_id = sub.id;
+          const itemSub = item.Subcategoria || item['Subcategoria:'] || item.subcategoria;
+          const itemCat = item.Categoria || item['Categoria:'] || item.categoria;
+          const itemDep = item.Departamento || item['Departamento:'] || item.departamento;
+
+          if (itemSub) {
+            const subName = String(itemSub).trim().toLowerCase();
+            const matchingSubs = subcategorias.filter(s => s.nome.trim().toLowerCase() === subName);
+            
+            if (matchingSubs.length === 1) {
+              subcategoria_id = matchingSubs[0].id;
+            } else if (matchingSubs.length > 1 && itemCat) {
+              // Try to disambiguate using category
+              const catName = String(itemCat).trim().toLowerCase();
+              const found = matchingSubs.find(s => {
+                const cat = categorias.find(c => c.id === s.categoria_id);
+                return cat && cat.nome.trim().toLowerCase() === catName;
+              });
+              if (found) subcategoria_id = found.id;
+              else subcategoria_id = matchingSubs[0].id; // Fallback
+            } else if (matchingSubs.length > 1) {
+              subcategoria_id = matchingSubs[0].id;
             }
           }
 
@@ -250,8 +267,8 @@ export default function ProductsPage() {
             return isNaN(num) ? 0 : num;
           };
 
-          const costPrice = parseNumber(item['Preço de Custo']);
-          const salePrice = parseNumber(item['Preço de Venda']);
+          const costPrice = parseNumber(item['Preço de Custo'] || item['Preço de Custo:'] || item.preco_custo);
+          const salePrice = parseNumber(item['Preço de Venda'] || item['Preço de Venda:'] || item.preco_venda);
           const profit = Math.round((salePrice - costPrice) * 100) / 100;
           let profitPercentage = 0;
           
@@ -263,23 +280,25 @@ export default function ProductsPage() {
 
           const success = await addProduct({
             id: Math.random().toString(36).substr(2, 9),
-            name: item.Nome,
-            sku: item.SKU ? String(item.SKU) : '',
-            unit: item['Unidade de Medida'] || 'UN',
+            name: item.Nome || item['Nome:'] || item.nome,
+            sku: (item.SKU || item['SKU:'] || item.sku) ? String(item.SKU || item['SKU:'] || item.sku) : '',
+            unit: item['Unidade de Medida'] || item['Unidade de Medida:'] || item.unidade || 'UN',
             subcategoria_id: subcategoria_id,
             costPrice: costPrice,
             salePrice: salePrice,
             profit: profit,
             profitPercentage: Math.round(profitPercentage * 100) / 100,
-            stock: parseNumber(item.Estoque),
-            minStock: parseNumber(item['Estoque Mínimo']),
+            stock: parseNumber(item.Estoque || item['Estoque:'] || item.estoque),
+            minStock: parseNumber(item['Estoque Mínimo'] || item['Estoque Mínimo:'] || item.estoque_minimo),
             status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
-            brand: item.Marca ? String(item.Marca) : 'PADRAO',
-            gramatura: item.Gramatura ? String(item.Gramatura) : '',
-            tipo_embalagem: (item['Tipo de Embalagem'] || item['Tipo de Embalagem:']) ? String(item['Tipo de Embalagem'] || item['Tipo de Embalagem:']) : '',
-            segmento: item.Segmento ? String(item.Segmento) : '',
-            section: (item['Seção'] || item.Secao) ? String(item['Seção'] || item.Secao) : '',
-            supplier: item.Fornecedor ? String(item.Fornecedor) : '',
+            brand: (item.Marca || item['Marca:'] || item.marca) ? String(item.Marca || item['Marca:'] || item.marca).trim() : 'PADRAO',
+            gramatura: (item.Gramatura || item['Gramatura:'] || item.gramatura) ? String(item.Gramatura || item['Gramatura:'] || item.gramatura) : '',
+            tipo_embalagem: (item['Tipo de Embalagem'] || item['Tipo de Embalagem:'] || item.tipo_embalagem) ? String(item['Tipo de Embalagem'] || item['Tipo de Embalagem:'] || item.tipo_embalagem) : '',
+            segmento: (item.Segmento || item['Segmento:'] || item.segmento) ? String(item.Segmento || item['Segmento:'] || item.segmento) : '',
+            category: (item.Categoria || item['Categoria:'] || item.categoria) ? String(item.Categoria || item['Categoria:'] || item.categoria) : (item.Departamento || item['Departamento:'] || item.departamento || 'PADRAO'),
+            subgroup: 'PADRAO',
+            section: (item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) ? String(item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) : '',
+            supplier: (item.Fornecedor || item['Fornecedor:'] || item.fornecedor) ? String(item.Fornecedor || item['Fornecedor:'] || item.fornecedor) : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
           } as Product, true); // true para skipFetch
 

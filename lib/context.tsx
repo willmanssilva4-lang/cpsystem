@@ -1540,6 +1540,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       gramatura: product.gramatura,
       tipo_embalagem: product.tipo_embalagem,
       segmento: product.segmento,
+      brand: product.brand,
       section: product.section,
       supplier: product.supplier
     };
@@ -1547,7 +1548,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let { data, error } = await supabase.from('products').insert([insertData]).select();
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('term_price') || error.message.includes('club_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor') || error.message.includes('gramatura') || error.message.includes('tipo_embalagem') || error.message.includes('segmento') || error.message.includes('section') || error.message.includes('supplier'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('term_price') || error.message.includes('club_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor') || error.message.includes('gramatura') || error.message.includes('tipo_embalagem') || error.message.includes('segmento') || error.message.includes('brand') || error.message.includes('section') || error.message.includes('supplier'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (insertData as any).composition;
       if (error.message.includes('status')) delete (insertData as any).status;
@@ -1566,6 +1567,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('gramatura')) delete (insertData as any).gramatura;
       if (error.message.includes('tipo_embalagem')) delete (insertData as any).tipo_embalagem;
       if (error.message.includes('segmento')) delete (insertData as any).segmento;
+      if (error.message.includes('brand')) delete (insertData as any).brand;
       if (error.message.includes('section')) delete (insertData as any).section;
       if (error.message.includes('supplier')) delete (insertData as any).supplier;
       
@@ -1646,6 +1648,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       gramatura: updated.gramatura,
       tipo_embalagem: updated.tipo_embalagem,
       segmento: updated.segmento,
+      brand: updated.brand,
       section: updated.section,
       supplier: updated.supplier
     };
@@ -1653,7 +1656,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let { error } = await supabase.from('products').update(updateData).eq('id', updated.id);
 
     // Fallback if composition or status column doesn't exist
-    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('term_price') || error.message.includes('club_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor') || error.message.includes('gramatura') || error.message.includes('tipo_embalagem') || error.message.includes('segmento') || error.message.includes('section') || error.message.includes('supplier'))) {
+    if (error && error.message && (error.message.includes('composition') || error.message.includes('status') || error.message.includes('codigo_mercadologico') || error.message.includes('validade') || error.message.includes('category') || error.message.includes('subgroup') || error.message.includes('wholesale_price') || error.message.includes('term_price') || error.message.includes('club_price') || error.message.includes('control_stock') || error.message.includes('product_type') || error.message.includes('base_product_id') || error.message.includes('conversion_factor') || error.message.includes('gramatura') || error.message.includes('tipo_embalagem') || error.message.includes('segmento') || error.message.includes('brand') || error.message.includes('section') || error.message.includes('supplier'))) {
       console.warn('Alguma coluna não encontrada no Supabase. Tentando salvar sem campos extras...');
       if (error.message.includes('composition')) delete (updateData as any).composition;
       if (error.message.includes('status')) delete (updateData as any).status;
@@ -1672,6 +1675,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes('gramatura')) delete (updateData as any).gramatura;
       if (error.message.includes('tipo_embalagem')) delete (updateData as any).tipo_embalagem;
       if (error.message.includes('segmento')) delete (updateData as any).segmento;
+      if (error.message.includes('brand')) delete (updateData as any).brand;
       if (error.message.includes('section')) delete (updateData as any).section;
       if (error.message.includes('supplier')) delete (updateData as any).supplier;
 

@@ -254,6 +254,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     return Array.from(secs).filter(Boolean).sort();
   }, [departamentos, products, formData.section]);
 
+  const uniqueBrands = React.useMemo(() => {
+    const brands = new Set<string>();
+    brands.add('PADRAO');
+    products.forEach(p => { if (p.brand) brands.add(p.brand); });
+    if (formData.brand) brands.add(formData.brand);
+    return Array.from(brands).filter(Boolean).sort();
+  }, [products, formData.brand]);
+
   const [categoryId, setCategoryId] = useState('');
   const [departamentoId, setDepartamentoId] = useState('');
 
@@ -576,8 +584,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <select 
                       value={categoryId}
                       onChange={(e) => {
-                        setCategoryId(e.target.value);
-                        setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                        const newCatId = e.target.value;
+                        setCategoryId(newCatId);
+                        setFormData(prev => {
+                          const cat = categorias.find(c => c.id === newCatId);
+                          return { 
+                            ...prev, 
+                            subcategoria_id: '',
+                            category: cat ? cat.nome : prev.category 
+                          };
+                        });
                       }}
                       className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
@@ -607,14 +623,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   </div>
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Marca:</label>
-                    <select 
+                    <input 
+                      list="brands-list"
                       name="brand"
                       value={formData.brand}
                       onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="PADRAO">PADRAO</option>
-                    </select>
+                      placeholder="Ex: PADRAO"
+                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
+                    />
+                    <datalist id="brands-list">
+                      {uniqueBrands.map(brand => (
+                        <option key={brand} value={brand} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor:</label>
