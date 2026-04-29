@@ -28,10 +28,9 @@ import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 
 export default function CotacoesPage() {
-  const { user } = useERP();
+  const { user, products: globalProducts } = useERP();
   const [view, setView] = useState<'list' | 'create' | 'details'>('list');
   const [isLoading, setIsLoading] = useState(false);
-  const [productsList, setProductsList] = useState<any[]>([]);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
   const [quotations, setQuotations] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -303,10 +302,6 @@ export default function CotacoesPage() {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch Products
-      const { data: products } = await supabase.from('products').select('id, name, sku, cost_price').eq('company_id', user?.companyId || null).order('name');
-      if (products) setProductsList(products);
-
       // Fetch Suppliers
       const { data: suppliers } = await supabase.from('suppliers').select('id, name').eq('company_id', user?.companyId || null).order('name');
       if (suppliers) setSuppliersList(suppliers);
@@ -329,10 +324,17 @@ export default function CotacoesPage() {
     setSearchTerm(value);
     
     if (value.length >= 2) {
-      const filtered = productsList.filter(p => 
-        p.name.toLowerCase().includes(value.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(value.toLowerCase()))
-      ).slice(0, 10);
+      const filtered = globalProducts.filter(p => {
+        // Ignorar kits e produtos virtuais/composição nas cotações
+        const isKit = p.product_type === 'KIT' || 
+                    (p.composition && p.composition.length > 0) ||
+                    (p.product_type === 'SALE' && p.base_product_id); // Produto de revenda vinculado a base tbm pode ser considerado kit/virtual
+        
+        if (isKit) return false;
+
+        return p.name.toLowerCase().includes(value.toLowerCase()) ||
+               (p.sku && String(p.sku).toLowerCase().includes(value.toLowerCase()));
+      }).slice(0, 15);
       setSearchResults(filtered);
       setSelectedIndex(filtered.length > 0 ? 0 : -1);
     } else {
@@ -372,7 +374,7 @@ export default function CotacoesPage() {
       id: product.id,
       name: product.name,
       qty: 1,
-      lastCost: product.cost_price || 0
+      lastCost: product.costPrice || 0
     };
 
     setItems([...items, newItem]);
@@ -701,7 +703,7 @@ export default function CotacoesPage() {
                                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{product.sku || 'Sem SKU'}</div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-xs font-black text-brand-blue">Custo: R$ {Number(product.cost_price).toFixed(2)}</div>
+                                  <div className="text-xs font-black text-brand-blue">Custo: R$ {Number(product.costPrice).toFixed(2)}</div>
                                 </div>
                               </button>
                             ))}

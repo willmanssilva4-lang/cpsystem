@@ -96,7 +96,8 @@ async function checkValuation() {
     let rawTotalValue = 0;
 
     finalProducts.forEach(p => {
-      const value = p.stock * p.costPrice;
+      // Somente somamos valores de estoque positivo para a valorização
+      const value = Math.max(0, p.stock) * p.costPrice;
       totalValue += value;
       
       if (p.composition && Array.isArray(p.composition) && p.composition.length > 0) {
@@ -114,7 +115,7 @@ async function checkValuation() {
     });
 
     baseProducts.forEach((p: any) => {
-      rawTotalValue += p.stock * p.costPrice;
+      rawTotalValue += Math.max(0, p.stock) * p.costPrice;
     });
 
 

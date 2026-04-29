@@ -125,11 +125,34 @@ export default function ProductsPage() {
       Marca: p.brand || '',
       Gramatura: p.gramatura || '',
       'Tipo de Embalagem': p.tipo_embalagem || '',
-      Segmento: p.segmento || ''
+      Segmento: p.segmento || '',
+      'Seção': p.section || ''
     })));
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 35 }, // Nome
+      { wch: 15 }, // SKU
+      { wch: 20 }, // Cód. Mercadológico
+      { wch: 20 }, // Departamento
+      { wch: 20 }, // Categoria
+      { wch: 20 }, // Subcategoria
+      { wch: 15 }, // Unidade
+      { wch: 15 }, // Preço Custo
+      { wch: 15 }, // Preço Venda
+      { wch: 10 }, // Estoque
+      { wch: 10 }, // Mínimo
+      { wch: 10 }, // Status
+      { wch: 15 }, // Marca
+      { wch: 15 }, // Gramatura
+      { wch: 20 }, // Embalagem
+      { wch: 20 }, // Segmento
+      { wch: 20 }  // Seção
+    ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos');
-    XLSX.writeFile(workbook, 'produtos.xlsx');
+    XLSX.writeFile(workbook, 'produtos.xlsx', { bookType: 'xlsx' });
 
     setCustomAlert({ message: 'Lista de produtos exportada com sucesso!', type: 'success' });
   };
@@ -154,12 +177,35 @@ export default function ProductsPage() {
       Gramatura: '500g',
       'Tipo de Embalagem': 'Pacote',
       Segmento: 'Alimentos',
+      'Seção': 'Bebidas',
       Fornecedor: 'Fornecedor Exemplo'
     }];
     const worksheet = XLSX.utils.json_to_sheet(templateData);
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 35 }, // Nome
+      { wch: 15 }, // SKU
+      { wch: 20 }, // Departamento
+      { wch: 20 }, // Categoria
+      { wch: 20 }, // Subcategoria
+      { wch: 15 }, // Unidade
+      { wch: 15 }, // Preço Custo
+      { wch: 15 }, // Preço Venda
+      { wch: 10 }, // Estoque
+      { wch: 10 }, // Mínimo
+      { wch: 10 }, // Status
+      { wch: 15 }, // Marca
+      { wch: 15 }, // Gramatura
+      { wch: 20 }, // Embalagem
+      { wch: 20 }, // Segmento
+      { wch: 20 }, // Seção
+      { wch: 25 }  // Fornecedor
+    ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Modelo');
-    XLSX.writeFile(workbook, 'modelo_importacao_produtos.xlsx');
+    XLSX.writeFile(workbook, 'modelo_importacao_produtos.xlsx', { bookType: 'xlsx' });
   };
 
   const importProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -232,6 +278,7 @@ export default function ProductsPage() {
             gramatura: item.Gramatura ? String(item.Gramatura) : '',
             tipo_embalagem: (item['Tipo de Embalagem'] || item['Tipo de Embalagem:']) ? String(item['Tipo de Embalagem'] || item['Tipo de Embalagem:']) : '',
             segmento: item.Segmento ? String(item.Segmento) : '',
+            section: (item['Seção'] || item.Secao) ? String(item['Seção'] || item.Secao) : '',
             supplier: item.Fornecedor ? String(item.Fornecedor) : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
           } as Product, true); // true para skipFetch
@@ -314,7 +361,8 @@ export default function ProductsPage() {
   const totalStockValue = products.reduce((acc, p) => {
     const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
     if (isVirtual) return acc;
-    return acc + (p.stock * p.costPrice);
+    // Somente somamos valores de estoque positivo para a valorização
+    return acc + (Math.max(0, p.stock) * p.costPrice);
   }, 0);
   const lowStockCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
 
