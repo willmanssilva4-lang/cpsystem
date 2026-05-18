@@ -569,7 +569,12 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       onChange={(e) => {
                         setDepartamentoId(e.target.value);
                         setCategoryId('');
-                        setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          subcategoria_id: '',
+                          codigo_mercadologico: '',
+                          category: 'PADRAO'
+                        }));
                       }}
                       className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
@@ -591,7 +596,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           return { 
                             ...prev, 
                             subcategoria_id: '',
-                            category: cat ? cat.nome : prev.category 
+                            codigo_mercadologico: '',
+                            category: cat ? cat.nome : 'PADRAO'
                           };
                         });
                       }}
@@ -610,7 +616,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <select 
                       name="subcategoria_id"
                       value={formData.subcategoria_id}
-                      onChange={handleChange}
+                      onChange={(e) => {
+                        handleChange(e);
+                        // Force clearing mercadologico so it gets recalculated
+                        setFormData(prev => ({ ...prev, codigo_mercadologico: '' }));
+                      }}
                       className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                     >
                       <option value="">Selecione...</option>
@@ -1772,7 +1782,12 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         onChange={(e) => {
                           setDepartamentoId(e.target.value);
                           setCategoryId('');
-                          setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            subcategoria_id: '',
+                            codigo_mercadologico: '',
+                            category: 'PADRAO'
+                          }));
                         }}
                         className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
                       >
@@ -1787,8 +1802,17 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <select 
                         value={categoryId}
                         onChange={(e) => {
-                          setCategoryId(e.target.value);
-                          setFormData(prev => ({ ...prev, subcategoria_id: '' }));
+                          const newCatId = e.target.value;
+                          setCategoryId(newCatId);
+                          setFormData(prev => {
+                            const cat = categorias.find(c => c.id === newCatId);
+                            return { 
+                              ...prev, 
+                              subcategoria_id: '',
+                              codigo_mercadologico: '',
+                              category: cat ? cat.nome : 'PADRAO'
+                            };
+                          });
                         }}
                         className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
                       >
@@ -1805,7 +1829,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <select 
                         name="subcategoria_id"
                         value={formData.subcategoria_id}
-                        onChange={handleChange}
+                        onChange={(e) => {
+                          handleChange(e);
+                          setFormData(prev => ({ ...prev, codigo_mercadologico: '' }));
+                        }}
                         className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"
                       >
                         <option value="">Selecione...</option>

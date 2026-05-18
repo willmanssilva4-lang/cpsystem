@@ -1624,7 +1624,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     let updateData = {
       company_id: user.companyId,
       name: updated.name,
-      subcategoria_id: updated.subcategoria_id === '' ? undefined : updated.subcategoria_id,
+      subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
       sku: updated.sku,
       cost_price: (updated.costPrice === undefined || updated.costPrice === null || String(updated.costPrice) === '') ? 0 : Number(updated.costPrice),
       sale_price: (updated.salePrice === undefined || updated.salePrice === null || String(updated.salePrice) === '') ? 0 : Number(updated.salePrice),
@@ -1637,12 +1637,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       image: updated.image,
       composition: updated.composition,
       status: ((updated.status && String(updated.status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
-      codigo_mercadologico: updated.codigo_mercadologico,
+      codigo_mercadologico: updated.codigo_mercadologico === '' ? null : updated.codigo_mercadologico,
       validade: updated.validade || undefined,
       has_had_stock: updated.stock > 0 || updated.has_had_stock,
       control_stock: updated.controlStock,
-      category: updated.category,
-      subgroup: updated.subgroup,
+      category: updated.category === '' ? null : updated.category,
+      subgroup: updated.subgroup === '' ? null : updated.subgroup,
       product_type: updated.product_type || 'SALE',
       base_product_id: updated.base_product_id || undefined,
       conversion_factor: (updated.conversion_factor === undefined || updated.conversion_factor === null || String(updated.conversion_factor) === '') ? 1 : Number(updated.conversion_factor),
@@ -1700,7 +1700,17 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return false;
     } else {
       // Update local state manually to include fields that might not be in DB yet
-      setProducts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated, ...updateData } : p));
+      setProducts(prev => prev.map(p => {
+        if (p.id === updated.id) {
+          const merged = { ...p, ...updated, ...updateData };
+          if (merged.subcategoria_id === null) delete merged.subcategoria_id;
+          if (merged.codigo_mercadologico === null) delete merged.codigo_mercadologico;
+          if (merged.category === null) delete merged.category;
+          if (merged.subgroup === null) delete merged.subgroup;
+          return merged as Product;
+        }
+        return p;
+      }));
       return true;
     }
   }, [user?.companyId, products, setCustomAlert]);
