@@ -7,7 +7,17 @@ import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'next/navigation';
 
+import { Suspense } from 'react';
+
 export default function SalesAuditPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SalesAuditContent />
+    </Suspense>
+  );
+}
+
+function SalesAuditContent() {
   const { discountLogs, returns, auditLogs, systemUsers, hasPermission, products } = useERP();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('query') || '';
