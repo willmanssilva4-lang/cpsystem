@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+@theme {
+  --color-brand-blue: #2563eb;
+  --color-brand-blue-hover: #1d4ed8;
+  --color-brand-blue-support: #1e3a8a;
+  --color-brand-blue-light: #dbeafe;
+  --color-brand-bg: #f8fafc;
+  --color-brand-card: #ffffff;
+  --color-brand-border: #e2e8f0;
+  --color-brand-text-main: #0f172a;
+  --color-brand-text-sec: #64748b;
+  --color-brand-green: #10b981;
+  --color-brand-green-hover: #059669;
+  --color-brand-danger: #ef4444;
+  --color-brand-warning: #f59e0b;
+  --color-brand-info: #3b82f6;
+}
+
+@layer base {
+  /* Make all form labels bold */
+  label {
+    font-weight: 700 !important;
+  }
+
+  /* Make all inputs, selects and textareas bold */
+  input, select, textarea {
+    font-weight: 700 !important;
+  }
+
+  /* Make buttons bold */
+  button {
+    font-weight: 700 !important;
+  }
+
+  /* Make table headers and cells bold */
+  th, td {
+    font-weight: 700 !important;
+  }
+
+  /* Override medium and semibold fonts to be bold */
+  .font-medium, .font-semibold {
+    font-weight: 700 !important;
+  }
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

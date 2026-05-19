@@ -504,80 +504,77 @@ export default function CategoriasPage() {
 
   return (
     <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Link href="/cadastros" className="p-2 hover:bg-white rounded-xl transition-colors text-brand-blue shadow-sm border border-transparent hover:border-brand-border">
-                <ArrowLeft size={24} />
-              </Link>
-              <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Árvore Mercadológica</h1>
-                <p className="text-brand-blue/60 font-medium">Gerencie departamentos, categorias e subcategorias.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleOpenDeptModal()}
-                className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
-              >
-                <Plus size={20} />
-                Novo Departamento
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsConfirmingSeed(true)}
-              disabled={isSeeding}
-              className={cn(
-                "flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-blue/20 rounded-xl font-bold uppercase text-xs tracking-tight transition-all active:scale-95",
-                isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-brand-blue/5"
-              )}
-            >
-              <FolderTree size={16} className={cn(isSeeding && "animate-pulse")} />
-              {isSeeding ? 'Carregando...' : 'Carregar Árvore Profissional'}
-            </button>
-            <button
-              onClick={() => setIsConfirmingFinanceSeed(true)}
-              disabled={isSeeding}
-              className={cn(
-                "flex items-center gap-2 px-4 py-3 bg-white text-emerald-600 border border-emerald-600/20 rounded-xl font-bold uppercase text-xs tracking-tight transition-all active:scale-95",
-                isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-emerald-50"
-              )}
-            >
-              <FolderTree size={16} className={cn(isSeeding && "animate-pulse")} />
-              {isSeeding ? 'Carregando...' : 'Carregar Categorias Financeiras'}
-            </button>
-            
-            <button
-              onClick={handleDownloadTemplate}
-              className="flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-border rounded-xl font-bold uppercase text-xs tracking-tight hover:bg-brand-blue/5 transition-all shadow-sm active:scale-95"
-            >
-              <Download size={16} />
-              Baixar Modelo
-            </button>
-
-            <input 
-              type="file" 
-              accept=".xlsx, .xls" 
-              className="hidden" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSeeding}
-              className={cn(
-                "flex items-center gap-2 px-4 py-3 bg-brand-text-main text-white rounded-xl font-bold uppercase text-xs tracking-tight shadow-sm transition-all active:scale-95",
-                isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-700"
-              )}
-            >
-              <Upload size={16} className={cn(isSeeding && "animate-pulse")} />
-              {isSeeding ? 'Importando...' : 'Importar Planilha'}
-            </button>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/cadastros" className="p-2 hover:bg-white rounded-xl transition-colors text-brand-blue shadow-sm border border-transparent hover:border-brand-border">
+            <ArrowLeft size={24} />
+          </Link>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Árvore Mercadológica</h1>
+            <p className="text-brand-blue/60 font-medium">Gerencie departamentos, categorias e subcategorias.</p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsConfirmingSeed(true)}
+            disabled={isSeeding}
+            className={cn(
+              "flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-blue/20 rounded-xl font-bold uppercase text-xs tracking-tight transition-all active:scale-95",
+              isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-brand-blue/5"
+            )}
+          >
+            <FolderTree size={16} className={cn(isSeeding && "animate-pulse")} />
+            {isSeeding ? 'Carregando...' : 'Carregar Árvore Profissional'}
+          </button>
+          <button
+            onClick={() => setIsConfirmingFinanceSeed(true)}
+            disabled={isSeeding}
+            className={cn(
+              "flex items-center gap-2 px-4 py-3 bg-white text-emerald-600 border border-emerald-600/20 rounded-xl font-bold uppercase text-xs tracking-tight transition-all active:scale-95",
+              isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-emerald-50"
+            )}
+          >
+            <FolderTree size={16} className={cn(isSeeding && "animate-pulse")} />
+            {isSeeding ? 'Carregando...' : 'Carregar Categorias Financeiras'}
+          </button>
+          
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-border rounded-xl font-bold uppercase text-xs tracking-tight hover:bg-brand-blue/5 transition-all shadow-sm active:scale-95"
+          >
+            <Download size={16} />
+            Baixar Modelo
+          </button>
+
+          <input 
+            type="file" 
+            accept=".xlsx, .xls" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSeeding}
+            className={cn(
+              "flex items-center gap-2 px-4 py-3 bg-brand-text-main text-white rounded-xl font-bold uppercase text-xs tracking-tight shadow-sm transition-all active:scale-95",
+              isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-700"
+            )}
+          >
+            <Upload size={16} className={cn(isSeeding && "animate-pulse")} />
+            {isSeeding ? 'Importando...' : 'Importar Planilha'}
+          </button>
+
+          <button
+            onClick={() => handleOpenDeptModal()}
+            className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
+          >
+            <Plus size={20} />
+            Novo Departamento
+          </button>
+        </div>
+      </div>
 
       {/* Content */}
       <div className="bg-white rounded-[32px] border border-brand-border shadow-sm overflow-hidden">
