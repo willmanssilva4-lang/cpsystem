@@ -23,7 +23,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { password, email, user_metadata } = await req.json();
     const { id } = await params;
 
-    const updateData: any = {};
+    const updateData: { password?: string; email?: string; user_metadata?: Record<string, unknown> } = {};
     if (password) updateData.password = password;
     
     if (email) {
@@ -39,8 +39,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { data, error } = await supabaseAdmin.auth.admin.updateUserById(id, updateData);
 
     if (error) {
-      console.error('Error updating auth user:', error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Error updating auth user:', (error as Error).message);
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
 
     return NextResponse.json({ user: data.user });
@@ -76,8 +76,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
 
     if (error) {
-      console.error('Error deleting auth user:', error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Error deleting auth user:', (error as Error).message);
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });

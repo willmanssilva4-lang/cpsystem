@@ -150,10 +150,10 @@ export async function POST(req: Request) {
       }]);
 
       if (dbError) {
-        console.error('Error inserting into system_users:', dbError);
+        console.error('Error inserting into system_users:', (dbError as Error).message);
         // Cleanup: delete auth user if DB insert fails
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-        return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
+        return NextResponse.json({ error: `Database Error: ${(dbError as Error).message}` }, { status: 500 });
       }
 
       console.log('User inserted into system_users successfully');

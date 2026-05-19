@@ -35,7 +35,7 @@ export async function GET() {
       adminUser: adminData || 'Not found',
       message: 'If you are seeing infinite recursion, you MUST run the /supabase/migrations/20260324_final_setup.sql script in the Supabase SQL Editor.'
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

@@ -44,7 +44,7 @@ export async function GET() {
         .select()
         .single();
       
-      if (companyError || !newCompany) throw companyError || new Error('Falha ao criar empresa');
+      if (companyError || !newCompany) throw (companyError as Error) || new Error('Falha ao criar empresa');
       company = newCompany;
     }
 
@@ -137,16 +137,16 @@ export async function GET() {
       company_id: companyId
     };
 
-    let userError;
+    let userError: Error | null = null;
     const { error: firstTryError } = await supabaseAdmin.from('system_users').upsert([userData]);
-    userError = firstTryError;
+    userError = firstTryError as Error | null;
 
     if (userError) {
         // If it failed because of company_id column
-        if (userError.message.includes('column "company_id" of relation "system_users" does not exist')) {
+        if ((userError as Error).message.includes('column "company_id" of relation "system_users" does not exist')) {
             delete userData.company_id;
             const { error: retryError } = await supabaseAdmin.from('system_users').upsert([userData]);
-            userError = retryError;
+            userError = retryError as Error | null;
             if (userError) throw userError;
             
             return NextResponse.json({ 

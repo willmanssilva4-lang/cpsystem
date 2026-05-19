@@ -170,7 +170,7 @@ export async function POST(req: Request) {
           const parsedError = JSON.parse(userError.message);
           errorMessage = parsedError.message || userError.message;
         }
-      } catch (e) {
+      } catch (_e) {
         // Not JSON
       }
       return NextResponse.json({ error: `Erro ao criar usuário do sistema: ${errorMessage}` }, { status: 500 });
