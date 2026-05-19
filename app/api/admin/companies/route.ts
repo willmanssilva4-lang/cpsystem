@@ -201,10 +201,10 @@ export async function POST(req: Request) {
       userId 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Unexpected error in company creation API:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: (error as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }
@@ -252,9 +252,9 @@ export async function GET() {
     });
 
     return NextResponse.json(companiesWithAdmins);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in GET companies:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -329,9 +329,9 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json({ success: true, company });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in PUT companies:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -367,8 +367,8 @@ export async function DELETE(req: Request) {
     if (error) throw error;
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 

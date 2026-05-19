@@ -61,11 +61,11 @@ export async function GET(req: Request) {
       userCountSample: data.users.length 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ 
       status: 'error', 
       message: 'Unexpected error during verification', 
-      details: error.message 
+      details: (error as Error).message 
     }, { status: 500 });
   }
 }

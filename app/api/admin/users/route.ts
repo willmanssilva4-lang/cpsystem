@@ -40,8 +40,9 @@ export async function POST(req: Request) {
   });
 
   try {
-    let { 
-      username, 
+    const data = await req.json();
+    let { username } = data;
+    const { 
       password, 
       email: providedEmail, 
       employeeId, 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       supervisorCode,
       companyId,
       user_metadata 
-    } = await req.json();
+    } = data;
 
     if (!username || !password) {
       return NextResponse.json(
@@ -157,18 +158,18 @@ export async function POST(req: Request) {
 
       console.log('User inserted into system_users successfully');
       
-    } catch (dbErr: any) {
+    } catch (dbErr: unknown) {
       console.error('Exception inserting into system_users:', dbErr);
       // Cleanup
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return NextResponse.json({ error: `Database Exception: ${dbErr.message}` }, { status: 500 });
+      return NextResponse.json({ error: `Database Exception: ${(dbErr as Error).message}` }, { status: 500 });
     }
 
     return NextResponse.json({ user: authData.user });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Unexpected error creating user:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: (error as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

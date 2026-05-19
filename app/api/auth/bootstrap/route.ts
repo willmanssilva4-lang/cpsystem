@@ -49,7 +49,7 @@ export async function GET() {
     }
 
     // Ensure company is not null for TypeScript
-    const companyId = (company as any).id;
+    const companyId = (company as { id: string }).id;
 
     // 3. Create or Get Profile
     let { data: profile } = await supabaseAdmin
@@ -127,12 +127,12 @@ export async function GET() {
     if (!userId) throw new Error('Falha ao obter ID do usuário');
 
     // 5. Create or Update in system_users
-    const userData: any = {
+    const userData: Record<string, unknown> = {
       id: userId,
       username: 'superadmin',
       email: superAdminEmail,
       full_name: 'Super Admin',
-      profile_id: (profile as any).id,
+      profile_id: (profile as { id: string }).id,
       active: true,
       company_id: companyId
     };
@@ -167,9 +167,9 @@ export async function GET() {
       tempPassword: defaultPassword
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Bootstrap error:', error);
-    const errorMessage = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
+    const errorMessage = (error as Error).message || (typeof error === 'string' ? error : JSON.stringify(error));
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
