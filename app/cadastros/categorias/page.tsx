@@ -73,6 +73,12 @@ export default function CategoriasPage() {
   const processExcelData = async (data: any[]) => {
     setIsSeeding(true);
     try {
+      if (!data || data.length === 0) {
+        alert("A planilha está vazia ou os cabeçalhos não batem com o modelo.");
+        setIsSeeding(false);
+        return;
+      }
+      
       let nextDeptCode = 0;
       if (departamentos && departamentos.length > 0) {
         const codes = departamentos.map(d => parseInt(d.codigo || '0', 10)).filter(n => !isNaN(n));
@@ -82,11 +88,17 @@ export default function CategoriasPage() {
       const tree = new Map<string, { secoes: Set<string>, segmentos: Set<string>, categorias: Map<string, Set<string>> }>();
       
       for (const row of data) {
-        const deptName = String(row['Departamento'] || '').trim().toUpperCase();
-        const secao = String(row['Seção'] || '').trim().toUpperCase();
-        const segmento = String(row['Segmento'] || '').trim().toUpperCase();
-        const catName = String(row['Categoria'] || '').trim().toUpperCase();
-        const subcatName = String(row['Subcategoria'] || '').trim().toUpperCase();
+        const dKey = Object.keys(row).find(k => k.toLowerCase().includes('departamento'));
+        const secKey = Object.keys(row).find(k => k.toLowerCase().includes('seção') || k.toLowerCase().includes('secao'));
+        const segKey = Object.keys(row).find(k => k.toLowerCase().includes('segmento'));
+        const catKey = Object.keys(row).find(k => k.toLowerCase().includes('categoria') && !k.toLowerCase().includes('sub'));
+        const subKey = Object.keys(row).find(k => k.toLowerCase().includes('subcategoria'));
+
+        const deptName = dKey && row[dKey] ? String(row[dKey]).trim().toUpperCase() : '';
+        const secao = secKey && row[secKey] ? String(row[secKey]).trim().toUpperCase() : '';
+        const segmento = segKey && row[segKey] ? String(row[segKey]).trim().toUpperCase() : '';
+        const catName = catKey && row[catKey] ? String(row[catKey]).trim().toUpperCase() : '';
+        const subcatName = subKey && row[subKey] ? String(row[subKey]).trim().toUpperCase() : '';
         
         if (!deptName) continue;
         
@@ -107,6 +119,8 @@ export default function CategoriasPage() {
           }
         }
       }
+
+      console.log("Árvore extraída da planilha:", tree);
 
       let dCount = 0;
       let cCount = 0;
@@ -151,6 +165,8 @@ export default function CategoriasPage() {
                dCount++;
                existingDept = newDeptData[0] as any;
             } else {
+               console.error("Erro ao inserir departamento:", error);
+               alert("Erro ao inserir departamento: " + (error?.message || JSON.stringify(error)));
                continue;
             }
          }
@@ -184,6 +200,8 @@ export default function CategoriasPage() {
                   catId = newCatData[0].id;
                   cCount++;
                } else {
+                  console.error("Erro ao inserir categoria:", error);
+                  alert("Erro ao inserir categoria: " + (error?.message || JSON.stringify(error)));
                   continue;
                }
             }
@@ -205,6 +223,7 @@ export default function CategoriasPage() {
                   const finalSubCode = `${baseCatCode}.${String(nextSubCodeNumber).padStart(2, '0')}`;
                   
                   const { error } = await supabase.from('subcategorias').insert([{
+                     company_id: user?.companyId || null,
                      nome: subcatName,
                      codigo: finalSubCode,
                      categoria_id: catId
@@ -212,6 +231,9 @@ export default function CategoriasPage() {
                   
                   if (!error) {
                      sCount++;
+                  } else {
+                     console.error("Erro ao inserir subcategoria:", error);
+                     alert("Erro ao inserir subcategoria: " + (error?.message || JSON.stringify(error)));
                   }
                }
             }
