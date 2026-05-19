@@ -1,11 +1,7 @@
-'use client';
-
-import { Dashboard } from '@/components/Dashboard';
-
 export default function Home() {
   return (
-    <main className="min-h-screen bg-brand-bg">
-      <Dashboard />
+    <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <h1>App reset successfully. What would you like to build?</h1>
     </main>
-  );
+  )
 }
