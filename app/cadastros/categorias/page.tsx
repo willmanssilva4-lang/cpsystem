@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, FolderTree } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, FolderTree, Upload, Download } from 'lucide-react';
 import { useERP } from '@/lib/context';
+import { supabase } from '@/lib/supabase';
 import { Categoria, Subcategoria } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 export default function CategoriasPage() {
   const { 
@@ -23,8 +25,208 @@ export default function CategoriasPage() {
     updateDepartamento,
     deleteDepartamento,
     seedMercadologicalTree,
-    seedExpenseCategories
+    seedExpenseCategories,
+    user,
+    fetchData
   } = useERP();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        Departamento: 'MERCEARIA',
+        Seção: 'ALIMENTOS',
+        Segmento: 'MERCEARIA DOCE',
+        Categoria: 'BISCOITOS',
+        Subcategoria: 'BISCOITO RECHEADO'
+      }
+    ], { header: ['Departamento', 'Seção', 'Segmento', 'Categoria', 'Subcategoria'] });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Modelo');
+    XLSX.writeFile(wb, 'modelo_arvore_mercadologica.xlsx');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const dataBuffer = evt.target?.result;
+        const wb = XLSX.read(dataBuffer, { type: 'array' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        await processExcelData(data);
+      } catch (error) {
+        console.error("Error parsing excel:", error);
+        alert("Erro ao importar a planilha. Verifique o formato.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = ''; // reset file input
+  };
+
+  const processExcelData = async (data: any[]) => {
+    setIsSeeding(true);
+    try {
+      let nextDeptCode = 0;
+      if (departamentos && departamentos.length > 0) {
+        const codes = departamentos.map(d => parseInt(d.codigo || '0', 10)).filter(n => !isNaN(n));
+        nextDeptCode = codes.length > 0 ? Math.max(...codes) : 0;
+      }
+      
+      const tree = new Map<string, { secoes: Set<string>, segmentos: Set<string>, categorias: Map<string, Set<string>> }>();
+      
+      for (const row of data) {
+        const deptName = String(row['Departamento'] || '').trim().toUpperCase();
+        const secao = String(row['Seção'] || '').trim().toUpperCase();
+        const segmento = String(row['Segmento'] || '').trim().toUpperCase();
+        const catName = String(row['Categoria'] || '').trim().toUpperCase();
+        const subcatName = String(row['Subcategoria'] || '').trim().toUpperCase();
+        
+        if (!deptName) continue;
+        
+        if (!tree.has(deptName)) {
+          tree.set(deptName, { secoes: new Set(), segmentos: new Set(), categorias: new Map() });
+        }
+        
+        const deptNode = tree.get(deptName)!;
+        if (secao && secao.toLowerCase() !== 'undefined') deptNode.secoes.add(secao);
+        if (segmento && segmento.toLowerCase() !== 'undefined') deptNode.segmentos.add(segmento);
+        
+        if (catName && catName.toLowerCase() !== 'undefined') {
+          if (!deptNode.categorias.has(catName)) {
+             deptNode.categorias.set(catName, new Set());
+          }
+          if (subcatName && subcatName.toLowerCase() !== 'undefined') {
+             deptNode.categorias.get(catName)!.add(subcatName);
+          }
+        }
+      }
+
+      let dCount = 0;
+      let cCount = 0;
+      let sCount = 0;
+      
+      for (const [deptName, deptData] of tree.entries()) {
+         let deptId = null;
+         let existingDept = departamentos.find(d => d.nome.toUpperCase() === deptName);
+         
+         const sSecoesArr = Array.from(deptData.secoes);
+         const sSegsArr = Array.from(deptData.segmentos);
+         
+         if (existingDept) {
+            deptId = existingDept.id;
+            let needsUpdate = false;
+            let currentSec = (existingDept.secao || '').split(',').map(s => s.trim()).filter(Boolean);
+            let currentSeg = (existingDept.segmento || '').split(',').map(s => s.trim()).filter(Boolean);
+            
+            for (const s of sSecoesArr) { if (!currentSec.includes(s)) { currentSec.push(s); needsUpdate = true; } }
+            for (const s of sSegsArr) { if (!currentSeg.includes(s)) { currentSeg.push(s); needsUpdate = true; } }
+            
+            if (needsUpdate) {
+               await supabase.from('departamentos').update({
+                  secao: currentSec.join(', '),
+                  segmento: currentSeg.join(', ')
+               }).eq('id', deptId);
+               dCount++;
+            }
+         } else {
+            nextDeptCode++;
+            const { data: newDeptData, error } = await supabase.from('departamentos').insert([{
+              company_id: user?.companyId || null,
+              nome: deptName,
+              codigo: String(nextDeptCode).padStart(2, '0'),
+              ativo: true,
+              secao: sSecoesArr.join(', '),
+              segmento: sSegsArr.join(', ')
+            }]).select();
+            
+            if (!error && newDeptData && newDeptData.length > 0) {
+               deptId = newDeptData[0].id;
+               dCount++;
+               existingDept = newDeptData[0] as any;
+            } else {
+               continue;
+            }
+         }
+         
+         if (!deptId) continue;
+         
+         let nextCatCodeNumber = 0;
+         const existingCatsForDept = categorias.filter(c => c.departamento_id === deptId);
+         if (existingCatsForDept.length > 0) {
+            const codes = existingCatsForDept.map(c => parseInt((c.codigo || '').split('.').pop() || '0', 10)).filter(n => !isNaN(n));
+            nextCatCodeNumber = codes.length > 0 ? Math.max(...codes) : 0;
+         }
+         
+         for (const [catName, subCatsSet] of deptData.categorias.entries()) {
+            let catId = null;
+            const existingCat = categorias.find(c => c.departamento_id === deptId && c.nome.toUpperCase() === catName);
+            if (existingCat) {
+               catId = existingCat.id;
+            } else {
+               nextCatCodeNumber++;
+               const baseDeptCode = existingDept?.codigo || '00';
+               const finalCatCode = `${baseDeptCode}.${String(nextCatCodeNumber).padStart(2, '0')}`;
+               const { data: newCatData, error } = await supabase.from('categorias').insert([{
+                  company_id: user?.companyId || null,
+                  nome: catName,
+                  codigo: finalCatCode,
+                  departamento_id: deptId
+               }]).select();
+               
+               if (!error && newCatData && newCatData.length > 0) {
+                  catId = newCatData[0].id;
+                  cCount++;
+               } else {
+                  continue;
+               }
+            }
+            
+            if (!catId) continue;
+            
+            let nextSubCodeNumber = 0;
+            const existingSubsForCat = subcategorias.filter(s => s.categoria_id === catId);
+            if (existingSubsForCat.length > 0) {
+               const codes = existingSubsForCat.map(s => parseInt((s.codigo || '').split('.').pop() || '0', 10)).filter(n => !isNaN(n));
+               nextSubCodeNumber = codes.length > 0 ? Math.max(...codes) : 0;
+            }
+            
+            for (const subcatName of Array.from(subCatsSet)) {
+               const existingSub = subcategorias.find(s => s.categoria_id === catId && s.nome.toUpperCase() === subcatName);
+               if (!existingSub) {
+                  nextSubCodeNumber++;
+                  const baseCatCode = existingCat ? existingCat.codigo : (categorias.find(c => c.id === catId)?.codigo || `${existingDept?.codigo || '00'}.${String(nextCatCodeNumber).padStart(2, '0')}`);
+                  const finalSubCode = `${baseCatCode}.${String(nextSubCodeNumber).padStart(2, '0')}`;
+                  
+                  const { error } = await supabase.from('subcategorias').insert([{
+                     nome: subcatName,
+                     codigo: finalSubCode,
+                     categoria_id: catId
+                  }]);
+                  
+                  if (!error) {
+                     sCount++;
+                  }
+               }
+            }
+         }
+      }
+      
+      alert(`Planilha importada com sucesso! \nForam adicionados/atualizados:\n- ${dCount} Departamentos\n- ${cCount} Categorias\n- ${sCount} Subcategorias.`);
+      await fetchData();
+    } catch (e: any) {
+      console.error(e);
+      alert("Houve um erro ao processar a importação: " + e.message);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const uniqueSegmentos = useMemo(() => {
     const all = departamentos.flatMap(d => (d.segmento || '').split(',').map(s => s.trim()).filter(Boolean));
@@ -314,6 +516,34 @@ export default function CategoriasPage() {
             <FolderTree size={16} className={cn(isSeeding && "animate-pulse")} />
             {isSeeding ? 'Carregando...' : 'Carregar Categorias Financeiras'}
           </button>
+          
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-border rounded-xl font-bold uppercase text-xs tracking-tight hover:bg-brand-blue/5 transition-all shadow-sm active:scale-95"
+          >
+            <Download size={16} />
+            Baixar Modelo
+          </button>
+
+          <input 
+            type="file" 
+            accept=".xlsx, .xls" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSeeding}
+            className={cn(
+              "flex items-center gap-2 px-4 py-3 bg-brand-text-main text-white rounded-xl font-bold uppercase text-xs tracking-tight shadow-sm transition-all active:scale-95",
+              isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-700"
+            )}
+          >
+            <Upload size={16} className={cn(isSeeding && "animate-pulse")} />
+            {isSeeding ? 'Importando...' : 'Importar Planilha'}
+          </button>
+
           <button
             onClick={() => handleOpenDeptModal()}
             className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
