@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ERPProvider } from '@/lib/context'
+import { AppLayout } from '@/components/AppLayout'
 
 export const metadata: Metadata = {
   title: 'Cpsystem',
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ERPProvider>
-          {children}
+          <AppLayout>
+            {children}
+          </AppLayout>
         </ERPProvider>
       </body>
     </html>
