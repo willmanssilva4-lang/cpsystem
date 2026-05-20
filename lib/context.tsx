@@ -1109,8 +1109,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return module === 'Gestão de Empresas';
     }
 
-    if (user.role === 'Administrador') return true;
-    
     // Find checking profile ID. If user.role matches a profile name in our deduplicated accessProfiles, prefer that ID
     let profileIdToCheck = user.profileId;
     if (user.role) {
@@ -1123,15 +1121,59 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const profilePerms = permissions.filter(p => p.profileId === profileIdToCheck);
     const modPerm = profilePerms.find(p => p.module === module);
     
-    if (!modPerm) return false;
-    
-    switch (action) {
-      case 'view': return modPerm.canView;
-      case 'create': return modPerm.canCreate;
-      case 'edit': return modPerm.canEdit;
-      case 'delete': return modPerm.canDelete;
-      default: return false;
+    if (modPerm) {
+      switch (action) {
+        case 'view': return modPerm.canView;
+        case 'create': return modPerm.canCreate;
+        case 'edit': return modPerm.canEdit;
+        case 'delete': return modPerm.canDelete;
+        default: return false;
+      }
     }
+
+    // -- FALLBACKS IF NOT DEFINED IN DATABASE PERMISSIONS TABLE --
+    if (user.role === 'Administrador') return true;
+    
+    if (user.role) {
+      const roleLower = user.role.trim().toLowerCase();
+      
+      if (roleLower === 'caixa') {
+        if (module === 'Vendas') return true;
+        if (module === 'Dashboard' && action === 'view') return true;
+        if (module === 'Clientes' && (action === 'view' || action === 'create')) return true;
+      }
+      
+      if (roleLower === 'fiscal de caixa') {
+        if (module === 'Vendas') return true;
+        if (module === 'Dashboard' && action === 'view') return true;
+        if (module === 'Clientes' && (action === 'view' || action === 'create' || action === 'edit')) return true;
+      }
+      
+      if (roleLower === 'gerente') {
+        if (module === 'Gestão de Empresas') return false;
+        return true; // Gerente has access to all operational modules by default
+      }
+      
+      if (roleLower === 'financeiro') {
+        if (module === 'Financeiro') return true;
+        if (module === 'Dashboard' && action === 'view') return true;
+        if (module === 'Relatórios' && action === 'view') return true;
+      }
+      
+      if (roleLower === 'estoquista') {
+        if (module === 'Estoque') return true;
+        if (module === 'Compras' && (action === 'view' || action === 'create')) return true;
+        if (module === 'Dashboard' && action === 'view') return true;
+      }
+      
+      if (roleLower === 'comprador') {
+        if (module === 'Compras') return true;
+        if (module === 'Estoque' && action === 'view') return true;
+        if (module === 'Dashboard' && action === 'view') return true;
+      }
+    }
+    
+    return false;
   }, [user, permissions, accessProfiles]);
 
   const addCashMovement = useCallback(async (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => {
@@ -2952,29 +2994,20 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSystemUser = useCallback(async (id: string) => {
     try {
-      // 1. Delete from Auth
+      // Delete from Auth & Database using the unified API route
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE'
       });
 
       if (!response.ok) {
         const data = await response.json();
-        console.error('Error deleting auth user:', data.error);
-        alert(`Erro ao excluir login: ${data.error}`);
-        // If auth delete fails, should we delete from DB? Maybe not.
+        console.error('Error deleting user:', data.error);
+        alert(`Erro ao excluir usuário: ${data.error}`);
         return;
       }
 
-      // 2. Delete from DB
-      const { error } = await supabase.from('system_users').delete().eq('id', id);
-      
-      if (!error) {
-        await fetchData();
-        alert('Usuário excluído com sucesso!');
-      } else {
-        console.error('Error deleting system user:', error);
-        alert(`Erro ao excluir dados: ${error.message}`);
-      }
+      await fetchData();
+      alert('Usuário excluído com sucesso!');
     } catch (err: any) {
       console.error('Unexpected error in deleteSystemUser:', err);
       alert('Erro inesperado ao excluir usuário.');

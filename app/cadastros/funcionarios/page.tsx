@@ -14,7 +14,8 @@ import {
   Check,
   UserCheck,
   UserX,
-  Key
+  Key,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
@@ -173,6 +174,23 @@ function EmployeesSettings() {
     status: 'Ativo'
   });
 
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
+
+  const handleDelete = (id: string, name: string) => {
+    setDeleteConfirm({ id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await deleteEmployee(deleteConfirm.id);
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+    } finally {
+      setDeleteConfirm(null);
+    }
+  };
+
   const handleEdit = (emp: any) => {
     setFormData({
       fullName: emp.fullName,
@@ -311,9 +329,20 @@ function EmployeesSettings() {
                         {emp.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button onClick={() => handleEdit(emp)} className="p-2 text-brand-text-main/40 hover:text-brand-blue transition-all">
+                    <td className="px-6 py-4 text-right flex items-center justify-end gap-1">
+                      <button 
+                        onClick={() => handleEdit(emp)} 
+                        className="p-2 text-brand-text-main/40 hover:text-brand-blue bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                        title="Editar"
+                      >
                         <Edit3 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(emp.id, emp.fullName)} 
+                        className="p-2 text-brand-text-main/40 hover:text-rose-500 bg-white hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all"
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -323,12 +352,46 @@ function EmployeesSettings() {
           </table>
         </div>
       </div>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full p-6 text-center space-y-6"
+          >
+            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
+              <Trash2 size={28} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-brand-text-main uppercase italic">Excluir Colaborador</h3>
+              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                Tem certeza que deseja excluir o funcionário <strong className="text-brand-text-main font-bold">"{deleteConfirm.name}"</strong>? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={() => setDeleteConfirm(null)} 
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black uppercase italic text-xs transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmDelete} 
+                className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase italic text-xs shadow-lg shadow-rose-500/20 transition-colors"
+              >
+                Confirmar Exclusão
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
 
 function UsersSettings() {
-  const { systemUsers, employees, accessProfiles, addSystemUser, updateSystemUser, deleteSystemUser } = useERP();
+  const { systemUsers, employees, accessProfiles, addSystemUser, updateSystemUser, deleteSystemUser, companySettings } = useERP();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -343,6 +406,23 @@ function UsersSettings() {
     supervisorCode: ''
   });
 
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, username: string } | null>(null);
+
+  const handleDelete = (id: string, username: string) => {
+    setDeleteConfirm({ id, username });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await deleteSystemUser(deleteConfirm.id);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    } finally {
+      setDeleteConfirm(null);
+    }
+  };
+
   const handleEdit = (user: any) => {
     const currentProfileId = user.profileId || user.profile_id || '';
     const globalProfileName = currentProfileId ? (GLOBAL_PROFILES_MAP[currentProfileId.toLowerCase()] || null) : null;
@@ -352,12 +432,17 @@ function UsersSettings() {
       matchedProfile = accessProfiles.find(p => p.name?.trim()?.toLowerCase() === globalProfileName.toLowerCase());
     }
 
+    let rawStoreId = user.storeId || user.store_id || 'Todas as Lojas';
+    if (rawStoreId === 'Todas' || rawStoreId === 'todas' || rawStoreId === 'todas as lojas' || rawStoreId === 'Todas os Lojas') {
+      rawStoreId = 'Todas as Lojas';
+    }
+
     setFormData({
       username: user.username,
       email: user.email || '',
       employeeId: user.employeeId || user.employee_id || '',
       profileId: matchedProfile ? matchedProfile.id : currentProfileId,
-      storeId: user.storeId || user.store_id || 'Todas as Lojas',
+      storeId: rawStoreId,
       status: user.status,
       password: '',
       confirmPassword: '',
@@ -467,8 +552,12 @@ function UsersSettings() {
                 className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
               >
                 <option value="Todas as Lojas">Todas as Lojas</option>
-                <option value="Loja Principal">Loja Principal</option>
-                <option value="Filial Centro">Filial Centro</option>
+                {companySettings?.tradeName && (
+                  <option value={companySettings.tradeName}>{companySettings.tradeName}</option>
+                )}
+                {formData.storeId && formData.storeId !== 'Todas as Lojas' && formData.storeId !== companySettings?.tradeName && (
+                  <option value={formData.storeId}>{formData.storeId}</option>
+                )}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -594,7 +683,15 @@ function UsersSettings() {
                       <td className="px-6 py-4">
                         <span className="px-3 py-1 bg-brand-blue/10 text-brand-blue rounded-full text-[10px] font-black uppercase tracking-widest">{profName}</span>
                       </td>
-                      <td className="px-6 py-4 text-xs font-bold text-brand-text-main/60">{user.storeId || user.store_id || 'Todas'}</td>
+                      <td className="px-6 py-4 text-xs font-bold text-brand-text-main/60">
+                        {(() => {
+                          const displayStore = user.storeId || user.store_id || 'Todas as Lojas';
+                          if (displayStore === 'Todas' || displayStore === 'todas' || displayStore === 'todas as lojas' || displayStore === 'Todas os Lojas') {
+                            return 'Todas as Lojas';
+                          }
+                          return displayStore;
+                        })()}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
@@ -603,9 +700,20 @@ function UsersSettings() {
                           {user.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <button onClick={() => handleEdit(user)} className="p-2 text-brand-text-main/40 hover:text-brand-blue transition-all">
+                      <td className="px-6 py-4 text-right flex items-center justify-end gap-1">
+                        <button 
+                          onClick={() => handleEdit(user)} 
+                          className="p-2 text-brand-text-main/40 hover:text-brand-blue bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                          title="Editar"
+                        >
                           <Edit3 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(user.id, user.username)} 
+                          className="p-2 text-brand-text-main/40 hover:text-rose-500 bg-white hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>
@@ -616,6 +724,40 @@ function UsersSettings() {
           </table>
         </div>
       </div>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full p-6 text-center space-y-6"
+          >
+            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
+              <Trash2 size={28} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-brand-text-main uppercase italic">Excluir Login de Acesso</h3>
+              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                Tem certeza que deseja excluir o usuário <strong className="text-brand-text-main font-bold">"{deleteConfirm.username}"</strong>? Esta ação removerá permanentemente suas credenciais de acesso.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={() => setDeleteConfirm(null)} 
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black uppercase italic text-xs transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmDelete} 
+                className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase italic text-xs shadow-lg shadow-rose-500/20 transition-colors"
+              >
+                Confirmar Exclusão
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

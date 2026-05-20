@@ -69,14 +69,27 @@ export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, 
     : NAV_ITEMS.map(item => {
       if (item.superAdminOnly && !isSuperAdmin) return null;
       
+      const getPermModule = (label: string): string => {
+        const permMap: Record<string, string> = {
+          'PDV': 'Vendas',
+          'Histórico de Vendas': 'Vendas',
+          'Devoluções / Estornos': 'Vendas',
+          'Vales de Crédito': 'Vendas',
+          'Auditoria de Vendas': 'Vendas',
+          'Promoções': 'Vendas',
+          'Estoque': 'Estoque'
+        };
+        return permMap[label] || label;
+      };
+
       if (item.subItems) {
-        const filteredSubItems = item.subItems.filter(sub => hasPermission(sub.label, 'view'));
+        const filteredSubItems = item.subItems.filter(sub => hasPermission(getPermModule(sub.label), 'view'));
         if (filteredSubItems.length > 0) {
           return { ...item, subItems: filteredSubItems };
         }
         return null;
       }
-      return hasPermission(item.label, 'view') || item.superAdminOnly || isSuperAdmin ? item : null;
+      return hasPermission(getPermModule(item.label), 'view') || item.superAdminOnly || isSuperAdmin ? item : null;
     }).filter(Boolean) as any[];
 
   const SidebarContent = (

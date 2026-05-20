@@ -22,11 +22,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     const isSuperAdminManagement = effectiveUser?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
+    const isCaixaCheck = effectiveUser?.role?.trim().toLowerCase() === 'caixa';
     let target = !effectiveUser ? '/login' : (pathname === '/login' ? '/' : null);
     
-    // Specific redirect for the management superadmin
+    // Specific redirect for the management superadmin and Caixa role
     if (effectiveUser && isSuperAdminManagement && pathname === '/') {
       target = '/admin/companies';
+    } else if (effectiveUser && isCaixaCheck && (pathname === '/' || pathname === '/login')) {
+      target = '/pdv';
     }
     
     if (target) {

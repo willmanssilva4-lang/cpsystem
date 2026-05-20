@@ -117,13 +117,37 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   try {
     const { id } = await params;
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-
-    if (error) {
-      console.error('Error deleting auth user:', (error as Error).message);
-      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    
+    // 1. Delete from Auth (attempt)
+    let authErrorOccurred = false;
+    let authErrorMessage = '';
+    
+    try {
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
+      if (authError) {
+        authErrorOccurred = true;
+        authErrorMessage = authError.message || '';
+        console.warn(`Auth delete warning/error for user ${id}:`, authErrorMessage);
+      }
+    } catch (e: any) {
+      authErrorOccurred = true;
+      authErrorMessage = e.message || 'Error executing auth delete';
+      console.warn(`Auth delete exception for user ${id}:`, authErrorMessage);
     }
 
+    // 2. Delete from DB table public.system_users using Admin client (Service Role bypasses RLS)
+    const { error: dbError } = await supabaseAdmin
+      .from('system_users')
+      .delete()
+      .eq('id', id);
+
+    if (dbError) {
+      console.error('Error deleting system_users table record:', dbError.message);
+      return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
+    }
+
+    // If auth delete failed with anything other than "not found", we log it but still succeed 
+    // because the database record public.system_users has been successfully removed.
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('Unexpected error deleting user:', error);
