@@ -36,10 +36,17 @@ interface PurchaseItem {
 
 export default function NovaCompraPage() {
   const router = useRouter();
-  const { user, addStockMovement, addExpense } = useERP();
+  const { user, addStockMovement, addExpense, hasPermission } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !hasPermission('Compras', 'create')) {
+      alert('Você não tem permissão para realizar compras.');
+      router.push('/compras');
+    }
+  }, [isLoading, hasPermission, router]);
 
   // Data lists
   const [suppliersList, setSuppliersList] = useState<any[]>([]);

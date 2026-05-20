@@ -16,7 +16,7 @@ type InventoryStep = 'setup' | 'counting' | 'summary';
 type InventoryType = 'Geral' | 'Rotativo' | 'Categoria';
 
 export function InventorySessionModal({ onClose, onComplete }: InventorySessionModalProps) {
-  const { products, addInventory, addStockMovement, user, subcategorias, categorias, fetchData } = useERP();
+  const { products, addInventory, addStockMovement, user, subcategorias, categorias, fetchData, hasPermission } = useERP();
   const [step, setStep] = useState<InventoryStep>('setup');
   const [search, setSearch] = useState('');
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -77,6 +77,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   });
 
   const handleCountChange = (productId: string, value: string) => {
+    if (!hasPermission('Gestão de Produtos', 'edit')) {
+      alert('Você não tem permissão para editar inventário.');
+      return;
+    }
     const numValue = parseInt(value) || 0;
     setCounts(prev => ({ ...prev, [productId]: numValue }));
   };
@@ -105,6 +109,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   };
 
   const handleFinalize = async () => {
+    if (!hasPermission('Gestão de Produtos', 'create')) {
+      alert('Você não tem permissão para realizar inventário.');
+      return;
+    }
     setIsSaving(true);
     try {
       const { totalDivergenceValue, itemsCounted } = calculateTotals();

@@ -456,6 +456,10 @@ export default function ProductsPage() {
   };
 
   const handleStockAdjustment = async () => {
+    if (!hasPermission('Gestão de Produtos', 'edit')) {
+      alert('Você não tem permissão para realizar ajustes de estoque.');
+      return;
+    }
     if (!adjustmentProductId || adjustmentQty <= 0) {
       alert('Selecione um produto e informe uma quantidade válida.');
       return;

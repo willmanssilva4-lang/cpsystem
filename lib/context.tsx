@@ -1134,45 +1134,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     // -- FALLBACKS IF NOT DEFINED IN DATABASE PERMISSIONS TABLE --
     if (user.role === 'Administrador') return true;
     
-    if (user.role) {
-      const roleLower = user.role.trim().toLowerCase();
-      
-      if (roleLower === 'caixa') {
-        if (module === 'Vendas') return true;
-        if (module === 'Dashboard' && action === 'view') return true;
-        if (module === 'Clientes' && (action === 'view' || action === 'create')) return true;
-      }
-      
-      if (roleLower === 'fiscal de caixa') {
-        if (module === 'Vendas') return true;
-        if (module === 'Dashboard' && action === 'view') return true;
-        if (module === 'Clientes' && (action === 'view' || action === 'create' || action === 'edit')) return true;
-      }
-      
-      if (roleLower === 'gerente') {
-        if (module === 'Gestão de Empresas') return false;
-        return true; // Gerente has access to all operational modules by default
-      }
-      
-      if (roleLower === 'financeiro') {
-        if (module === 'Financeiro') return true;
-        if (module === 'Dashboard' && action === 'view') return true;
-        if (module === 'Relatórios' && action === 'view') return true;
-      }
-      
-      if (roleLower === 'estoquista') {
-        if (module === 'Estoque') return true;
-        if (module === 'Compras' && (action === 'view' || action === 'create')) return true;
-        if (module === 'Dashboard' && action === 'view') return true;
-      }
-      
-      if (roleLower === 'comprador') {
-        if (module === 'Compras') return true;
-        if (module === 'Estoque' && action === 'view') return true;
-        if (module === 'Dashboard' && action === 'view') return true;
-      }
-    }
-    
     return false;
   }, [user, permissions, accessProfiles]);
 
