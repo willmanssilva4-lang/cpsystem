@@ -162,6 +162,23 @@ const INITIAL_COMPANY_SETTINGS: CompanySettings = {
   }
 };
 
+const getRoleFromUser = (userData: any): string => {
+  if (userData.access_profiles?.name) {
+    return userData.access_profiles.name;
+  }
+  
+  // Fallbacks for global default profile IDs
+  const pId = userData.profile_id || userData.profileId || '';
+  const idLower = pId.toLowerCase();
+  
+  if (idLower === '00000000-0000-0000-0000-000000000000') return 'Administrador';
+  if (idLower === 'f8ab109e-2361-4521-9e5e-0f57ea773b50' || idLower === '2c5c33b7-bfc3-46c6-a236-e7ef70906c19' || idLower === '825d7f60-4152-4597-862b-e00021de47b8') return 'Caixa';
+  if (idLower === 'e962be8b-7f3f-4c86-a52a-eda3c7f3aff7') return 'Gerente';
+  if (idLower === 'fd8c75ae-db58-40b2-b7e6-c9800d484caf') return 'Financeiro';
+  
+  return userData.role || 'user';
+};
+
 export function ERPProvider({ children }: { children: React.ReactNode }) {
   const getInitialState = <T,>(key: string, defaultValue: T): T => {
     if (typeof window !== 'undefined') {
@@ -807,9 +824,39 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           { name: 'Fiscal de Caixa', description: 'Responsável por autorizações especiais no PDV, cancelamentos e estornos.' }
         ];
 
+        // Unique the fetched access profiles by name case-insensitively, preferring those with permissions
+        const uniqueProfilesMap = new Map<string, any>();
+        
+        // Group profiles by lowercase name to find the best candidate for each name
+        const groupedByName = new Map<string, any[]>();
+        accessProfilesData.forEach((p: any) => {
+          const nameKey = p.name?.trim()?.toLowerCase();
+          if (!nameKey) return;
+          const list = groupedByName.get(nameKey) || [];
+          list.push(p);
+          groupedByName.set(nameKey, list);
+        });
+
+        // For each group, choose the best candidate
+        groupedByName.forEach((list, nameKey) => {
+          // 1. Prefer profile that has permissions in permissionsData
+          let best = list.find(p => permissionsData && permissionsData.some((perm: any) => perm.profile_id === p.id));
+          // 2. Otherwise prefer company-specific
+          if (!best && companyId) {
+            best = list.find(p => p.company_id === companyId);
+          }
+          // 3. Fallback to the first one
+          if (!best) {
+            best = list[0];
+          }
+          uniqueProfilesMap.set(nameKey, best);
+        });
+
+        const uniqueProfiles = Array.from(uniqueProfilesMap.values());
+
         // Check which profiles are missing
         const missingProfiles = defaultProfiles.filter(dp => 
-          !accessProfilesData.some((ap: any) => ap.name === dp.name)
+          !uniqueProfiles.some((ap: any) => ap.name?.trim()?.toLowerCase() === dp.name.toLowerCase())
         );
 
         if (missingProfiles.length > 0) {
@@ -824,8 +871,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             .select();
             
           if (!insertError && newProfiles) {
-            // Combine existing and new profiles
-            const allProfiles = [...accessProfilesData, ...newProfiles];
+            // Combine unique and new profiles
+            const allProfiles = [...uniqueProfiles, ...newProfiles];
             setAccessProfiles(allProfiles.map((p: any) => ({
               id: p.id,
               name: p.name,
@@ -833,15 +880,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             })));
           } else {
             console.error('Error inserting missing profiles:', insertError);
-            // Fallback to just showing existing ones
-            setAccessProfiles(accessProfilesData.map((p: any) => ({
+            setAccessProfiles(uniqueProfiles.map((p: any) => ({
               id: p.id,
               name: p.name,
               description: p.description
             })));
           }
         } else {
-          setAccessProfiles(accessProfilesData.map((p: any) => ({
+          setAccessProfiles(uniqueProfiles.map((p: any) => ({
             id: p.id,
             name: p.name,
             description: p.description
@@ -1065,7 +1111,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     if (user.role === 'Administrador') return true;
     
-    const profilePerms = permissions.filter(p => p.profileId === user.profileId);
+    // Find checking profile ID. If user.role matches a profile name in our deduplicated accessProfiles, prefer that ID
+    let profileIdToCheck = user.profileId;
+    if (user.role) {
+      const activeProfile = accessProfiles.find(p => p.name?.trim()?.toLowerCase() === user.role.toLowerCase());
+      if (activeProfile) {
+        profileIdToCheck = activeProfile.id;
+      }
+    }
+
+    const profilePerms = permissions.filter(p => p.profileId === profileIdToCheck);
     const modPerm = profilePerms.find(p => p.module === module);
     
     if (!modPerm) return false;
@@ -1077,7 +1132,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       case 'delete': return modPerm.canDelete;
       default: return false;
     }
-  }, [user, permissions]);
+  }, [user, permissions, accessProfiles]);
 
   const addCashMovement = useCallback(async (movement: Omit<CashMovement, 'id' | 'createdAt' | 'createdBy'>) => {
     const { data, error } = await supabase.from('cash_movements').insert([{
@@ -1184,7 +1239,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               id: userData.id,
               name: userData.employees?.full_name || userData.username || userData.full_name || session.user.email?.split('@')[0] || 'Usuário',
               email: userData.email || session.user.email || userData.username || '',
-              role: userData.access_profiles?.name || userData.profile_id || 'user',
+              role: getRoleFromUser(userData),
               profileId: userData.profile_id,
               companyId: userData.company_id
             };
@@ -1460,7 +1515,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             id: userData.id,
             name: userData.employees?.full_name || userData.username || userData.full_name || data.user.email?.split('@')[0] || 'Usuário',
             email: userData.email || data.user.email || emailToUse,
-            role: userData.access_profiles?.name || userData.role || 'user',
+            role: getRoleFromUser(userData),
             profileId: userData.profile_id,
             companyId: userData.company_id
           };

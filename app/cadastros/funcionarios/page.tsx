@@ -20,6 +20,15 @@ import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 
+const GLOBAL_PROFILES_MAP: Record<string, string> = {
+  '00000000-0000-0000-0000-000000000000': 'Administrador',
+  'f8ab109e-2361-4521-9e5e-0f57ea773b50': 'Caixa',
+  '2c5c33b7-bfc3-46c6-a236-e7ef70906c19': 'Caixa',
+  '825d7f60-4152-4597-862b-e00021de47b8': 'Caixa',
+  'e962be8b-7f3f-4c86-a52a-eda3c7f3aff7': 'Gerente',
+  'fd8c75ae-db58-40b2-b7e6-c9800d484caf': 'Financeiro',
+};
+
 export default function FuncionariosPage() {
   const { hasPermission } = useERP();
   const [activeTab, setActiveTab] = useState('funcionarios');
@@ -335,11 +344,19 @@ function UsersSettings() {
   });
 
   const handleEdit = (user: any) => {
+    const currentProfileId = user.profileId || user.profile_id || '';
+    const globalProfileName = currentProfileId ? (GLOBAL_PROFILES_MAP[currentProfileId.toLowerCase()] || null) : null;
+    
+    let matchedProfile = accessProfiles.find(p => p.id === currentProfileId);
+    if (!matchedProfile && globalProfileName) {
+      matchedProfile = accessProfiles.find(p => p.name?.trim()?.toLowerCase() === globalProfileName.toLowerCase());
+    }
+
     setFormData({
       username: user.username,
       email: user.email || '',
       employeeId: user.employeeId || user.employee_id || '',
-      profileId: user.profileId || user.profile_id || '',
+      profileId: matchedProfile ? matchedProfile.id : currentProfileId,
       storeId: user.storeId || user.store_id || 'Todas as Lojas',
       status: user.status,
       password: '',
@@ -556,7 +573,15 @@ function UsersSettings() {
               ) : (
                 systemUsers.map(user => {
                   const emp = employees.find(e => e.id === (user.employeeId || user.employee_id));
-                  const prof = accessProfiles.find(p => p.id === (user.profileId || user.profile_id));
+                  const currentProfileId = user.profileId || user.profile_id || '';
+                  const globalProfileName = currentProfileId ? (GLOBAL_PROFILES_MAP[currentProfileId.toLowerCase()] || null) : null;
+                  
+                  let prof = accessProfiles.find(p => p.id === currentProfileId);
+                  if (!prof && globalProfileName) {
+                    prof = accessProfiles.find(p => p.name?.trim()?.toLowerCase() === globalProfileName.toLowerCase());
+                  }
+                  
+                  const profName = prof ? prof.name : (globalProfileName || 'Sem Perfil');
                   return (
                     <tr key={user.id} className="hover:bg-slate-50/50 transition-all">
                       <td className="px-6 py-4">
@@ -567,7 +592,7 @@ function UsersSettings() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-brand-blue/10 text-brand-blue rounded-full text-[10px] font-black uppercase tracking-widest">{prof?.name || 'Sem Perfil'}</span>
+                        <span className="px-3 py-1 bg-brand-blue/10 text-brand-blue rounded-full text-[10px] font-black uppercase tracking-widest">{profName}</span>
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-brand-text-main/60">{user.storeId || user.store_id || 'Todas'}</td>
                       <td className="px-6 py-4">
