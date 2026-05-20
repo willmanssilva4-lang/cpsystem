@@ -338,13 +338,13 @@ function UsersSettings() {
     setFormData({
       username: user.username,
       email: user.email || '',
-      employeeId: user.employeeId || '',
-      profileId: user.profileId || '',
-      storeId: user.storeId || 'Todas as Lojas',
+      employeeId: user.employeeId || user.employee_id || '',
+      profileId: user.profileId || user.profile_id || '',
+      storeId: user.storeId || user.store_id || 'Todas as Lojas',
       status: user.status,
       password: '',
       confirmPassword: '',
-      supervisorCode: user.supervisorCode || ''
+      supervisorCode: user.supervisorCode || user.supervisor_code || ''
     });
     setEditingId(user.id);
     setShowForm(true);
@@ -555,8 +555,8 @@ function UsersSettings() {
                 </tr>
               ) : (
                 systemUsers.map(user => {
-                  const emp = employees.find(e => e.id === user.employeeId);
-                  const prof = accessProfiles.find(p => p.id === user.profileId);
+                  const emp = employees.find(e => e.id === (user.employeeId || user.employee_id));
+                  const prof = accessProfiles.find(p => p.id === (user.profileId || user.profile_id));
                   return (
                     <tr key={user.id} className="hover:bg-slate-50/50 transition-all">
                       <td className="px-6 py-4">
@@ -569,7 +569,7 @@ function UsersSettings() {
                       <td className="px-6 py-4">
                         <span className="px-3 py-1 bg-brand-blue/10 text-brand-blue rounded-full text-[10px] font-black uppercase tracking-widest">{prof?.name || 'Sem Perfil'}</span>
                       </td>
-                      <td className="px-6 py-4 text-xs font-bold text-brand-text-main/60">{user.storeId || 'Todas'}</td>
+                      <td className="px-6 py-4 text-xs font-bold text-brand-text-main/60">{user.storeId || user.store_id || 'Todas'}</td>
                       <td className="px-6 py-4">
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",

@@ -461,9 +461,9 @@ export default function PDVPage() {
   const handleAuthorization = async (password: string) => {
     // Check if any supervisor has this code
     const supervisor = systemUsers.find(u => 
-      u.supervisorCode === password && 
+      (u.supervisorCode === password || u.supervisor_code === password) && 
       u.status === 'Ativo' &&
-      (u.profileId ? accessProfiles.find(p => p.id === u.profileId)?.name?.toLowerCase() : '')?.match(/administrador|gerente|fiscal de caixa/)
+      ((u.profileId || u.profile_id) ? accessProfiles.find(p => p.id === (u.profileId || u.profile_id))?.name?.toLowerCase() : '')?.match(/administrador|gerente|fiscal de caixa/)
     );
 
     if (supervisor || password === '1234') { // Keep 1234 as fallback for now

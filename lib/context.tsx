@@ -365,8 +365,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         inventories: buildQuery('inventories').order('date', { ascending: false }),
         employees: buildQuery('employees'),
         system_users: buildQuery('system_users'),
-        access_profiles: buildQuery('access_profiles'),
-        permissions: buildQuery('permissions'),
+        access_profiles: companyId 
+          ? supabase.from('access_profiles').select('*').or(`company_id.eq.${companyId},company_id.is.null`)
+          : supabase.from('access_profiles').select('*').is('company_id', null),
+        permissions: companyId
+          ? supabase.from('permissions').select('*').or(`company_id.eq.${companyId},company_id.is.null`)
+          : supabase.from('permissions').select('*').is('company_id', null),
         departamentos: buildQuery('departamentos'),
         categorias: buildQuery('categorias'),
         expense_categories: buildQuery('expense_categories'),
@@ -809,10 +813,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         );
 
         if (missingProfiles.length > 0) {
-          console.log('Inserting missing default profiles:', missingProfiles);
+          const profilesToInsert = missingProfiles.map(p => ({
+            ...p,
+            company_id: companyId
+          }));
+          console.log('Inserting missing default profiles:', profilesToInsert);
           const { data: newProfiles, error: insertError } = await supabase
             .from('access_profiles')
-            .insert(missingProfiles)
+            .insert(profilesToInsert)
             .select();
             
           if (!insertError && newProfiles) {
@@ -2853,81 +2861,34 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   const updateSystemUser = useCallback(async (systemUser: SystemUser, password?: string) => {
     try {
-      // 1. Update Auth user if password changed or email changed
-      // Note: Changing email in Auth usually requires re-confirmation.
-      // For now, let's assume we only update password via this API for simplicity, 
-      // or if we want to update email, we pass it.
-      
-      if (password || systemUser.email) {
-        const updatePayload: any = {};
-        if (password) updatePayload.password = password;
-        if (systemUser.email) updatePayload.email = systemUser.email;
-
-        const response = await fetch(`/api/admin/users/${systemUser.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatePayload)
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          
-          if (data.error && (data.error.includes('User not found') || data.error.includes('User not allowed'))) {
-             // Try to create the user instead
-             console.log('User might not exist in Auth, trying to create...');
-             const createResponse = await fetch('/api/admin/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  username: systemUser.username,
-                  email: systemUser.email,
-                  password: password || 'mudar123', // Default password if trying to create without one? Or require it.
-                  user_metadata: {
-                    name: systemUser.username
-                  }
-                })
-             });
-             
-             if (createResponse.ok) {
-                const createData = await createResponse.json();
-                console.log('User created in Auth during update:', createData.user.id);
-                alert('Login recriado com sucesso. Tente logar com a nova senha.');
-             } else {
-                const createData = await createResponse.json();
-                alert(`Erro ao atualizar e ao tentar recriar login: ${createData.error}`);
-                return;
-             }
-          } else {
-             alert(`Erro ao atualizar login: ${data.error}`);
-             return;
-          }
-        }
-      }
-
-      // 2. Update system_users table
-      let updateData: any = {
-        company_id: user?.companyId || null,
+      const payload = {
         username: systemUser.username,
-        email: systemUser.email,
-        employee_id: systemUser.employeeId,
-        profile_id: systemUser.profileId,
-        store_id: systemUser.storeId,
-        status: systemUser.status
+        email: systemUser.email || null,
+        employeeId: systemUser.employeeId || null,
+        profileId: systemUser.profileId || null,
+        storeId: systemUser.storeId || null,
+        status: systemUser.status,
+        supervisorCode: systemUser.supervisorCode || null,
+        password: password || undefined,
+        companyId: user?.companyId || null
       };
 
-      if (password) {
-        updateData.password_hash = await bcrypt.hash(password, 10);
+      const response = await fetch(`/api/admin/users/${systemUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Error updating user (API):', data.error);
+        alert(`Erro ao atualizar usuário: ${data.error}`);
+        return;
       }
 
-      const { error } = await supabase.from('system_users').update(updateData).eq('id', systemUser.id);
-      
-      if (!error) {
-        await fetchData();
-        alert('Usuário atualizado com sucesso!');
-      } else {
-        console.error('Error updating system user:', error);
-        alert(`Erro ao atualizar dados: ${error.message}`);
-      }
+      await fetchData();
+      alert('Usuário atualizado com sucesso!');
     } catch (err: any) {
       console.error('Unexpected error in updateSystemUser:', err);
       alert('Erro inesperado ao atualizar usuário.');
