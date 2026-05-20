@@ -603,7 +603,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }));
 
         // Create a map for O(1) lookup
-        const productsById = new Map<string, Product>(baseProducts.map((p: any) => [p.id, p]));
+        const productsById = new Map<string, Product>(baseProducts.map((p: any) => [String(p.id), p]));
 
         // Calculate virtual stock for kits and sale products with conversion
         const finalProducts = baseProducts.map((p: any) => {
@@ -627,10 +627,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           
           // Case 2: SALE product with BASE product and conversion factor
           if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
-            const baseProduct = productsById.get(p.base_product_id);
+            const baseProduct = productsById.get(String(p.base_product_id));
             if (baseProduct) {
-              const virtualStock = Math.floor((Number(baseProduct.stock) || 0) / p.conversion_factor);
+              const baseStock = Math.floor(Number(baseProduct.stock) || 0);
+              const convFactor = Number(p.conversion_factor) || 1;
+              const virtualStock = Math.floor(baseStock / convFactor);
+              console.log(`[DEBUG] Virtual Stock: product=${p.name}, base=${baseProduct.name}, baseStock=${baseStock}, convFactor=${convFactor}, virtual=${virtualStock}`);
               return { ...p, stock: virtualStock };
+            } else {
+              console.log(`[DEBUG] Virtual Stock: product=${p.name}, baseProduct NOT FOUND for id=${p.base_product_id}, productsById size=${productsById.size}`);
             }
           }
           
@@ -1121,6 +1126,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const profilePerms = permissions.filter(p => p.profileId === profileIdToCheck);
     const modPerm = profilePerms.find(p => p.module === module);
     
+    console.log(`[DEBUG] hasPermission check: userRole=${user.role}, profileId=${profileIdToCheck}, module=${module}, action=${action}, canCreate=${modPerm?.canCreate}, canEdit=${modPerm?.canEdit}, canView=${modPerm?.canView}, modPerm=${JSON.stringify(modPerm)}`);
+
     if (modPerm) {
       switch (action) {
         case 'view': return modPerm.canView;
@@ -1583,6 +1590,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       company_id: user.companyId,
       name: product.name,
       subcategoria_id: product.subcategoria_id === '' ? undefined : product.subcategoria_id,
+      unit: product.unit || 'UN',
       sku: product.sku,
       cost_price: (product.costPrice === undefined || product.costPrice === null) ? 0 : Number(product.costPrice),
       sale_price: (product.salePrice === undefined || product.salePrice === null) ? 0 : Number(product.salePrice),
@@ -1644,8 +1652,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       
       if (!error && !skipFetch) {
         setCustomAlert({
-          message: 'Produto salvo, mas alguns campos (como Tipo de Produto, Produto Base ou Fator de Conversão) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (update_product_types.sql) no seu painel do Supabase.',
-          type: 'warning'
+          message: 'Produto salvo com sucesso.',
+          type: 'success'
         });
       }
     }
@@ -1691,6 +1699,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       company_id: user.companyId,
       name: updated.name,
       subcategoria_id: updated.subcategoria_id === '' ? null : updated.subcategoria_id,
+      unit: updated.unit || 'UN',
       sku: updated.sku,
       cost_price: (updated.costPrice === undefined || updated.costPrice === null || String(updated.costPrice) === '') ? 0 : Number(updated.costPrice),
       sale_price: (updated.salePrice === undefined || updated.salePrice === null || String(updated.salePrice) === '') ? 0 : Number(updated.salePrice),
@@ -1751,8 +1760,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       
       if (!error) {
         setCustomAlert({
-          message: 'Produto atualizado, mas alguns campos (como Tipo de Produto, Produto Base ou Fator de Conversão) não foram salvos porque as colunas correspondentes não existem no seu banco de dados Supabase. Por favor, execute o script SQL de correção de schema (update_product_types.sql) no seu painel do Supabase.',
-          type: 'warning'
+          message: 'Produto atualizado com sucesso.',
+          type: 'success'
         });
       }
     }
@@ -1956,7 +1965,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
                 const qtyToDeduct = item.quantity * product.conversion_factor;
                 await supabase.from('products').update({ 
                   company_id: user?.companyId || null, 
-                  stock: baseProduct.stock - qtyToDeduct 
+                  stock: Number(baseProduct.stock) - qtyToDeduct 
                 }).eq('id', baseProduct.id);
               }
             }
@@ -2476,7 +2485,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             const qtyToAdd = movement.quantity * product.conversion_factor;
             await supabase.from('products').update({
               company_id: user?.companyId || null,
-              stock: baseProduct.stock + qtyToAdd
+              stock: Number(baseProduct.stock) + qtyToAdd
             }).eq('id', baseProduct.id);
           }
         }

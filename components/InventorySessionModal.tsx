@@ -13,10 +13,10 @@ interface InventorySessionModalProps {
 }
 
 type InventoryStep = 'setup' | 'counting' | 'summary';
-type InventoryType = 'Geral' | 'Rotativo' | 'Categoria';
+type InventoryType = 'Geral' | 'Rotativo' | 'Departamento';
 
 export function InventorySessionModal({ onClose, onComplete }: InventorySessionModalProps) {
-  const { products, addInventory, addStockMovement, user, subcategorias, categorias, fetchData, hasPermission } = useERP();
+  const { products, addInventory, addStockMovement, user, subcategorias, categorias, fetchData, hasPermission, departamentos } = useERP();
   const [step, setStep] = useState<InventoryStep>('setup');
   const [search, setSearch] = useState('');
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -26,7 +26,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [config, setConfig] = useState({
     location: 'Loja Principal',
     type: 'Geral' as InventoryType,
-    category: '',
+    departmentId: '',
     responsible: user?.name || 'Sistema'
   });
 
@@ -36,14 +36,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   const handleStartSession = () => {
     let filtered = [...products];
-    if (config.type === 'Categoria' && config.category) {
-      const cat = categorias.find(c => c.nome === config.category);
-      if (cat) {
-        const subIds = subcategorias.filter(s => s.categoria_id === cat.id).map(s => s.id);
-        filtered = filtered.filter(p => p.subcategoria_id && subIds.includes(p.subcategoria_id));
-      } else {
-        filtered = [];
-      }
+    if (config.type === 'Departamento' && config.departmentId) {
+      const catsInDept = categorias.filter(c => c.departamento_id === config.departmentId);
+      const catIds = catsInDept.map(c => c.id);
+      const subIds = subcategorias.filter(s => catIds.includes(s.categoria_id)).map(s => s.id);
+      filtered = filtered.filter(p => p.subcategoria_id && subIds.includes(p.subcategoria_id));
     } else if (config.type === 'Rotativo') {
       if (selectedRotativoProducts.length === 0) {
         alert('Selecione pelo menos um produto para o inventário rotativo.');
@@ -195,7 +192,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     <Tag size={12} /> Tipo de Inventário
                   </label>
                   <div className="grid grid-cols-3 gap-3">
-                    {(['Geral', 'Rotativo', 'Categoria'] as InventoryType[]).map(t => (
+                    {(['Geral', 'Rotativo', 'Departamento'] as InventoryType[]).map(t => (
                       <button
                         key={t}
                         onClick={() => setConfig(prev => ({ ...prev, type: t }))}
@@ -212,17 +209,17 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   </div>
                 </div>
 
-                {config.type === 'Categoria' && (
+                {config.type === 'Departamento' && (
                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selecionar Categoria</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selecionar Departamento</label>
                     <select 
-                      value={config.category}
-                      onChange={(e) => setConfig(prev => ({ ...prev, category: e.target.value }))}
+                      value={config.departmentId}
+                      onChange={(e) => setConfig(prev => ({ ...prev, departmentId: e.target.value }))}
                       className="w-full bg-white border border-slate-200 px-4 py-4 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
                     >
-                      <option value="">Todas as Categorias</option>
-                      {categorias.map(cat => (
-                        <option key={cat.id} value={cat.nome}>{cat.nome}</option>
+                      <option value="">Todos os Departamentos</option>
+                      {departamentos.map(dept => (
+                        <option key={dept.id} value={dept.id}>{dept.nome}</option>
                       ))}
                     </select>
                   </div>
