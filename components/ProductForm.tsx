@@ -225,7 +225,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     
     const baseProduct = products.find(p => p.id === formData.base_product_id);
     if (baseProduct) {
-      return Math.floor((Number(baseProduct.stock) || 0) / Number(formData.conversion_factor));
+      return Math.floor((Number(baseProduct.stock) || 0) * Number(formData.conversion_factor));
+    }
+    return 0;
+  }, [formData.product_type, formData.base_product_id, formData.conversion_factor, products]);
+
+  const calculatedVirtualCost = React.useMemo(() => {
+    if (formData.product_type !== 'SALE' || !formData.base_product_id || !formData.conversion_factor) return null;
+    
+    const baseProduct = products.find(p => p.id === formData.base_product_id);
+    if (baseProduct) {
+      const baseCost = (Number(baseProduct.costPrice) || 0);
+      const convFactor = Number(formData.conversion_factor) || 1;
+      return baseCost / convFactor;
     }
     return 0;
   }, [formData.product_type, formData.base_product_id, formData.conversion_factor, products]);
@@ -418,7 +430,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     const finalData = {
       ...formData,
       codigo_mercadologico: finalCodigoMercadologico,
-      stock: displayStock
+      stock: displayStock,
+      costPrice: calculatedVirtualCost !== null ? calculatedVirtualCost : (calculatedKitStock !== null ? formData.costPrice : formData.costPrice)
     };
     onSave(finalData);
   };
@@ -739,7 +752,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <input 
                       type="number"
                       name="costPrice"
-                      value={formData.costPrice}
+                      value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(2) : formData.costPrice}
+                      readOnly={calculatedKitStock !== null || calculatedVirtualCost !== null}
                       onChange={(e) => {
                         const val = e.target.value;
                         const costPrice = val === '' ? 0 : Number(val);

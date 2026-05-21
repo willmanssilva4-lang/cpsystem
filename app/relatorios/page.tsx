@@ -3688,8 +3688,13 @@ function StockProfitReport() {
     return products
       .filter(p => p.status !== 'Inativo' && p.stock > 0)
       .filter(p => {
-        const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
-        if (isVirtual) return false;
+        // Exclude kits (composition) because their components are already listed individually
+        if (p.composition && p.composition.length > 0) return false;
+
+        // Exclude products used as a base for other products to avoid double counting value
+        // We prefer to show the "selling units" (derived products) instead of the internal base units
+        const isUsedAsBase = products.some(other => other.base_product_id === p.id);
+        if (isUsedAsBase) return false;
 
         const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                              p.sku.toLowerCase().includes(searchTerm.toLowerCase());

@@ -439,10 +439,8 @@ export default function ProductsPage() {
     if (productToDelete) {
       try {
         await deleteProduct(productToDelete);
-        // alert('Produto excluído com sucesso!');
       } catch (error: any) {
         console.error('Delete product error:', error);
-        // alert('Erro ao excluir produto: ' + (error.message || 'Verifique se o produto possui vendas ou perdas registradas.'));
       } finally {
         setProductToDelete(null);
       }

@@ -586,6 +586,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           image: (!p.image || p.image.includes('mercadinhosupernice.com.br') || p.image.includes('images.unsplash.com') || p.image.includes('picsum.photos/seed/produto')) ? 'https://i.imgur.com/jGU5BUa.png' : p.image,
           composition: p.composition || [],
           status: p.status || 'Ativo',
+          unit: p.unit || 'UN',
           codigo_mercadologico: p.codigo_mercadologico,
           subcategoria_id: p.subcategoria_id,
           supplier: p.supplier,
@@ -629,11 +630,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
             const baseProduct = productsById.get(String(p.base_product_id));
             if (baseProduct) {
-              const baseStock = Math.floor(Number(baseProduct.stock) || 0);
+              const baseStock = Number(baseProduct.stock) || 0;
+              const baseCost = Number(baseProduct.costPrice) || 0;
               const convFactor = Number(p.conversion_factor) || 1;
-              const virtualStock = Math.floor(baseStock / convFactor);
-              console.log(`[DEBUG] Virtual Stock: product=${p.name}, base=${baseProduct.name}, baseStock=${baseStock}, convFactor=${convFactor}, virtual=${virtualStock}`);
-              return { ...p, stock: virtualStock };
+              const virtualStock = Math.floor(baseStock * convFactor);
+              const virtualCost = baseCost / convFactor;
+              
+              console.log(`[DEBUG] Virtual Price Calculation: product=${p.name}, base=${baseProduct.name}, baseCost=${baseCost}, convFactor=${convFactor}, virtualCost=${virtualCost}`);
+              
+              return { 
+                ...p, 
+                stock: virtualStock,
+                costPrice: virtualCost
+              };
             } else {
               console.log(`[DEBUG] Virtual Stock: product=${p.name}, baseProduct NOT FOUND for id=${p.base_product_id}, productsById size=${productsById.size}`);
             }
@@ -1793,18 +1802,68 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const deleteProduct = useCallback(async (id: string) => {
     console.log('Tentando excluir produto:', id);
     try {
+      // Verificar se é produto base de outros
+      const productsDerived = products.filter(p => p.base_product_id === id);
+      if (productsDerived.length > 0) {
+        setCustomAlert?.({
+          title: 'Não é possível excluir',
+          message: `Este produto é base para ${productsDerived.length} outro(s) produto(s). Exclua os produtos derivados primeiro.`,
+          type: 'error'
+        });
+        return;
+      }
+
+      // Verificar se faz parte de algum kit
+      const kitsWithProduct = products.filter(p => 
+        p.composition?.some((c: any) => c.id === id)
+      );
+      if (kitsWithProduct.length > 0) {
+        setCustomAlert?.({
+          title: 'Não é possível excluir',
+          message: `Este produto faz parte da composição de ${kitsWithProduct.length} kit(s). Remova-o dos kits primeiro.`,
+          type: 'error'
+        });
+        return;
+      }
+
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) {
         console.error('Error deleting product from Supabase:', error);
+        
+        if (error.code === '23503') { // Foreign key violation
+          setCustomAlert?.({
+            title: 'Não é possível excluir',
+            message: 'Este produto possui histórico de vendas ou movimentações e não pode ser removido definitivamente. Recomendamos alterar o status para "Inativo".',
+            type: 'error'
+          });
+          return;
+        }
+        
         throw error;
       }
+      
       console.log('Produto excluído com sucesso');
+      
+      // Optimistic update
+      setProducts(prev => prev.filter(p => p.id !== id));
+      
+      setCustomAlert?.({
+        title: 'Produto Excluído',
+        message: 'Produto removido com sucesso.',
+        type: 'success'
+      });
+      
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('deleteProduct failed:', error);
+      setCustomAlert?.({
+        title: 'Erro ao Excluir',
+        message: error.message || 'Ocorreu um erro ao tentar excluir o produto.',
+        type: 'error'
+      });
       throw error;
     }
-  }, [fetchData]);
+  }, [fetchData, products, setCustomAlert]);
 
   const addSale = useCallback(async (sale: Omit<Sale, 'id'>): Promise<Sale | null> => {
     console.log('DEBUG: addSale recebendo:', sale);
@@ -1962,7 +2021,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             if (product.product_type === 'SALE' && product.base_product_id && product.conversion_factor) {
               const baseProduct = products.find(p => p.id === product.base_product_id);
               if (baseProduct) {
-                const qtyToDeduct = item.quantity * product.conversion_factor;
+                const qtyToDeduct = item.quantity / Number(product.conversion_factor);
                 await supabase.from('products').update({ 
                   company_id: user?.companyId || null, 
                   stock: Number(baseProduct.stock) - qtyToDeduct 
@@ -2482,7 +2541,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         if (product.product_type === 'SALE' && product.base_product_id && product.conversion_factor) {
           const baseProduct = products.find(p => p.id === product.base_product_id);
           if (baseProduct) {
-            const qtyToAdd = movement.quantity * product.conversion_factor;
+            const qtyToAdd = movement.quantity / Number(product.conversion_factor);
             await supabase.from('products').update({
               company_id: user?.companyId || null,
               stock: Number(baseProduct.stock) + qtyToAdd
