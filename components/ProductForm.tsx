@@ -284,7 +284,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     if (formData.product_type === 'SALE' && calculatedVirtualCost !== null) {
       effectiveCost = calculatedVirtualCost;
     } else if (formData.product_type === 'KIT' && formData.composition && formData.composition.length > 0) {
-      effectiveCost = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+      effectiveCost = Number((formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0)).toFixed(3));
     }
     
     if (effectiveCost !== null) {
@@ -795,7 +795,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <input 
                       type="number"
                       name="costPrice"
-                      value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(2) : formData.costPrice}
+                      step="0.001"
+                      value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(3) : (typeof formData.costPrice === 'number' ? Number(formData.costPrice.toFixed(3)) : formData.costPrice)}
                       readOnly={calculatedKitStock !== null || calculatedVirtualCost !== null}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -2067,10 +2068,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   />
                                 </div>
                                 <div className="col-span-2 text-right font-bold text-brand-blue/80 text-sm">
-                                  R$ {item.price?.toFixed(2)}
+                                  R$ {item.price?.toFixed(3)}
                                 </div>
                                 <div className="col-span-2 text-right font-black text-brand-text-main text-sm">
-                                  R$ {((item.price || 0) * item.quantity).toFixed(2)}
+                                  R$ {((item.price || 0) * item.quantity).toFixed(3)}
                                 </div>
                                 <div className="col-span-1 flex justify-center">
                                   <button 
@@ -2094,7 +2095,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <div className="bg-brand-text-main text-white px-6 py-4 flex justify-between items-center">
                         <div className="text-[10px] font-black uppercase italic opacity-80 tracking-widest">Custo Total do Kit</div>
                         <div className="text-xl font-black">
-                          R$ {formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0).toFixed(2)}
+                          R$ {formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0).toFixed(3)}
                         </div>
                       </div>
                     </div>
@@ -2111,7 +2112,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           <div>
                             <label className="block text-[10px] font-black mb-1 uppercase italic text-brand-text-main/80 tracking-widest">Custo Total (Soma dos Produtos)</label>
                             <div className="w-full bg-slate-50 border border-brand-border px-4 py-3 rounded-2xl text-lg font-black text-brand-text-main">
-                              R$ {formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0).toFixed(2)}
+                              R$ {formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0).toFixed(3)}
                             </div>
                           </div>
                           

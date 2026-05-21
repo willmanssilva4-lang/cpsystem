@@ -106,7 +106,9 @@ export default function NovaCompraPage() {
 
         // Set products from context
         if (products) {
-          const enrichedProducts = products.map(p => {
+          const enrichedProducts = products
+            .filter(p => !p.base_product_id) // Exclude products that are linked to a Base Product
+            .map(p => {
             const baseP = products.find(b => b.id === p.base_product_id);
             return {
               ...p,
@@ -150,15 +152,15 @@ export default function NovaCompraPage() {
             const parsedItems = JSON.parse(savedItems);
             const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
               const product = products.find((prod: any) => prod.id === p.id);
-              const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0));
-              const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.cost_price) || 0);
+              const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.minStock || 0) - ((product as any)?.stock || 0));
+              const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.costPrice) || 0);
               return {
                 id: Math.random().toString(36).substr(2, 9),
                 productId: p.id,
                 productName: p.name,
                 qty: qty,
                 cost: cost,
-                salePrice: Number((product as any)?.sale_price) || 0,
+                salePrice: Number((product as any)?.salePrice) || 0,
                 expirationDate: getLocalDateString(),
                 total: qty * cost
               };
@@ -327,8 +329,8 @@ export default function NovaCompraPage() {
   const selectProduct = (product: any) => {
     setSelectedProduct(product);
     setSearchTerm(product.name);
-    setItemCost(Number(product.cost_price) || 0);
-    setItemSalePrice(Number(product.sale_price) || 0);
+    setItemCost(Number(product.costPrice) || 0);
+    setItemSalePrice(Number(product.salePrice) || 0);
     setSearchResults([]);
     setSelectedIndex(-1);
     
@@ -814,7 +816,7 @@ export default function NovaCompraPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-xs font-black text-brand-blue">R$ {Number(product.sale_price).toFixed(2)}</div>
+                                  <div className="text-xs font-black text-brand-blue">R$ {Number(product.salePrice || 0).toFixed(2)}</div>
                                   <div className="text-[10px] text-slate-400 font-bold">Estoque: {product.stock || 0}</div>
                                 </div>
                               </button>
