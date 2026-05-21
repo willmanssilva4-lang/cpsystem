@@ -277,6 +277,41 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   const [categoryId, setCategoryId] = useState('');
   const [departamentoId, setDepartamentoId] = useState('');
 
+  // Sincronizar custo virtual (SALE type) e custo do kit (KIT type) com formData para cálculos de margem
+  useEffect(() => {
+    let effectiveCost = null;
+    
+    if (formData.product_type === 'SALE' && calculatedVirtualCost !== null) {
+      effectiveCost = calculatedVirtualCost;
+    } else if (formData.product_type === 'KIT' && formData.composition && formData.composition.length > 0) {
+      effectiveCost = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+    }
+    
+    if (effectiveCost !== null) {
+      const currentCost = typeof formData.costPrice === 'string' ? (formData.costPrice === '' ? 0 : Number(formData.costPrice)) : formData.costPrice;
+      
+      // Use a small epsilon for floating point comparison
+      if (Math.abs(effectiveCost - currentCost) > 0.01) {
+        const salePrice = typeof formData.salePrice === 'string' ? (formData.salePrice === '' ? 0 : Number(formData.salePrice)) : formData.salePrice;
+        const profit = Math.round((salePrice - effectiveCost) * 100) / 100;
+        
+        let profitPercentage = 0;
+        if (pricingMethod === 'markup') {
+          profitPercentage = effectiveCost > 0 ? (profit / effectiveCost) * 100 : 0;
+        } else {
+          profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          costPrice: effectiveCost as number,
+          profit,
+          profitPercentage: Math.round(profitPercentage * 100) / 100
+        }));
+      }
+    }
+  }, [calculatedVirtualCost, formData.product_type, formData.composition, pricingMethod, formData.salePrice, formData.costPrice]);
+
   useEffect(() => {
     if (initialData?.id && !formData.validade && lotes.length > 0 && !validadeInitialized.current) {
       const productLotes = lotes.filter(l => l.productId === initialData.id);
@@ -312,10 +347,18 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     ? calculatedKitStock 
     : (calculatedVirtualStock !== null ? calculatedVirtualStock : formData.stock);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Check if it's a text-like input to apply uppercase
+    let finalValue = value;
+    const target = e.target as any;
+    if (target.type === 'text' || target.tagName === 'TEXTAREA' || !target.type) {
+      finalValue = value.toUpperCase();
+    }
+
     setFormData(prev => {
-      const newState = { ...prev, [name]: value };
+      const newState = { ...prev, [name]: finalValue };
       
       // Clear base product info if type is not SALE
       if (name === 'product_type' && value !== 'SALE') {
@@ -790,7 +833,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <input 
                       type="number"
                       name="profit"
-                      value={formData.profit === '' ? '' : Math.round(Number(formData.profit) * 100) / 100}
+                      value={formData.profit === '' ? '' : formData.profit}
+                      step="0.01"
                       onChange={(e) => {
                         const val = e.target.value;
                         const profit = val === '' ? '' : Math.round(Number(val) * 100) / 100;
@@ -856,8 +900,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <input 
                         type="number"
                         name="profitPercentage"
-                        value={(formData.profitPercentage as any) === '' ? '' : Math.round(Number(formData.profitPercentage) * 100) / 100}
+                        value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage}
                         readOnly={!pricingSettings.allowEditOnProduct}
+                        step="0.01"
                         onChange={(e) => {
                           const val = e.target.value;
                           const profitPercentage = val === '' ? '' : Number(val);
@@ -887,13 +932,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   <div className="w-24">
                     <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Venda:</label>
                     <input 
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       name="salePrice"
-                      value={formData.salePrice}
+                      value={(formData.salePrice as any) === '' ? '' : formData.salePrice.toString().replace('.', ',')}
                       readOnly={!pricingSettings.allowEditOnProduct}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        const salePrice = val === '' ? 0 : Number(val);
+                        const val = e.target.value.replace('.', ',');
+                        const normalized = val.replace(',', '.');
+                        const salePrice = normalized === '' ? 0 : Number(normalized);
                         const costPrice = Number(formData.costPrice);
                         const profit = Math.round((salePrice - costPrice) * 100) / 100;
                         let profitPercentage = 0;
@@ -902,7 +949,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         } else {
                           profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                         }
-                        setFormData(prev => ({ ...prev, salePrice: val === '' ? '' : salePrice, profit, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
+                        if (normalized === '' || !isNaN(Number(normalized))) {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            salePrice: normalized === '' ? '' : Math.round(salePrice * 100) / 100, 
+                            profit, 
+                            profitPercentage: Math.round(profitPercentage * 100) / 100 
+                          }));
+                        }
                       }}
                       className={cn(
                         "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
@@ -1120,16 +1174,18 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           )}
                         </select>
                       </div>
-                      <div className="w-40">
+                      <div className="w-44">
                         <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fator Conversão:</label>
                         <input 
                           type="number"
+                          step="any"
                           name="conversion_factor"
                           value={formData.conversion_factor}
                           onChange={handleChange}
                           className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                          placeholder="Ex: 950"
+                          placeholder="Ex: 900"
                         />
+                        <p className="text-[10px] text-brand-blue font-bold mt-1 uppercase italic leading-tight">Ex: 900 para ml ou 0,9 para litros</p>
                       </div>
                     </>
                   )}
@@ -1931,13 +1987,13 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-xl z-10 max-h-64 overflow-y-auto scrollbar-hide">
                           {products
                             .filter(p => p.id !== initialData?.id)
-                            .filter(p => (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm)) && p.status !== 'Inativo')
+                            .filter(p => (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm)))
                             .map(product => {
                               const isLowStock = product.stock <= product.minStock;
                               return (
                                 <div key={product.id} className="p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex justify-between items-center transition-colors">
                                   <div>
-                                    <div className="font-bold text-brand-text-main text-xs">{product.name}</div>
+                                    <div className="font-bold text-brand-text-main text-xs">{product.name} {product.gramatura && <span className="text-brand-blue-hover/60">({product.gramatura})</span>}</div>
                                     <div className="flex gap-3 text-[10px] font-black uppercase italic mt-1">
                                       <span className={isLowStock ? "text-rose-500" : "text-brand-blue-hover"}>
                                         Estoque: {product.stock} {isLowStock && '(Baixo)'}
@@ -1997,7 +2053,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             return (
                               <div key={item.productId} className="px-2 py-3 grid grid-cols-12 gap-4 items-center bg-white border border-slate-50 rounded-xl hover:border-brand-border transition-colors">
                                 <div className="col-span-5">
-                                  <div className="font-bold text-brand-text-main text-xs truncate">{item.name}</div>
+                                  <div className="font-bold text-brand-text-main text-xs truncate">{item.name} {product?.gramatura && <span className="text-brand-blue-hover/60">({product.gramatura})</span>}</div>
                                   {isLowStock && <div className="text-[9px] text-rose-500 font-black uppercase italic">⚠️ Estoque Baixo</div>}
                                 </div>
                                 <div className="col-span-2 flex justify-center">
@@ -2071,10 +2127,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   onClick={() => {
                                     const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
                                     const salePrice = Number(formData.salePrice);
-                                    const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                                    const profit = salePrice - costPrice;
                                     const newProfitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
                                     setPricingMethod('markup');
-                                    setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, costPrice, profit }));
+                                    setFormData(prev => ({ ...prev, profitPercentage: newProfitPercentage, costPrice, profit }));
                                   }}
                                   className={cn(
                                     "px-3 py-1 text-[10px] font-black uppercase italic rounded-md transition-all",
@@ -2090,10 +2146,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   onClick={() => {
                                     const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
                                     const salePrice = Number(formData.salePrice);
-                                    const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                                    const profit = salePrice - costPrice;
                                     const newProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                                     setPricingMethod('margin');
-                                    setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, costPrice, profit }));
+                                    setFormData(prev => ({ ...prev, profitPercentage: newProfitPercentage, costPrice, profit }));
                                   }}
                                   className={cn(
                                     "px-3 py-1 text-[10px] font-black uppercase italic rounded-md transition-all",
@@ -2109,11 +2165,13 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                               <input 
                                 type="number" 
                                 name="profitPercentage"
-                                value={formData.profitPercentage}
+                                value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage}
+                                step="0.01"
                                 readOnly={!pricingSettings.allowEditOnProduct}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  const profitPercentage = val === '' ? 0 : Number(val);
+                                  const val = e.target.value.replace('.', ',');
+                                  const normalized = val.replace(',', '.');
+                                  const profitPercentage = normalized === '' ? 0 : Number(normalized);
                                   const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
                                   let salePrice = 0;
                                   if (pricingMethod === 'markup') {
@@ -2122,9 +2180,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                     const margin = profitPercentage >= 100 ? 99.99 : profitPercentage;
                                     salePrice = costPrice / (1 - (margin / 100));
                                   }
-                                  salePrice = roundPrice(salePrice);
-                                  const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                                  setFormData(prev => ({ ...prev, profitPercentage: val === '' ? '' : Math.round(profitPercentage * 100) / 100, salePrice, profit, costPrice }));
+                                  const profit = (salePrice - costPrice);
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    profitPercentage: val === '' ? '' : Math.round(profitPercentage * 100) / 100, 
+                                    salePrice: Math.round(salePrice * 100) / 100, 
+                                    profit: Math.round(profit * 100) / 100, 
+                                    costPrice 
+                                  }));
                                 }}
                                 className={cn(
                                   "w-full border px-4 py-3 rounded-2xl text-lg font-black outline-none transition-all",
@@ -2133,7 +2196,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                     : "bg-slate-50 border-brand-border text-brand-text-main/40 cursor-not-allowed"
                                 )}
                               />
-                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-text-main/40 font-black">%</span>
+                               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-text-main/40 font-black">%</span>
                             </div>
                             <p className="text-[10px] text-brand-blue/60 mt-2 font-medium italic">
                               {pricingMethod === 'markup' 
@@ -2149,22 +2212,30 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-main/40 font-black">R$</span>
                               <input 
-                                type="number" 
+                                type="text"
+                                inputMode="decimal"
                                 name="salePrice"
-                                value={formData.salePrice}
+                                value={(formData.salePrice as any) === '' ? '' : formData.salePrice.toString().replace('.', ',')}
                                 readOnly={!pricingSettings.allowEditOnProduct}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  const salePrice = val === '' ? 0 : Number(val);
+                                  const val = e.target.value.replace('.', ',');
+                                  const normalized = val.replace(',', '.');
+                                  const salePrice = normalized === '' ? 0 : Number(normalized);
                                   const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
-                                  const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                                  const profit = (salePrice - costPrice);
                                   let profitPercentage = 0;
                                   if (pricingMethod === 'markup') {
                                     profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
                                   } else {
                                     profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                                   }
-                                  setFormData(prev => ({ ...prev, salePrice: val === '' ? '' : salePrice, profit, profitPercentage: Math.round(profitPercentage * 100) / 100, costPrice }));
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    salePrice: val === '' ? '' : Math.round(salePrice * 100) / 100, 
+                                    profit: Math.round(profit * 100) / 100, 
+                                    profitPercentage: Math.round(profitPercentage * 100) / 100, 
+                                    costPrice 
+                                  }));
                                 }}
                                 className={cn(
                                   "w-full pl-12 pr-4 py-3 rounded-2xl text-xl font-black border outline-none transition-all",

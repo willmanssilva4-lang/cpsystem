@@ -719,7 +719,8 @@ export default function ProductsPage() {
                     className="flex items-center gap-2 px-3 h-10 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 outline-none appearance-none pr-8"
                   >
                     <option value="Ativo">Ativos</option>
-                    <option value="Todos">Ativos e Inativos</option>
+                    <option value="Inativo">Inativos</option>
+                    <option value="Todos">Todos</option>
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
@@ -1352,7 +1353,7 @@ export default function ProductsPage() {
 
       {productToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-sm p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Produto</h3>
             <p className="text-gray-600 mb-6">Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.</p>
             <div className="flex justify-end gap-3">

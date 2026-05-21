@@ -157,7 +157,7 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
                   type="text"
                   required
                   value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Ex: Oferta Quarta Verde"
                 />

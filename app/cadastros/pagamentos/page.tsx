@@ -109,7 +109,7 @@ export default function PagamentosPage() {
                   type="text"
                   placeholder="Ex: Cartão de Crédito Master"
                   value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>

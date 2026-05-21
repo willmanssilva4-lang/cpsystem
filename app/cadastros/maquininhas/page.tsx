@@ -117,7 +117,7 @@ export default function MaquininhasPage() {
                   type="text"
                   placeholder="Ex: Stone, PagSeguro, Cielo"
                   value={formData.nome}
-                  onChange={e => setFormData({...formData, nome: e.target.value})}
+                  onChange={e => setFormData({...formData, nome: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>

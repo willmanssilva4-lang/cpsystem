@@ -105,7 +105,7 @@ export default function FornecedoresPage() {
                   type="text"
                   placeholder="Ex: Distribuidora XYZ Ltda"
                   value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
@@ -115,7 +115,7 @@ export default function FornecedoresPage() {
                   type="text"
                   placeholder="00.000.000/0000-00"
                   value={formData.document}
-                  onChange={e => setFormData({...formData, document: e.target.value})}
+                  onChange={e => setFormData({...formData, document: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
@@ -125,7 +125,7 @@ export default function FornecedoresPage() {
                   type="text"
                   placeholder="(00) 0000-0000"
                   value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
+                  onChange={e => setFormData({...formData, phone: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
@@ -135,7 +135,7 @@ export default function FornecedoresPage() {
                   type="email"
                   placeholder="contato@empresa.com"
                   value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  onChange={e => setFormData({...formData, email: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
@@ -145,7 +145,7 @@ export default function FornecedoresPage() {
                   type="text"
                   placeholder="Rua, Número, Bairro, Cidade - UF"
                   value={formData.address}
-                  onChange={e => setFormData({...formData, address: e.target.value})}
+                  onChange={e => setFormData({...formData, address: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>

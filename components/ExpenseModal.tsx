@@ -185,7 +185,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
                 type="text"
                 required
                 value={formData.description}
-                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value.toUpperCase() }))}
                 className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 placeholder="Ex: Pagamento fornecedor Skol"
               />
@@ -260,7 +260,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
               <input
                 type="text"
                 value={formData.supplier}
-                onChange={e => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, supplier: e.target.value.toUpperCase() }))}
                 className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 placeholder="Ex: Skol / Ambev"
               />
@@ -272,7 +272,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1">Seção 5 — Observação</h3>
             <textarea
               value={formData.observation}
-              onChange={e => setFormData(prev => ({ ...prev, observation: e.target.value }))}
+              onChange={e => setFormData(prev => ({ ...prev, observation: e.target.value.toUpperCase() }))}
               className="w-full h-24 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all resize-none"
               placeholder="Alguma observação importante sobre esta despesa..."
             />
@@ -341,7 +341,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
               type="text"
               autoFocus
               value={newCategoryName}
-              onChange={e => setNewCategoryName(e.target.value)}
+              onChange={e => setNewCategoryName(e.target.value.toUpperCase())}
               className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm mb-4 outline-none focus:ring-2 focus:ring-brand-blue/20"
               placeholder="Nome da categoria"
             />

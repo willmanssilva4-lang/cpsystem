@@ -2034,17 +2034,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               for (const comp of product.composition) {
                 const componentProduct = products.find(p => p.id === comp.productId);
                 if (componentProduct) {
+                  let qtyToDeductInBase = comp.quantity * item.quantity;
+                  
+                  // If component is a SALE type, calculate how much to deduct from BASE
+                  if (componentProduct.product_type === 'SALE' && componentProduct.base_product_id && componentProduct.conversion_factor) {
+                    const baseProduct = products.find(p => p.id === componentProduct.base_product_id);
+                    if (baseProduct) {
+                      const baseQtyToDeduct = (comp.quantity * item.quantity) / Number(componentProduct.conversion_factor);
+                      await supabase.from('products').update({ 
+                        company_id: user?.companyId || null, 
+                        stock: Number(baseProduct.stock) - baseQtyToDeduct 
+                      }).eq('id', baseProduct.id);
+                    }
+                  }
+
                   // FIFO for components
                   const componentLotes = lotes
                     .filter(l => l.productId === componentProduct.id && l.saldoAtual > 0)
                     .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
                   
-                  let qtyToDeduct = comp.quantity * item.quantity;
+                  let qtyRemaining = comp.quantity * item.quantity;
                   for (const lote of componentLotes) {
-                    if (qtyToDeduct <= 0) break;
-                    const deduction = Math.min(lote.saldoAtual, qtyToDeduct);
+                    if (qtyRemaining <= 0) break;
+                    const deduction = Math.min(lote.saldoAtual, qtyRemaining);
                     await supabase.from('produto_lotes').update({ company_id: user?.companyId || null, saldo_atual: lote.saldoAtual - deduction }).eq('id', lote.id);
-                    qtyToDeduct -= deduction;
+                    qtyRemaining -= deduction;
                   }
 
                   await supabase.from('products').update({ 

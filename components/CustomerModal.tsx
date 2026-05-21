@@ -121,7 +121,7 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
                 type="text"
                 required
                 value={formData.name}
-                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value.toUpperCase() }))}
                 className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 placeholder="Ex: João Silva"
               />
@@ -135,7 +135,7 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
                 type="text"
                 required
                 value={formData.document}
-                onChange={e => setFormData(prev => ({ ...prev, document: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, document: e.target.value.toUpperCase() }))}
                 className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 placeholder="000.000.000-00"
               />
@@ -148,7 +148,7 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
               <input
                 type="text"
                 value={formData.phone}
-                onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value.toUpperCase() }))}
                 className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 placeholder="(00) 00000-0000"
               />
@@ -161,7 +161,7 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
               <input
                 type="email"
                 value={formData.email}
-                onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, email: e.target.value.toUpperCase() }))}
                 className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                 placeholder="joao@email.com"
               />
