@@ -895,7 +895,7 @@ export default function PDVPage() {
     setBarcode(value);
     
     // Search by barcode (exact match)
-    const product = products.find(p => p.sku === value && p.status !== 'Inativo' && p.product_type !== 'BASE');
+    const product = products.find(p => p.sku === value && p.status !== 'Inativo');
     if (product) {
       setCurrentProduct(product);
       setSearchResults([]);
@@ -904,12 +904,12 @@ export default function PDVPage() {
       setCurrentProduct(null);
       // Search by name (at least 3 chars)
       if (value.length >= 3) {
-        const filtered = products.filter(p => 
-          (p.name.toLowerCase().includes(value.toLowerCase()) ||
-          p.sku.toLowerCase().includes(value.toLowerCase())) &&
-          p.status !== 'Inativo' &&
-          p.product_type !== 'BASE'
-        ).slice(0, 50); // Limit results
+        const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
+        const filtered = products.filter(p => {
+          if (p.status === 'Inativo') return false;
+          const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
+          return searchTerms.every(term => searchableText.includes(term));
+        }).slice(0, 50); // Limit results
         setSearchResults(filtered);
         setSelectedIndex(filtered.length > 0 ? 0 : -1);
       } else {
@@ -947,7 +947,7 @@ export default function PDVPage() {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (searchResults.length === 0 && barcode.length === 0) {
-        setSearchResults(products.filter(p => p.status !== 'Inativo' && p.product_type !== 'BASE').slice(0, 50));
+        setSearchResults(products.filter(p => p.status !== 'Inativo').slice(0, 50));
         setSelectedIndex(0);
       } else {
         setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));

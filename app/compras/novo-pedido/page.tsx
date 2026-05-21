@@ -36,10 +36,11 @@ interface PurchaseItem {
 
 export default function NovaCompraPage() {
   const router = useRouter();
-  const { user, addStockMovement, addExpense, hasPermission } = useERP();
+  const { user, addStockMovement, addExpense, hasPermission, products, suppliers } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !hasPermission('Compras', 'create')) {
@@ -100,16 +101,43 @@ export default function NovaCompraPage() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        // Fetch suppliers
-        const { data: realSuppliers } = await supabase.from('suppliers').select('id, name').eq('company_id', user?.companyId || null).order('name');
-        setSuppliersList(realSuppliers || []);
+        // Set suppliers from context
+        setSuppliersList(suppliers || []);
 
-        // Fetch products
-        const { data: productsData } = await supabase.from('products').select('id, name, sku, stock, cost_price, sale_price').eq('company_id', user?.companyId || null).order('name');
-        if (productsData) {
-          setProductsList(productsData);
+        // Set products from context
+        if (products) {
+          const enrichedProducts = products.map(p => {
+            const baseP = products.find(b => b.id === p.base_product_id);
+            return {
+              ...p,
+              base_product_name: baseP ? baseP.name : null
+            };
+          });
+          setProductsList(enrichedProducts);
           
-          // Check for replenishment items
+          // Load draft PERSISTENCY first
+          if (!hasLoadedDraft) {
+            const savedDraft = localStorage.getItem('purchase_draft');
+            if (savedDraft) {
+              try {
+                const draft = JSON.parse(savedDraft);
+                if (draft.supplierId) setSupplierId(draft.supplierId);
+                if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber);
+                if (draft.issueDate) setIssueDate(draft.issueDate);
+                if (draft.entryDate) setEntryDate(draft.entryDate);
+                if (draft.paymentCondition) setPaymentCondition(draft.paymentCondition);
+                if (draft.financialAccount) setFinancialAccount(draft.financialAccount);
+                if (draft.observations) setObservations(draft.observations);
+                if (draft.items) setItems(draft.items);
+                if (draft.activeTab) setActiveTab(draft.activeTab);
+                setHasLoadedDraft(true);
+              } catch (e) {
+                console.error('Error loading purchase draft:', e);
+              }
+            }
+          }
+          
+          // Check for replenishment items (These have priority over draft if they exist)
           const savedItems = localStorage.getItem('replenishment_items');
           const savedSupplierId = localStorage.getItem('quotation_supplier_id');
           
@@ -121,7 +149,7 @@ export default function NovaCompraPage() {
           if (savedItems) {
             const parsedItems = JSON.parse(savedItems);
             const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
-              const product = productsData.find((prod: any) => prod.id === p.id);
+              const product = products.find((prod: any) => prod.id === p.id);
               const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.min_stock || 0) - ((product as any)?.stock || 0));
               const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.cost_price) || 0);
               return {
@@ -147,8 +175,47 @@ export default function NovaCompraPage() {
       }
     }
 
-    fetchData();
-  }, [user?.companyId]);
+    if (products.length > 0) {
+      fetchData();
+    }
+  }, [user?.companyId, products, suppliers, hasLoadedDraft]);
+
+  // Save draft to localStorage
+  useEffect(() => {
+    if (isLoading || !user?.companyId) return;
+    
+    const draft = {
+      supplierId,
+      invoiceNumber,
+      issueDate,
+      entryDate,
+      paymentCondition,
+      financialAccount,
+      observations,
+      items,
+      activeTab
+    };
+    
+    // Only save if there is actually something relevant to save
+    if (supplierId || items.length > 0 || invoiceNumber || observations) {
+      localStorage.setItem('purchase_draft', JSON.stringify(draft));
+    }
+  }, [supplierId, invoiceNumber, issueDate, entryDate, paymentCondition, financialAccount, observations, items, activeTab, isLoading, user?.companyId]);
+
+  const handleClearDraft = () => {
+    if (window.confirm('Deseja limpar todo o formulário e começar do zero?')) {
+      localStorage.removeItem('purchase_draft');
+      setSupplierId('');
+      setInvoiceNumber('');
+      setIssueDate(getLocalDateString());
+      setEntryDate(getLocalDateString());
+      setPaymentCondition('');
+      setFinancialAccount('');
+      setObservations('');
+      setItems([]);
+      setActiveTab(1);
+    }
+  };
 
   // Initialize installments when moving to Tab 3 or when payment condition changes
   useEffect(() => {
@@ -228,10 +295,11 @@ export default function NovaCompraPage() {
     setSearchTerm(value);
     
     if (value.length >= 2) {
-      const filtered = productsList.filter(p => 
-        p.name.toLowerCase().includes(value.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(value.toLowerCase()))
-      ).slice(0, 10);
+      const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
+      const filtered = productsList.filter(p => {
+        const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.codigo_mercadologico || ''} ${p.base_product_name || ''}`.toLowerCase();
+        return searchTerms.every(term => searchableText.includes(term));
+      }).slice(0, 50);
       setSearchResults(filtered);
       setSelectedIndex(filtered.length > 0 ? 0 : -1);
     } else {
@@ -498,6 +566,7 @@ export default function NovaCompraPage() {
       }
 
       alert('Compra finalizada com sucesso! Estoque e financeiro atualizados.');
+      localStorage.removeItem('purchase_draft');
       router.push('/compras');
 
     } catch (error) {
@@ -527,6 +596,16 @@ export default function NovaCompraPage() {
             <p className="text-xs md:text-sm text-brand-text-sec font-bold uppercase tracking-widest opacity-60">Entrada de Mercadoria</p>
           </div>
         </div>
+
+        {(supplierId || items.length > 0) && (
+          <button 
+            onClick={handleClearDraft}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-black uppercase italic tracking-tight hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm active:scale-95"
+          >
+            <Trash2 size={14} />
+            Limpar formulário
+          </button>
+        )}
       </div>
 
       {/* Tabs Navigation */}
@@ -723,8 +802,16 @@ export default function NovaCompraPage() {
                                 )}
                               >
                                 <div>
-                                  <div className="font-bold text-brand-text-main text-sm">{product.name}</div>
-                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{product.sku || 'Sem SKU'}</div>
+                                  <div className="font-bold text-brand-text-main text-sm flex items-center">
+                                    {product.name}
+                                    {product.product_type === 'BASE' && (
+                                      <span className="ml-2 text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Base</span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                    {product.sku || 'Sem SKU'}
+                                    {product.base_product_name && ` • Base: ${product.base_product_name}`}
+                                  </div>
                                 </div>
                                 <div className="text-right">
                                   <div className="text-xs font-black text-brand-blue">R$ {Number(product.sale_price).toFixed(2)}</div>

@@ -16,14 +16,14 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const filteredProducts = React.useMemo(() => products.filter(p => 
-    p.status !== 'Inativo' && 
-    p.product_type !== 'BASE' && (
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.barcode && p.barcode.includes(searchTerm))
-    )
-  ).slice(0, 100), [products, searchTerm]); // Limit to 100 results for performance
+  const filteredProducts = React.useMemo(() => {
+    const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+    return products.filter(p => {
+      if (p.status === 'Inativo') return false;
+      const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
+      return searchTerms.length === 0 || searchTerms.every(term => searchableText.includes(term));
+    }).slice(0, 100);
+  }, [products, searchTerm]); // Limit to 100 results for performance
 
   useEffect(() => {
     setTimeout(() => {
