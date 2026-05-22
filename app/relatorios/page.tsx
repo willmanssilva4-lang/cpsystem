@@ -1048,7 +1048,7 @@ function AdvancedPerformanceDashboard({
   // Stock Metrics
   const totalProductsInStock = products.reduce((acc, p) => acc + (p.stock > 0 ? 1 : 0), 0);
   const totalStockValue = products.reduce((acc, p) => {
-    const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
+    const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
     if (isVirtual) return acc;
     return acc + (p.stock * p.costPrice);
   }, 0);
@@ -3688,13 +3688,11 @@ function StockProfitReport() {
     return products
       .filter(p => p.status !== 'Inativo' && p.stock > 0)
       .filter(p => {
-        // Exclude kits (composition) because their components are already listed individually
-        if (p.composition && p.composition.length > 0) return false;
+        // Exclude kits because their components are already listed individually
+        if (p.product_type === 'KIT' || (p.composition && p.composition.length > 0)) return false;
 
-        // Exclude products used as a base for other products to avoid double counting value
-        // We prefer to show the "selling units" (derived products) instead of the internal base units
-        const isUsedAsBase = products.some(other => other.base_product_id === p.id);
-        if (isUsedAsBase) return false;
+        // Exclude virtual/fractioned products (which have a physical base product) to avoid double counting stock value
+        if (p.base_product_id) return false;
 
         const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                              p.sku.toLowerCase().includes(searchTerm.toLowerCase());

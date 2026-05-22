@@ -378,7 +378,7 @@ export default function ProductsPage() {
   const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalStockValue = products.reduce((acc, p) => {
-    const isVirtual = (p.composition && p.composition.length > 0) || (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor);
+    const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
     if (isVirtual) return acc;
     // Somente somamos valores de estoque positivo para a valorização
     return acc + (Math.max(0, p.stock) * p.costPrice);

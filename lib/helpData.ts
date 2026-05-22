@@ -118,6 +118,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'O estoque do KIT é calculado automaticamente baseado na disponibilidade dos itens base'
     ]
   },
+  {
+    id: 'configurar-estoque-custo-kit',
+    category: 'produtos',
+    title: 'Configurar Estoque e Custo Corretos em Kits',
+    steps: [
+      'Passo 1: Cadastre o Produto de Compra (Produto Base / Estoque Real) - Este é o produto físico comprado do fornecedor e guardado em estoque (Ex: "Energético 2L (Garrafa)", Custo: 7,49, Unidade: GFA ou UN).',
+      'Passo 2: Cadastre o Produto Fracionado (A dose/ingrediente do Kit) - Este é o produto virtual que representa a unidade das receitas (Ex: Nome: "Energético (por Litro)", Tipo: Venda Normal).',
+      'Configuração de Conversão: No final da tela, no campo "Produto Base (Estoque Real)", selecione "Energético 2L (Garrafa)".',
+      'Defina o Fator Conversão: Insira "2" no campo (isso diz que dentro de 1 garrafa cabem 2 unidades do produto fracionado, ou seja, 2 Litros).',
+      'Cálculo Automático: O sistema calcula o custo fracionado de R$ 3,745 por Litro. O estoque é automático e virtual (ex: 10 garrafas físicas se tornam 20 Litros).',
+      'Passo 3: Monte o Kit: Na busca de componentes do Kit, adicione a porção fracionada "Energético (por Litro)" e insira a quantidade "0.4" (representando os 400ml, calculando o custo exato de R$ 1,498).'
+    ],
+    tip: 'Isso resolve de forma profissional e precisa tanto a baixa automática fracionada de estoque físico quanto a contabilidade de custos exatos dos seus kits e combos.'
+  },
 
   // Estoque
   {
