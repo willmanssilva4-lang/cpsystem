@@ -1,7 +1,20 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { PieChart as PieChartIcon, Download, Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { 
+  PieChart as PieChartIcon, 
+  Download, 
+  Calendar, 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign,
+  ChevronDown,
+  ChevronRight,
+  Info,
+  Plus,
+  Minus,
+  HelpCircle
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sale, Expense, Product, Return, ReturnItem } from '@/lib/types';
 import { 
@@ -23,6 +36,9 @@ interface DREProps {
 export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [activeCostIndex, setActiveCostIndex] = useState<number | null>(null);
+  const [expandDeducoes, setExpandDeducoes] = useState<boolean>(false);
+  const [expandDespesas, setExpandDespesas] = useState<boolean>(true);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -133,9 +149,10 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     const lucroBruto = receitaLiquida - cmv;
 
     // Despesas Operacionais (Incluindo contas a pagar para o DRE)
+    // EXCLUI "Compra de Mercadoria" que já é contabilizada via CMV para evitar duplicidade e classificação incorreta
     const expensesMonth = expenses.filter(e => {
       const { month, year } = getMonthYear(e.date);
-      return month === selectedMonth && year === selectedYear;
+      return month === selectedMonth && year === selectedYear && e.category !== 'Compra de Mercadoria';
     });
 
     // Agrupar despesas por descrição para detalhamento no gráfico (ex: luz, agua)
@@ -158,6 +175,8 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     return {
       receitaBruta,
       deducoes,
+      descontos,
+      devolucoes,
       receitaLiquida,
       taxasMaquininhas,
       cmv,
@@ -185,6 +204,10 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     }
     return data.sort((a, b) => b.value - a.value);
   }, [dreData]);
+
+  const totalCustos = useMemo(() => {
+    return pieChartData.reduce((acc, curr) => acc + curr.value, 0);
+  }, [pieChartData]);
 
   const COLORS = ['#F43F5E', '#F97316', '#EAB308', '#84CC16', '#06B6D4', '#3B82F6', '#8B5CF6', '#D946EF', '#64748B'];
 
@@ -233,106 +256,275 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
         {/* Left Column: DRE Structure */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-brand-card rounded-2xl border border-brand-border shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-brand-border">
-              <h3 className="text-lg font-black uppercase italic tracking-tight">Estrutura do DRE</h3>
+            <div className="p-6 border-b border-brand-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/50 dark:bg-slate-800/20">
+              <div>
+                <h3 className="text-base font-black uppercase italic tracking-tight text-slate-800 dark:text-slate-100">Estrutura do DRE</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Detalhamento Financeiro com Análise Vertical (% RL)</p>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 text-[9px] font-black uppercase tracking-wider">
+                <Info size={11} className="text-indigo-500" />
+                RL = Receita Líquida
+              </div>
             </div>
             
-            <div className="p-6 space-y-2">
-              {/* Receita Bruta */}
-              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">1. Receita Bruta de Vendas</span>
-                <span className="text-base font-black text-emerald-600">{formatCurrency(dreData.receitaBruta)}</span>
+            <div className="p-6 space-y-3">
+              {/* 1. Receita Bruta */}
+              <div className="group relative flex justify-between items-center p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-150">
+                <div className="flex items-center gap-3">
+                  <span className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-black">
+                    +
+                  </span>
+                  <div>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">1. Receita Bruta de Vendas</span>
+                    <p className="text-[9px] text-slate-400 font-medium">Faturamento bruto total antes dos descontos</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs py-0.5 px-2 rounded-md font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80">
+                    {dreData.receitaLiquida > 0 ? `${((dreData.receitaBruta / dreData.receitaLiquida) * 100).toFixed(1)}%` : '100%'}
+                  </span>
+                  <span className="font-mono text-sm md:text-base font-black text-emerald-600">{formatCurrency(dreData.receitaBruta)}</span>
+                </div>
               </div>
 
-              {/* Deduções */}
-              <div className="flex justify-between items-center p-3 pl-8">
-                <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                  Deduções e Descontos
-                </span>
-                <span className="text-sm font-bold text-rose-500">{formatCurrency(dreData.deducoes)}</span>
+              {/* Deduções & Descontos (Collapsible) */}
+              <div className="space-y-1">
+                <div 
+                  onClick={() => setExpandDeducoes(!expandDeducoes)}
+                  className="group flex justify-between items-center p-3.5 rounded-xl bg-slate-50/20 hover:bg-slate-50/60 dark:hover:bg-slate-800/20 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 cursor-pointer transition-all duration-150"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/20 text-rose-500 flex items-center justify-center text-xs font-black">
+                      -
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Deduções e Descontos</span>
+                        {expandDeducoes ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-medium">Descontos concedidos e produtos devolvidos</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs py-0.5 px-2 rounded-md font-bold text-rose-500/80 bg-rose-50 dark:bg-rose-950/10">
+                      {dreData.receitaLiquida > 0 ? `-${((dreData.deducoes / dreData.receitaLiquida) * 100).toFixed(1)}%` : '0%'}
+                    </span>
+                    <span className="font-mono text-sm md:text-base font-extrabold text-rose-500">({formatCurrency(dreData.deducoes)})</span>
+                  </div>
+                </div>
+
+                {/* Sub items for deducoes */}
+                {expandDeducoes && (
+                  <div className="pl-8 pr-2 py-1 space-y-2 border-l-2 border-dashed border-slate-200 dark:border-slate-800 ml-5">
+                    {/* Descontos */}
+                    <div className="flex justify-between items-center py-1.5 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                        <span className="font-semibold text-slate-600 dark:text-slate-400">Descontos Comerciais</span>
+                      </div>
+                      <div className="flex items-center gap-2 font-mono text-slate-500 dark:text-slate-400">
+                        <span>{dreData.receitaLiquida > 0 ? `${((dreData.descontos / dreData.receitaLiquida) * 100).toFixed(1)}%` : '0%'}</span>
+                        <span className="font-bold">{formatCurrency(dreData.descontos)}</span>
+                      </div>
+                    </div>
+                    {/* Devolucoes */}
+                    <div className="flex justify-between items-center py-1.5 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                        <span className="font-semibold text-slate-600 dark:text-slate-400">Devoluções de Vendas</span>
+                      </div>
+                      <div className="flex items-center gap-2 font-mono text-slate-500 dark:text-slate-400">
+                        <span>{dreData.receitaLiquida > 0 ? `${((dreData.devolucoes / dreData.receitaLiquida) * 100).toFixed(1)}%` : '0%'}</span>
+                        <span className="font-bold">{formatCurrency(dreData.devolucoes)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Receita Líquida */}
-              <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50 mt-2">
-                <span className="text-sm font-black text-emerald-800 dark:text-emerald-400">= 2. Receita Líquida</span>
-                <span className="text-base font-black text-emerald-600">{formatCurrency(dreData.receitaLiquida)}</span>
+              {/* 2. Receita Liquida */}
+              <div className="group relative flex justify-between items-center p-3.5 rounded-xl bg-gradient-to-r from-emerald-50/60 to-emerald-500/5 dark:from-emerald-950/15 dark:to-emerald-500/5 border border-emerald-100/50 dark:border-emerald-900/40 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="w-5 h-5 rounded-md bg-emerald-500 text-white flex items-center justify-center text-xs font-black">
+                    =
+                  </span>
+                  <div>
+                    <span className="text-sm font-black text-emerald-800 dark:text-emerald-400">2. Receita Líquida</span>
+                    <p className="text-[9px] text-emerald-600/70 dark:text-emerald-500/70 font-bold uppercase tracking-widest">Base de Análise (100.0%)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs py-0.5 px-2 rounded-md font-bold text-emerald-700 bg-emerald-100/60 dark:bg-emerald-900/30">
+                    100.0%
+                  </span>
+                  <span className="font-mono text-sm md:text-base font-black text-emerald-600">{formatCurrency(dreData.receitaLiquida)}</span>
+                </div>
               </div>
 
               {/* CMV */}
-              <div className="flex justify-between items-center p-3 pl-8 mt-2">
-                <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                  Custo das Mercadorias Vendidas (CMV)
-                </span>
-                <span className="text-sm font-bold text-rose-500">{formatCurrency(dreData.cmv)}</span>
+              <div className="group relative flex justify-between items-center p-3.5 rounded-xl bg-slate-50/20 hover:bg-slate-50/60 dark:hover:bg-slate-800/20 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 transition-all duration-150">
+                <div className="flex items-center gap-3">
+                  <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/20 text-rose-500 flex items-center justify-center text-xs font-black">
+                    -
+                  </span>
+                  <div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300">Custo das Mercadorias Vendidas (CMV)</span>
+                    <p className="text-[9px] text-slate-400 font-medium">Preço de custo dos itens faturados ajustado por devoluções</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs py-0.5 px-2 rounded-md font-bold text-rose-500/80 bg-rose-50 dark:bg-rose-950/10">
+                    {dreData.receitaLiquida > 0 ? `-${((dreData.cmv / dreData.receitaLiquida) * 100).toFixed(1)}%` : '0%'}
+                  </span>
+                  <span className="font-mono text-xs sm:text-sm md:text-base font-extrabold text-rose-500">({formatCurrency(dreData.cmv)})</span>
+                </div>
               </div>
 
-              {/* Lucro Bruto */}
-              <div className="flex justify-between items-center p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100/50 mt-2">
+              {/* 3. Lucro Bruto */}
+              <div className="group relative flex justify-between items-center p-3.5 rounded-xl bg-gradient-to-r from-indigo-50/60 to-indigo-500/5 dark:from-indigo-950/15 dark:to-indigo-500/5 border border-indigo-100/50 dark:border-indigo-900/40 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-indigo-800 dark:text-indigo-400">= 3. Lucro Bruto</span>
-                  <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">
-                    Margem: {dreData.margemBruta.toFixed(1)}%
+                  <span className="w-5 h-5 rounded-md bg-indigo-500 text-white flex items-center justify-center text-xs font-black">
+                    =
                   </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-indigo-800 dark:text-indigo-400">3. Lucro Bruto</span>
+                      <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950/55 text-indigo-700 dark:text-indigo-400 rounded-md text-[9px] font-black uppercase tracking-wider">
+                        MB: {dreData.margemBruta.toFixed(1)}%
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-indigo-600/70 dark:text-indigo-500/70 font-bold uppercase tracking-widest">Resultado operacional bruto</p>
+                  </div>
                 </div>
-                <span className="text-base font-black text-indigo-600">{formatCurrency(dreData.lucroBruto)}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs py-0.5 px-2 rounded-md font-bold text-indigo-700 bg-indigo-100/60 dark:bg-indigo-900/30">
+                    {dreData.margemBruta.toFixed(1)}%
+                  </span>
+                  <span className="font-mono text-sm md:text-base font-black text-indigo-600">{formatCurrency(dreData.lucroBruto)}</span>
+                </div>
               </div>
 
               {/* Taxas Financeiras */}
-              <div className="flex justify-between items-center p-3 pl-8 mt-2">
-                <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                  Taxas Financeiras (Maquininhas)
-                </span>
-                <span className="text-sm font-bold text-rose-500">{formatCurrency(dreData.taxasMaquininhas)}</span>
+              <div className="group relative flex justify-between items-center p-3.5 rounded-xl bg-slate-50/20 hover:bg-slate-50/60 dark:hover:bg-slate-800/20 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 transition-all duration-150">
+                <div className="flex items-center gap-3">
+                  <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/20 text-rose-500 flex items-center justify-center text-xs font-black">
+                    -
+                  </span>
+                  <div>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Taxas Financeiras (Maquininhas)</span>
+                    <p className="text-[9px] text-slate-400 font-medium">Custo de antecipação de repassadores e bandeiras de cartões</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs py-0.5 px-2 rounded-md font-bold text-rose-500/80 bg-rose-50 dark:bg-rose-950/10">
+                    {dreData.receitaLiquida > 0 ? `-${((dreData.taxasMaquininhas / dreData.receitaLiquida) * 100).toFixed(1)}%` : '0%'}
+                  </span>
+                  <span className="font-mono text-sm md:text-base font-extrabold text-rose-500">({formatCurrency(dreData.taxasMaquininhas)})</span>
+                </div>
               </div>
 
-              {/* Despesas Operacionais */}
-              <div className="p-3 pl-8 mt-2 space-y-2">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                    Despesas Operacionais
+              {/* Despesas Operacionais (Collapsible list) */}
+              <div className="space-y-1">
+                <div 
+                  onClick={() => setExpandDespesas(!expandDespesas)}
+                  className="group flex justify-between items-center p-3.5 rounded-xl bg-slate-50/20 hover:bg-slate-50/60 dark:hover:bg-slate-800/20 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 cursor-pointer transition-all duration-150"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/20 text-rose-500 flex items-center justify-center text-xs font-black">
+                      -
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Despesas Operacionais Gerais</span>
+                        {expandDespesas ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-medium">Luz, água, aluguel, salários e contas a pagar do período</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs py-0.5 px-2 rounded-md font-bold text-rose-500/80 bg-rose-50 dark:bg-rose-950/10">
+                      {dreData.receitaLiquida > 0 ? `-${((dreData.totalDespesas / dreData.receitaLiquida) * 100).toFixed(1)}%` : '0%'}
+                    </span>
+                    <span className="font-mono text-sm md:text-base font-extrabold text-rose-500">({formatCurrency(dreData.totalDespesas)})</span>
+                  </div>
+                </div>
+
+                {/* Categories breakdown with sleek list & mini bar ratios */}
+                {expandDespesas && (
+                  <div className="pl-8 pr-2 py-1 space-y-2.5 border-l-2 border-dashed border-slate-200 dark:border-slate-800 ml-5">
+                    {Object.entries(dreData.despesasPorCategoria).length > 0 ? (
+                      Object.entries(dreData.despesasPorCategoria).map(([cat, val]) => {
+                        const pctRL = dreData.receitaLiquida > 0 ? (val / dreData.receitaLiquida) * 100 : 0;
+                        const pctTotalDesp = dreData.totalDespesas > 0 ? (val / dreData.totalDespesas) * 100 : 0;
+                        return (
+                          <div key={cat} className="space-y-1">
+                            <div className="flex justify-between items-center text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                <span className="font-semibold text-slate-600 dark:text-slate-400">{cat}</span>
+                              </div>
+                              <div className="flex items-center gap-2 font-mono text-slate-500 dark:text-slate-400">
+                                <span className="text-[10px] text-slate-400">{pctRL.toFixed(1)}% RL</span>
+                                <span className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(val)}</span>
+                              </div>
+                            </div>
+                            {/* Linear visualizer indicator of despesa portion */}
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden">
+                              <div className="h-full bg-rose-400/80 rounded-full" style={{ width: `${pctTotalDesp}%` }}></div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-[10px] font-bold text-slate-400 uppercase italic py-1">Nenhuma despesa individual registrada</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Resultado do Exercício (Lucro Líquido - Highly visual, polished card) */}
+              <div className={cn(
+                "relative overflow-hidden flex flex-col md:flex-row justify-between items-stretch md:items-center p-5 rounded-2xl border-2 mt-6 transition-all duration-300 shadow-sm",
+                dreData.lucroLiquido >= 0 
+                  ? "bg-gradient-to-br from-emerald-500/[0.04] to-emerald-500/[0.01] dark:from-emerald-950/20 dark:to-emerald-950/5 border-emerald-500/20 dark:border-emerald-800/40" 
+                  : "bg-gradient-to-br from-rose-500/[0.04] to-rose-500/[0.01] dark:from-rose-950/20 dark:to-rose-950/5 border-rose-500/20 dark:border-rose-800/40"
+              )}>
+                {/* Decorative border/glow bar */}
+                <div className={cn(
+                  "absolute left-0 top-0 bottom-0 w-1.5",
+                  dreData.lucroLiquido >= 0 ? "bg-emerald-500" : "bg-rose-500"
+                )}></div>
+
+                <div className="flex flex-col pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
+                      dreData.lucroLiquido >= 0 
+                        ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300" 
+                        : "bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300"
+                    )}>
+                      Resultado Líquido
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">(Regência Final)</span>
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-bold uppercase tracking-widest mt-2 flex items-center gap-1.5",
+                    dreData.lucroLiquido >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                  )}>
+                    {dreData.lucroLiquido >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    Margem Líquida do Período: {dreData.margemLiquida.toFixed(1)}%
                   </span>
-                  <span className="text-sm font-black text-rose-600">{formatCurrency(dreData.totalDespesas)}</span>
                 </div>
                 
-                {Object.entries(dreData.despesasPorCategoria).map(([cat, val]) => (
-                  <div key={cat} className="flex justify-between items-center pl-6">
-                    <span className="text-[10px] font-medium text-slate-500">{cat}</span>
-                    <span className="text-[10px] font-bold text-slate-600">{formatCurrency(val)}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Resultado do Exercício (Lucro Líquido) */}
-              <div className={cn(
-                "flex justify-between items-center p-4 rounded-xl border mt-4",
-                dreData.lucroLiquido >= 0 
-                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50" 
-                  : "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/50"
-              )}>
-                <div className="flex flex-col">
+                <div className="flex flex-col justify-center items-end mt-4 md:mt-0 font-mono">
                   <span className={cn(
-                    "text-base font-black uppercase tracking-widest",
-                    dreData.lucroLiquido >= 0 ? "text-emerald-800 dark:text-emerald-400" : "text-rose-800 dark:text-rose-400"
+                    "text-xl md:text-2xl font-black tracking-tight",
+                    dreData.lucroLiquido >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                   )}>
-                    = 4. Resultado Líquido
+                    {formatCurrency(dreData.lucroLiquido)}
                   </span>
-                  <span className={cn(
-                    "text-[10px] font-bold uppercase tracking-widest mt-1",
-                    dreData.lucroLiquido >= 0 ? "text-emerald-600" : "text-rose-600"
-                  )}>
-                    Margem Líquida: {dreData.margemLiquida.toFixed(1)}%
-                  </span>
+                  <span className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">(Saldo Real)</span>
                 </div>
-                <span className={cn(
-                  "text-2xl font-black",
-                  dreData.lucroLiquido >= 0 ? "text-emerald-600" : "text-rose-600"
-                )}>
-                  {formatCurrency(dreData.lucroLiquido)}
-                </span>
               </div>
 
             </div>
@@ -374,32 +566,121 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
           {/* Costs Breakdown Chart */}
           <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
-            <h3 className="text-sm font-black uppercase italic tracking-tight mb-4">Composição de Custos</h3>
+            <h3 className="text-sm font-black uppercase italic tracking-tight mb-2">Composição de Custos</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-4">Detalhamento dos custos e saídas do período</p>
             
             {pieChartData.length > 0 ? (
-              <div className="h-64 w-full">
-                <ResponsiveContainer id="dre-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                  <PieChart>
-                    <Pie
-                      data={pieChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip 
-                      formatter={(value: any) => formatCurrency(value)}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                    />
-                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="space-y-6">
+                {/* Donut Container with Absolute Centered Info */}
+                <div className="relative h-56 w-full flex items-center justify-center">
+                  <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      {activeCostIndex !== null ? pieChartData[activeCostIndex].name : 'Custo Total'}
+                    </span>
+                    <span className="text-xl font-black text-slate-800 dark:text-slate-100 transition-all duration-200">
+                      {formatCurrency(activeCostIndex !== null ? pieChartData[activeCostIndex].value : totalCustos)}
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500 leading-none mt-1">
+                      {activeCostIndex !== null 
+                        ? `${((pieChartData[activeCostIndex].value / totalCustos) * 105 / 105).toFixed(1)}%`
+                        : '100.0%'
+                      }
+                    </span>
+                  </div>
+                  
+                  <ResponsiveContainer id="dre-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                    <PieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={68}
+                        outerRadius={84}
+                        paddingAngle={4}
+                        dataKey="value"
+                        onMouseEnter={(_, index) => setActiveCostIndex(index)}
+                        onMouseLeave={() => setActiveCostIndex(null)}
+                      >
+                        {pieChartData.map((entry, index) => {
+                          const isHovered = activeCostIndex === index;
+                          return (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={COLORS[index % COLORS.length]} 
+                              style={{
+                                filter: activeCostIndex === null || isHovered ? 'none' : 'grayscale(35%) opacity(0.55)',
+                                transition: 'all 0.2s ease-in-out',
+                                cursor: 'pointer',
+                              }}
+                            />
+                          );
+                        })}
+                      </Pie>
+                      <RechartsTooltip 
+                        formatter={(value: any) => formatCurrency(value)}
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', 
+                          fontSize: '11px', 
+                          fontWeight: 'bold',
+                          backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                          color: '#fff'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Highly Polished Custom Legend List with Progress Bars */}
+                <div className="space-y-3.5 max-h-72 overflow-y-auto pr-1">
+                  {pieChartData.map((item, index) => {
+                    const pct = totalCustos > 0 ? (item.value / totalCustos) * 100 : 0;
+                    const isHovered = activeCostIndex === index;
+                    const color = COLORS[index % COLORS.length];
+
+                    return (
+                      <div 
+                        key={item.name} 
+                        className={cn(
+                          "p-2 rounded-xl border border-transparent transition-all duration-150 cursor-pointer",
+                          isHovered 
+                            ? "bg-slate-50 dark:bg-slate-800/80 border-slate-100 dark:border-slate-800" 
+                            : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+                        )}
+                        onMouseEnter={() => setActiveCostIndex(index)}
+                        onMouseLeave={() => setActiveCostIndex(null)}
+                      >
+                        <div className="flex justify-between items-center text-xs mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }}></span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[160px]" title={item.name}>
+                              {item.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(item.value)}</span>
+                            <span className="text-[10px] py-0.5 px-1.5 rounded-md font-bold text-slate-500 bg-slate-100 dark:bg-slate-800">
+                              {pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Custom visual progress bar */}
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ 
+                              width: `${pct}%`,
+                              backgroundColor: color,
+                              opacity: activeCostIndex === null || isHovered ? 1 : 0.6
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="h-64 flex flex-col items-center justify-center text-slate-400">
