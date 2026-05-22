@@ -56,7 +56,7 @@ export function PriceCheckModal({ onClose }: PriceCheckModalProps) {
               <Tag size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800 dark:text-slate-100">Consultar Preço</h2>
+              <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800 dark:text-slate-100">Consultar Preço e Estoque</h2>
               <p className="text-xs font-medium text-slate-500">Pressione ESC para fechar</p>
             </div>
           </div>
@@ -98,11 +98,22 @@ export function PriceCheckModal({ onClose }: PriceCheckModalProps) {
               <div className="text-5xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
                 {formatCurrency(result.salePrice)}
               </div>
-              {result.stock <= 0 && (
-                <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-xs font-bold uppercase tracking-widest">
-                  Sem Estoque
-                </div>
-              )}
+              <div className="mt-4 flex flex-col gap-2 items-center justify-center">
+                {result.stock <= 0 ? (
+                  <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-xs font-extrabold uppercase tracking-wider">
+                    Sem Estoque ({result.stock || 0} {result.unit || 'UN'})
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold uppercase tracking-wider">
+                    Estoque: {result.stock} {result.unit || 'UN'}
+                  </div>
+                )}
+                {result.product_type === 'KIT' && (
+                  <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">
+                    (Estoque baseado nos componentes do Kit)
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -483,27 +483,30 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     if (e.key === 'Enter') {
       const target = e.target as HTMLElement;
       
-      // Allow default behavior for buttons (like opening modals) and textareas
-      if (target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') {
-        // If it's a button, let it click
-        if (target.tagName === 'BUTTON') {
-          (target as HTMLButtonElement).click();
-        }
+      // Allow default behavior for textareas and buttons
+      if (target.tagName === 'TEXTAREA') {
         return;
       }
+      if (target.tagName === 'BUTTON') {
+        (target as HTMLButtonElement).click();
+        return;
+      }
+
+      // Check if it's the search input inside composition/kits
+      if (target instanceof HTMLInputElement && target.placeholder && target.placeholder.toLowerCase().includes('buscar')) {
+        return; // Let the user search, don't submit/save the whole form
+      }
       
+      // If we are in the main form, allow the Enter key to naturally submit and save the form
+      if (e.currentTarget.tagName === 'FORM') {
+        return;
+      }
+
+      // Otherwise, if we are in a sub-modal (like composition), simulate clicking the save button
       e.preventDefault();
-      
-      const container = e.currentTarget;
-      const focusableElements = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
-        )
-      );
-      
-      const index = focusableElements.indexOf(target);
-      if (index > -1 && index < focusableElements.length - 1) {
-        focusableElements[index + 1].focus();
+      const saveKitButton = e.currentTarget.querySelector('button[className*="bg-brand-blue-hover"]') as HTMLButtonElement;
+      if (saveKitButton) {
+        saveKitButton.click();
       }
     }
   };

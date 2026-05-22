@@ -260,6 +260,103 @@ export default function PDVPage() {
     return totalComboDiscount;
   }, [cart, promotions, products, currentTime, selectedCustomer]);
 
+  const validateCartStock = useCallback((proposedCart: typeof cart) => {
+    // 1. Calculate aggregated physical demand of products
+    const stockDemand: Record<string, number> = {};
+    
+    proposedCart.forEach(item => {
+      const p = item.product;
+      const qty = item.quantity;
+      
+      const currentProduct = products.find(prod => prod.id === p.id);
+      if (!currentProduct) return;
+
+      if (currentProduct.composition && currentProduct.composition.length > 0) {
+        // It's a Kit! We need to add demands for all its composition items
+        currentProduct.composition.forEach((comp: any) => {
+          stockDemand[comp.productId] = (stockDemand[comp.productId] || 0) + (comp.quantity * qty);
+        });
+      } else {
+        // Regular product
+        stockDemand[p.id] = (stockDemand[p.id] || 0) + qty;
+      }
+    });
+
+    // 2. Map virtual products (SALE with base_product_id) to their real base product demand
+    // Because if multiple virtual products or components share the same base product, we want to sum them up.
+    const physicalDemand: Record<string, number> = {};
+    for (const [productId, demandedQty] of Object.entries(stockDemand)) {
+      const p = products.find(prod => prod.id === productId);
+      if (!p) continue;
+
+      if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
+        const baseQty = demandedQty / Number(p.conversion_factor);
+        physicalDemand[p.base_product_id] = (physicalDemand[p.base_product_id] || 0) + baseQty;
+      } else {
+        physicalDemand[productId] = (physicalDemand[productId] || 0) + demandedQty;
+      }
+    }
+
+    // 3. Compare with actual physical stock
+    for (const [productId, demandedQty] of Object.entries(physicalDemand)) {
+      const physicalProduct = products.find(prod => prod.id === productId);
+      if (!physicalProduct) continue;
+
+      // Robust check: if controlStock is SIM, undefined, null, or anything other than NÃO, treat it as active
+      const isControlActive = physicalProduct.controlStock === undefined || 
+                              physicalProduct.controlStock === null || 
+                              String(physicalProduct.controlStock).toUpperCase() !== 'NÃO';
+
+      if (isControlActive) {
+        const availableStock = physicalProduct.stock || 0;
+        if (demandedQty > availableStock) {
+          // Find if this physical product is used inside a kit in the proposed cart
+          const kitUsingComp = proposedCart.find(item => {
+            const p = products.find(prod => prod.id === item.product.id);
+            if (!p || !p.composition) return false;
+            return p.composition.some((comp: any) => 
+              comp.productId === productId || 
+              (() => {
+                const compProduct = products.find(prod => prod.id === comp.productId);
+                return compProduct?.base_product_id === productId;
+              })()
+            );
+          });
+
+          if (kitUsingComp) {
+            // It's a kit component! Let's find exactly which ingredient inside this kit mapping is causing it
+            const compInKit = kitUsingComp.product.composition?.find((comp: any) => 
+              comp.productId === productId || 
+              (() => {
+                const compProd = products.find(prod => prod.id === comp.productId);
+                return compProd?.base_product_id === productId;
+              })()
+            );
+            const compProduct = products.find(prod => prod.id === compInKit?.productId);
+            const missing = demandedQty - availableStock;
+
+            return {
+              okay: false,
+              message: `O item '${compProduct?.name || physicalProduct.name}' que faz parte do kit '${kitUsingComp.product.name}' não possui estoque suficiente. Estoque disponível: ${availableStock.toFixed(3)} ${physicalProduct.unit || 'UN'}, necessário para os kits: ${demandedQty.toFixed(3)} ${physicalProduct.unit || 'UN'} (Falta: ${missing.toFixed(3)} ${physicalProduct.unit || 'UN'}).`
+            };
+          } else {
+            // It's a regular product
+            const directItem = proposedCart.find(item => item.product.id === productId || item.product.base_product_id === productId);
+            const displayProductName = directItem?.product.name || physicalProduct.name;
+            const missing = demandedQty - availableStock;
+
+            return {
+              okay: false,
+              message: `O produto '${displayProductName}' não possui estoque suficiente. Estoque disponível: ${availableStock.toFixed(3)} ${physicalProduct.unit || 'UN'}, quantidade solicitada: ${demandedQty.toFixed(3)} ${physicalProduct.unit || 'UN'} (Falta: ${missing.toFixed(3)} ${physicalProduct.unit || 'UN'}).`
+            };
+          }
+        }
+      }
+    }
+
+    return { okay: true };
+  }, [products]);
+
   const subtotal = cart.reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
   const totalItemsDiscount = cart.reduce((acc, item) => acc + (item.discount * item.quantity), 0);
   const totalDiscount = totalItemsDiscount + saleDiscount + comboDiscount;
@@ -276,18 +373,11 @@ export default function PDVPage() {
     console.log('DEBUG: Finalizando venda, payments:', paymentData.payments);
     console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
     
-    // Check stock
-    const cartTotals: Record<string, number> = {};
-    cart.forEach(item => {
-      cartTotals[item.product.id] = (cartTotals[item.product.id] || 0) + item.quantity;
-    });
-
-    for (const [productId, totalQty] of Object.entries(cartTotals)) {
-      const currentProduct = products.find(p => p.id === productId);
-      if (currentProduct && currentProduct.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - totalQty) < 0) {
-        setCustomAlert({ message: `Produto ${currentProduct.name} sem estoque suficiente para esta venda (Estoque disponível: ${currentProduct.stock}).`, type: 'error' });
-        return;
-      }
+    // Check stock with unified validation covering kits and virtual/fractioned products
+    const stockCheck = validateCartStock(cart);
+    if (!stockCheck.okay) {
+      setCustomAlert({ message: stockCheck.message || '', type: 'error' });
+      return;
     }
 
     const success = await addSale({
@@ -533,6 +623,15 @@ export default function PDVPage() {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Robust fast-path interception for Alt+E (Stock & Price check) anywhere in the POS
+      const isAltE = e.altKey && (e.key.toLowerCase() === 'e' || e.code === 'KeyE');
+      if (isAltE) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowPriceCheckModal(true);
+        return;
+      }
+
       // Check if user is typing in an input field
       const isInputFocused = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
 
@@ -819,7 +918,7 @@ export default function PDVPage() {
           setShowReverseModal(true);
         }
         if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Alt+H)'); }
-        if (key === 'e') { e.preventDefault(); alert('Funcionalidade: Consultar Estoque (Alt+E)'); }
+        if (key === 'e') { e.preventDefault(); setShowPriceCheckModal(true); }
         if (key === 'z') { e.preventDefault(); toggleFullScreen(); }
       }
 
@@ -1024,10 +1123,22 @@ export default function PDVPage() {
       .reduce((sum, item) => sum + item.quantity, 0);
     
     const totalQty = qtyInCart + qty;
-    
-    if (currentProduct?.controlStock?.toUpperCase() === 'SIM' && (currentProduct.stock - totalQty) < 0) {
+
+    // Simulate proposed cart state to validate against overall stock limits
+    let proposedCart = [...cart];
+    const existingCartItem = proposedCart.find(item => item.product.id === product.id);
+    if (existingCartItem) {
+      proposedCart = proposedCart.map(item =>
+        item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item
+      );
+    } else {
+      proposedCart.push({ product, quantity: qty, discount: 0, originalPrice: product.salePrice });
+    }
+
+    const stockCheck = validateCartStock(proposedCart);
+    if (!stockCheck.okay) {
       setCustomAlert({ 
-        message: `Produto ${currentProduct.name} sem estoque suficiente (Estoque: ${currentProduct.stock}, No carrinho: ${qtyInCart}).`, 
+        message: stockCheck.message || '', 
         type: 'warning' 
       });
       return;
