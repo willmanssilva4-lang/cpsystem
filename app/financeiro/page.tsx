@@ -17,7 +17,9 @@ import {
   Activity,
   AlertCircle,
   CheckCircle2,
-  Clock
+  Clock,
+  Landmark,
+  Smartphone
 } from 'lucide-react';
 import { cn, getLocalDateString } from '@/lib/utils';
 import { 
@@ -89,11 +91,12 @@ export default function FinancePage() {
   // --- 1. Cards Financeiros ---
   const stats = useMemo(() => {
     // Faturamento no Período
-    const salesInPeriod = sales.filter(s => isWithinRange(s.date));
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status !== 'Cancelada');
     const faturamentoHoje = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Despesas no Período
-    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date));
+    // EXCLUI "Compra de Mercadoria" que já é contabilizada via CMV para evitar duplicidade e classificação incorreta
+    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date) && e.category !== 'Compra de Mercadoria');
     const despesasHoje = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
 
     // CMV no Período
@@ -122,8 +125,8 @@ export default function FinancePage() {
       return acc;
     }, 0);
     
-    const totalEntradas = sales.reduce((acc, s) => acc + (s.total - (s.taxAmount || 0)), 0);
-    const totalDespesasPagas = expenses.filter(e => e.status === 'Pago').reduce((acc, e) => acc + e.amount, 0);
+    const totalEntradas = sales.filter(s => s.status !== 'Cancelada').reduce((acc, s) => acc + (s.total - (s.taxAmount || 0)), 0);
+    const totalDespesasPagas = expenses.filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria').reduce((acc, e) => acc + e.amount, 0);
     const totalReturns = (returns || []).reduce((acc, r) => acc + r.total, 0);
     const totalCompras = stockMovements.filter(m => m.type === 'COMPRA').reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
     
@@ -157,7 +160,7 @@ export default function FinancePage() {
       const dIso = getLocalDateString(d);
       
       const entrada = sales
-        .filter(s => getLocalDateString(s.date) === dIso)
+        .filter(s => s.status !== 'Cancelada' && getLocalDateString(s.date) === dIso)
         .reduce((acc, s) => acc + s.total, 0);
         
       const saidaExpenses = expenses
@@ -182,7 +185,7 @@ export default function FinancePage() {
     const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getLocalDateString(e.dueDate || e.date) < todayStr);
     
     // Simulando contas a receber com vendas "Fiado" não pagas (simplificação)
-    const aReceberHoje = sales.filter(s => s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
+    const aReceberHoje = sales.filter(s => s.status !== 'Cancelada' && s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
 
     return {
       aPagarHoje: aPagarHoje.reduce((acc, e) => acc + e.amount, 0),
@@ -197,7 +200,7 @@ export default function FinancePage() {
   // --- 4. Movimentações Financeiras Recentes ---
   const transactions = useMemo(() => {
     const all = [
-      ...sales.map(s => ({
+      ...sales.filter(s => s.status !== 'Cancelada').map(s => ({
         id: `sale-${s.id}`,
         type: 'entrada' as const,
         category: 'Venda PDV',
@@ -218,10 +221,131 @@ export default function FinancePage() {
     return all.slice(0, 10);
   }, [sales, expenses]);
 
+  // --- 4.5. Saldos por Conta Financeira ---
+  const accountsBalances = useMemo(() => {
+    // 1. Caixa
+    const regOpening = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
+    const regMovements = cashMovements.reduce((acc, m) => {
+      if (m.type === 'suprimento') return acc + m.amount;
+      if (m.type === 'sangria') return acc - m.amount;
+      if (m.type === 'ajuste') return acc + m.amount;
+      return acc;
+    }, 0);
+    
+    // Vendas em Dinheiro
+    let salesCash = 0;
+    sales.forEach(s => {
+      if (s.status === 'Cancelada') return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach(p => {
+          if (p.method === 'Dinheiro') {
+            salesCash += p.amount;
+          }
+        });
+      } else if (s.paymentMethod === 'Dinheiro') {
+        salesCash += s.total;
+      }
+    });
+
+    // Despesas e Compras pagas pelo Caixa
+    const expensesCaixa = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && (e.financialAccount === 'Caixa' || !e.financialAccount))
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesCaixa = stockMovements
+      .filter(m => m.type === 'COMPRA' && (m.financialAccount === 'Caixa' || !m.financialAccount))
+      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const returnsCash = (returns || []).reduce((acc, r) => acc + r.total, 0);
+    
+    const balanceCaixa = regOpening + regMovements + salesCash - expensesCaixa - purchasesCaixa - returnsCash;
+
+    // 2. Mercado Pago
+    let salesMercadoPago = 0;
+    sales.forEach(s => {
+      if (s.status === 'Cancelada') return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach(p => {
+          const name = (p.method || '').toLowerCase();
+          if (name.includes('mercado') || name.includes('mercadopago')) {
+            salesMercadoPago += p.amount;
+          }
+        });
+      } else if ((s.paymentMethod || '').toLowerCase().includes('mercado')) {
+        salesMercadoPago += s.total;
+      }
+    });
+    const expensesMercadoPago = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Mercado Pago')
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesMercadoPago = stockMovements
+      .filter(m => m.type === 'COMPRA' && m.financialAccount === 'Mercado Pago')
+      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const balanceMercadoPago = salesMercadoPago - expensesMercadoPago - purchasesMercadoPago;
+
+    // 3. Conta Bancária
+    let salesBank = 0;
+    sales.forEach(s => {
+      if (s.status === 'Cancelada') return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach(p => {
+          const name = (p.method || '').toLowerCase();
+          if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
+            salesBank += p.amount;
+          }
+        });
+      } else {
+        const name = (s.paymentMethod || '').toLowerCase();
+        if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
+          salesBank += s.total;
+        }
+      }
+    });
+    const expensesBank = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta Bancária')
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesBank = stockMovements
+      .filter(m => m.type === 'COMPRA' && m.financialAccount === 'Conta Bancária')
+      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const balanceBank = salesBank - expensesBank - purchasesBank;
+
+    // 4. Conta PIX
+    let salesPix = 0;
+    sales.forEach(s => {
+      if (s.status === 'Cancelada') return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach(p => {
+          const name = (p.method || '').toLowerCase();
+          if (name.includes('pix') && !name.includes('mercado')) {
+            salesPix += p.amount;
+          }
+        });
+      } else {
+        const name = (s.paymentMethod || '').toLowerCase();
+        if (name.includes('pix') && !name.includes('mercado')) {
+          salesPix += s.total;
+        }
+      }
+    });
+    const expensesPix = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta PIX')
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesPix = stockMovements
+      .filter(m => m.type === 'COMPRA' && m.financialAccount === 'Conta PIX')
+      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const balancePix = salesPix - expensesPix - purchasesPix;
+
+    return [
+      { name: 'Caixa (Dinheiro)', balance: balanceCaixa, icon: Wallet, iconBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' },
+      { name: 'Mercado Pago', balance: balanceMercadoPago, icon: Smartphone, iconBg: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
+      { name: 'Conta Bancária', balance: balanceBank, icon: Landmark, iconBg: 'bg-slate-50 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300' },
+      { name: 'Conta PIX', balance: balancePix, icon: Smartphone, iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
+    ];
+  }, [sales, expenses, stockMovements, cashRegisters, cashMovements, returns]);
+
   // --- 5. Resumo de Vendas por Pagamento ---
   const salesByPayment = useMemo(() => {
     const totals: Record<string, number> = {};
     sales.forEach(s => {
+      if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach(p => {
           totals[p.method] = (totals[p.method] || 0) + p.amount;
@@ -238,7 +362,7 @@ export default function FinancePage() {
 
   // --- 6. DRE Automático ---
   const dre = useMemo(() => {
-    const salesInPeriod = sales.filter(s => isWithinRange(s.date));
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status !== 'Cancelada');
     const receita = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Taxas de Maquininhas (Financeiras)
@@ -261,7 +385,7 @@ export default function FinancePage() {
       });
     });
 
-    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date));
+    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date) && e.category !== 'Compra de Mercadoria');
     const despesas = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
 
     // Standard DRE:

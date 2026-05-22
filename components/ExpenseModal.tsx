@@ -223,6 +223,38 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
                 </select>
               </div>
             </div>
+
+            {formData.paymentType === 'À vista' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-200">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Meio de Pagamento</label>
+                  <select
+                    value={formData.paymentMethod}
+                    onChange={e => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
+                  >
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão">Cartão</option>
+                    <option value="Boleto">Boleto</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conta Financeira</label>
+                  <select
+                    value={formData.financialAccount}
+                    onChange={e => setFormData(prev => ({ ...prev, financialAccount: e.target.value }))}
+                    className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
+                  >
+                    <option value="Caixa">Caixa</option>
+                    <option value="Conta Bancária">Conta Bancária</option>
+                    <option value="Conta PIX">Conta PIX</option>
+                    <option value="Mercado Pago">Mercado Pago</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SEÇÃO 3 — DATAS */}

@@ -14,7 +14,7 @@ export function Despesas({ expenses }: { expenses: Expense[] }) {
 
   const filteredExpenses = useMemo(() => {
     return expenses
-      .filter(e => e.status === 'Pago')
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria')
       .filter(e => 
         e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -55,7 +55,8 @@ export default function NovaCompraPage() {
   const [financialAccounts, setFinancialAccounts] = useState<any[]>([
     { id: '1', name: 'Caixa' },
     { id: '2', name: 'Conta Bancária' },
-    { id: '3', name: 'Conta PIX' }
+    { id: '3', name: 'Conta PIX' },
+    { id: '4', name: 'Mercado Pago' }
   ]);
   const [paymentConditions, setPaymentConditions] = useState<any[]>([
     { id: '1', name: 'À Vista' },

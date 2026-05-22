@@ -13,11 +13,13 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(e => 
-      e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (e.supplier || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return expenses
+      .filter(e => e.category !== 'Compra de Mercadoria')
+      .filter(e => 
+        e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.supplier || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
   }, [expenses, searchTerm]);
 
   return (

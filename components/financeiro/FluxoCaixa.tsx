@@ -70,7 +70,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
 
       // Outflows
       const dayExpenses = expenses
-        .filter(e => e.status === 'Pago' && isSameDay(e.paymentDate || e.date, d))
+        .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && isSameDay(e.paymentDate || e.date, d))
         .reduce((acc, e) => acc + e.amount, 0);
       
       const dayPurchases = stockMovements

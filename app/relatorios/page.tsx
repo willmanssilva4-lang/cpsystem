@@ -1708,8 +1708,12 @@ function DreRow({ label, value, bold, negative, highlight, final }: any) {
 
 function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products } = useERP();
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isExplanationOpen, setIsExplanationOpen] = useState(true);
+
+  // Filter sales that are within the period and not cancelled
   const filteredSales = sales.filter(s => {
+    if (s.status === 'Cancelada') return false;
     const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
@@ -1721,43 +1725,243 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
     });
   });
 
-  const data = Object.entries(productSales)
+  const rawData = Object.entries(productSales)
     .map(([productId, qty]) => {
       const product = products.find(p => p.id === productId);
       const stock = product ? product.stock : 0;
-      const turnover = stock > 0 ? (qty / stock).toFixed(1) : '0.0';
-      let status = 'Médio Giro';
-      let color = 'blue';
-      if (Number(turnover) > 2) { status = 'Alto Giro'; color = 'brand-blue'; }
-      else if (Number(turnover) < 0.5) { status = 'Baixo Giro'; color = 'rose'; }
+      const turnoverVal = stock > 0 ? qty / stock : 0;
       
+      let status = 'Médio Giro';
+      let colorClass = 'text-blue-600 bg-blue-50 border-blue-105 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/40';
+      let barColor = 'bg-blue-500';
+      
+      if (turnoverVal >= 2.0) {
+        status = 'Alto Giro';
+        colorClass = 'text-emerald-600 bg-emerald-50 border-emerald-105 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/40';
+        barColor = 'bg-emerald-500';
+      } else if (turnoverVal < 0.5) {
+        status = 'Baixo Giro';
+        colorClass = 'text-rose-600 bg-rose-50 border-rose-105 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/40';
+        barColor = 'bg-rose-500';
+      }
+
       return {
+        id: productId,
         name: product ? product.name : 'Produto Desconhecido',
-        turnover: `${turnover}x`,
+        sku: product ? product.sku : 'S/SKU',
+        qty,
+        stock,
+        turnoverVal,
+        turnoverFormated: `${turnoverVal.toFixed(1)}x`,
         status,
-        color
+        colorClass,
+        barColor
       };
     })
-    .sort((a, b) => parseFloat(b.turnover) - parseFloat(a.turnover))
-    .slice(0, 20);
+    .sort((a, b) => b.turnoverVal - a.turnoverVal);
+
+  const filteredData = rawData.filter(item => 
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Computations for overall indicators
+  const totalItemsSold = rawData.reduce((acc, curr) => acc + curr.qty, 0);
+  const averageTurnover = rawData.length > 0 
+    ? (rawData.reduce((acc, curr) => acc + curr.turnoverVal, 0) / rawData.length).toFixed(1)
+    : '0.0';
+  const highTurnoverCount = rawData.filter(item => item.turnoverVal >= 2.0).length;
+  const lowTurnoverCount = rawData.filter(item => item.turnoverVal < 0.5).length;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {data.length > 0 ? data.map((item, i) => (
-          <div key={i} className="p-6 rounded-3xl border border-brand-border bg-white flex items-center justify-between shadow-sm gap-4">
-            <div className="min-w-0 flex-1">
-              <h5 className="text-sm font-black text-brand-text-main uppercase italic truncate" title={item.name}>{item.name}</h5>
-              <p className="text-[10px] font-black text-brand-blue/40 uppercase tracking-widest truncate">{item.status}</p>
+      {/* Dynamic Informative Banner explaining Stock Turnover */}
+      <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-900/40 dark:to-slate-900/10 border border-brand-border p-5 rounded-2xl relative overflow-hidden transition-all">
+        <div className="absolute right-4 top-4 text-brand-blue/10 pointer-events-none">
+          <RefreshCw size={92} className="rotate-12 opacity-10" />
+        </div>
+        
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shrink-0">
+              <Bot size={22} className="animate-pulse" />
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-2xl font-black text-brand-blue truncate">{item.turnover}</p>
-              <p className="text-[10px] font-black text-brand-text-main/20 uppercase italic">Giro no Período</p>
+            <div>
+              <h4 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">O que é e como funciona o Giro de Estoque?</h4>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Aprenda a analisar a velocidade do seu capital de giro</p>
             </div>
           </div>
-        )) : (
-          <div className="col-span-2 text-center py-8 text-brand-blue/60 font-medium">
-            Nenhuma venda registrada no período selecionado.
+          <button 
+            onClick={() => setIsExplanationOpen(!isExplanationOpen)}
+            className="text-slate-400 hover:text-brand-text-main transition-colors text-xs font-black uppercase italic border border-brand-border px-3 py-1 rounded-lg bg-white dark:bg-slate-800"
+          >
+            {isExplanationOpen ? 'Ocultar Explicação' : 'Como Funciona?'}
+          </button>
+        </div>
+
+        {isExplanationOpen && (
+          <div className="mt-4 pt-4 border-t border-brand-border/60 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-brand-text-main/70 relative z-10 transition-all duration-300">
+            <div className="space-y-2">
+              <h5 className="font-extrabold text-brand-text-main uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-blue animate-ping"></span>
+                CONCEITO PRÁTICO
+              </h5>
+              <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                O <strong className="font-bold text-brand-text-main">Giro de Estoque</strong> indica quantas vezes o seu estoque de um produto foi vendido e reposto no período selecionado. É o termômetro do seu investimento em mercadorias transformando-se em dinheiro.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <h5 className="font-extrabold text-brand-text-main uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                ALTO GIRO (&gt;= 2.0x)
+              </h5>
+              <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                Significa alta circulação e ótima aceitação de venda. <strong className="font-bold text-emerald-600">Estratégia:</strong> Evite faltas programando compras frequentes com menor intervalo, sem precisar inchar o estoque físico.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h5 className="font-extrabold text-brand-text-main uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                BAIXO GIRO (&lt; 0.5x)
+              </h5>
+              <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                Indica mercadoria empacada prateleira e <strong className="font-bold text-rose-600">capital de giro travado</strong>. <strong className="font-bold text-brand-text-main">Estratégia:</strong> Crie ofertas agrupadas (combos), promoções de urgência ou reduza as novas compras deste item.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Summary KPI Cards Grid with Real Calculative Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Giro Médio */}
+        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Giro Médio Geral</span>
+            <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/30 text-indigo-505">
+              <Gauge size={16} />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-brand-blue tracking-tight leading-none mb-1">{averageTurnover}x</p>
+          <p className="text-[9px] font-bold uppercase text-slate-400">Reposições por produto</p>
+        </div>
+
+        {/* KPI 2: Total Items Sold */}
+        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Volume de Saída</span>
+            <div className="p-2 rounded-xl bg-sky-50 border border-sky-100 dark:bg-sky-950/20 dark:border-sky-900/30 text-sky-505">
+              <ShoppingBag size={16} />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-none mb-1">{totalItemsSold} un</p>
+          <p className="text-[9px] font-bold uppercase text-slate-400">Total vendido no período</p>
+        </div>
+
+        {/* KPI 3: High Turnover Count */}
+        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Alto Giro (&gt;=2x)</span>
+            <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30 text-emerald-505">
+              <Zap size={16} />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-none mb-1">{highTurnoverCount}</p>
+          <p className="text-[9px] font-bold uppercase text-slate-400">Produtos com bom giro</p>
+        </div>
+
+        {/* KPI 4: Low Turnover Count (Alert) */}
+        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Baixo Giro (&lt;0.5x)</span>
+            <div className="p-2 rounded-xl bg-rose-50 border border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/30 text-rose-505">
+              <AlertTriangle size={16} />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight leading-none mb-1">{lowTurnoverCount}</p>
+          <p className="text-[9px] font-bold uppercase text-slate-400">Produtos com capital parado</p>
+        </div>
+      </div>
+
+      {/* Control Panel with Search & Filter status */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-brand-card border border-brand-border p-4 rounded-2xl shadow-sm">
+        <div className="relative w-full md:w-80">
+          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+            <Search size={16} />
+          </span>
+          <input
+            type="text"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-brand-border pl-9 pr-4 py-2 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            placeholder="Pesquisar produto ou SKU..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[9px] font-bold uppercase text-slate-400">Análise de velocidade:</span>
+          <span className="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase border border-emerald-100 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/40 dark:text-emerald-400">Alto &gt;= 2.0x</span>
+          <span className="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase border border-blue-100 bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:border-blue-900/40 dark:text-blue-400">Médio 0.5x - 2.0x</span>
+          <span className="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase border border-rose-100 bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:border-rose-900/40 dark:text-rose-400">Baixo &lt; 0.5x</span>
+        </div>
+      </div>
+
+      {/* Bento Grid layout of products analyzed with micro-visualizers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredData.length > 0 ? filteredData.map((item, i) => {
+          // Progress speed calculated with limits from 0% to 100% for visual layout
+          const progressPercentage = Math.min(100, Math.max(5, item.turnoverVal * 40));
+          
+          return (
+            <div key={i} className="p-5 rounded-2xl border border-brand-border bg-brand-card flex flex-col justify-between shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 group">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0 flex-1">
+                  <h5 className="text-xs font-black text-brand-text-main uppercase italic truncate group-hover:text-brand-blue transition-colors" title={item.name}>
+                    {item.name}
+                  </h5>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    SKU: {item.sku}
+                  </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-1.5">
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase border tracking-wider bg-slate-50 border-slate-100 text-slate-600 dark:bg-slate-900 dark:border-slate-800`}>
+                    Giro {item.turnoverFormated}
+                  </span>
+                </div>
+              </div>
+
+              {/* Statistical ratio display */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-900/40 p-3 rounded-xl border border-brand-border/60 mb-4 text-xs">
+                <div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Vendidos no Período</p>
+                  <p className="text-sm font-black text-brand-text-main mt-0.5">{item.qty} un</p>
+                </div>
+                <div className="border-l border-brand-border/60 pl-3">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Estoque Atual</p>
+                  <p className="text-sm font-black text-brand-text-main mt-0.5">{item.stock} un</p>
+                </div>
+              </div>
+
+              {/* Progress bar visualizer */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="font-bold text-slate-400 uppercase tracking-wider">Velocidade de Reposição</span>
+                  <span className="font-black text-brand-blue uppercase italic">{item.status}</span>
+                </div>
+                <div className="w-full bg-slate-150 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className={cn("h-full rounded-full transition-all duration-500", item.barColor)}
+                    style={{ width: `${progressPercentage}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        }) : (
+          <div className="col-span-full text-center py-12 bg-slate-50 dark:bg-slate-900/20 border border-brand-border rounded-2xl text-slate-400 font-bold uppercase italic text-xs">
+            Nenhuma venda registrada ou correspondente ao filtro de pesquisa.
           </div>
         )}
       </div>
@@ -2539,92 +2743,436 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
 
 function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products } = useERP();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClass, setSelectedClass] = useState<'All' | 'A' | 'B' | 'C'>('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isExplanationOpen, setIsExplanationOpen] = useState(true);
+  const itemsPerPage = 10;
   
-  const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
-    return d >= startDate && d <= endDate;
-  });
-
-  const productTotals: Record<string, number> = {};
-  let totalRevenue = 0;
-
-  filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
-      const itemTotal = item.price * item.quantity;
-      productTotals[item.productId] = (productTotals[item.productId] || 0) + itemTotal;
-      totalRevenue += itemTotal;
+  // Filter sales within the period that are not cancelled
+  const filteredSales = useMemo(() => {
+    return sales.filter(s => {
+      if (s.status === 'Cancelada') return false;
+      const d = s.date.split('T')[0];
+      return d >= startDate && d <= endDate;
     });
-  });
+  }, [sales, startDate, endDate]);
 
-  const sortedProducts = Object.entries(productTotals)
-    .sort((a, b) => b[1] - a[1])
-    .map(([productId, total]) => {
-      const product = products.find(p => p.id === productId);
+  const rawData = useMemo(() => {
+    const productTotals: Record<string, number> = {};
+    const productQtys: Record<string, number> = {};
+    let totalRevenue = 0;
+
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        productTotals[item.productId] = (productTotals[item.productId] || 0) + itemTotal;
+        productQtys[item.productId] = (productQtys[item.productId] || 0) + item.quantity;
+        totalRevenue += itemTotal;
+      });
+    });
+
+    const sortedProducts = Object.entries(productTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([productId, total]) => {
+        const product = products.find(p => p.id === productId);
+        return {
+          id: productId,
+          name: product ? product.name : 'Produto Desconhecido',
+          sku: product ? product.sku : 'S/SKU',
+          stock: product ? product.stock : 0,
+          qtySold: productQtys[productId] || 0,
+          total
+        };
+      });
+
+    let cumulative = 0;
+    return sortedProducts.map((p) => {
+      cumulative += p.total;
+      const percent = totalRevenue > 0 ? (cumulative / totalRevenue) * 100 : 0;
+      const individualPercent = totalRevenue > 0 ? (p.total / totalRevenue) * 100 : 0;
+      
+      let cls = 'C';
+      let tagColor = 'text-slate-600 bg-slate-100 dark:bg-slate-900/40 dark:text-slate-400 border border-slate-200 dark:border-slate-800';
+      
+      if (percent <= 80) {
+        cls = 'A';
+        tagColor = 'text-emerald-700 bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40';
+      } else if (percent <= 95) {
+        cls = 'B';
+        tagColor = 'text-brand-blue bg-blue-50 border border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/40';
+      }
+
       return {
-        name: product ? product.name : 'Produto Desconhecido',
-        total
+        ...p,
+        cumulative,
+        percent,
+        individualPercent,
+        class: cls,
+        tagColor,
+        formattedTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.total)
       };
     });
+  }, [filteredSales, products]);
 
-  const data = sortedProducts.reduce((acc, p) => {
-    const cumulative = (acc.length > 0 ? acc[acc.length - 1].cumulative : 0) + p.total;
-    const percent = totalRevenue > 0 ? (cumulative / totalRevenue) * 100 : 0;
-    let cls = 'C';
-    if (percent <= 80) cls = 'A';
-    else if (percent <= 95) cls = 'B';
+  // General Metrics computed on full dataset
+  const stats = useMemo(() => {
+    const totalRev = rawData.reduce((acc, p) => acc + p.total, 0);
+    const classA = rawData.filter(p => p.class === 'A');
+    const classB = rawData.filter(p => p.class === 'B');
+    const classC = rawData.filter(p => p.class === 'C');
 
-    acc.push({
-      ...p,
-      cumulative,
-      class: cls,
-      formattedTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.total)
+    const revA = classA.reduce((acc, p) => acc + p.total, 0);
+    const revB = classB.reduce((acc, p) => acc + p.total, 0);
+    const revC = classC.reduce((acc, p) => acc + p.total, 0);
+
+    return {
+      totalRevenue: totalRev,
+      formattedTotalRevenue: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRev),
+      countA: classA.length,
+      pctA: totalRev > 0 ? (revA / totalRev) * 100 : 0,
+      countB: classB.length,
+      pctB: totalRev > 0 ? (revB / totalRev) * 100 : 0,
+      countC: classC.length,
+      pctC: totalRev > 0 ? (revC / totalRev) * 100 : 0,
+    };
+  }, [rawData]);
+
+  // Apply search filtering and class tabs
+  const filteredData = useMemo(() => {
+    return rawData.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesClass = selectedClass === 'All' || item.class === selectedClass;
+      return matchesSearch && matchesClass;
     });
-    return acc;
-  }, [] as any[]);
+  }, [rawData, searchTerm, selectedClass]);
+
+  // Reset to page 1 on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedClass]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-brand-blue text-white">
-          <h5 className="text-[10px] font-black uppercase italic opacity-60">Curva A</h5>
-          <p className="text-lg font-black">Até 80% do Faturamento</p>
-          <p className="text-[8px] font-black uppercase italic">Alta Importância</p>
+      {/* Dynamic Informative Banner explaining ABC Curve */}
+      <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-900/40 dark:to-slate-900/10 border border-brand-border p-5 rounded-2xl relative overflow-hidden transition-all">
+        <div className="absolute right-4 top-4 text-brand-blue/10 pointer-events-none">
+          <TrendingUp size={92} className="rotate-12 opacity-10" />
         </div>
-        <div className="p-4 rounded-2xl bg-brand-text-sec text-white">
-          <h5 className="text-[10px] font-black uppercase italic opacity-60">Curva B</h5>
-          <p className="text-lg font-black">Até 95% do Faturamento</p>
-          <p className="text-[8px] font-black uppercase italic">Média Importância</p>
+        
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shrink-0">
+              <Bot size={22} className="animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Como analisar a Curva ABC de Produtos?</h4>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">A regra de Pareto (80/20) aplicada no faturamento da sua loja</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setIsExplanationOpen(!isExplanationOpen)}
+            className="text-slate-400 hover:text-brand-text-main transition-colors text-xs font-black uppercase italic border border-brand-border px-3 py-1 rounded-lg bg-white dark:bg-slate-800"
+          >
+            {isExplanationOpen ? 'Ocultar Explicação' : 'Como Funciona?'}
+          </button>
         </div>
-        <div className="p-4 rounded-2xl bg-brand-border text-brand-blue">
-          <h5 className="text-[10px] font-black uppercase italic opacity-60">Curva C</h5>
-          <p className="text-lg font-black">Até 100% do Faturamento</p>
-          <p className="text-[8px] font-black uppercase italic">Baixa Importância</p>
+
+        {isExplanationOpen && (
+          <div className="mt-4 pt-4 border-t border-brand-border/60 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-brand-text-main/70 relative z-10 transition-all duration-300">
+            <div className="space-y-2">
+              <h5 className="font-extrabold text-brand-text-main uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                CLASSE A — ALTO IMPACTO (Até 80%)
+              </h5>
+              <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                Poucos produtos que acumulam juntos cerca de <strong className="font-bold text-emerald-600">80% do seu faturamento</strong>. São vitais para o negócio. <strong className="font-bold">Estratégia:</strong> Não podem faltar no estoque (ruptura zero) e merecem maior margem de negociação com fornecedores.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <h5 className="font-extrabold text-brand-text-main uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                CLASSE B — INTERMEDIÁRIOS (De 80% a 95%)
+              </h5>
+              <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                Produtos de importância média que representam os próximos <strong className="font-bold text-brand-blue">15% do seu faturamento</strong>. <strong className="font-bold">Estratégia:</strong> Devem ser repostos com atenção moderada, mantendo um estoque de segurança razoável.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h5 className="font-extrabold text-brand-text-main uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                CLASSE C — BAIXO IMPACTO (De 95% a 100%)
+              </h5>
+              <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                Grande variedade de produtos que respondem pelos últimos <strong className="font-bold text-slate-600 dark:text-slate-400">5% do faturamento</strong>. <strong className="font-bold">Estratégia:</strong> Evite excesso de estoque físico para não travar capital, compre sob demanda ou configure períodos longos de reposição.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Segmented Class Card KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Total KPI */}
+        <div className="p-5 rounded-2xl bg-slate-100/50 dark:bg-slate-900/30 border border-brand-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Faturamento no Período</span>
+              <DollarSign size={16} className="text-slate-400" />
+            </div>
+            <p className="text-xl font-black text-brand-blue truncate" title={stats.formattedTotalRevenue}>
+              {stats.formattedTotalRevenue}
+            </p>
+          </div>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
+            Base Calculada: {rawData.length} itens vendidos
+          </p>
+        </div>
+
+        {/* Classe A */}
+        <div className="p-5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Classe A — Alta Importância</span>
+              <Zap size={16} className="text-emerald-500" />
+            </div>
+            <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">
+              {stats.pctA.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
+            </p>
+          </div>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
+            {stats.countA} produtos ({(rawData.length > 0 ? (stats.countA / rawData.length) * 100 : 0).toFixed(0)}% do mix)
+          </p>
+        </div>
+
+        {/* Classe B */}
+        <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-brand-blue">Classe B — Média Importância</span>
+              <Layers size={16} className="text-brand-blue" />
+            </div>
+            <p className="text-xl font-black text-slate-800 dark:text-slate-350">
+              {stats.pctB.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
+            </p>
+          </div>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
+            {stats.countB} produtos ({(rawData.length > 0 ? (stats.countB / rawData.length) * 100 : 0).toFixed(0)}% do mix)
+          </p>
+        </div>
+
+        {/* Classe C */}
+        <div className="p-5 rounded-2xl bg-slate-100/30 dark:bg-slate-900/20 border border-brand-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Classe C — Baixa Importância</span>
+              <ShoppingBag size={16} className="text-slate-400" />
+            </div>
+            <p className="text-xl font-black text-slate-500">
+              {stats.pctC.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
+            </p>
+          </div>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
+            {stats.countC} produtos ({(rawData.length > 0 ? (stats.countC / rawData.length) * 100 : 0).toFixed(0)}% do mix)
+          </p>
         </div>
       </div>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-slate-50">
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Classe</th>
-            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Acumulado</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {data.length > 0 ? data.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-              <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
-              <td className="py-4">
-                <span className={`px-2 py-1 rounded-lg text-[10px] font-black text-white ${row.class === 'A' ? 'bg-brand-blue' : row.class === 'B' ? 'bg-brand-text-sec' : 'bg-brand-border'}`}>{row.class}</span>
-              </td>
-              <td className="py-4 text-right text-sm font-black text-brand-blue">{row.formattedTotal}</td>
+
+      {/* Control Panel: Search + Class Filtering tabs */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-brand-card border border-brand-border p-4 rounded-2xl shadow-sm">
+        <div className="relative w-full md:w-80">
+          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+            <Search size={16} />
+          </span>
+          <input
+            type="text"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-brand-border pl-9 pr-4 py-2 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            placeholder="Pesquisar por produto ou SKU..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 self-stretch md:self-auto overflow-x-auto pb-1 md:pb-0">
+          <span className="text-[9px] font-bold uppercase text-slate-400 whitespace-nowrap mr-1">Filtrar Classe:</span>
+          <button 
+            onClick={() => setSelectedClass('All')}
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap", 
+              selectedClass === 'All' 
+                ? "bg-brand-blue text-white shadow-sm" 
+                : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            )}
+          >
+            Todos ({rawData.length})
+          </button>
+          <button 
+            onClick={() => setSelectedClass('A')}
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap border border-transparent", 
+              selectedClass === 'A' 
+                ? "bg-emerald-500 text-white shadow-sm" 
+                : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+            )}
+          >
+            Classe A ({stats.countA})
+          </button>
+          <button 
+            onClick={() => setSelectedClass('B')}
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap border border-transparent", 
+              selectedClass === 'B' 
+                ? "bg-brand-blue text-white shadow-sm" 
+                : "text-brand-blue hover:bg-blue-50 dark:hover:bg-blue-900/10"
+            )}
+          >
+            Classe B ({stats.countB})
+          </button>
+          <button 
+            onClick={() => setSelectedClass('C')}
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all whitespace-nowrap border border-transparent", 
+              selectedClass === 'C' 
+                ? "bg-slate-500 text-white shadow-sm" 
+                : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            )}
+          >
+            Classe C ({stats.countC})
+          </button>
+        </div>
+      </div>
+
+      {/* Main Table Segment */}
+      <div className="overflow-x-auto min-w-full rounded-2xl border border-brand-border bg-brand-card shadow-sm">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-brand-border bg-slate-50/50 dark:bg-slate-900/10">
+              <th className="p-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest pl-6">Rank & Produto</th>
+              <th className="p-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Classe</th>
+              <th className="p-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Qtd Vendida</th>
+              <th className="p-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Faturamento</th>
+              <th className="p-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right pr-6">Acumulado (%)</th>
             </tr>
-          )) : (
-            <tr>
-              <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-brand-border">
+            {paginatedData.length > 0 ? paginatedData.map((row, i) => {
+              const globalIndex = rawData.findIndex(item => item.id === row.id) + 1;
+              return (
+                <tr key={i} className="hover:bg-slate-50/30 dark:hover:bg-slate-900/5 transition-colors">
+                  {/* Rank and Product Details */}
+                  <td className="p-4 pl-6 text-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-black font-mono text-slate-400 bg-slate-100 dark:bg-slate-850 px-2 py-0.5 rounded-md shrink-0">
+                        #{globalIndex}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-black text-brand-text-main uppercase italic truncate block max-w-[240px] md:max-w-xs">{row.name}</p>
+                        <p className="text-[10px] font-medium text-slate-400 uppercase mt-0.5">SKU: {row.sku} • Est. Físico: {row.stock} un</p>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Class Badge */}
+                  <td className="p-4 text-center">
+                    <span className={cn("px-2.5 py-1 rounded-md text-[9px] font-extrabold uppercase tracking-wider whitespace-nowrap", row.tagColor)}>
+                      Classe {row.class}
+                    </span>
+                  </td>
+
+                  {/* Qty Sold */}
+                  <td className="p-4 text-center font-bold text-slate-600 dark:text-slate-300 text-xs">
+                    {row.qtySold} un
+                  </td>
+
+                  {/* Faturamento (Value + Percentage contribution of total revenue) */}
+                  <td className="p-4 text-right">
+                    <p className="text-sm font-black text-brand-blue">{row.formattedTotal}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                      Contribuí com {row.individualPercent.toFixed(1)}%
+                    </p>
+                  </td>
+
+                  {/* Cumulative % with visual Progress bar */}
+                  <td className="p-4 text-right pr-6 min-w-[140px]">
+                    <div className="flex flex-col items-end gap-1">
+                      <p className="text-xs font-black text-slate-800 dark:text-slate-300">{row.percent.toFixed(1)}%</p>
+                      <div className="w-full max-w-[120px] bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden block">
+                        <div 
+                          className={cn("h-full rounded-full transition-all duration-300", 
+                            row.class === 'A' ? 'bg-emerald-500' : row.class === 'B' ? 'bg-brand-blue' : 'bg-slate-400'
+                          )}
+                          style={{ width: `${row.percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-sm font-black text-slate-400 uppercase italic">
+                  Nenhum produto correspondente aos filtros de pesquisa selecionados.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Unified Pagination matching Products Management exactly */}
+        {totalPages > 1 && (
+          <div className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border-t border-brand-border flex items-center justify-between rounded-b-2xl">
+            <p className="text-sm text-slate-500 font-medium">
+              Mostrando {paginatedData.length} de {filteredData.length} produtos
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && array[index - 1] !== page - 1 && (
+                          <span className="text-slate-400 px-1">...</span>
+                        )}
+                        <button 
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                            page === currentPage 
+                              ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" 
+                              : "text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2874,10 +3422,26 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
 
 function CriticalStockReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { products } = useERP();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
-  const lowStockProducts = products
-    .filter(p => p.status !== 'Inativo' && p.stock <= p.minStock)
-    .sort((a, b) => a.stock - b.stock);
+  const lowStockProducts = useMemo(() => {
+    return products
+      .filter(p => p.status !== 'Inativo' && p.stock <= p.minStock)
+      .sort((a, b) => a.stock - b.stock);
+  }, [products]);
+
+  // Reset to page 1 if the dataset changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [lowStockProducts]);
+
+  const totalPages = Math.ceil(lowStockProducts.length / itemsPerPage);
+  
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return lowStockProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [lowStockProducts, currentPage, itemsPerPage]);
 
   return (
     <div className="space-y-6">
@@ -2890,28 +3454,79 @@ function CriticalStockReport({ startDate, endDate }: { startDate: string, endDat
           <p className="text-[10px] font-medium text-orange-600/60 uppercase">Considere repor o estoque destes produtos.</p>
         </div>
       </div>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-slate-50">
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Estoque Mínimo</th>
-            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Estoque Atual</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {lowStockProducts.length > 0 ? lowStockProducts.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-              <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
-              <td className="py-4 text-sm font-bold text-brand-text-main">{row.minStock} un</td>
-              <td className="py-4 text-right text-sm font-black text-rose-600">{row.stock} un</td>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-50">
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
+              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Estoque Mínimo</th>
+              <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Estoque Atual</th>
             </tr>
-          )) : (
-            <tr>
-              <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhum produto com estoque crítico.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {paginatedProducts.length > 0 ? paginatedProducts.map((row, i) => (
+              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.name}</td>
+                <td className="py-4 text-sm font-bold text-brand-text-main">{row.minStock} un</td>
+                <td className="py-4 text-right text-sm font-black text-rose-600">{row.stock} un</td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={3} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhum produto com estoque crítico.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between rounded-b-2xl mt-4">
+          <p className="text-sm text-slate-500 font-medium">
+            Mostrando {paginatedProducts.length} de {lowStockProducts.length} produtos
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={18} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                  .map((page, index, array) => (
+                    <React.Fragment key={page}>
+                      {index > 0 && array[index - 1] !== page - 1 && (
+                        <span className="text-slate-400 px-1">...</span>
+                      )}
+                      <button 
+                        onClick={() => setCurrentPage(page)}
+                        className={cn(
+                          "w-8 h-8 rounded-lg text-sm font-bold transition-all",
+                          page === currentPage 
+                            ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" 
+                            : "text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800"
+                        )}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  ))}
+              </div>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={18} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -700,6 +700,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           status: s.status || 'Concluída',
           taxAmount: s.tax_amount ? Number(s.tax_amount) : 0,
           netAmount: s.net_amount ? Number(s.net_amount) : Number(s.total),
+          payments: s.payments || [],
           items: (s.sale_items || []).map((si: any) => ({
             productId: si.product_id,
             quantity: Number(si.quantity || 0),

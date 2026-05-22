@@ -42,7 +42,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         status: 'Pago',
         source: 'sale'
       })),
-      ...expenses.filter(e => e.status === 'Pago').map(e => ({
+      ...expenses.filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria').map(e => ({
         id: `exp-${e.id}`,
         date: e.paymentDate || e.date,
         description: e.description,
