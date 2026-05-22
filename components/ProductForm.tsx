@@ -537,10 +537,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         <div className="bg-slate-50 px-8 flex gap-8 border-b border-slate-100">
           {[
             { id: 'geral', label: 'Dados Gerais', icon: Package },
-            { id: 'movimentacoes', label: 'Movimentações', icon: History, hidden: !initialData },
-            { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2, hidden: !initialData },
-            { id: 'inventario', label: 'Inventário', icon: ClipboardList, hidden: !initialData },
-            { id: 'lotes', label: 'Lotes Ativos', icon: Package, hidden: !initialData },
+            { id: 'movimentacoes', label: 'Movimentações', icon: History, hidden: !initialData || !initialData.id },
+            { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2, hidden: !initialData || !initialData.id },
+            { id: 'inventario', label: 'Inventário', icon: ClipboardList, hidden: !initialData || !initialData.id },
+            { id: 'lotes', label: 'Lotes Ativos', icon: Package, hidden: !initialData || !initialData.id },
           ].filter(t => !t.hidden).map((tab) => (
             <button
               key={tab.id}
@@ -956,7 +956,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         if (normalized === '' || !isNaN(Number(normalized))) {
                           setFormData(prev => ({ 
                             ...prev, 
-                            salePrice: normalized === '' ? '' : Math.round(salePrice * 100) / 100, 
+                            salePrice: normalized, 
                             profit, 
                             profitPercentage: Math.round(profitPercentage * 100) / 100 
                           }));
@@ -2233,13 +2233,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   } else {
                                     profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                                   }
-                                  setFormData(prev => ({ 
-                                    ...prev, 
-                                    salePrice: val === '' ? '' : Math.round(salePrice * 100) / 100, 
-                                    profit: Math.round(profit * 100) / 100, 
-                                    profitPercentage: Math.round(profitPercentage * 100) / 100, 
-                                    costPrice 
-                                  }));
+                                  if (normalized === '' || !isNaN(Number(normalized))) {
+                                    setFormData(prev => ({ 
+                                      ...prev, 
+                                      salePrice: normalized, 
+                                      profit: Math.round(profit * 100) / 100, 
+                                      profitPercentage: Math.round(profitPercentage * 100) / 100, 
+                                      costPrice 
+                                    }));
+                                  }
                                 }}
                                 className={cn(
                                   "w-full pl-12 pr-4 py-3 rounded-2xl text-xl font-black border outline-none transition-all",

@@ -16,6 +16,7 @@ import {
   TrendingDown,
   X,
   Edit,
+  Copy,
   Trash2,
   Settings2,
   ChevronDown,
@@ -41,6 +42,7 @@ export default function ProductsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [duplicateBaseProduct, setDuplicateBaseProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [showLossModal, setShowLossModal] = useState(false);
   const [selectedLossProduct, setSelectedLossProduct] = useState<Product | null>(null);
@@ -429,6 +431,21 @@ export default function ProductsPage() {
     setActiveMenuId(null);
   };
 
+  const handleDuplicate = (product: Product) => {
+    setActiveMenuId(null);
+    setDuplicateBaseProduct({
+      ...product,
+      id: '', // Clear ID for new product flow
+      name: `${product.name} (Cópia)`,
+      sku: '',      // Clear to avoid duplicate code violations
+      barcode: '',  // Clear to avoid duplicate barcode violations
+      stock: 0,     // Clear stock for new duplicated product
+      has_had_stock: false,
+    });
+    setEditingProduct(null); // Ensure we are in create mode
+    setShowModal(true);
+  };
+
   const handleDelete = async (id: string) => {
     // Close menu first to avoid UI glitches
     setActiveMenuId(null);
@@ -804,6 +821,16 @@ export default function ProductsPage() {
                               >
                                 <Edit size={14} />
                                 Editar Produto
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDuplicate(product);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                              >
+                                <Copy size={14} />
+                                Duplicar Produto
                               </button>
                               <button
                                 onClick={(e) => {
@@ -1281,10 +1308,11 @@ export default function ProductsPage() {
 
       {showModal && (
         <ProductForm 
-          initialData={editingProduct || undefined}
+          initialData={duplicateBaseProduct || editingProduct || undefined}
           onClose={() => {
             setShowModal(false);
             setEditingProduct(null);
+            setDuplicateBaseProduct(null);
           }} 
           onSave={handleSaveProduct} 
         />
