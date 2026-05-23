@@ -19,7 +19,7 @@ import {
   Bookmark,
   DollarSign
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateString } from '@/lib/utils';
 
 export function SalesByProductReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products } = useERP();
@@ -49,7 +49,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
     // Filter sales within the target period
     const filteredSales = sales.filter(s => {
       if (!s.date) return false;
-      const d = s.date.substring(0, 10);
+      const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
 
@@ -425,7 +425,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
               <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-center">Unidades</th>
               <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Preço Médio</th>
               <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Investimento (CMV)</th>
-              <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Impostos (Proporcional)</th>
+              <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Taxa Maquininha</th>
               <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Lucro Bruto Médio</th>
               <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right pr-6">Total Faturamento</th>
             </tr>

@@ -22,7 +22,7 @@ import {
   TrendingDown,
   UserCheck
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, toLocalDateString } from '@/lib/utils';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, customers, systemUsers, paymentMethods } = useERP();
@@ -45,7 +45,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     // 1. Initial date filter
     let result = sales.filter(s => {
       if (!s.date) return false;
-      const d = s.date.substring(0, 10);
+      const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
 
@@ -121,7 +121,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     processedSales.forEach(sale => {
       const date = new Date(sale.date);
       const dateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-      const isoYMD = sale.date.substring(0, 10);
+      const isoYMD = toLocalDateString(sale.date);
       
       if (!chartDataMap.has(dateStr)) {
         chartDataMap.set(dateStr, { date: dateStr, rawDate: isoYMD, total: 0, orders: 0 });
@@ -664,7 +664,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                               
                               {(sale.taxAmount || 0) > 0 && (
                                 <div className="flex-1 min-w-[200px] flex justify-between items-center px-4 py-2.5 bg-slate-100/50 dark:bg-slate-800/40 rounded-xl border border-brand-border">
-                                  <span className="text-[10px] font-black text-slate-500 uppercase italic">Impostos / ICMS Estimados</span>
+                                  <span className="text-[10px] font-black text-slate-500 uppercase italic">Taxa Maquininha</span>
                                   <span className="text-xs font-black text-slate-600 dark:text-slate-350 font-mono">{formatCurrency(sale.taxAmount || 0)}</span>
                                 </div>
                               )}

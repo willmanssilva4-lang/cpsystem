@@ -143,6 +143,16 @@ function ReportsContent() {
     return `${year}-${month}-${day}`;
   });
 
+  // Corrige fuso horário UTC do servidor para o fuso local do navegador do cliente após a montagem
+  useEffect(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    setStartDate(`${year}-${month}-01`);
+    setEndDate(`${year}-${month}-${day}`);
+  }, []);
+
   // Dynamic Data Calculations for Dashboard
   const filteredSales = React.useMemo(() => sales.filter(s => {
     const d = toLocalDateString(s.date);
@@ -388,7 +398,7 @@ function ReportsContent() {
                   <button 
                     onClick={() => {
                       setSelectedReportView('Catálogo');
-                      const today = new Date().toISOString().split('T')[0];
+                      const today = getLocalDateString();
                       setStartDate(today);
                       setEndDate(today);
                     }}
