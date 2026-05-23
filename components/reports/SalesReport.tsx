@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useERP } from '@/lib/context';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -15,30 +15,60 @@ import {
   CreditCard, 
   Award, 
   ArrowUpRight, 
+  ArrowDownRight,
   BarChart3, 
   Tag, 
-  RefreshCw,
-  ShoppingBag,
-  TrendingDown,
-  UserCheck
+  ShoppingBag, 
+  Copy,
+  Check,
+  DollarSign,
+  Activity,
+  Percent,
+  SlidersHorizontal,
+  Sliders,
+  Filter,
+  Flame,
+  LineChart,
+  UserCheck,
+  Download,
+  Printer,
+  Layers
 } from 'lucide-react';
 import { cn, toLocalDateString } from '@/lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, customers, systemUsers, paymentMethods } = useERP();
+  const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias } = useERP();
+  
+  // Accordion unique state
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   
   // Interactive filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<string>('All');
   const [selectedSeller, setSelectedSeller] = useState<string>('All');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'total-desc' | 'total-asc'>('date-desc');
   
   // Tab for breakdown insights
   const [activeInsightTab, setActiveInsightTab] = useState<'payments' | 'products' | 'sellers'>('payments');
   
+  // Interactive trend chart dynamic toggles
+  const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue');
+  
+  // Copy to clipboard notification feedback
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+
+  const handleCopy = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   // Filter & sort list of sales
   const processedSales = useMemo(() => {
@@ -78,6 +108,22 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
       result = result.filter(s => s.userId === selectedSeller);
     }
 
+    // 4.1 Product Category filter
+    if (selectedCategory !== 'All') {
+      result = result.filter(s => {
+        return s.items.some(item => {
+          const product = products.find(p => p.id === item.productId);
+          if (product && product.subcategoria_id) {
+            const sub = subcategorias?.find(sc => sc.id === product.subcategoria_id);
+            if (sub && sub.categoria_id === selectedCategory) {
+              return true;
+            }
+          }
+          return false;
+        });
+      });
+    }
+
     // 5. Sorting
     result.sort((a, b) => {
       if (sortBy === 'date-desc') {
@@ -96,13 +142,78 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     });
 
     return result;
-  }, [sales, startDate, endDate, searchTerm, selectedPayment, selectedSeller, sortBy, customers, products]);
+  }, [sales, startDate, endDate, searchTerm, selectedPayment, selectedSeller, selectedCategory, sortBy, customers, products, subcategorias]);
 
   // Aggregate stats over filtered period
   const totalRevenue = useMemo(() => processedSales.reduce((acc, s) => acc + s.total, 0), [processedSales]);
   const totalOrders = processedSales.length;
   const ticketMedio = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   
+  // Calculate Peak / Record invoice transaction
+  const peakSaleValue = useMemo(() => {
+    if (processedSales.length === 0) return 0;
+    return Math.max(...processedSales.map(s => s.total));
+  }, [processedSales]);
+
+  // Calculate overall discounts applied in period
+  const totalDiscounts = useMemo(() => {
+    return processedSales.reduce((acc, s) => acc + (s.discount || 0), 0);
+  }, [processedSales]);
+
+  // Comparative analysis with previous period
+  const comparisonStats = useMemo(() => {
+    try {
+      const start = new Date(startDate + 'T00:00:00');
+      const end = new Date(endDate + 'T23:59:59');
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+      const prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - diffDays);
+
+      const prevEnd = new Date(end);
+      prevEnd.setDate(prevEnd.getDate() - diffDays);
+
+      const toYMD = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const prevStartStr = toYMD(prevStart);
+      const prevEndStr = toYMD(prevEnd);
+
+      const prevPeriodSales = sales.filter(s => {
+        if (!s.date) return false;
+        const d = toLocalDateString(s.date);
+        return d >= prevStartStr && d <= prevEndStr;
+      });
+
+      const prevRevenue = prevPeriodSales.reduce((acc, s) => acc + s.total, 0);
+      const prevOrders = prevPeriodSales.length;
+
+      const revenueGrowth = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+      const ordersGrowth = prevOrders > 0 ? ((totalOrders - prevOrders) / prevOrders) * 100 : 0;
+
+      return {
+        prevRevenue,
+        prevOrders,
+        revenueGrowth,
+        ordersGrowth,
+        diffDays
+      };
+    } catch (e) {
+      return {
+        prevRevenue: 0,
+        prevOrders: 0,
+        revenueGrowth: 0,
+        ordersGrowth: 0,
+        diffDays: 0
+      };
+    }
+  }, [sales, startDate, endDate, totalRevenue, totalOrders]);
+
   const estimatedProfit = useMemo(() => {
     return processedSales.reduce((acc, sale) => {
       const saleCost = sale.items.reduce((itemAcc, item) => {
@@ -184,7 +295,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     return processedSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   }, [processedSales, currentPage]);
 
-  // Reset pagination when page size or filter changes
+  // Reset pagination when filter constraints change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedPayment, selectedSeller, sortBy]);
@@ -197,159 +308,368 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     setExpandedSaleId(expandedSaleId === id ? null : id);
   };
 
+  const exportToCSV = () => {
+    try {
+      const headers = [
+        'Data/Hora', 
+        'Codigo Cupom', 
+        'Cliente Comprador', 
+        'Operador', 
+        'Forma de Pagto', 
+        'Qtd Itens', 
+        'Desconto (R$)', 
+        'Taxas (R$)', 
+        'Custo Total (R$)', 
+        'Margem Liquida (R$)', 
+        'Total Receita (R$)'
+      ];
+      
+      const rows = processedSales.map(sale => {
+        const customer = customers.find(c => c.id === sale.customerId);
+        const seller = systemUsers.find(u => u.id === sale.userId);
+        const method = paymentMethods.find(m => m.id === sale.paymentMethod);
+        
+        const saleCost = sale.items.reduce((itemAcc, item) => {
+          const product = products.find(p => p.id === item.productId);
+          return itemAcc + ((product?.costPrice || 0) * item.quantity);
+        }, 0);
+        const saleTax = sale.taxAmount || 0;
+        const netProfit = sale.total - saleCost - saleTax;
+        const totalItemQty = sale.items.reduce((acc, it) => acc + it.quantity, 0);
+
+        return [
+          new Date(sale.date).toLocaleString('pt-BR'),
+          sale.id,
+          customer ? customer.name : 'Consumidor Final',
+          seller ? (seller.full_name || seller.username) : 'Sistema',
+          method ? method.name : (sale.paymentMethod || 'Outros'),
+          totalItemQty,
+          (sale.discount || 0).toFixed(2),
+          (sale.taxAmount || 0).toFixed(2),
+          saleCost.toFixed(2),
+          netProfit.toFixed(2),
+          sale.total.toFixed(2)
+        ];
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Relatorio_Vendas_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="space-y-6">
-      {/* KPI Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total revenue */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-brand-border shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Vendas Brutas</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-brand-blue">
-              <TrendingUp size={14} />
-            </div>
+    <div className="space-y-8">
+      {/* Top Title Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/60 pb-5 gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Calendar size={11} className="text-brand-blue animate-pulse" />
+            Controladoria & Faturamento
           </div>
-          <p className="text-xl font-black text-slate-800 dark:text-white truncate" title={formatCurrency(totalRevenue)}>
-            {formatCurrency(totalRevenue)}
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Vendas por Período</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Consolidação macroeconômica de receitas brutas, liquidez por ticket de compra e auditoria operacional de transações.
           </p>
-          <div className="mt-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
-            <span className="text-emerald-500 font-black">100%</span>
-            <span>faturamento do período</span>
-          </div>
         </div>
 
-        {/* Profitability */}
-        <div className="p-5 rounded-2xl bg-emerald-50/20 dark:bg-emerald-950/5 border border-emerald-100 dark:border-emerald-950/30 shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-450">Lucro Líquido Estimado</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-100/50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <ArrowUpRight size={14} />
-            </div>
-          </div>
-          <p className="text-xl font-black text-emerald-700 dark:text-emerald-400 truncate" title={formatCurrency(estimatedProfit)}>
-            {formatCurrency(estimatedProfit)}
-          </p>
-          <div className="mt-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
-            <span className="text-emerald-600 dark:text-emerald-400 font-black">
-              {totalRevenue > 0 ? `${Math.round((estimatedProfit / totalRevenue) * 100)}%` : '0%'}
+        {/* Actions bar grouped */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Dynamic Period display range */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-150 py-1.5 px-3 rounded-2xl shrink-0 shadow-sm">
+            <Calendar size={13} className="text-slate-400" />
+            <span className="text-[10px] font-black uppercase text-slate-550 italic">
+              Janela: {new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR')} até {new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR')}
             </span>
-            <span>margem média estimada</span>
           </div>
-        </div>
 
-        {/* Number of orders */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-brand-border shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Pedidos</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <ShoppingBag size={14} />
-            </div>
-          </div>
-          <p className="text-xl font-black text-slate-800 dark:text-white truncate">
-            {totalOrders}
-          </p>
-          <div className="mt-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
-            <span>Volume total de transações de venda</span>
-          </div>
-        </div>
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
+            title="Exportar dados para planilha Excel (CSV)"
+          >
+            <Download size={13} />
+            Exportar CSV
+          </button>
 
-        {/* ticket medio */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-brand-border shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Ticket Médio</span>
-            <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-950/40 flex items-center justify-center text-orange-600 dark:text-orange-400">
-              <Tag size={14} />
-            </div>
-          </div>
-          <p className="text-xl font-black text-slate-800 dark:text-white truncate" title={formatCurrency(ticketMedio)}>
-            {formatCurrency(ticketMedio)}
-          </p>
-          <div className="mt-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
-            <span>Valor médio por compra no período</span>
-          </div>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
+            title="Imprimir dossiê de faturamento"
+          >
+            <Printer size={13} />
+            Imprimir
+          </button>
         </div>
       </div>
 
-      {/* Visual Analytics Chart View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales Area Chart */}
-        <div className="lg:col-span-2 p-5 rounded-2xl border border-brand-border bg-white dark:bg-slate-900 shadow-sm flex flex-col justify-between min-h-[340px]">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h5 className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Evolução do Faturamento</h5>
-              <p className="text-xs text-slate-500 font-medium">Histórico diário de receitas brutas no período filtrado</p>
+      {/* KPI Dashboard Highlights with interactive motion cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* KPI 1: Gross value sold */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <TrendingUp size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic font-sans">Vendas Brutas</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center shrink-0">
+              <TrendingUp size={15} />
             </div>
-            <div className="text-xs text-slate-400 font-mono flex items-center gap-1">
-              <Calendar size={12} />
-              <span>Gráfico de Área</span>
+          </div>
+          <div className="mt-2 text-left">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight" title={formatCurrency(totalRevenue)}>
+              {formatCurrency(totalRevenue)}
+            </h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              {comparisonStats.revenueGrowth !== 0 ? (
+                <span className={cn(
+                  "inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.2 rounded uppercase italic border shrink-0",
+                  comparisonStats.revenueGrowth > 0 
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+                    : "bg-rose-50 text-rose-600 border-rose-100"
+                )}>
+                  {comparisonStats.revenueGrowth > 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                  {comparisonStats.revenueGrowth > 0 ? '+' : ''}{comparisonStats.revenueGrowth.toFixed(1)}%
+                </span>
+              ) : null}
+              <span className="text-[9px] font-black text-slate-400 uppercase italic">
+                vs anterior ({comparisonStats.diffDays}d)
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* KPI 2: Estimated Profit / margin calculated */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <DollarSign size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic font-sans">Margem Estimada</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <DollarSign size={15} />
+            </div>
+          </div>
+          <div className="mt-2 text-left">
+            <h3 className="text-2xl font-black text-emerald-600 font-mono tracking-tight" title={formatCurrency(estimatedProfit)}>
+              {formatCurrency(estimatedProfit)}
+            </h3>
+            <span className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 bg-emerald-50 border border-emerald-100/55 px-2 py-0.5 rounded-md inline-block font-bold">
+              {totalRevenue > 0 ? `${Math.round((estimatedProfit / totalRevenue) * 100)}%` : '0%'} margem líquida
+            </span>
+          </div>
+        </motion.div>
+
+        {/* KPI 3: Orders volume count */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ShoppingBag size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic font-sans">Frequência Comercial</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+              <ShoppingBag size={15} />
+            </div>
+          </div>
+          <div className="mt-2 text-left">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {totalOrders} <span className="text-xs font-black text-slate-400 uppercase font-sans">pedidos</span>
+            </h3>
+            <div className="flex flex-col mt-1.5 gap-1.5">
+              <div className="flex items-center gap-1.5">
+                {comparisonStats.ordersGrowth !== 0 ? (
+                  <span className={cn(
+                    "inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.2 rounded uppercase italic border shrink-0",
+                    comparisonStats.ordersGrowth > 0 
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+                      : "bg-rose-50 text-rose-600 border-rose-100"
+                  )}>
+                    {comparisonStats.ordersGrowth > 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                    {comparisonStats.ordersGrowth > 0 ? '+' : ''}{comparisonStats.ordersGrowth.toFixed(1)}%
+                  </span>
+                ) : null}
+                <span className="text-[9px] font-black text-slate-400 uppercase italic">
+                  vs anterior ({comparisonStats.diffDays}d)
+                </span>
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase italic block">
+                Ticket Médio: <strong className="font-mono text-slate-700 font-bold">{formatCurrency(ticketMedio)}</strong>
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* KPI 4: Peak record invoice or total discounts applied */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Flame size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic font-sans">Faturamento Recorde</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Flame size={15} />
+            </div>
+          </div>
+          <div className="mt-2 text-left">
+            <h3 className="text-2xl font-black text-slate-850 font-mono tracking-tight text-amber-600">
+              {formatCurrency(peakSaleValue)}
+            </h3>
+            {totalDiscounts > 0 ? (
+              <span className="text-[9px] font-black text-rose-500 uppercase italic mt-1.5 block">
+                {formatCurrency(totalDiscounts)} concedidos de desconto
+              </span>
+            ) : (
+              <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                Maior ticket individual
+              </span>
+            )}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Visual analytics block section with dynamic responsive charts & tabs */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Interactive trend area chart */}
+        <div className="lg:col-span-2 p-6 rounded-[2.2rem] border border-slate-200 bg-white shadow-sm flex flex-col justify-between min-h-[380px]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3 mb-4">
+            <div>
+              <h5 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight flex items-center gap-1.5">
+                <LineChart size={15} className="text-brand-blue" />
+                Curva de Faturamento & Janelas Operacionais
+              </h5>
+              <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão diária do desempenho financeiro filtrado na janela cronológica</p>
+            </div>
+
+            {/* Metric active toggle selectors */}
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 self-start sm:self-center">
+              <button
+                onClick={() => setChartMetric('revenue')}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                  chartMetric === 'revenue' 
+                    ? "bg-white text-slate-850 shadow-xs scale-102" 
+                    : "text-slate-400 hover:text-slate-600 font-bold"
+                )}
+              >
+                Faturamento (R$)
+              </button>
+              <button
+                onClick={() => setChartMetric('orders')}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                  chartMetric === 'orders' 
+                    ? "bg-white text-slate-850 shadow-xs scale-102" 
+                    : "text-slate-400 hover:text-slate-600 font-bold"
+                )}
+              >
+                Volume Pedidos (Ped)
+              </button>
             </div>
           </div>
 
-          <div className="h-60 w-full">
+          <div className="h-68 w-full mt-2">
             {chartData.length > 0 ? (
-              <ResponsiveContainer id="rel-sales-evolution-chart" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+              <ResponsiveContainer id="rel-sales-evolution-chart-metrics" width="100%" height="100%" debounce={1}>
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="salesBlueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
+                    <linearGradient id="revenueBIServiceBlue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1e5eff" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#1e5eff" stopOpacity={0.0}/>
+                    </linearGradient>
+                    <linearGradient id="revenueBIServicePurple" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" className="dark:stroke-slate-800" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" className="stroke-slate-100" />
                   <XAxis 
                     dataKey="date" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 9, fill: '#64748b', fontWeight: 600 }} 
+                    tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 600 }} 
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 9, fill: '#64748b', fontWeight: 600 }} 
+                    tickFormatter={(val) => chartMetric === 'orders' ? `${val} ped` : formatCurrency(val)}
+                    tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 600 }} 
                   />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white' }}
+                    contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', background: 'rgba(255, 255, 255, 0.98)', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}
                     labelClassName="text-[10px] font-black uppercase text-slate-400"
-                    formatter={(value: any, name: string) => [
-                      <span className="text-xs font-black text-slate-800 font-mono" key={name}>{formatCurrency(Number(value))}</span>,
-                      <span className="text-[10px] uppercase text-slate-400" key={name + 'lbl'}>Total Vendido</span>
-                    ]} 
+                    formatter={(value: any, name: string) => {
+                      const displayedValue = chartMetric === 'orders' 
+                        ? `${value} pedidos emitidos` 
+                        : formatCurrency(Number(value));
+
+                      return [
+                        <span className="text-xs font-black text-slate-800 font-mono" key={name}>{displayedValue}</span>,
+                        chartMetric === 'orders' ? 'Transações PDV' : 'Faturamento Comercial'
+                      ];
+                    }} 
                   />
                   <Area 
-                    name="Receita" 
+                    name="Resultados" 
                     type="monotone" 
-                    dataKey="total" 
-                    stroke="#3b82f6" 
+                    dataKey={chartMetric === 'orders' ? 'orders' : 'total'} 
+                    stroke={chartMetric === 'orders' ? '#8b5cf6' : '#1e5eff'} 
                     strokeWidth={3} 
-                    fill="url(#salesBlueGradient)" 
+                    fill={chartMetric === 'orders' ? "url(#revenueBIServicePurple)" : "url(#revenueBIServiceBlue)"} 
                     activeDot={{ r: 6 }} 
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-medium gap-2">
-                <BarChart3 size={32} className="opacity-40 animate-pulse text-brand-blue" />
-                <span className="text-xs italic uppercase">Nenhum faturamento registrado neste período.</span>
+              <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 font-medium gap-2">
+                <BarChart3 size={32} className="opacity-30 stroke-1 animate-pulse text-brand-blue" />
+                <span className="text-xs italic uppercase text-slate-450">Nenhum faturamento para renderizar nesta janela temporal.</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Segment / Breakdown Insights card */}
-        <div className="p-5 rounded-2xl border border-brand-border bg-white dark:bg-slate-900 shadow-sm flex flex-col justify-between">
-          <div className="mb-4">
-            <h5 className="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Indicadores de Desempenho</h5>
-            <p className="text-xs text-slate-500 font-medium">Métricas de canais e segmentos</p>
+        {/* Dynamic breakdown segmented insight ranking card */}
+        <div className="p-6 rounded-[2.2rem] border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
+          <div>
+            <h5 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight flex items-center gap-1.5">
+              <Activity size={14} className="text-brand-blue" />
+              Rateio Executivo
+            </h5>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Metrificação e canais operacionais ativos</p>
           </div>
 
-          {/* Tab Selector Buttons */}
-          <div className="flex bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-brand-border mb-4">
+          {/* Interactive tabs segmented controller */}
+          <div className="flex bg-slate-50 border border-slate-150 p-1 rounded-xl w-full mt-4">
             <button
               onClick={() => setActiveInsightTab('payments')}
               className={cn("flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all",
                 activeInsightTab === 'payments' 
-                  ? "bg-white dark:bg-slate-800 text-brand-blue shadow-sm" 
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-350"
+                  ? "bg-white text-brand-blue shadow-xs font-black" 
+                  : "text-slate-400 hover:text-slate-600 font-bold"
               )}
             >
               Meios Pagto
@@ -358,8 +678,8 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
               onClick={() => setActiveInsightTab('products')}
               className={cn("flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all",
                 activeInsightTab === 'products' 
-                  ? "bg-white dark:bg-slate-800 text-brand-blue shadow-sm" 
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-350"
+                  ? "bg-white text-brand-blue shadow-xs font-black" 
+                  : "text-slate-400 hover:text-slate-600 font-bold"
               )}
             >
               Top Produtos
@@ -368,32 +688,32 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
               onClick={() => setActiveInsightTab('sellers')}
               className={cn("flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-center transition-all",
                 activeInsightTab === 'sellers' 
-                  ? "bg-white dark:bg-slate-800 text-brand-blue shadow-sm" 
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-350"
+                  ? "bg-white text-brand-blue shadow-xs font-black" 
+                  : "text-slate-400 hover:text-slate-600 font-bold"
               )}
             >
-              Vendedores
+              Operadores
             </button>
           </div>
 
-          {/* Tab content displays */}
-          <div className="flex-1 overflow-y-auto max-h-52 pr-1 space-y-3 custom-scrollbar">
+          {/* List stats section according to active tab */}
+          <div className="flex-1 overflow-y-auto max-h-56 pr-1 mt-5 space-y-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
             {activeInsightTab === 'payments' && (
               <>
                 {paymentBreakdown.length > 0 ? paymentBreakdown.map((item, index) => {
                   const percent = totalRevenue > 0 ? (item.total / totalRevenue) * 100 : 0;
                   return (
-                    <div key={index} className="space-y-1">
+                    <div key={index} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                          <CreditCard size={11} className="text-slate-400" />
+                        <span className="font-bold text-slate-700 flex items-center gap-1 select-none">
+                          <CreditCard size={12} className="text-slate-400" />
                           {item.name}
                         </span>
-                        <span className="font-black text-slate-800 dark:text-slate-200">
-                          {formatCurrency(item.total)} ({Math.round(percent)}%)
+                        <span className="font-black text-slate-800 font-mono">
+                          {formatCurrency(item.total)} <span className="text-[9px] text-slate-400">({Math.round(percent)}%)</span>
                         </span>
                       </div>
-                      <div className="w-full bg-slate-105 dark:bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                         <div 
                           className="bg-brand-blue h-full rounded-full transition-all duration-500" 
                           style={{ width: `${percent}%` }}
@@ -402,7 +722,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                     </div>
                   );
                 }) : (
-                  <div className="py-12 text-center text-xs text-slate-400 uppercase italic">Nenhum pagamento registrado</div>
+                  <div className="py-12 text-center text-xs text-slate-300 uppercase italic">Nenhum meio computado</div>
                 )}
               </>
             )}
@@ -412,16 +732,16 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                 {topSellingProducts.length > 0 ? topSellingProducts.map((item, index) => {
                   const percent = totalRevenue > 0 ? (item.total / totalRevenue) * 100 : 0;
                   return (
-                    <div key={index} className="space-y-1">
+                    <div key={index} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
                       <div className="flex justify-between items-start text-xs">
-                        <span className="font-bold text-slate-700 dark:text-slate-300 block truncate max-w-[140px] uppercase italic" title={item.name}>
+                        <span className="font-bold text-slate-700 block truncate max-w-[130px] uppercase italic" title={item.name}>
                           {item.name}
                         </span>
-                        <span className="font-black text-slate-800 dark:text-slate-200 text-right shrink-0">
+                        <span className="font-black text-slate-800 text-right shrink-0">
                           {item.qty} un • {formatCurrency(item.total)}
                         </span>
                       </div>
-                      <div className="w-full bg-slate-105 dark:bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                         <div 
                           className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
                           style={{ width: `${percent}%` }}
@@ -430,7 +750,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                     </div>
                   );
                 }) : (
-                  <div className="py-12 text-center text-xs text-slate-400 uppercase italic">Nenhum produto relevante no período</div>
+                  <div className="py-12 text-center text-xs text-slate-300 uppercase italic">Nenhum produto liquidado</div>
                 )}
               </>
             )}
@@ -440,17 +760,17 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                 {topSellersRanking.length > 0 ? topSellersRanking.map((item, index) => {
                   const percent = totalRevenue > 0 ? (item.total / totalRevenue) * 100 : 0;
                   return (
-                    <div key={index} className="space-y-1">
+                    <div key={index} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1 uppercase italic">
-                          <Award size={11} className={index === 0 ? "text-amber-500" : "text-slate-400"} />
+                        <span className="font-bold text-slate-700 flex items-center gap-1 uppercase italic">
+                          <Award size={12} className={index === 0 ? "text-amber-500" : "text-slate-450"} />
                           {item.name}
                         </span>
-                        <span className="font-black text-slate-800 dark:text-slate-200">
-                          {formatCurrency(item.total)} ({item.count} ped.)
+                        <span className="font-black text-slate-800">
+                          {formatCurrency(item.total)} <span className="text-[9px] text-slate-400">({item.count}v)</span>
                         </span>
                       </div>
-                      <div className="w-full bg-slate-105 dark:bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                         <div 
                           className="bg-purple-500 h-full rounded-full transition-all duration-500" 
                           style={{ width: `${percent}%` }}
@@ -459,7 +779,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                     </div>
                   );
                 }) : (
-                  <div className="py-12 text-center text-xs text-slate-400 uppercase italic">Nenhum registro de operador no período</div>
+                  <div className="py-12 text-center text-xs text-slate-350 uppercase italic">Nenhum colaborador operacional</div>
                 )}
               </>
             )}
@@ -467,209 +787,319 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
         </div>
       </div>
 
-      {/* Search and interactive Control center */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 border border-brand-border p-4 rounded-2xl shadow-sm">
-        {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-            <Search size={15} />
+      {/* Control panel and filters search section */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white border border-slate-200 p-4 rounded-[1.6rem] shadow-sm">
+        {/* Term search box */}
+        <div className="relative w-full md:w-88">
+          <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 pointer-events-none">
+            <Search size={14} />
           </span>
           <input
             type="text"
-            className="w-full bg-slate-50 dark:bg-slate-950 border border-brand-border pl-9 pr-4 py-2 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue"
-            placeholder="Pesquisar por ID, cliente ou produto..."
+            className="w-full bg-slate-50 border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs font-semibold placeholder:text-slate-450 focus:outline-none focus:ring-1 focus:ring-brand-blue focus:bg-white transition-all text-slate-700"
+            placeholder="Buscar por código de pedido, nome de cliente ou item do cupom..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* Dropdown selectors for precision filtering */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          {/* Payment method selector */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-black uppercase text-slate-400">Meio:</span>
+        {/* Triple filter options */}
+        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
+          {/* Categoria Selector */}
+          <div className="flex items-center gap-1.5">
+            <Layers size={13} className="text-slate-400" />
+            <span className="text-[10px] font-black uppercase text-slate-450 italic">Categoria:</span>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-[11px] font-black text-slate-700 italic focus:outline-none focus:bg-white"
+            >
+              <option value="All">Categorias (Todas)</option>
+              {categorias && categorias.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Meio Pagto selector */}
+          <div className="flex items-center gap-1.5">
+            <Filter size={13} className="text-slate-400" />
+            <span className="text-[10px] font-black uppercase text-slate-450 italic">Forma:</span>
             <select
               value={selectedPayment}
               onChange={(e) => setSelectedPayment(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-brand-border px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-200 focus:outline-none"
+              className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-[11px] font-black text-slate-700 italic focus:outline-none focus:bg-white"
             >
-              <option value="All">Todos</option>
+              <option value="All">Meios (Todos)</option>
               {paymentMethods.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
           </div>
 
-          {/* Seller / User selector */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-black uppercase text-slate-400">Vendedor:</span>
+          {/* User selector */}
+          <div className="flex items-center gap-1.5">
+            <UserCheck size={13} className="text-slate-400" />
+            <span className="text-[10px] font-black uppercase text-slate-450 italic">Operdor:</span>
             <select
               value={selectedSeller}
               onChange={(e) => setSelectedSeller(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-brand-border px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-200 focus:outline-none"
+              className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-[11px] font-black text-slate-700 italic focus:outline-none focus:bg-white animate-soft"
             >
-              <option value="All">Todos</option>
+              <option value="All">Vendedores (Todos)</option>
               {systemUsers.map(u => (
                 <option key={u.id} value={u.id}>{u.full_name || u.username}</option>
               ))}
             </select>
           </div>
 
-          {/* Sorting list option */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-black uppercase text-slate-400">Ordem:</span>
+          {/* Sort selector orders list */}
+          <div className="flex items-center gap-1.5">
+            <SlidersHorizontal size={13} className="text-slate-400" />
+            <span className="text-[10px] font-black uppercase text-slate-450 italic">Ordem:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-50 dark:bg-slate-950 border border-brand-border px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-200 focus:outline-none"
+              className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-[11px] font-black text-slate-700 italic focus:outline-none focus:bg-white"
             >
-              <option value="date-desc">Recentes</option>
-              <option value="date-asc">Antigas</option>
-              <option value="total-desc">Maior Valor</option>
-              <option value="total-asc">Menor Valor</option>
+              <option value="date-desc">Data Decrescente</option>
+              <option value="date-asc">Data Crescente</option>
+              <option value="total-desc">Maior Ticket total</option>
+              <option value="total-asc">Menor Ticket total</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Sales Ledger Table Details */}
-      <div className="space-y-4">
-        <div className="overflow-x-auto rounded-2xl border border-brand-border bg-white dark:bg-slate-900 shadow-sm">
+      {/* Main ledger list detail card */}
+      <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+          <div>
+            <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Registro Consolidado de Faturamento</h4>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Clique em qualquer linha de transação para expandir e auditar seu cupom de itens fiscais correspondentes</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+            <ShoppingBag size={14} />
+          </div>
+        </div>
+
+        {/* High quality visual grid table */}
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-brand-border bg-slate-50/50 dark:bg-slate-800/10">
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest pl-6">Data/Hora de Emissão</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest">ID Pedido / Cupom</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest">Contatos do Cliente</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest">Operador Responsável</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest">Forma Pagto</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Resultado Líquido</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic tracking-widest text-right">Total Transacionado</th>
-                <th className="p-4 w-10 pr-6"></th>
+              <tr className="border-b border-slate-200/60 text-[10px] font-black text-slate-400 uppercase italic tracking-widest">
+                <th className="py-4 pl-4 min-w-[130px]">Data e Hora</th>
+                <th className="py-4 min-w-[120px]">Código Cupom</th>
+                <th className="py-4 min-w-[180px]">Cliente Comprador</th>
+                <th className="py-4 min-w-[140px]">Operador</th>
+                <th className="py-4 min-w-[125px]">Forma de Pagto</th>
+                <th className="py-4 text-center min-w-[70px]">Itens</th>
+                <th className="py-4 text-right min-w-[110px]">Margem Líquida</th>
+                <th className="py-4 text-right pr-4 min-w-[130px]">Total Receita</th>
+                <th className="py-4 text-center w-12"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-border">
+            <tbody className="divide-y divide-slate-100/80">
               {currentSales.length > 0 ? currentSales.map((sale) => {
                 const customer = customers.find(c => c.id === sale.customerId);
                 const seller = systemUsers.find(u => u.id === sale.userId);
                 const method = paymentMethods.find(m => m.id === sale.paymentMethod);
                 const isExpanded = expandedSaleId === sale.id;
-                
-                // Calculate Net Profit for this specific sale
+
+                // Margem cálculo
                 const saleCost = sale.items.reduce((itemAcc, item) => {
                   const product = products.find(p => p.id === item.productId);
                   return itemAcc + ((product?.costPrice || 0) * item.quantity);
                 }, 0);
                 const saleTax = sale.taxAmount || 0;
-                const saleNetProfit = sale.total - saleCost - saleTax;
-                
+                const netProfit = sale.total - saleCost - saleTax;
+                const totalItemQty = sale.items.reduce((acc, it) => acc + it.quantity, 0);
+
                 return (
                   <React.Fragment key={sale.id}>
-                    <tr 
-                      className={cn(
-                        "hover:bg-slate-50/50 dark:hover:bg-slate-950/40 transition-colors cursor-pointer",
-                        isExpanded ? "bg-slate-50/20 dark:bg-slate-950/20" : ""
-                      )}
+                    {/* Main Row */}
+                    <tr
                       onClick={() => toggleExpand(sale.id)}
+                      className={cn(
+                        "hover:bg-slate-50/70 transition-colors cursor-pointer group",
+                        isExpanded ? "bg-slate-50/50" : ""
+                      )}
                     >
-                      {/* Date details */}
-                      <td className="p-4 pl-6 text-xs text-slate-500 font-mono">
+                      {/* Timestamp formatted */}
+                      <td className="py-4 pl-4 text-xs font-semibold text-slate-500 font-mono">
                         {new Date(sale.date).toLocaleString('pt-BR')}
                       </td>
 
-                      {/* Sale unique reference code */}
-                      <td className="p-4 text-[11px] font-mono font-bold text-slate-400 uppercase tracking-tighter">
-                        #{sale.id.slice(0, 8)}
+                      {/* Code coupon copyable */}
+                      <td className="py-4 text-[10px] text-slate-400 font-mono font-black uppercase">
+                        <div className="flex items-center gap-1.5">
+                          <span className="group-hover:text-brand-blue transition-colors">
+                            #{sale.id.substring(0, 8).toUpperCase()}
+                          </span>
+                          <button 
+                            onClick={(e) => handleCopy(sale.id, e)}
+                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 transition-opacity p-0.5"
+                            title="Copiar cupom"
+                          >
+                            {copiedId === sale.id ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                          </button>
+                        </div>
                       </td>
 
-                      {/* Customer contact names */}
-                      <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-250 uppercase italic">
-                        {customer ? customer.name : 'Consumidor Final'}
+                      {/* Recipient custom badge */}
+                      <td className="py-4 text-xs font-black text-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="uppercase italic">{customer ? customer.name : 'Consumidor Final'}</span>
+                          {customer?.isClub && (
+                            <span className="bg-amber-100 text-amber-700 text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-tight scale-95 shrink-0">
+                              Clube
+                            </span>
+                          )}
+                        </div>
                       </td>
 
-                      {/* Assigned operator details */}
-                      <td className="p-4 text-xs font-bold text-slate-500 uppercase italic">
+                      {/* Operator initials/badge */}
+                      <td className="py-4 text-xs font-bold text-slate-500 uppercase italic">
                         {seller ? (seller.full_name || seller.username) : 'Sistema / PDV'}
                       </td>
 
-                      {/* Payment method badge status */}
-                      <td className="p-4">
-                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase italic tracking-wide bg-slate-50 text-slate-600 border border-slate-100 dark:bg-slate-950 dark:text-slate-400 dark:border-slate-900">
-                          {method ? method.name : (sale.paymentMethod || 'N/A')}
+                      {/* Cash status shape */}
+                      <td className="py-4">
+                        <span className="px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase italic tracking-wide bg-slate-150/40 text-slate-550 border border-slate-200">
+                          {method ? method.name : (sale.paymentMethod || 'Outros')}
                         </span>
                       </td>
 
-                      {/* Computed Net profit margin for specific ticket */}
-                      <td className="p-4 text-right text-xs font-black text-emerald-600">
-                        {formatCurrency(saleNetProfit)}
+                      {/* Total physical items count */}
+                      <td className="py-4 text-center text-xs font-black text-slate-700 font-mono">
+                        {totalItemQty} <span className="text-[10px] text-slate-400 font-semibold font-sans">un</span>
                       </td>
 
-                      {/* Real grand total ticket */}
-                      <td className="p-4 text-right text-xs font-black text-brand-blue">
+                      {/* Computed Net margin */}
+                      <td className="py-4 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className={cn("text-xs font-mono font-black", netProfit >= 0 ? "text-emerald-600" : "text-amber-600")}>
+                            {formatCurrency(netProfit)}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-black italic mt-0.5">
+                            {sale.total > 0 ? `${Math.round((netProfit / sale.total) * 100)}%` : '0%'} margem
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Dynamic volume ticket price */}
+                      <td className="py-4 text-right pr-4 text-xs font-black font-mono text-brand-blue">
                         {formatCurrency(sale.total)}
                       </td>
 
-                      {/* Accordion expand triggers icon indicator */}
-                      <td className="p-4 text-center pr-6">
-                        {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                      {/* Chevron up/down toggle indicator */}
+                      <td className="py-4 text-center w-12">
+                        <div className={cn(
+                          "w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 transition-transform duration-200",
+                          isExpanded && "rotate-180 bg-brand-blue/10 text-brand-blue"
+                        )}>
+                          <ChevronDown size={13} />
+                        </div>
                       </td>
                     </tr>
 
-                    {/* Expand drawer contents items inside invoice list order */}
+                    {/* Expand Detail Drawer */}
                     {isExpanded && (
-                      <tr className="bg-slate-50/30 dark:bg-slate-950/10">
-                        <td colSpan={8} className="p-6 border-l-4 border-brand-blue">
-                          <div className="space-y-4 max-w-4xl">
-                            <div className="flex items-center gap-2 pb-2 border-b border-brand-border">
-                              <Package size={14} className="text-brand-blue" />
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Itemização do Cupom Fiscal</span>
-                            </div>
+                      <tr>
+                        <td colSpan={9} className="p-0 border-t border-b border-slate-200 bg-slate-50/20">
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-6 space-y-5 bg-white border-x border-slate-150/40">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-slate-100 gap-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center">
+                                    <Package size={14} />
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase italic">Demonstrativo de Cupom Eletrônico</span>
+                                    <h6 className="text-[12px] font-black text-slate-850 uppercase italic mt-0.5 leading-none">
+                                      Auditoria de Itens da Venda: <span className="text-slate-500 font-mono font-bold">#{sale.id.toUpperCase()}</span>
+                                    </h6>
+                                  </div>
+                                </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {sale.items.map((item, idx) => {
-                                const product = products.find(p => p.id === item.productId);
-                                return (
-                                  <div key={idx} className="flex justify-between items-center p-3.5 bg-white dark:bg-slate-900 border border-brand-border rounded-xl shadow-xs transition-shadow hover:shadow-sm">
-                                    <div className="flex flex-col gap-0.5 min-w-0">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase italic truncate max-w-[200px]" title={product ? product.name : 'Desconhecido'}>
-                                          {product ? product.name : 'Produto Desconhecido'}
+                                {/* Summary metrics specific for expanded ticket */}
+                                <div className="flex flex-wrap gap-2.5 bg-slate-50/60 p-2 rounded-2xl border border-slate-100 min-w-xs justify-end">
+                                  {sale.discount > 0 && (
+                                    <div className="px-3.5 py-1">
+                                      <span className="text-[8px] font-black text-rose-500 uppercase leading-none block">Descontos (Cupom)</span>
+                                      <span className="text-xs font-black text-rose-500 font-mono mt-1 block">
+                                        -{formatCurrency(sale.discount)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {sale.taxAmount > 0 && (
+                                    <div className="px-3.5 py-1 border-l border-slate-200">
+                                      <span className="text-[8px] font-black text-slate-400 uppercase leading-none block">Encargos de Taxa</span>
+                                      <span className="text-xs font-black text-slate-600 font-mono mt-1 block">
+                                        {formatCurrency(sale.taxAmount)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="px-3.5 py-1 border-l border-slate-200">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase leading-none block">Custo Fixo Mercadoria</span>
+                                    <span className="text-xs font-black text-slate-655 font-mono mt-1 block">
+                                      {formatCurrency(saleCost)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Item list layout grids */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {sale.items.map((item, idx) => {
+                                  const product = products.find(p => p.id === item.productId);
+                                  const productCost = product ? (product.costPrice || 0) : 0;
+                                  const itemSubtotal = item.price * item.quantity;
+                                  const itemMarkup = item.price - productCost;
+
+                                  return (
+                                    <div key={idx} className="flex justify-between items-center p-3.5 bg-slate-50/40 border border-slate-200 rounded-xl transition-all hover:bg-slate-50 shadow-xs hover:shadow-sm">
+                                      <div className="flex flex-col gap-0.5 min-w-0 pr-1.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs font-black text-slate-800 uppercase italic truncate max-w-[200px]" title={product ? product.name : 'Desconhecido'}>
+                                            {product ? product.name : 'Produto Desconhecido'}
+                                          </span>
+                                          {(item.discount && item.discount > 0) && (
+                                            <span className="bg-rose-50 text-rose-600 text-[8px] font-black px-1.5 py-0.2 rounded border border-rose-100 uppercase italic">Desconto</span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          <span className="text-[10px] font-bold text-slate-400 font-mono">
+                                            {item.quantity} un x {formatCurrency(item.price)}
+                                          </span>
+                                          {productCost > 0 && (
+                                            <span className="text-[9px] text-slate-400 font-semibold bg-slate-100 rounded px-1 flex items-center">
+                                              CMV un: {formatCurrency(productCost)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="text-xs font-black text-brand-blue font-mono block">
+                                          {formatCurrency(itemSubtotal)}
                                         </span>
-                                        {(item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice)) && (
-                                          <span className="bg-blue-50 text-brand-blue text-[8px] font-black px-1.5 py-0.5 rounded border border-blue-100 uppercase italic">Oferta</span>
+                                        {itemMarkup > 0 && (
+                                          <span className="text-[9px] text-emerald-600 font-black block mt-0.5 italic">
+                                            +{Math.round((itemMarkup / item.price) * 100)}% markup
+                                          </span>
                                         )}
                                       </div>
-                                      <span className="text-[10px] font-bold text-slate-400 font-mono">
-                                        Qtd: {item.quantity} x {formatCurrency(item.price)}
-                                      </span>
                                     </div>
-                                    <div className="text-right shrink-0">
-                                      <span className="text-xs font-black text-brand-blue font-mono">
-                                        {formatCurrency(item.price * item.quantity)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
+                              </div>
                             </div>
-
-                            {/* Additional adjustments summaries for layout correctness */}
-                            <div className="flex flex-wrap gap-4 pt-2">
-                              {(sale.discount || 0) > 0 && (
-                                <div className="flex-1 min-w-[200px] flex justify-between items-center px-4 py-2.5 bg-brand-danger/5 dark:bg-red-950/10 rounded-xl border border-brand-danger/10">
-                                  <span className="text-[10px] font-black text-brand-danger uppercase italic">Descontos Concedidos</span>
-                                  <span className="text-xs font-black text-brand-danger font-mono">-{formatCurrency(sale.discount || 0)}</span>
-                                </div>
-                              )}
-                              
-                              {(sale.taxAmount || 0) > 0 && (
-                                <div className="flex-1 min-w-[200px] flex justify-between items-center px-4 py-2.5 bg-slate-100/50 dark:bg-slate-800/40 rounded-xl border border-brand-border">
-                                  <span className="text-[10px] font-black text-slate-500 uppercase italic">Taxa Maquininha</span>
-                                  <span className="text-xs font-black text-slate-600 dark:text-slate-350 font-mono">{formatCurrency(sale.taxAmount || 0)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          </motion.div>
                         </td>
                       </tr>
                     )}
@@ -677,66 +1107,88 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                 );
               }) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-sm font-black text-slate-400 uppercase italic">
-                    Nenhuma venda localizada com base nos critérios estabelecidos.
+                  <td colSpan={9} className="py-20 text-center text-sm font-black text-slate-400 uppercase italic">
+                    Nenhum faturamento elegível para os critérios definidos.
                   </td>
                 </tr>
               )}
             </tbody>
+
+            {/* Consolidating totals footer */}
+            {processedSales.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/50">
+                <tr className="font-black font-mono text-xs text-slate-800">
+                  <td colSpan={4} className="py-5 pl-4 text-left uppercase italic font-black text-slate-700">TOTAIS FILTRADOS DO PERÍODO</td>
+                  <td></td>
+                  <td className="py-5 text-center text-slate-850">
+                    {processedSales.reduce((acc, sale) => acc + sale.items.reduce((sc, it) => sc + it.quantity, 0), 0)} un
+                  </td>
+                  <td className="py-5 text-right text-emerald-600 font-black">
+                    {formatCurrency(estimatedProfit)}
+                  </td>
+                  <td className="py-5 text-right pr-4 text-brand-blue font-black">
+                    {formatCurrency(totalRevenue)}
+                  </td>
+                  <td className="py-5 w-12"></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
+      </div>
 
-        {/* Dynamic Pagination to mimic standard premium lists design */}
-        {processedSales.length > 0 && (
-          <div className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border border-brand-border flex items-center justify-between rounded-2xl">
-            <p className="text-xs text-slate-500 font-bold">
-              Mostrando {Math.min(processedSales.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(processedSales.length, currentPage * itemsPerPage)} de {processedSales.length} transações
-            </p>
-            <div className="flex items-center gap-4">
+      {/* Pagination components elements */}
+      {processedSales.length > 0 && (
+        <div className="p-4 bg-slate-50/50 border border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between rounded-2xl shadow-xs">
+          <p className="text-xs text-slate-500 font-bold">
+            Mostrando {Math.min(processedSales.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(processedSales.length, currentPage * itemsPerPage)} de {processedSales.length} transações
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              {/* Prior Page trigger */}
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-1 disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-700 transition-colors"
+                title="Voltar Página"
+              >
+                <ChevronLeft size={18} />
+              </button>
               <div className="flex items-center gap-1">
-                {/* Previous Button Page */}
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="p-1 disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-                    .map((page, index, array) => (
-                      <React.Fragment key={page}>
-                        {index > 0 && array[index - 1] !== page - 1 && (
-                          <span className="text-slate-400 px-1 font-mono">...</span>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                  .map((page, index, array) => (
+                    <React.Fragment key={page}>
+                      {index > 0 && array[index - 1] !== page - 1 && (
+                        <span className="text-slate-400 px-1 font-mono">...</span>
+                      )}
+                      <button 
+                        onClick={() => setCurrentPage(page)}
+                        className={cn(
+                          "w-8 h-8 rounded-lg text-xs font-black transition-all",
+                          page === currentPage 
+                            ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" 
+                            : "text-slate-500 hover:bg-slate-200/50"
                         )}
-                        <button 
-                          onClick={() => setCurrentPage(page)}
-                          className={cn(
-                            "w-8 h-8 rounded-lg text-xs font-black transition-all",
-                            page === currentPage 
-                              ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" 
-                              : "text-slate-505 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
-                          )}
-                        >
-                          {page}
-                        </button>
-                      </React.Fragment>
-                    ))}
-                </div>
-                {/* Next Button Page */}
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  className="p-1 disabled:opacity-40 disabled:cursor-not-allowed text-slate-504 hover:text-slate-700 dark:text-slate-400"
-                >
-                  <ChevronRight size={18} />
-                </button>
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  ))}
               </div>
+              {/* Next Page trigger */}
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="p-1 disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 hover:text-slate-700 transition-colors"
+                title="Avançar Página"
+              >
+                <ChevronRight size={18} />
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

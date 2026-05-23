@@ -57,7 +57,9 @@ import {
   AlertTriangle,
   FileBarChart,
   Bot,
-  User
+  User,
+  Trophy,
+  Award
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -76,7 +78,7 @@ import {
   Pie,
   Legend
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useERP } from '@/lib/context';
 import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
@@ -339,6 +341,19 @@ function ReportsContent() {
     (r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    reportCategories.forEach((cat) => {
+      counts[cat.id] = allReports.filter(
+        (r) =>
+          r.category === cat.id &&
+          (r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            r.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      ).length;
+    });
+    return counts;
+  }, [allReports, searchTerm]);
+
   if (!hasPermission('Relatórios', 'view')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -379,20 +394,20 @@ function ReportsContent() {
     <div className="min-h-screen bg-brand-bg">
       {/* Report Viewer Modal */}
       {selectedReportView && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 md:p-8">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/70 backdrop-blur-md"
             onClick={() => setSelectedReportView(null)}
           />
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 max-w-[98vw] h-[95vh] md:max-w-[96vw] md:h-[94vh]"
+            className="relative w-full bg-[#f8fafc] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 max-w-[98vw] h-[95vh] md:max-w-[96vw] md:h-[94vh] border border-slate-200/60"
           >
             {/* Modal Header */}
-            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div className="px-6 md:px-10 py-5 md:py-6 bg-white border-b border-slate-200/60 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between shrink-0 shadow-sm">
               <div className="flex items-center gap-4">
                 {selectedReportView !== 'Catálogo' && (
                   <button 
@@ -402,62 +417,77 @@ function ReportsContent() {
                       setStartDate(today);
                       setEndDate(today);
                     }}
-                    className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all mr-2"
+                    className="p-3 bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl hover:bg-slate-100 transition-all flex items-center justify-center active:scale-95 shadow-xs"
                   >
-                    <ChevronLeft size={18} />
+                    <ChevronLeft size={16} className="text-slate-700" />
                   </button>
                 )}
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-                  <FileText size={24} />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-blue to-blue-500 text-white flex items-center justify-center shadow-lg shadow-brand-blue/15 shrink-0">
+                  <FileText size={22} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">
+                  <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-0.5">
+                    <Activity size={10} className="animate-pulse" />
+                    Módulo Executivo BI
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase leading-none">
                     {selectedReportView === 'Catálogo' ? 'Catálogo de Relatórios' : selectedReportView}
                   </h3>
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400 mt-0.5">
                     {selectedReportView === 'Catálogo' 
-                      ? 'Selecione um relatório para visualizar os dados detalhados' 
-                      : `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`
+                      ? 'Selecione um relatório analítico para carregar a inteligência de distribuição.' 
+                      : `Mapeamento operacional gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`
                     }
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              
+              <div className="flex items-center justify-end gap-3 self-end sm:self-auto">
                 {selectedReportView !== 'Catálogo' && (
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
-                    <Calendar size={16} className="text-slate-400" />
+                  <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xs shrink-0">
+                    <Calendar size={14} className="text-slate-400" />
                     <input 
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-0 p-0"
+                      className="bg-transparent border-none text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0"
                     />
-                    <span className="text-slate-300 text-xs font-bold">a</span>
+                    <span className="text-slate-300 text-[10px] font-black uppercase italic">a</span>
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-0 p-0"
+                      className="bg-transparent border-none text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0"
                     />
                   </div>
                 )}
+                
                 {selectedReportView === 'Catálogo' && (
-                  <div className="relative">
-                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar relatório..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-64"
-                    />
-                  </div>
+                  <>
+                    <span className="hidden lg:inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase italic shrink-0">
+                      <ClipboardList size={12} className="text-brand-blue" />
+                      {allReports.length} Relatórios Ativos
+                    </span>
+                    <div className="relative w-64 md:w-80 shrink-0">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <Search size={14} />
+                      </span>
+                      <input 
+                        type="text" 
+                        placeholder="Buscar relatório ou descrição..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-11 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 w-full"
+                      />
+                    </div>
+                  </>
                 )}
+
                 <button 
                   onClick={() => setSelectedReportView(null)}
-                  className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all"
+                  className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-2xl transition-all active:scale-95 shadow-xs"
                 >
-                  <X size={18} />
+                  <X size={15} />
                 </button>
               </div>
             </div>
@@ -466,58 +496,184 @@ function ReportsContent() {
               {selectedReportView === 'Catálogo' ? (
                 <>
                   {/* Sidebar Categories */}
-                  <div className="w-64 border-r border-slate-100 bg-slate-50/50 p-6 space-y-2 overflow-y-auto">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 ml-2">Categorias</p>
-                    {reportCategories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                          selectedCategory === cat.id 
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                            : 'text-slate-500 hover:bg-white hover:text-blue-600'
-                        }`}
-                      >
-                        <cat.icon size={18} />
-                        {cat.label}
-                      </button>
-                    ))}
+                  <div className="hidden md:block w-72 border-r border-slate-200/60 bg-white p-6 space-y-2 overflow-y-auto shrink-0 select-none [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Categorias de Análise</p>
+                    {reportCategories.map((cat) => {
+                      const isActive = selectedCategory === cat.id;
+                      const count = categoryCounts[cat.id] || 0;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => setSelectedCategory(cat.id)}
+                          className={cn(
+                            "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all border shrink-0 active:scale-95",
+                            isActive 
+                              ? "bg-brand-blue text-white shadow-lg shadow-brand-blue/15 border-brand-blue" 
+                              : "text-slate-600 bg-white border-slate-200/50 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900"
+                          )}
+                        >
+                          <div className={cn("p-1.5 rounded-xl flex items-center justify-center shrink-0", isActive ? "bg-white/10 text-white" : "bg-slate-50 text-slate-400 group-hover:text-brand-blue")}>
+                            <cat.icon size={14} />
+                          </div>
+                          <span className="truncate">{cat.label}</span>
+                          <span className={cn(
+                            "ml-auto text-[10px] font-mono px-2 py-0.5 rounded-full font-black",
+                            isActive 
+                              ? "bg-white/20 text-white" 
+                              : "bg-slate-100 text-slate-400"
+                          )}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    <div className="pt-6 border-t border-slate-100 mt-6 space-y-4">
+                      <div className="p-4 bg-slate-50/70 border border-slate-200/50 rounded-2xl">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status Analítico</span>
+                        <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-black uppercase italic">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                          Operando online
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium mt-1.5 leading-normal">
+                          Todos os relatórios estão integrados e consolidados em tempo real com o banco de dados principal.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Reports Grid */}
-                  <div className="flex-1 p-10 overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {filteredReports.map((report) => (
-                        <button
-                          key={report.id}
-                          onClick={() => {
-                            if (report.id === 'dash_exec') {
-                              setSelectedReportView(null); // Already on dashboard
-                            } else {
-                              handleReportClick(report.title);
-                            }
-                          }}
-                          className="group p-6 rounded-3xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5 transition-all text-left flex flex-col gap-4"
+                  <div className="flex-1 p-6 md:p-8 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                    {/* Mobile Category Select field */}
+                    <div className="md:hidden mb-6">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Selecionar Categoria</label>
+                      <div className="relative">
+                        <select 
+                          value={selectedCategory}
+                          onChange={(e) => setSelectedCategory(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs font-black uppercase italic text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 appearance-none"
                         >
-                          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                            <report.icon size={24} />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{report.title}</h4>
-                            <p className="text-[11px] font-medium text-slate-400 mt-1 leading-relaxed">{report.description}</p>
-                          </div>
-                        </button>
-                      ))}
+                          {reportCategories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.label.toUpperCase()} ({categoryCounts[cat.id] || 0})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {filteredReports.map((report) => {
+                        const style_vendas = {
+                          bg: 'bg-blue-50/80',
+                          text: 'text-brand-blue',
+                          hover: 'group-hover:bg-brand-blue',
+                          label: 'Mapeamento de Varejo'
+                        };
+                        const style_financeiro = {
+                          bg: 'bg-emerald-50/80',
+                          text: 'text-emerald-600',
+                          hover: 'group-hover:bg-emerald-600',
+                          label: 'Inteligência de Caixa'
+                        };
+                        const style_estoque = {
+                          bg: 'bg-amber-50/80',
+                          text: 'text-amber-600',
+                          hover: 'group-hover:bg-amber-600',
+                          label: 'Previsão de Suprimentos'
+                        };
+                        const style_gerencial = {
+                          bg: 'bg-purple-50/80',
+                          text: 'text-purple-600',
+                          hover: 'group-hover:bg-purple-600',
+                          label: 'Controladoria Geral'
+                        };
+
+                        const style_map: Record<string, typeof style_vendas> = {
+                          vendas: style_vendas,
+                          financeiro: style_financeiro,
+                          estoque: style_estoque,
+                          gerencial: style_gerencial
+                        };
+
+                        const style = style_map[report.category] || style_vendas;
+
+                        return (
+                          <motion.button
+                            whileHover={{ y: -5, scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            key={report.id}
+                            onClick={() => {
+                              if (report.id === 'dash_exec') {
+                                setSelectedReportView(null); // Already on dashboard
+                              } else {
+                                handleReportClick(report.title);
+                              }
+                            }}
+                            className="group p-6 md:p-7 rounded-[2rem] bg-white border border-slate-200/80 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-200/50 transition-all text-left flex flex-col justify-between min-h-[200px] relative overflow-hidden"
+                          >
+                            {/* Decorative background shape or giant icon */}
+                            <div className="absolute -right-3 -bottom-3 translate-x-1 translate-y-1 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500 text-slate-900">
+                              <report.icon size={110} />
+                            </div>
+
+                            {/* Top row */}
+                            <div className="flex items-start justify-between gap-4 w-full">
+                              <div className={cn("w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xs shrink-0", style.bg, style.text, "group-hover:text-white", style.hover)}>
+                                <report.icon size={18} className="relative z-10" />
+                              </div>
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-[8px] font-black uppercase italic tracking-wider bg-slate-50 border border-slate-200 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-500 transition-colors">
+                                {style.label}
+                              </span>
+                            </div>
+
+                            {/* Middle Title and Content */}
+                            <div className="mt-5 mb-4 flex-1">
+                              <h4 className="text-sm font-black text-slate-800 group-hover:text-brand-blue transition-colors uppercase italic tracking-tight leading-tight">
+                                {report.title}
+                              </h4>
+                              <p className="text-[11px] font-semibold text-slate-500/90 mt-1.5 leading-relaxed">
+                                {report.description}
+                              </p>
+                            </div>
+
+                            {/* Bottom row action feedback */}
+                            <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between w-full mt-auto">
+                              <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase italic">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Analítico
+                              </div>
+                              <div className="flex items-center gap-1 text-[11px] font-black uppercase text-brand-blue italic transition-all group-hover:translate-x-1">
+                                Carregar Módulo
+                                <ChevronRight size={13} className="text-brand-blue" />
+                              </div>
+                            </div>
+                          </motion.button>
+                        );
+                      })}
                       {filteredReports.length === 0 && (
-                        <div className="col-span-full py-20 text-center">
-                          <p className="text-sm font-medium text-slate-400 italic">Nenhum relatório encontrado nesta categoria.</p>
+                        <div className="col-span-full py-24 text-center bg-white rounded-3xl border border-slate-200/50 p-8 flex flex-col items-center justify-center">
+                          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4">
+                            <Search size={28} />
+                          </div>
+                          <h4 className="text-sm font-black uppercase italic text-slate-700">Nenhum relatório encontrado</h4>
+                          <p className="text-xs font-semibold text-slate-400 max-w-sm mt-1 leading-relaxed">
+                            Nenhum item corresponde à busca "{searchTerm}". Tente digitar outros termos ou busque em outra categoria.
+                          </p>
+                          <button 
+                            onClick={() => setSearchTerm('')}
+                            className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-black uppercase italic transition-all active:scale-95"
+                          >
+                            Limpar Filtro
+                          </button>
                         </div>
                       )}
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="flex-1 overflow-y-auto p-10">
+                <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-[#f8fafc]">
                   {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
@@ -1024,181 +1180,348 @@ function AdvancedPerformanceDashboard({
   const lowStockProductsCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
 
   return (
-    <div className="space-y-6 bg-[#f8fafc] -m-8 p-8 min-h-full font-sans">
-      <div className="flex flex-col gap-6">
-        {/* Header with Filters */}
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight text-[#1e293b]">Relatórios Avançados de Desempenho</h2>
-            <div className="flex gap-3">
+    <div className="space-y-8 bg-slate-50/50 -m-8 p-8 min-h-full font-sans">
+      <div className="flex flex-col gap-8">
+        
+        {/* Header Section */}
+        <div className="flex flex-col gap-6 border-b border-slate-200/60 pb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-brand-blue font-black uppercase italic tracking-wider text-xs mb-1">
+                <Activity size={12} className="animate-pulse" />
+                Módulo Executivo de BI
+              </div>
+              <h2 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Relatórios Avançados de Desempenho</h2>
+              <p className="text-sm font-medium text-slate-500 mt-1 leading-relaxed">
+                Análise de dados estratégica, projeções de fluxo de caixa e inteligência de distribuição.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-3">
               {onOpenCatalog && (
                 <button 
                   onClick={onOpenCatalog}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
+                  className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
                 >
-                  <LayoutGrid size={14} />
-                  Catálogo de Relatórios
+                  <LayoutGrid size={14} className="text-brand-blue" />
+                  Catálogo
                 </button>
               )}
               <button 
                 onClick={handleExportExcel}
-                className="flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
+                className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/15 active:scale-95"
               >
                 <Download size={14} />
                 Exportar Excel
               </button>
             </div>
           </div>
-          
-          <div className="flex flex-wrap items-end gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex-1 min-w-[200px] space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Tipo de Relatório</label>
-              <div className="relative">
+
+          {/* Premium Selector and Date Filters Card */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-md shadow-slate-100 flex flex-col lg:flex-row lg:items-center gap-6">
+            {/* Beautiful Custom Pill Navigation for Report Type */}
+            <div className="flex-1 space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 pointer-events-none">Sistema Analítico Ativo</label>
+              
+              {/* Desktop Tabs */}
+              <div className="hidden sm:flex p-1.5 bg-slate-100/80 border border-slate-200/50 rounded-2xl gap-1">
+                {[
+                  { id: 'Relatório de Vendas', label: 'Vendas e Receitas', icon: ShoppingBag },
+                  { id: 'Relatório Financeiro', label: 'Fluxo e Despesas', icon: DollarSign },
+                  { id: 'Relatório de Estoque', label: 'Posição de Estoque', icon: Package }
+                ].map((tab) => {
+                  const isActive = reportType === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setReportType(tab.id)}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase italic tracking-wide transition-all ${
+                        isActive 
+                          ? 'bg-white text-brand-blue shadow-md shadow-slate-200/50 scale-100 border border-slate-100' 
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <tab.icon size={13} className={isActive ? 'text-brand-blue' : 'text-slate-400'} />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mobile Select Field */}
+              <div className="sm:hidden relative">
                 <select 
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none"
+                  className="w-full bg-slate-100/85 border border-slate-200 rounded-2xl px-4 py-3.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 appearance-none"
                 >
-                  <option value="Relatório de Vendas">Relatório de Vendas</option>
-                  <option value="Relatório Financeiro">Relatório Financeiro</option>
-                  <option value="Relatório de Estoque">Relatório de Estoque</option>
+                  <option value="Relatório de Vendas">Vendas e Receitas</option>
+                  <option value="Relatório Financeiro">Fluxo e Despesas</option>
+                  <option value="Relatório de Estoque">Posição de Estoque</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
-            
-            <div className="flex-1 min-w-[200px] space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Data Início</label>
-              <div className="relative">
-                <input 
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-            </div>
 
-            <div className="flex-1 min-w-[200px] space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Data Fim</label>
-              <div className="relative">
-                <input 
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
+            {/* Date Picker Group */}
+            <div className="flex flex-col sm:flex-row gap-4 lg:w-auto shrink-0">
+              <div className="space-y-2 sm:w-44">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Início</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <Calendar size={14} />
+                  </span>
+                  <input 
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs font-black uppercase italic focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 sm:w-44">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Fim</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <Calendar size={14} />
+                  </span>
+                  <input 
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs font-black uppercase italic focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
         
-        {/* Metrics Row - 4 Cards */}
-        {(reportType === 'Relatório de Vendas' || reportType === 'Relatório Financeiro') && (
+        {/* Metric Grid - 4 Glowing Cards */}
+        {reportType !== 'Relatório de Estoque' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lucro Líquido Acumulado</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${profitTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                  {profitTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  <span>{Math.abs(profitTrend).toFixed(1)}% vs período anterior</span>
+            {/* Card 1: Profit */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Lucro Líquido Acumulado</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <DollarSign size={16} />
                 </div>
               </div>
-            </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                    profitTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    {profitTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    {Math.abs(profitTrend).toFixed(1)}%
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
+                </div>
+              </div>
+            </motion.div>
             
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Ticket Médio por Venda</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${ticketMedioTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                  {ticketMedioTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  <span>{Math.abs(ticketMedioTrend).toFixed(1)}% vs período anterior</span>
+            {/* Card 2: Ticket Medio */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <ShoppingBag size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Ticket Médio por Venda</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center">
+                  <ShoppingBag size={16} />
                 </div>
               </div>
-            </div>
-   
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Margem de Lucro Bruta</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{profitMargin.toFixed(1)}%</h3>
-                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${marginTrend >= 0 ? 'text-brand-green' : 'text-brand-danger'}`}>
-                  {marginTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  <span>{Math.abs(marginTrend).toFixed(1)}% vs período anterior</span>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                    ticketMedioTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    {ticketMedioTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    {Math.abs(ticketMedioTrend).toFixed(1)}%
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Vendas em Oferta</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalPromoSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-                <div className="flex items-center gap-1 text-[10px] font-bold mt-2 text-blue-600">
-                  <Zap size={12} />
-                  <span>{promoSalesCount} vendas com itens em promoção</span>
+            </motion.div>
+            
+            {/* Card 3: Margin */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Percent size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Margem de Lucro Bruta</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <Percent size={16} />
                 </div>
               </div>
-            </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {profitMargin.toFixed(1)}%
+                </h3>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                    marginTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    {marginTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    {Math.abs(marginTrend).toFixed(1)}%
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Card 4: Promos */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Zap size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vendas em Oferta / Promoção</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                  <Zap size={16} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  R$ {totalPromoSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h3>
+                <div className="flex items-center gap-1 text-[10px] font-black text-amber-600/90 uppercase italic mt-2.5">
+                  {promoSalesCount} transações promocionais
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {/* Stock Card 1: Unique Products */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Package size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Saldo de Produtos Ativos</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center">
+                  <Package size={16} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {totalProductsInStock}
+                </h3>
+                <div className="text-[10px] font-black text-slate-400 uppercase italic mt-2.5">
+                  Itens com saldo positivo no estoque
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Stock Card 2: Stock Capitalized Value */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Valor Líquido em Estoque</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <DollarSign size={16} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h3>
+                <div className="text-[10px] font-black text-slate-400 uppercase italic mt-2.5">
+                  Montante baseado nos preços de custo
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Stock Card 3: Alert Levels */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/20 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <AlertCircle size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Alerta de Estoque Crítico</span>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${lowStockProductsCount > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <AlertCircle size={16} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {lowStockProductsCount}
+                </h3>
+                <div className="mt-2">
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                    lowStockProductsCount > 0 ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    {lowStockProductsCount > 0 ? 'Alerta Ativo' : 'Nível Saudável'}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
 
-        {reportType === 'Relatório de Estoque' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total de Produtos em Estoque</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{totalProductsInStock}</h3>
-                <div className="flex items-center gap-1 text-[10px] font-bold mt-2 text-slate-500">
-                  <Package size={12} />
-                  <span>Produtos únicos com saldo</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Valor Total em Estoque</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-                <div className="flex items-center gap-1 text-[10px] font-bold mt-2 text-slate-500">
-                  <DollarSign size={12} />
-                  <span>Baseado no preço de custo</span>
-                </div>
-              </div>
-            </div>
-   
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[110px]">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Produtos com Estoque Baixo</p>
-              <div className="mt-1">
-                <h3 className="text-xl md:text-2xl font-black text-brand-text-main truncate leading-none">{lowStockProductsCount}</h3>
-                <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 ${lowStockProductsCount > 0 ? 'text-brand-danger' : 'text-brand-green'}`}>
-                  {lowStockProductsCount > 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-                  <span>{lowStockProductsCount > 0 ? 'Atenção necessária' : 'Estoque saudável'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Charts & Tables Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Vendas por Categoria - Left Column */}
+        {/* Charts and Tables Bento Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Category Distribution (Left / Right depending on type) */}
           {(reportType === 'Relatório de Vendas' || reportType === 'Relatório de Estoque') && (
-            <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Vendas por Categoria e Subcategoria (Mês)</h4>
-                <PieIcon size={16} className="text-slate-300" />
+            <div className="lg:col-span-5 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[380px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Vendas por Categoria / Segmento</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Share de faturamento no período selecionado</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <PieIcon size={14} />
+                </div>
               </div>
-              <div className="flex-1 flex items-center justify-between gap-4">
-                <div className="h-64 w-1/2">
-                  <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+
+              <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-6">
+                <div className="h-44 w-44 shrink-0 relative flex items-center justify-center">
+                  <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={categoryData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={55}
-                        outerRadius={85}
-                        paddingAngle={2}
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={3}
                         dataKey="value"
                         stroke="#fff"
                         strokeWidth={2}
@@ -1209,94 +1532,103 @@ function AdvancedPerformanceDashboard({
                       </Pie>
                       <Tooltip 
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                        formatter={(value: any) => `${Number(value).toFixed(2)}%`}
+                        formatter={(value: any) => `${Number(value).toFixed(1)}%`}
                       />
                     </PieChart>
                   </ResponsiveContainer>
+                  {/* Center metrics readout */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest italic">Categorias</span>
+                    <span className="text-lg font-black text-slate-700">{categoryData.length}</span>
+                  </div>
                 </div>
-                <div className="flex-1 space-y-2.5">
-                  {categoryData.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                        <span className="text-[11px] font-bold text-slate-500 truncate max-w-[120px]">{item.name}</span>
+
+                {/* Progress bar list representing legends */}
+                <div className="flex-1 w-full space-y-3.5">
+                  {categoryData.length > 0 ? (
+                    categoryData.slice(0, 5).map((item) => (
+                      <div key={item.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5 truncate max-w-[150px]">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
+                            <span className="truncate">{item.name}</span>
+                          </div>
+                          <span className="font-mono text-slate-700 font-bold">{item.value}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.value}%` }}
+                            transition={{ duration: 0.8, ease: 'easeOut' }}
+                            className="h-full rounded-full" 
+                            style={{ backgroundColor: item.color }} 
+                          />
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center text-xs text-slate-400 font-medium italic">
+                      Conversões pendentes
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Ranking de Clientes - Right Column */}
+          {/* Customer Rating Ranking */}
           {reportType === 'Relatório de Vendas' && (
-            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Clientes</h4>
-                <Users size={16} className="text-slate-300" />
+            <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[380px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Análise de Clientes VIP</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Ranking por volume consolidado de compras</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <Users size={14} />
+                </div>
               </div>
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Comprado (R$)</th>
-                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Qtd Pedidos</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {topCustomers.map((c, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{c.name}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">
-                          R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-4 text-right text-[11px] font-bold text-slate-700">{c.volume}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
-          {/* Produtos com Estoque Baixo - Right Column */}
-          {reportType === 'Relatório de Estoque' && (
-            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Produtos com Estoque Baixo</h4>
-                <Package size={16} className="text-slate-300" />
-              </div>
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produto</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estoque Atual</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estoque Mínimo</th>
-                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Rank</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Cliente VIP</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Acumulado</th>
+                      <th className="pb-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Qtd Compras</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).slice(0, 6).map((p, idx) => (
-                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[200px]">{p.name}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{p.stock}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{p.minStock}</td>
-                        <td className="py-4 text-right">
-                          <span className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase ${
-                            p.stock === 0 ? 'bg-brand-danger text-white' : 'bg-brand-warning text-white'
-                          }`}>
-                            {p.stock === 0 ? 'Sem Estoque' : 'Baixo'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length === 0 && (
+                    {topCustomers.map((c, idx) => {
+                      // Custom visual medals/badges for top 3
+                      const orderBadge = 
+                        idx === 0 ? 'bg-amber-50 text-amber-700 border border-amber-200/30' :
+                        idx === 1 ? 'bg-slate-100/80 text-slate-600 border border-slate-300/30' :
+                        idx === 2 ? 'bg-orange-50 text-orange-700 border border-orange-200/30' :
+                        'bg-slate-50 text-slate-500';
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/60 transition-colors group">
+                          <td className="py-3">
+                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-lg text-[9px] font-black ${orderBadge}`}>
+                              0{idx + 1}
+                            </span>
+                          </td>
+                          <td className="py-3 text-xs font-black text-slate-800 italic uppercase">
+                            {c.name}
+                          </td>
+                          <td className="py-3 text-xs font-bold text-slate-700 font-mono">
+                            R$ {c.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 text-right text-xs font-black text-brand-blue font-mono">
+                            {c.volume}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {topCustomers.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-xs text-slate-500 italic">Nenhum produto com estoque baixo.</td>
+                        <td colSpan={4} className="py-12 text-center text-xs text-slate-400 italic">Nenhuma compra catalogada neste intervalo.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1305,72 +1637,155 @@ function AdvancedPerformanceDashboard({
             </div>
           )}
 
-          {/* Projeção de Fluxo de Caixa - Full Width */}
-          {reportType === 'Relatório Financeiro' && (
-            <div className="lg:col-span-12 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-8">
+          {/* Understock Items Table */}
+          {reportType === 'Relatório de Estoque' && (
+            <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[380px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                 <div>
-                  <h4 className="text-sm font-bold text-[#1e293b]">Projeção de Fluxo de Caixa Próximas 4 Semanas</h4>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Estoque Abaixo do Nível de Segurança</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Produtos necessitando reposição imediata</p>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-[#00E676]"></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Entradas</span>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <Package size={14} />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Item de Estoque</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Saldo Atual</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Margem Seg. (Mín)</th>
+                      <th className="pb-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Urgência</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).slice(0, 6).map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/60 transition-colors group">
+                        <td className="py-3 text-xs font-black text-slate-800 italic uppercase truncate max-w-[180px]">
+                          {p.name}
+                        </td>
+                        <td className="py-3 text-xs font-black text-[#1e293b] font-mono">
+                          {p.stock}
+                        </td>
+                        <td className="py-3 text-xs font-medium text-slate-500 font-mono">
+                          {p.minStock}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase italic ${
+                            p.stock === 0 
+                              ? 'bg-rose-50 text-rose-600 border border-rose-100' 
+                              : 'bg-amber-50 text-amber-600 border border-amber-100'
+                          }`}>
+                            {p.stock === 0 ? 'Sem estoque' : 'Estoque Baixo'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-12 text-center text-xs text-slate-400 italic">Todos os produtos ativos estão saudáveis!</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Cash Flow Projection (Full Width) */}
+          {reportType === 'Relatório Financeiro' && (
+            <div className="lg:col-span-12 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[420px]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 mb-8 gap-4">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Evolução / Projeção de Fluxo de Caixa (Próximas 4 Semanas)</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Balancete consolidado de receitas, despesas e saldo projetado</p>
+                </div>
+                
+                {/* Beautiful Modern Legend Indicators */}
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-emerald-505 bg-emerald-500" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entradas</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-[#EF4444]"></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saídas</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-rose-505 bg-rose-500" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Saídas</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-[#1E5EFF]"></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Projeção</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full border-2 border-[#1E5EFF] bg-white"></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo de Caixa</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full border border-indigo-500/30 bg-indigo-500" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold text-indigo-500">Saldo Final</span>
                   </div>
                 </div>
               </div>
-              <div className="h-72 w-full">
-                <ResponsiveContainer id="rel-proj-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                  <BarChart data={secondProjectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
+
+              <div className="h-72 w-full mt-2">
+                <ResponsiveContainer id="rel-proj-bar-resp" width="100%" height="100%">
+                  <BarChart data={secondProjectionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="glowInflow" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.9}/>
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.6}/>
+                      </linearGradient>
+                      <linearGradient id="glowOutflow" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#EF4444" stopOpacity={0.9}/>
+                        <stop offset="95%" stopColor="#EF4444" stopOpacity={0.6}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#64748b', fontWeight: 650, fontStyle: 'italic', textTransform: 'uppercase' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} 
+                      tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} 
+                    />
                     <Tooltip 
-                      cursor={{fill: '#F3F4F6'}} 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
+                      cursor={{ fill: '#f8fafc' }} 
+                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#fff', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
                       formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)}
                     />
-                    <Bar name="Entradas" dataKey="inflows" fill="#10B981" radius={[4, 4, 0, 0]} barSize={40} />
-                    <Bar name="Saídas" dataKey="outflows" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={40} />
-                    <Line name="Saldo" type="monotone" dataKey="balance" stroke="#6366F1" strokeWidth={3} dot={{ r: 5, fill: '#fff', stroke: '#6366F1', strokeWidth: 2 }} />
+                    <Bar name="Entradas" dataKey="inflows" fill="url(#glowInflow)" radius={[8, 8, 0, 0]} barSize={28} />
+                    <Bar name="Saídas" dataKey="outflows" fill="url(#glowOutflow)" radius={[8, 8, 0, 0]} barSize={28} />
+                    <Line name="Saldo" type="monotone" dataKey="balance" stroke="#6366F1" strokeWidth={3.5} dot={{ r: 5, fill: '#fff', stroke: '#6366F1', strokeWidth: 3 }} activeDot={{ r: 7 }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
           )}
 
-          {/* Meios de Pagamento - Bottom Left */}
+          {/* Payment Methods Utilization */}
           {(reportType === 'Relatório de Vendas' || reportType === 'Relatório Financeiro') && (
-            <div className="lg:col-span-5 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Relatório de Meios de Pagamento (Análise Profunda)</h4>
-                <CreditCard size={16} className="text-slate-300" />
+            <div className="lg:col-span-5 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[385px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Meios de Pagamentos Recorrentes</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Análise de canais e taxas de aceitação</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <CreditCard size={14} />
+                </div>
               </div>
-              <div className="flex-1 flex items-center justify-between gap-6">
-                <div className="h-56 w-1/2">
-                  <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+
+              <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                <div className="h-44 w-1/2 relative flex items-center justify-center">
+                  <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={paymentData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={0}
-                        outerRadius={85}
+                        innerRadius={45}
+                        outerRadius={75}
                         dataKey="value"
                         stroke="#fff"
-                        strokeWidth={2}
+                        strokeWidth={2.5}
                       >
                         {paymentData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1378,116 +1793,151 @@ function AdvancedPerformanceDashboard({
                       </Pie>
                       <Tooltip 
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                        formatter={(value: any) => `${Number(value).toFixed(2)}%`}
+                        formatter={(value: any) => `${Number(value).toFixed(1)}%`}
                       />
                     </PieChart>
                   </ResponsiveContainer>
+                  {/* Center metrics reading */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest italic">Canais</span>
+                    <span className="text-lg font-black text-slate-700">{paymentData.length}</span>
+                  </div>
                 </div>
-                <div className="flex-1 space-y-4">
+
+                <div className="w-full space-y-2.5">
                   {paymentData.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between">
+                    <div key={item.name} className="flex items-center justify-between border-b border-dashed border-slate-100 pb-1.5 last:border-0 last:pb-0">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                        <span className="text-[11px] font-bold text-slate-500">{item.name}</span>
+                        <span className="text-xs font-bold text-slate-600">{item.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-slate-700">
+                        <span className="text-xs font-black text-slate-700 font-mono">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalValue)}
                         </span>
-                        <span className="text-[11px] font-bold text-brand-blue">({item.value}%)</span>
+                        <span className="text-[10px] font-black text-brand-blue bg-blue-50/50 px-1.5 py-0.5 rounded-md font-mono">({item.value}%)</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="flex justify-center gap-6 mt-6">
-                {paymentData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{item.name}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
-          {/* Ranking de Produtos - Bottom Right */}
+          {/* Core Products Ranking */}
           {reportType === 'Relatório de Vendas' && (
-            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-[#1e293b]">Ranking de Produtos</h4>
+            <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[385px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Curva ABC: Produtos mais Vendidos</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Top produtos de alta conversão física</p>
+                </div>
+                <div className="flex items-center gap-3">
                   <button 
                     onClick={() => onViewReport?.('Vendas por Produto')}
-                    className="text-[10px] font-bold text-brand-blue hover:underline ml-2"
+                    className="text-[9px] font-black font-bold uppercase italic tracking-wider text-brand-blue bg-blue-50 hover:bg-blue-100 p-2 rounded-xl transition-all"
                   >
-                    Ver Todos
+                    Completo
                   </button>
+                  <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                    <Package size={14} />
+                  </div>
                 </div>
-                <Package size={16} className="text-slate-300" />
               </div>
+
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nº</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Produto</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Qtd</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Total (R$)</th>
-                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Margem (%)</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Rank</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Produto</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic text-center">Unidades</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic text-right">Fauramento (R$)</th>
+                      <th className="pb-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Margem Média</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {topProducts.map((p, idx) => (
-                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{idx + 1}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[150px]">{p.name}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700 text-center">{p.quantity}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700 text-right">
-                          R$ {p.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <span className="text-[11px] font-bold text-slate-700">{p.margin}%</span>
-                            {p.margin > 25 ? <TrendingUp size={12} className="text-brand-green" /> : <TrendingDown size={12} className="text-brand-danger" />}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {topProducts.map((p, idx) => {
+                      const orderBadge = 
+                        idx === 0 ? 'bg-amber-50 text-amber-700 border border-amber-200/30' :
+                        idx === 1 ? 'bg-slate-100/80 text-slate-600 border border-slate-300/30' :
+                        idx === 2 ? 'bg-orange-50 text-orange-700 border border-orange-200/30' :
+                        'bg-slate-50 text-slate-500';
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50/60 transition-colors group">
+                          <td className="py-3">
+                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-lg text-[9px] font-black ${orderBadge}`}>
+                              {idx + 1}
+                            </span>
+                          </td>
+                          <td className="py-3 text-xs font-black text-slate-800 italic uppercase truncate max-w-[150px]">
+                            {p.name}
+                          </td>
+                          <td className="py-3 text-xs font-black text-slate-500 font-mono text-center">
+                            {p.quantity} Un
+                          </td>
+                          <td className="py-3 text-xs font-bold text-slate-700 font-mono text-right">
+                            R$ {p.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex items-center justify-end gap-1 font-mono font-black text-xs">
+                              <span className={p.margin > 25 ? 'text-emerald-600' : 'text-slate-600'}>{p.margin}%</span>
+                              {p.margin > 25 ? <TrendingUp size={11} className="text-emerald-500" /> : <TrendingDown size={11} className="text-rose-400" />}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* Contas a Pagar e Receber - Bottom Right */}
+          {/* Accounts Payable / Receivable Alerts list */}
           {reportType === 'Relatório Financeiro' && (
-            <div className="lg:col-span-7 bg-white p-7 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h4 className="text-sm font-bold text-[#1e293b]">Análise de Contas a Pagar e Receber (Próximos 30 Dias)</h4>
-                <Calendar size={16} className="text-slate-300" />
+            <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[385px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1e293b]">Títulos e Lançamentos (Próximos 30 Dias)</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão consolidada de contas a pagar</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <Calendar size={14} />
+                </div>
               </div>
+
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrição/Fornecedor/Cliente</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
-                      <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor (R$)</th>
-                      <th className="pb-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Tipo</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Credor / Descrição</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Vencimento</th>
+                      <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Valor Nominal</th>
+                      <th className="pb-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {accounts.length > 0 ? accounts.map((a, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{a.type}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700 truncate max-w-[180px]">{a.desc}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">{a.date}</td>
-                        <td className="py-4 text-[11px] font-bold text-slate-700">R$ {a.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        <td className="py-4 text-right">
-                          <span className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase ${
-                            a.status === 'Em Dia' ? 'bg-brand-green text-white' : 'bg-brand-warning text-white'
+                      <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 text-xs font-black text-rose-500 uppercase italic">
+                          {a.type}
+                        </td>
+                        <td className="py-3 text-xs font-bold text-slate-800 truncate max-w-[160px]">
+                          {a.desc}
+                        </td>
+                        <td className="py-3 text-xs font-semibold text-slate-500 font-mono">
+                          {a.date}
+                        </td>
+                        <td className="py-3 text-xs font-black text-[#1e293b] font-mono">
+                          R$ {a.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase italic ${
+                            a.status === 'Em Dia' 
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                              : 'bg-amber-50 text-amber-600 border border-amber-100'
                           }`}>
                             {a.status}
                           </span>
@@ -1495,7 +1945,7 @@ function AdvancedPerformanceDashboard({
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-xs font-medium text-slate-400 italic">Nenhum lançamento encontrado para este período</td>
+                        <td colSpan={5} className="py-12 text-center text-xs font-medium text-slate-400 italic">Não há contas a apresentar para o intervalo.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1804,54 +2254,94 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
       </div>
 
       {/* Summary KPI Cards Grid with Real Calculative Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* KPI 1: Giro Médio */}
-        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Giro Médio Geral</span>
-            <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/30 text-indigo-505">
-              <Gauge size={16} />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Gauge size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Giro Médio Geral</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200/30 text-indigo-505 flex items-center justify-center shrink-0">
+              <Gauge size={15} />
             </div>
           </div>
-          <p className="text-2xl font-black text-brand-blue tracking-tight leading-none mb-1">{averageTurnover}x</p>
-          <p className="text-[9px] font-bold uppercase text-slate-400">Reposições por produto</p>
-        </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-brand-blue font-mono tracking-tight">{averageTurnover}x</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Reposições por produto
+            </span>
+          </div>
+        </motion.div>
 
         {/* KPI 2: Total Items Sold */}
-        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Volume de Saída</span>
-            <div className="p-2 rounded-xl bg-sky-50 border border-sky-100 dark:bg-sky-950/20 dark:border-sky-900/30 text-sky-505">
-              <ShoppingBag size={16} />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ShoppingBag size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Volume de Saída</span>
+            <div className="w-8 h-8 rounded-xl bg-skys-50 border border-skys-100 text-sky-505 flex items-center justify-center shrink-0">
+              <ShoppingBag size={15} />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-800 dark:text-white tracking-tight leading-none mb-1">{totalItemsSold} un</p>
-          <p className="text-[9px] font-bold uppercase text-slate-400">Total vendido no período</p>
-        </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight font-mono">{totalItemsSold} un</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Total vendido no período
+            </span>
+          </div>
+        </motion.div>
 
         {/* KPI 3: High Turnover Count */}
-        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Alto Giro (&gt;=2x)</span>
-            <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30 text-emerald-505">
-              <Zap size={16} />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Zap size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Alto Giro (&gt;=2x)</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-505 flex items-center justify-center shrink-0">
+              <Zap size={15} />
             </div>
           </div>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-none mb-1">{highTurnoverCount}</p>
-          <p className="text-[9px] font-bold uppercase text-slate-400">Produtos com bom giro</p>
-        </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-600 tracking-tight font-mono">{highTurnoverCount}</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Produtos com bom giro
+            </span>
+          </div>
+        </motion.div>
 
         {/* KPI 4: Low Turnover Count (Alert) */}
-        <div className="bg-brand-card border border-brand-border p-5 rounded-2xl shadow-sm hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Baixo Giro (&lt;0.5x)</span>
-            <div className="p-2 rounded-xl bg-rose-50 border border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/30 text-rose-505">
-              <AlertTriangle size={16} />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <AlertTriangle size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest italic">Baixo Giro (&lt;0.5x)</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-505 flex items-center justify-center shrink-0">
+              <AlertTriangle size={15} />
             </div>
           </div>
-          <p className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight leading-none mb-1">{lowTurnoverCount}</p>
-          <p className="text-[9px] font-bold uppercase text-slate-400">Produtos com capital parado</p>
-        </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-rose-600 tracking-tight font-mono">{lowTurnoverCount}</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Produtos com capital parado
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       {/* Control Panel with Search & Filter status */}
@@ -1983,22 +2473,72 @@ function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4 mb-8">
-        <div className="flex-1 p-4 rounded-2xl bg-brand-blue text-white text-center">
-          <p className="text-[10px] font-black uppercase italic opacity-60">Classe A</p>
-          <p className="text-xl font-black">Até 80%</p>
-          <p className="text-[8px] font-black uppercase italic">do Faturamento</p>
-        </div>
-        <div className="flex-1 p-4 rounded-2xl bg-brand-text-sec text-white text-center">
-          <p className="text-[10px] font-black uppercase italic opacity-60">Classe B</p>
-          <p className="text-xl font-black">Até 95%</p>
-          <p className="text-[8px] font-black uppercase italic">do Faturamento</p>
-        </div>
-        <div className="flex-1 p-4 rounded-2xl bg-brand-border text-brand-blue text-center">
-          <p className="text-[10px] font-black uppercase italic opacity-60">Classe C</p>
-          <p className="text-xl font-black">Até 100%</p>
-          <p className="text-[8px] font-black uppercase italic">do Faturamento</p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+        {/* Class A */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Zap size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Classe A (Estrela)</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200/30 text-indigo-505 flex items-center justify-center shrink-0">
+              <Zap size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-indigo-600 font-mono tracking-tight">Até 80%</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Do faturamento acumulado
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Class B */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Layers size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Classe B (Médio Impacto)</span>
+            <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/30 text-orange-505 flex items-center justify-center shrink-0">
+              <Layers size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-orange-600 font-mono tracking-tight">Até 95%</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Do faturamento acumulado
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Class C */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <HelpCircle size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Classe C (Baixo Impacto)</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-505 flex items-center justify-center shrink-0">
+              <HelpCircle size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-600 font-mono tracking-tight">Até 100%</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Do faturamento acumulado
+            </span>
+          </div>
+        </motion.div>
       </div>
       
       <div className="space-y-3">
@@ -2034,27 +2574,80 @@ function ClubCustomersReport() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 rounded-3xl bg-blue-50 border border-blue-100">
-          <p className="text-[10px] font-black uppercase italic text-blue-600 tracking-widest mb-1">Total Membros</p>
-          <h4 className="text-3xl font-black text-slate-800">{clubMembers.length}</h4>
-        </div>
-        <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100">
-          <p className="text-[10px] font-black uppercase italic text-emerald-600 tracking-widest mb-1">Taxa de Adesão</p>
-          <h4 className="text-3xl font-black text-slate-800">
-            {customers.length > 0 ? ((clubMembers.length / customers.length) * 100).toFixed(1) : 0}%
-          </h4>
-        </div>
-        <div className="p-6 rounded-3xl bg-purple-50 border border-purple-100">
-          <p className="text-[10px] font-black uppercase italic text-purple-600 tracking-widest mb-1">Novos (Mês)</p>
-          <h4 className="text-3xl font-black text-slate-800">
-            {clubMembers.filter(c => {
-              if (!c.clubJoinDate) return false;
-              const joinDate = new Date(c.clubJoinDate);
-              const now = new Date();
-              return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
-            }).length}
-          </h4>
-        </div>
+        {/* Card 1: Total Members */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Users size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest italic">Total de Membros Clientes</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <Users size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-3xl font-black text-slate-850 font-mono tracking-tight">{clubMembers.length}</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Membros cadastrados no clube
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 2: Subscription Rate */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Percent size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Taxa de Adesão Geral</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <Percent size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-3xl font-black text-slate-850 font-mono tracking-tight">
+              {customers.length > 0 ? ((clubMembers.length / customers.length) * 100).toFixed(1) : 0}%
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Proporção de base inscrita
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 3: Monthly New Joins */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <UserPlus size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest italic">Novos Membros (Mês Atual)</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+              <UserPlus size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-3xl font-black text-slate-850 font-mono tracking-tight">
+              {clubMembers.filter(c => {
+                if (!c.clubJoinDate) return false;
+                const joinDate = new Date(c.clubJoinDate);
+                const now = new Date();
+                return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
+              }).length}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Recrutamentos recentes no mês
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
@@ -2093,89 +2686,1036 @@ function ClubCustomersReport() {
 }
 
 function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, customers } = useERP();
+  const { sales, customers, products } = useERP();
   
+  // Navigation tabs and filters
+  const [activeTab, setActiveTab] = React.useState<'consolidado' | 'ranking' | 'vendas'>('consolidado');
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<string>('All');
+  const [expandedSaleId, setExpandedSaleId] = React.useState<string | null>(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 8;
+
+  // Reset pagination state when filters or tabs change
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setExpandedSaleId(null);
+  }, [activeTab, searchTerm, statusFilter]);
+
+  // 1. Core period filtering
   const filteredSales = React.useMemo(() => {
-    return sales.filter(s => {
+    return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
   }, [sales, startDate, endDate]);
 
-  const clubSales = filteredSales.filter(s => {
-    const customer = customers.find(c => c.id === s.customerId);
-    return customer?.isClubMember;
-  });
+  const clubSales = React.useMemo(() => {
+    return filteredSales.filter(s => {
+      const customer = (customers || []).find(c => c.id === s.customerId);
+      return customer?.isClubMember;
+    });
+  }, [filteredSales, customers]);
 
-  const normalSales = filteredSales.filter(s => {
-    const customer = customers.find(c => c.id === s.customerId);
-    return !customer?.isClubMember;
-  });
+  const normalSales = React.useMemo(() => {
+    return filteredSales.filter(s => {
+      const customer = (customers || []).find(c => c.id === s.customerId);
+      return !customer?.isClubMember;
+    });
+  }, [filteredSales, customers]);
 
-  const totalClubRevenue = clubSales.reduce((acc, s) => acc + s.total, 0);
-  const totalNormalRevenue = normalSales.reduce((acc, s) => acc + s.total, 0);
+  // 2. Analytical math
+  const totalClubRevenue = React.useMemo(() => clubSales.reduce((acc, s) => acc + s.total, 0), [clubSales]);
+  const totalNormalRevenue = React.useMemo(() => normalSales.reduce((acc, s) => acc + s.total, 0), [normalSales]);
+  const totalOverallRevenue = totalClubRevenue + totalNormalRevenue;
 
-  const chartData = [
-    { name: 'Membros Clube', value: totalClubRevenue, color: '#1E5EFF' },
-    { name: 'Clientes Comuns', value: totalNormalRevenue, color: '#94A3B8' }
+  const countClubSales = clubSales.length;
+  const countNormalSales = normalSales.length;
+  const totalSalesCount = countClubSales + countNormalSales;
+
+  const clubTicket = countClubSales > 0 ? totalClubRevenue / countClubSales : 0;
+  const normalTicket = countNormalSales > 0 ? totalNormalRevenue / countNormalSales : 0;
+
+  const clubTicketDiffPercent = normalTicket > 0 ? ((clubTicket - normalTicket) / normalTicket) * 100 : 0;
+  const clubRepresentativePercent = totalOverallRevenue > 0 ? (totalClubRevenue / totalOverallRevenue) * 100 : 0;
+
+  const clubTotalDiscounts = React.useMemo(() => {
+    return clubSales.reduce((acc, s) => acc + (s.discount || 0), 0);
+  }, [clubSales]);
+
+  const activeClubBuyersCount = React.useMemo(() => {
+    const uniqueIds = new Set(clubSales.map(s => s.customerId).filter(Boolean));
+    return uniqueIds.size;
+  }, [clubSales]);
+
+  const totalClubMembersInDbCount = React.useMemo(() => {
+    return (customers || []).filter(c => c.isClubMember).length;
+  }, [customers]);
+
+  const clubEngagementPercent = totalClubMembersInDbCount > 0 
+    ? (activeClubBuyersCount / totalClubMembersInDbCount) * 100 
+    : 0;
+
+  // 3. Chart Data
+  const chartPieData = [
+    { name: 'Membros Clube', value: totalClubRevenue, color: '#1E5EFF', percentage: clubRepresentativePercent.toFixed(1) },
+    { name: 'Clientes Comuns', value: totalNormalRevenue, color: '#94A3B8', percentage: (100 - clubRepresentativePercent).toFixed(1) }
   ];
 
+  const chartBarData = [
+    { name: 'Clube', 'Ticket Médio (R$)': parseFloat(clubTicket.toFixed(2)), color: '#1E5EFF' },
+    { name: 'Comum', 'Ticket Médio (R$)': parseFloat(normalTicket.toFixed(2)), color: '#94A3B8' }
+  ];
+
+  // 4. Ranking Tab calculation
+  const rankingData = React.useMemo(() => {
+    const clubMembers = (customers || []).filter(c => c.isClubMember);
+    
+    const rankMapped = clubMembers.map(member => {
+      const memberSalesLoc = clubSales.filter(s => s.customerId === member.id);
+      const totalSpentPeriod = memberSalesLoc.reduce((acc, s) => acc + s.total, 0);
+      const orderCountPeriod = memberSalesLoc.length;
+      const averageTicketPeriod = orderCountPeriod > 0 ? totalSpentPeriod / orderCountPeriod : 0;
+      
+      return {
+        member,
+        totalSpentPeriod,
+        orderCountPeriod,
+        averageTicketPeriod
+      };
+    });
+
+    let result = rankMapped;
+    if (searchTerm.trim() !== '') {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(r => 
+        r.member.name.toLowerCase().includes(q) || 
+        r.member.document.includes(q) || 
+        (r.member.phone && r.member.phone.includes(q))
+      );
+    }
+
+    if (statusFilter !== 'All') {
+      result = result.filter(r => r.member.status === statusFilter);
+    }
+
+    return result.sort((a, b) => b.totalSpentPeriod - a.totalSpentPeriod);
+  }, [customers, clubSales, searchTerm, statusFilter]);
+
+  const totalRankPages = Math.ceil(rankingData.length / itemsPerPage) || 1;
+  const paginatedRanking = React.useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return rankingData.slice(startIdx, startIdx + itemsPerPage);
+  }, [rankingData, currentPage]);
+
+  // 5. Member transitions calculation
+  const transitionSalesData = React.useMemo(() => {
+    let result = clubSales;
+    
+    if (searchTerm.trim() !== '') {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(s => {
+        const customer = (customers || []).find(c => c.id === s.customerId);
+        const nameMatch = customer ? customer.name.toLowerCase().includes(q) : false;
+        const docMatch = customer ? customer.document.includes(q) : false;
+        const idMatch = s.id.toLowerCase().includes(q);
+        return nameMatch || docMatch || idMatch;
+      });
+    }
+
+    return [...result].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [clubSales, customers, searchTerm]);
+
+  const totalSalesPages = Math.ceil(transitionSalesData.length / itemsPerPage) || 1;
+  const paginatedSalesList = React.useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return transitionSalesData.slice(startIdx, startIdx + itemsPerPage);
+  }, [transitionSalesData, currentPage]);
+
+  // Helpers
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  };
+
+  // CSV Exporters
+  const exportConsolidatedCSV = () => {
+    try {
+      const headers = [
+        'Indicador',
+        'Valor Membros Clube',
+        'Valor Clientes Comuns',
+        'Resultado Consolidado / Referencia'
+      ];
+      
+      const rows = [
+        ['Faturamento Total', formatCurrency(totalClubRevenue), formatCurrency(totalNormalRevenue), formatCurrency(totalOverallRevenue)],
+        ['Transacoes Realizadas', countClubSales, countNormalSales, totalSalesCount],
+        ['Ticket Medio', formatCurrency(clubTicket), formatCurrency(normalTicket), `Membros: +${clubTicketDiffPercent.toFixed(1)}% de ganho`],
+        ['Descontos Concedidos', formatCurrency(clubTotalDiscounts), '-', `Impacto direto do programa de vantagens`],
+        ['Socio Ativos no Periodo', `${activeClubBuyersCount} socios`, `${totalClubMembersInDbCount} cadastrados`, `Engajamento de ${clubEngagementPercent.toFixed(1)}% da base`]
+      ];
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Consolidado_Programa_Fidelidade_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const exportRankingCSV = () => {
+    try {
+      const headers = [
+        'Posicao',
+        'Nome do Cliente',
+        'Documento',
+        'Fone Contato',
+        'Status Cadastro',
+        'Pedidos no Periodo',
+        'Total Consumido Periodo (R$)',
+        'Ticket Medio Periodo (R$)',
+        'Faturamento Acumulado Geral (R$)'
+      ];
+
+      const rows = rankingData.map((item, index) => [
+        index + 1,
+        item.member.name,
+        item.member.document || 'N/I',
+        item.member.phone || 'N/I',
+        item.member.status,
+        item.orderCountPeriod,
+        item.totalSpentPeriod.toFixed(2),
+        item.averageTicketPeriod.toFixed(2),
+        item.member.totalSpent?.toFixed(2) || '0.00'
+      ]);
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Ranking_Consumo_Socios_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const exportTransactionsCSV = () => {
+    try {
+      const headers = [
+        'Data Lancamento',
+        'Codigo Pedido',
+        'Socio Comprador',
+        'CPF/Documento',
+        'Quantidade Itens',
+        'Desconto (R$)',
+        'Faturamento Consolidado (R$)'
+      ];
+
+      const rows = transitionSalesData.map(sale => {
+        const customer = (customers || []).find(c => c.id === sale.customerId);
+        const qty = sale.items.reduce((acc, item) => acc + item.quantity, 0);
+        return [
+          new Date(sale.date).toLocaleString('pt-BR'),
+          sale.id,
+          customer ? customer.name : 'Socio Final',
+          customer ? customer.document : '',
+          qty,
+          (sale.discount || 0).toFixed(2),
+          sale.total.toFixed(2)
+        ];
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Lançamentos_Socios_Foco_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-          <h4 className="text-sm font-black text-slate-800 uppercase italic mb-6">Distribuição de Receita</h4>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: any) => `R$ ${value.toLocaleString('pt-BR')}`} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+    <div className="space-y-6">
+      {/* Dynamic Tab Selector & Action Layout */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-1.5 scrollbar-none overflow-x-auto">
+          <button
+            onClick={() => { setActiveTab('consolidado'); }}
+            className={cn(
+              "px-4 py-2 text-xs font-black uppercase italic tracking-wider transition-all border-b-2 shrink-0 cursor-pointer",
+              activeTab === 'consolidado' 
+                ? "border-brand-blue text-brand-blue font-black" 
+                : "border-transparent text-slate-500 hover:text-slate-850 font-bold"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Activity size={13} />
+              Desempenho Geral
+            </div>
+          </button>
+          
+          <button
+            onClick={() => { setActiveTab('ranking'); }}
+            className={cn(
+              "px-4 py-2 text-xs font-black uppercase italic tracking-wider transition-all border-b-2 shrink-0 cursor-pointer",
+              activeTab === 'ranking' 
+                ? "border-brand-blue text-brand-blue font-black" 
+                : "border-transparent text-slate-500 hover:text-slate-850 font-bold"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Trophy size={13} />
+              Ranking de Sócios
+            </div>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('vendas'); }}
+            className={cn(
+              "px-4 py-2 text-xs font-black uppercase italic tracking-wider transition-all border-b-2 shrink-0 cursor-pointer",
+              activeTab === 'vendas' 
+                ? "border-brand-blue text-brand-blue font-black" 
+                : "border-transparent text-slate-500 hover:text-slate-850 font-bold"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <ClipboardList size={13} />
+              Dossiê de Vendas
+            </div>
+          </button>
         </div>
 
-        <div className="space-y-4">
-          <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
-            <p className="text-[10px] font-black uppercase italic text-slate-400 tracking-widest mb-1">Ticket Médio Clube</p>
-            <h4 className="text-2xl font-black text-slate-800">
-              R$ {clubSales.length > 0 ? (totalClubRevenue / clubSales.length).toLocaleString('pt-BR') : '0,00'}
-            </h4>
-          </div>
-          <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
-            <p className="text-[10px] font-black uppercase italic text-slate-400 tracking-widest mb-1">Ticket Médio Comum</p>
-            <h4 className="text-2xl font-black text-slate-800">
-              R$ {normalSales.length > 0 ? (totalNormalRevenue / normalSales.length).toLocaleString('pt-BR') : '0,00'}
-            </h4>
-          </div>
-          <div className="p-6 rounded-3xl bg-brand-blue/5 border border-brand-blue/10">
-            <p className="text-[10px] font-black uppercase italic text-brand-blue tracking-widest mb-1">Representatividade</p>
-            <h4 className="text-2xl font-black text-brand-blue">
-              {filteredSales.length > 0 ? ((totalClubRevenue / (totalClubRevenue + totalNormalRevenue)) * 100).toFixed(1) : 0}%
-            </h4>
-          </div>
+        {/* Global Action Export Bar */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={
+              activeTab === 'consolidado' ? exportConsolidatedCSV :
+              activeTab === 'ranking' ? exportRankingCSV : exportTransactionsCSV
+            }
+            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/50 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 cursor-pointer"
+            title="Exportar planilha analítica atual para Excel"
+          >
+            <Download size={13} />
+            Exportar XLS (CSV)
+          </button>
+
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 cursor-pointer"
+            title="Imprimir dossiê do programa"
+          >
+            <Printer size={13} />
+            Imprimir
+          </button>
         </div>
       </div>
+
+      {/* Strategic Fidelization KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Club Spend Revenue */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Award size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Clube</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-250 text-indigo-505 flex items-center justify-center shrink-0">
+              <Award size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{formatCurrency(totalClubRevenue)}</h3>
+            <span className="text-[10px] font-black text-indigo-600 uppercase italic mt-1.5 flex items-center gap-1.5 leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              {clubRepresentativePercent.toFixed(1)}% do faturamento total
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Average Ticket Lift comparison */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <TrendingUp size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Ticket Médio de Sócio</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <TrendingUp size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-600 font-mono tracking-tight">{formatCurrency(clubTicket)}</h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex px-1.5 py-0.2 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[9px] font-black rounded italic leading-none">
+                +{clubTicketDiffPercent.toFixed(1)}%
+              </span>
+              <span>vs {formatCurrency(normalTicket)} comum</span>
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Total loyalty discount offset */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Percent size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Descontos Concedidos</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <Percent size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{formatCurrency(clubTotalDiscounts)}</h3>
+            <span className="text-[10px] font-black text-amber-600 uppercase italic mt-1.5 flex items-center gap-1 leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              Estímulo financeiro à fidelidade
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Member buyer activation engagement */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-850 shadow-md flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Users size={140} className="text-white" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Sociabilidade de Base</span>
+            <div className="w-8 h-8 rounded-xl bg-white/10 text-brand-text-sec flex items-center justify-center shrink-0">
+              <Users size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-brand-text-sec font-mono tracking-tight">
+              {activeClubBuyersCount} <span className="text-xs font-normal text-slate-400">ativos</span>
+            </h3>
+            <span className="text-[10px] text-brand-text-sec/80 font-black uppercase italic mt-1.5 flex items-center gap-1 leading-none">
+              <span className="font-mono bg-white/10 border border-white/5 px-1.5 py-0.2 rounded">
+                {clubEngagementPercent.toFixed(1)}% engajados
+              </span>
+            </span>
+          </div>
+        </motion.div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'consolidado' ? (
+          <motion.div
+            key="club-consolidado-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Visual Analytics Segment */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Doughnut Chart of Split */}
+              <div className="lg:col-span-5 bg-white p-6 border border-slate-200 rounded-[2rem] shadow-sm flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-brand-text-main uppercase italic flex items-center gap-1.5">
+                    <PieIcon size={14} className="text-brand-blue" />
+                    Divisão de Entrada Comercial
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 mt-1 uppercase">Proporção da receita liquida entre o clube e avulsos</p>
+                </div>
+
+                <div className="h-60 w-full relative my-4 flex items-center justify-center">
+                  {totalOverallRevenue > 0 ? (
+                    <>
+                      <ResponsiveContainer id="rel-club-donut-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                        <PieChart>
+                          <Pie
+                            data={chartPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={65}
+                            outerRadius={85}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            {chartPieData.map((entry, idx) => (
+                              <Cell key={`cell-club-p-${idx}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: any, name: string, props: any) => [
+                            formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
+                            name
+                          ]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Geral</span>
+                        <span className="text-base font-black text-slate-800 font-mono mt-1">{formatCurrency(totalOverallRevenue)}</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{totalSalesCount} Pedidos</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-slate-400 font-semibold text-xs text-center">Nenhum lançamento no período ativo.</div>
+                  )}
+                </div>
+
+                {/* Pie legend items */}
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pt-4 border-t border-slate-100">
+                  {chartPieData.map((p, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-[10px] font-black text-slate-600 uppercase italic">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                      <span className="truncate">{p.name} ({p.percentage}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ticket Compare bar chart */}
+              <div className="lg:col-span-7 bg-white p-6 border border-slate-200 rounded-[2rem] shadow-sm flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-brand-text-main uppercase italic flex items-center gap-1.5">
+                    <BarChart3 size={14} className="text-brand-blue" />
+                    Comparador de Ticket Médio (Clubes vs. Comuns)
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 mt-1 uppercase">Representação visual do valor desembolsado por ticket em cada categoria de cliente</p>
+                </div>
+
+                <div className="h-60 w-full my-4">
+                  {totalOverallRevenue > 0 ? (
+                    <ResponsiveContainer id="rel-club-bar-resp" width="105%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                      <BarChart data={chartBarData} margin={{ top: 10, right: 35, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748B', fontWeight: 800}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748B', fontWeight: 800}} tickFormatter={(val) => `R$${val}`} />
+                        <Tooltip cursor={{fill: '#F8FAFC'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: 11, fontWeight: 700 }} />
+                        <Bar dataKey="Ticket Médio (R$)" radius={[6, 6, 0, 0]}>
+                          {chartBarData.map((entry, idx) => (
+                            <Cell key={`cell-club-b-${idx}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-400 text-xs font-semibold">Nenhum faturamento registrado.</div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-indigo-50/50 border border-indigo-100/40 rounded-2xl flex items-start gap-2.5">
+                  <Activity size={14} className="text-indigo-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-semibold text-indigo-950 uppercase leading-normal">
+                    <strong>Conclusão Comercial:</strong> Os membros do Clube de Vantagens gastam aproximadamente <strong className="font-mono text-brand-blue">{clubTicketDiffPercent.toFixed(1)}% a mais</strong> por vinda à loja do que clientes comuns. Fomentar inscrições de novos associados eleva o ticket geral de forma orgânica.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Strategic Overview Table Benchmarks */}
+            <div className="bg-white border border-slate-200 rounded-[2.2rem] shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-100">
+                <h4 className="text-sm font-black text-brand-text-main uppercase italic flex items-center gap-2">
+                  <Activity size={15} className="text-brand-blue" />
+                  Quadro Geral Comparativo do Período
+                </h4>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Indicadores estruturantes do comportamento de compras do clube vs base normalizada</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-150 bg-slate-50/50">
+                      <th className="py-4 pl-6 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Dimensão Analítica</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Faturamento Sócios Clube</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Faturamento Clientes Comuns</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Consolidado Total / Índice</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-650">
+                    <tr className="hover:bg-slate-50/30">
+                      <td className="py-4 pl-6 font-black text-slate-800 uppercase italic">Faturamento Bruto Liquido</td>
+                      <td className="py-4 text-right font-mono text-indigo-600 font-extrabold">{formatCurrency(totalClubRevenue)}</td>
+                      <td className="py-4 text-right font-mono">{formatCurrency(totalNormalRevenue)}</td>
+                      <td className="py-4 text-right font-mono text-slate-800 font-black">{formatCurrency(totalOverallRevenue)}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/30">
+                      <td className="py-4 pl-6 font-black text-slate-800 uppercase italic">Volume de Transações</td>
+                      <td className="py-4 text-right font-mono font-extrabold">{countClubSales} ordens</td>
+                      <td className="py-4 text-right font-mono">{countNormalSales} ordens</td>
+                      <td className="py-4 text-right font-mono text-slate-800 font-black">{totalSalesCount} ordens ({clubRepresentativePercent.toFixed(1)}% do total)</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/30">
+                      <td className="py-4 pl-6 font-black text-slate-800 uppercase italic">Ticket Médio Operacional</td>
+                      <td className="py-4 text-right font-mono text-emerald-600 font-extrabold">{formatCurrency(clubTicket)}</td>
+                      <td className="py-4 text-right font-mono">{formatCurrency(normalTicket)}</td>
+                      <td className="py-4 text-right">
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.2 rounded uppercase italic bg-emerald-50 text-emerald-600 border border-emerald-100">
+                          +{clubTicketDiffPercent.toFixed(1)}% lift médio
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/30">
+                      <td className="py-4 pl-6 font-black text-slate-800 uppercase italic">Programa de Fidelização (Descontos)</td>
+                      <td className="py-4 text-right font-mono text-rose-600 font-extrabold">-{formatCurrency(clubTotalDiscounts)}</td>
+                      <td className="py-4 text-right font-mono text-slate-300">-</td>
+                      <td className="py-4 text-right text-[10px] text-slate-400 font-bold uppercase italic">Atratividade financeira ativa</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/30">
+                      <td className="py-4 pl-6 font-black text-slate-800 uppercase italic">Fidelização da Base Cadastrada</td>
+                      <td className="py-4 text-right font-extrabold text-brand-blue">{activeClubBuyersCount} sócios ativos</td>
+                      <td className="py-4 text-right">{totalClubMembersInDbCount} sócios totais</td>
+                      <td className="py-4 text-right">
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.2 rounded uppercase italic bg-indigo-50 text-indigo-600 border border-indigo-100">
+                          {clubEngagementPercent.toFixed(1)}% engajamento
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        ) : activeTab === 'ranking' ? (
+          <motion.div
+            key="club-ranking-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Interactive Filters Panel for Ranking */}
+            <div className="p-6 bg-white border border-slate-200 rounded-[2rem] shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4 flex-1">
+                {/* Search Term for Customers */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Buscar Sócio</label>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Filtrar por nome do sósio, celular ou CPF..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-705 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Filter Dropdown */}
+                <div className="flex flex-col shrink-0">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status Cadastro</label>
+                  <div className="flex items-center gap-2">
+                    <Filter size={13} className="text-slate-400" />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-xs font-black text-slate-700 italic focus:outline-none focus:bg-white"
+                    >
+                      <option value="All">Status (Todos)</option>
+                      <option value="VIP">VIP</option>
+                      <option value="Ativo">Ativo</option>
+                      <option value="VIP_Ativo">VIP e Ativos</option>
+                      <option value="Inativo">Inativo</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {rankingData.length > 0 && (
+                <div className="px-5 py-3.5 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col justify-center text-right self-stretch md:self-auto min-w-[180px]">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider leading-none">Estrela do Clube</span>
+                  <div className="flex justify-end gap-1.5 items-baseline mt-1 truncate">
+                    <Trophy size={12} className="text-yellow-500" />
+                    <span className="text-xs font-black text-slate-800 uppercase italic truncate max-w-[150px]">{rankingData[0].member.name}</span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase italic mt-0.5 leading-none">Faturamento Período: {formatCurrency(rankingData[0].totalSpentPeriod)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Ranking analytical ledger */}
+            <div className="bg-white border border-slate-200 rounded-[2.2rem] shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-brand-text-main uppercase italic flex items-center gap-2">
+                    <Trophy size={15} className="text-brand-blue" />
+                    Relação Geral por Volume de Compras
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Top compradores pertencentes ao programa fidelidade por capital liquidado na janela ativa</p>
+                </div>
+                <span className="inline-flex px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-500 uppercase italic">
+                  {rankingData.length} sócios mapeados
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-150 bg-slate-50/50">
+                      <th className="py-4 pl-6 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest w-16 text-center">Pos</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Sócio Comprador</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Documento (CPF)</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Status</th>
+                      <th className="py-4 text-center text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Pedidos</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Desembolso Período</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Média por Compra</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest pr-6 font-mono">Consumo Histórico Geral</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedRanking.length > 0 ? paginatedRanking.map((item, index) => {
+                      const pos = (currentPage - 1) * itemsPerPage + index + 1;
+                      const hasCompletedPurchases = item.totalSpentPeriod > 0;
+                      
+                      return (
+                        <tr 
+                          key={item.member.id}
+                          className="hover:bg-slate-50/40 transition-colors group"
+                        >
+                          {/* Position index badge */}
+                          <td className="py-4 pl-6 text-center">
+                            <span className={cn(
+                              "inline-flex items-center justify-center w-6 h-6 rounded-lg text-[10px] font-black font-mono shadow-xs",
+                              pos === 1 ? "bg-yellow-100 text-yellow-800 border border-yellow-200" :
+                              pos === 2 ? "bg-slate-100 text-slate-800 border border-slate-205" :
+                              pos === 3 ? "bg-amber-100 text-amber-800 border border-amber-200" :
+                              "bg-slate-50 text-slate-500 border border-slate-150"
+                            )}>
+                              {pos}
+                            </span>
+                          </td>
+
+                          {/* Member full name */}
+                          <td className="py-4">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-705 uppercase italic border border-slate-200 group-hover:bg-brand-blue group-hover:text-white transition-all">
+                                {item.member.name.charAt(0).toUpperCase()}
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-black text-slate-800 uppercase italic leading-none group-hover:text-brand-blue transition-colors">
+                                  {item.member.name}
+                                </span>
+                                <span className="text-[9px] text-slate-400 font-semibold mt-0.5 uppercase leading-none truncate max-w-[180px]">
+                                  {item.member.phone || 'Sem fone'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Document reference */}
+                          <td className="py-4 text-xs font-bold text-slate-600 font-mono">
+                            {item.member.document || '---'}
+                          </td>
+
+                          {/* Member status badging */}
+                          <td className="py-4">
+                            <span className={cn(
+                              "inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-full uppercase border select-none italic",
+                              item.member.status === 'VIP' ? "bg-purple-50 text-purple-650 border-purple-100" :
+                              item.member.status === 'Ativo' ? "bg-emerald-50 text-emerald-650 border-emerald-100" :
+                              item.member.status === 'Inativo' ? "bg-slate-100 text-slate-500 border-slate-200" :
+                              "bg-amber-50 text-amber-650 border-amber-100"
+                            )}>
+                              {item.member.status || 'Ativo'}
+                            </span>
+                          </td>
+
+                          {/* Orders processed in date window */}
+                          <td className="py-4 text-center">
+                            <span className="text-xs font-black text-slate-800 font-mono">{item.orderCountPeriod}</span>
+                          </td>
+
+                          {/* Sum period spend */}
+                          <td className="py-4 text-right">
+                            <span className={cn(
+                              "text-xs font-black font-mono",
+                              hasCompletedPurchases ? "text-indigo-600" : "text-slate-400 italic"
+                            )}>
+                              {formatCurrency(item.totalSpentPeriod)}
+                            </span>
+                          </td>
+
+                          {/* Avg spend in period */}
+                          <td className="py-4 text-right">
+                            <span className="text-xs font-black text-slate-650 font-mono">
+                              {formatCurrency(item.averageTicketPeriod)}
+                            </span>
+                          </td>
+
+                          {/* Historic lifetime spend */}
+                          <td className="py-4 text-right pr-6">
+                            <span className="text-xs font-black text-slate-850 font-mono">
+                              {formatCurrency(item.member.totalSpent || 0)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-405 text-xs font-black uppercase italic tracking-wide">
+                          Nenhum sócio ativo corresponde ao termo ou status informado.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Dynamic Rank list pagination controls */}
+              {totalRankPages > 1 && (
+                <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 font-black uppercase italic">Página {currentPage} de {totalRankPages} ({rankingData.length} sócios)</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={cn(
+                        "p-2 border border-slate-200 rounded-xl text-slate-605 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      )}
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalRankPages))}
+                      disabled={currentPage === totalRankPages}
+                      className={cn(
+                        "p-2 border border-slate-200 rounded-xl text-slate-605 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      )}
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="club-vendas-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Sales List filters */}
+            <div className="p-6 bg-white border border-slate-200 rounded-[2rem] shadow-sm">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mapear Registro Comercial</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Filtrar lançamentos por nome do cliente, CPF ou código hash do pedido..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-705 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue/20"
+                />
+              </div>
+            </div>
+
+            {/* List Table ledgers */}
+            <div className="bg-white border border-slate-200 rounded-[2.2rem] shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-brand-text-main uppercase italic flex items-center gap-2">
+                    <ClipboardList size={15} className="text-brand-blue" />
+                    Lançamentos Atribuídos aos Membros do Clube
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Visão cronológica das ordens emitidas. Clique em uma linha para exibir os produtos comprados</p>
+                </div>
+                <span className="inline-flex px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-500 uppercase italic">
+                  {transitionSalesData.length} registros no clube
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-150 bg-slate-50/50">
+                      <th className="py-4 pl-6 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data Lanc.</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">ID Chave</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Sócio Cadastrado</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Documento (CPF)</th>
+                      <th className="py-4 text-center text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Itens</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Desconto Concedido</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest font-mono">Faturamento Bruto</th>
+                      <th className="py-4 w-12 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedSalesList.length > 0 ? paginatedSalesList.map((sale) => {
+                      const customer = (customers || []).find(c => c.id === sale.customerId);
+                      const isExpanded = expandedSaleId === sale.id;
+                      const itemQuantitySum = sale.items.reduce((acc, it) => acc + it.quantity, 0);
+
+                      return (
+                        <React.Fragment key={sale.id}>
+                          <tr 
+                            onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                            className="hover:bg-slate-50/40 transition-colors cursor-pointer"
+                          >
+                            {/* Timestamp */}
+                            <td className="py-4 pl-6 text-xs font-bold text-slate-800 font-mono">
+                              {new Date(sale.date).toLocaleString('pt-BR')}
+                            </td>
+
+                            {/* Hash code */}
+                            <td className="py-4 text-[10px] font-black text-slate-405 font-mono uppercase">
+                              #{sale.id.slice(0, 8)}
+                            </td>
+
+                            {/* Customer profile link */}
+                            <td className="py-4">
+                              <span className="text-xs font-black text-indigo-950 uppercase italic hover:text-brand-blue transition-colors">
+                                {customer ? customer.name : 'Sócio Autônomo'}
+                              </span>
+                            </td>
+
+                            {/* CPF */}
+                            <td className="py-4 text-xs font-bold text-slate-600 font-mono">
+                              {customer?.document || 'Sem documento'}
+                            </td>
+
+                            {/* Quantity of items */}
+                            <td className="py-4 text-center font-mono text-xs text-slate-700">
+                              {itemQuantitySum}
+                            </td>
+
+                            {/* Applied Discounts */}
+                            <td className="py-4 text-right font-mono text-xs text-rose-600 font-bold">
+                              {sale.discount && sale.discount > 0 ? `-${formatCurrency(sale.discount)}` : formatCurrency(0)}
+                            </td>
+
+                            {/* Final Total spend */}
+                            <td className="py-4 text-right font-mono text-xs text-indigo-700 font-black">
+                              {formatCurrency(sale.total)}
+                            </td>
+
+                            {/* Expanded indicator */}
+                            <td className="py-4 text-center pr-6">
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-brand-blue rotate-180 transition-transform" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-slate-400 transition-transform" />
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* Expandable Purchase details drawer */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/40">
+                              <td colSpan={8} className="py-4 px-6 md:px-10 border-t border-b border-slate-150">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <ShoppingCart size={13} className="text-brand-blue" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Composição do pedido</span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {sale.items.map((item, index) => {
+                                      const prod = (products || []).find(p => p.id === item.productId);
+                                      return (
+                                        <div key={index} className="p-3 bg-white border border-slate-150 rounded-2xl flex items-center justify-between shadow-xs">
+                                          <div className="flex flex-col">
+                                            <span className="text-xs font-black text-slate-800 uppercase italic">
+                                              {prod ? prod.name : 'Produto Atribuído'}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-bold mt-0.5 uppercase font-mono">
+                                              {item.quantity} un x {formatCurrency(item.price)}
+                                            </span>
+                                          </div>
+                                          <span className="text-xs font-black text-slate-800 font-mono">
+                                            {formatCurrency(item.price * item.quantity)}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-405 text-xs font-black uppercase italic">
+                          Nenhuma transação financeira foi vinculada ao Clube neste intervalo.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Sales Pagination */}
+              {totalSalesPages > 1 && (
+                <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 font-black uppercase italic">Página {currentPage} de {totalSalesPages} ({transitionSalesData.length} vendas)</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={cn(
+                        "p-2 border border-slate-200 rounded-xl text-slate-650 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      )}
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalSalesPages))}
+                      disabled={currentPage === totalSalesPages}
+                      className={cn(
+                        "p-2 border border-slate-200 rounded-xl text-slate-650 hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      )}
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 function CommissionsReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, systemUsers, employees } = useERP();
+  const { sales, systemUsers, employees, customers } = useERP();
+  const [commissionRate, setCommissionRate] = React.useState<number>(3); // Alíquota padrão de 3%
+  const [expandedSeller, setExpandedSeller] = React.useState<string | null>(null);
   
   const filteredSales = React.useMemo(() => {
     return sales.filter(s => {
@@ -2186,12 +3726,18 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
   }, [sales, startDate, endDate]);
 
   const salesByUser: Record<string, number> = {};
+  const salesListByUser: Record<string, typeof sales> = {};
+  
   filteredSales.forEach(sale => {
     const userId = sale.userId || 'unknown';
     salesByUser[userId] = (salesByUser[userId] || 0) + sale.total;
+    if (!salesListByUser[userId]) {
+      salesListByUser[userId] = [];
+    }
+    salesListByUser[userId].push(sale);
   });
 
-  const data = Object.entries(salesByUser).map(([userId, total]) => {
+  const rawData = Object.entries(salesByUser).map(([userId, total]) => {
     let sellerName = 'Vendedor Desconhecido';
     let initials = 'VD';
     
@@ -2218,8 +3764,7 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
       initials = nameParts[0].substring(0, 2).toUpperCase();
     }
 
-    const commissionRate = 0.03; // Taxa padrão de 3% sobre o total de vendas
-    const commission = total * commissionRate;
+    const commission = total * (commissionRate / 100);
     return {
       userId,
       sellerName,
@@ -2229,41 +3774,309 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
     };
   }).sort((a, b) => b.total - a.total);
 
+  const totalSalesVolume = React.useMemo(() => {
+    return rawData.reduce((sum, item) => sum + item.total, 0);
+  }, [rawData]);
+
+  const totalCommissionsPaid = React.useMemo(() => {
+    return rawData.reduce((sum, item) => sum + item.commission, 0);
+  }, [rawData]);
+
+  const topSeller = rawData.length > 0 ? rawData[0] : null;
+
+  const colors = ['#1e5eff', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6', '#06b6d4', '#14b8a6'];
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  const getCustomerName = (customerId?: string) => {
+    if (!customerId) return 'Consumidor Final';
+    const cust = customers.find(c => c.id === customerId);
+    return cust ? cust.name : 'Consumidor Final';
+  };
+
   return (
-    <div className="space-y-6">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-slate-50">
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendedor</th>
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendas Totais</th>
-            <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Taxa (%)</th>
-            <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Comissão</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {data.length > 0 ? data.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-              <td className="py-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-border text-brand-blue flex items-center justify-center text-xs font-black">
-                    {row.initials}
-                  </div>
-                  <span className="text-sm font-black text-brand-text-main uppercase italic">{row.sellerName}</span>
+    <div className="space-y-8">
+      {/* Menu do Módulo e Seletor de Bonificação */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/60 pb-5 gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Award size={11} className="text-brand-blue animate-pulse" />
+            Remuneração & Incentivo
+          </div>
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Comissões de Vendedores</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Gestão estratégica de bonificações, volume comercial liquidado por operador e provisionamento de folha de pagamento.
+          </p>
+        </div>
+
+        {/* Dynamic commission rate selector buttons */}
+        <div className="flex items-center gap-3 bg-slate-50 border border-slate-150 p-1.5 rounded-2xl shrink-0 self-start md:self-center shadow-xs">
+          <span className="text-[9px] font-black uppercase text-slate-400 italic px-1.5">Alíquota Proposta:</span>
+          <div className="bg-slate-200/50 p-1 rounded-xl flex items-center gap-1">
+            {[1, 2, 3, 5, 8, 10].map((rate) => (
+              <button
+                key={rate}
+                onClick={() => setCommissionRate(rate)}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                  commissionRate === rate 
+                    ? "bg-white text-slate-800 shadow-xs font-black scale-102" 
+                    : "text-slate-400 hover:text-slate-600 font-bold"
+                )}
+              >
+                {rate}%
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {rawData.length > 0 ? (
+        <>
+          {/* Executive KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI 1: Volume Líquido Geral */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Wallet size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Volume de Vendas</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center shrink-0">
+                  <Wallet size={15} />
                 </div>
-              </td>
-              <td className="py-4 text-sm font-bold text-brand-text-main">{formatCurrency(row.total)}</td>
-              <td className="py-4 text-xs font-black text-brand-blue/60 uppercase italic">3%</td>
-              <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.commission)}</td>
-            </tr>
-          )) : (
-            <tr>
-              <td colSpan={4} className="py-8 text-center text-sm font-medium text-brand-blue/60">Nenhuma venda registrada no período selecionado.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(totalSalesVolume)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Vendas apuradas no período
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 2: Provisão de Comissões */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Award size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Comissão Provisionada</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Award size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-850 font-mono tracking-tight text-emerald-600">
+                  {formatCurrency(totalCommissionsPaid)}
+                </h3>
+                <span className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 flex items-center gap-1 file:leading-none font-bold">
+                  Acordo operacional de ({commissionRate}%)
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 3: Vendedor Líder */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Trophy size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vendedor Líder</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Trophy size={15} />
+                </div>
+              </div>
+              <div className="mt-2 text-left">
+                <h3 className="text-[15px] font-black text-slate-800 italic uppercase truncate max-w-[180px]">
+                  {topSeller?.sellerName}
+                </h3>
+                <span className="text-[10px] font-black text-amber-600 uppercase italic mt-1.5 block leading-none">
+                  Faturou {topSeller ? formatCurrency(topSeller.total) : 'R$ 0'} isolado
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 4: Operadores Ativos */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Users size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operadores Ativos</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <Users size={15} />
+                </div>
+              </div>
+              <div className="mt-2 text-left">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {rawData.length} <span className="text-xs text-slate-400 font-medium font-sans">pessoas</span>
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block leading-none">
+                  Operando no período
+                </span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Rateio grid */}
+          <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Rateio de Comissões e Demonstrativos</h4>
+                <p className="text-[10px] font-medium text-slate-400 mt-0.5">Clique no colaborador para visualizar o detalhamento das transações correspondentes</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                <ClipboardList size={14} />
+              </div>
+            </div>
+
+            {/* Accordion-list style details */}
+            <div className="space-y-4">
+              {rawData.map((row, i) => {
+                const isExpanded = expandedSeller === row.userId;
+                const percentShare = totalSalesVolume > 0 ? (row.total / totalSalesVolume) * 100 : 0;
+                const rowSales = salesListByUser[row.userId] || [];
+                const color = colors[i % colors.length];
+
+                return (
+                  <div key={i} className="border border-slate-200/60 rounded-2xl overflow-hidden transition-all duration-200 shadow-xs">
+                    {/* Header line */}
+                    <button 
+                      onClick={() => setExpandedSeller(isExpanded ? null : row.userId)}
+                      className={cn(
+                        "w-full flex items-center justify-between p-4 transition-all text-left",
+                        isExpanded ? "bg-slate-50 border-b border-slate-200/60" : "bg-white hover:bg-slate-50/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Interactive Avatar badge with dynamic index colors matching categorization screen */}
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black shadow-inner text-white uppercase"
+                          style={{ backgroundColor: color }}
+                        >
+                          {row.initials}
+                        </div>
+                        <div>
+                          <span className="text-xs font-black text-slate-800 uppercase italic tracking-wider block">{row.sellerName}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase italic block mt-0.5">{rowSales.length} vendas registradas</span>
+                        </div>
+                      </div>
+
+                      {/* Info layout */}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-xs font-semibold text-slate-400">
+                            Volume: <span className="font-mono font-black text-slate-700">{formatCurrency(row.total)}</span>
+                          </p>
+                          <p className="text-xs font-black text-emerald-600 mt-0.5">
+                            Comissão: <span className="font-mono">{formatCurrency(row.commission)}</span>
+                          </p>
+                        </div>
+                        <div className="text-right hidden sm:block min-w-[70px]">
+                          <span className="text-[10px] font-black text-slate-400 font-mono bg-slate-100 px-2 py-1 rounded-md">
+                            {percentShare.toFixed(1)}% share
+                          </span>
+                        </div>
+                        <div className={cn("w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 transition-transform duration-200", isExpanded && "rotate-180 bg-brand-blue/10 text-brand-blue")}>
+                          <ChevronDown size={14} />
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Expand content */}
+                    {isExpanded && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="bg-white p-5 space-y-3 border-t border-slate-100"
+                      >
+                        {/* Key facts metrics display area inside accordion block */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 pb-4 mb-4 bg-slate-50/40 p-3 rounded-xl border border-slate-100">
+                          <div>
+                            <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider leading-none mb-1">Média por Venda</span>
+                            <span className="text-xs font-black text-slate-850 font-mono leading-none">
+                              {formatCurrency(row.total / Math.max(1, rowSales.length))}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider leading-none mb-1">Alíquota Aplicada</span>
+                            <span className="text-xs font-black text-brand-blue font-mono leading-none">{commissionRate}%</span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider leading-none mb-1">Comissão Média</span>
+                            <span className="text-xs font-black text-emerald-600 font-mono leading-none">
+                              {formatCurrency(row.commission / Math.max(1, rowSales.length))}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* List of individual sales table with clean headers */}
+                        <div className="grid grid-cols-12 text-[9px] font-black text-slate-400 uppercase italic border-b border-slate-100 pb-2 mb-2 select-none">
+                          <div className="col-span-3">Identificador</div>
+                          <div className="col-span-3">Data e Hora</div>
+                          <div className="col-span-3">Cliente Comprador</div>
+                          <div className="col-span-3 text-right">Faturamento / Comissão ({commissionRate}%)</div>
+                        </div>
+
+                        <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                          {rowSales.map((sale, saleIdx) => {
+                            const customerName = getCustomerName(sale.customerId);
+                            const saleDate = new Date(sale.date).toLocaleDateString('pt-BR') + ' ' + new Date(sale.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            const saleCommission = sale.total * (commissionRate / 100);
+
+                            return (
+                              <div key={saleIdx} className="grid grid-cols-12 items-center text-xs py-1 hover:bg-slate-50/50 rounded px-1 group transition-colors">
+                                <div className="col-span-3 font-mono font-black text-slate-500 uppercase tracking-tighter">
+                                  #{sale.id.substring(0, 8)}
+                                </div>
+                                <div className="col-span-3 font-semibold text-slate-500 font-mono text-[11px]">
+                                  {saleDate}
+                                </div>
+                                <div className="col-span-3 font-semibold text-slate-700 truncate pr-2 uppercase text-[10px] italic">
+                                  {customerName}
+                                </div>
+                                <div className="col-span-3 text-right flex items-center justify-end gap-2.5">
+                                  <span className="font-mono font-bold text-slate-500">{formatCurrency(sale.total)}</span>
+                                  <span className="font-mono font-black text-emerald-600 bg-emerald-50 border border-emerald-100/50 px-2 py-0.5 rounded text-[10px] select-none shadow-xs">
+                                    {formatCurrency(saleCommission)}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-20 bg-white rounded-[2.2rem] border border-slate-200 p-8 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+            <Award size={28} />
+          </div>
+          <h4 className="text-sm font-black uppercase italic text-slate-700">Nenhuma comissão elegível</h4>
+          <p className="text-xs font-semibold text-slate-400 max-w-sm mt-1 leading-relaxed text-center">
+            Não foram identificadas vendas realizadas por operadores ou colaboradores no período selecionado de {new Date(startDate).toLocaleDateString('pt-BR')} a {new Date(endDate).toLocaleDateString('pt-BR')}.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -2314,113 +4127,339 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
     });
   });
 
-  const colors = ['#00E676', '#22C55E', '#10B981', '#34D399', '#6EE7B7', '#047857', '#064E3B'];
+  const colors = ['#1e5eff', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6', '#06b6d4', '#14b8a6'];
   const data = Object.entries(categoryTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value], index) => ({
       name,
       value,
       total: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value),
+      percentVal: totalRevenue > 0 ? (value / totalRevenue) * 100 : 0,
       percent: totalRevenue > 0 ? `${((value / totalRevenue) * 100).toFixed(1)}%` : '0%',
       color: colors[index % colors.length],
       products: Object.values(categoryProducts[name] || {}).sort((a, b) => b.total - a.total)
     }));
 
+  // Extra executive stats
+  const totalUnitsSold = React.useMemo(() => {
+    let units = 0;
+    filteredSales.forEach(s => {
+      s.items.forEach(i => {
+        units += i.quantity;
+      });
+    });
+    return units;
+  }, [filteredSales]);
+
+  const leaderCategory = data.length > 0 ? data[0] : null;
+
+  const avgRevenuePerCategory = React.useMemo(() => {
+    const numCats = Object.keys(categoryTotals).length;
+    return numCats > 0 ? totalRevenue / numCats : 0;
+  }, [categoryTotals, totalRevenue]);
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <h4 className="text-sm font-black text-brand-text-main uppercase italic mb-6 flex items-center gap-2">
-            <PieChartIcon size={16} className="text-brand-blue" />
-            Distribuição por Categoria
-          </h4>
-          <div className="h-64">
-            {data.length > 0 ? (
-              <ResponsiveContainer id="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                <PieChart>
-                  <Pie
-                    data={data}
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">
-                Nenhum dado para exibir no gráfico neste período.
-              </div>
-            )}
+      {/* Upper Module Title */}
+      <div className="flex items-center justify-between border-b border-slate-200/60 pb-5">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Layers size={11} className="text-brand-blue animate-pulse" />
+            Distribuição Demográfica
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-          <h4 className="text-sm font-black text-brand-text-main uppercase italic mb-6 flex items-center gap-2">
-            <Layers size={16} className="text-brand-blue" />
-            Detalhamento de Vendas
-          </h4>
-          <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[400px]">
-            {data.map((cat, i) => (
-              <div key={i} className="space-y-2">
-                <button 
-                  onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
-                  className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-2xl transition-all border",
-                    expandedCategory === cat.name ? "bg-brand-blue/5 border-brand-blue/20" : "bg-slate-50 border-transparent hover:bg-slate-100"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }}></div>
-                    <span className="text-sm font-black text-brand-text-main uppercase italic text-left">{cat.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <span className="text-sm font-black text-brand-blue">{cat.total}</span>
-                      <span className="text-[10px] font-bold text-brand-text-main/40 ml-2">({cat.percent})</span>
-                    </div>
-                    <ChevronDown size={16} className={cn("text-slate-400 transition-transform", expandedCategory === cat.name && "rotate-180")} />
-                  </div>
-                </button>
-
-                {expandedCategory === cat.name && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="pl-6 pr-2 py-2 space-y-2 overflow-hidden"
-                  >
-                    <div className="grid grid-cols-12 px-2 text-[10px] font-black text-brand-text-main/40 uppercase italic mb-1">
-                      <div className="col-span-7">Produto</div>
-                      <div className="col-span-2 text-center">Qtd</div>
-                      <div className="col-span-3 text-right">Total</div>
-                    </div>
-                    {cat.products.map((prod, idx) => (
-                      <div key={idx} className="grid grid-cols-12 px-2 py-1.5 border-b border-slate-50 last:border-0 items-center">
-                        <div className="col-span-7 text-[11px] font-bold text-brand-text-main truncate">{prod.name}</div>
-                        <div className="col-span-2 text-[11px] font-black text-brand-blue text-center">{prod.quantity}</div>
-                        <div className="col-span-3 text-[11px] font-black text-brand-blue text-right">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.total)}
-                        </div>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-            ))}
-          </div>
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Vendas por Categoria</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Consolidação de faturamento por grupos de produtos e análise de market share do inventário ativo.
+          </p>
         </div>
       </div>
+
+      {data.length > 0 ? (
+        <>
+          {/* Executive Metrics Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI 1: Faturamento Geral */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Total</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center shrink-0">
+                  <DollarSign size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(totalRevenue)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Receita total consolidada
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 2: Categoria Líder */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Trophy size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Categoria Líder</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Trophy size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-lg font-black text-slate-800 italic uppercase truncate max-w-[180px]">
+                  {leaderCategory?.name}
+                </h3>
+                <span className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 flex items-center gap-1">
+                  <span className="font-mono">{leaderCategory?.percent}</span> do total faturado
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 3: Volume de Saídas */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Package size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Unidades Vendidas</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Package size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {totalUnitsSold} <span className="text-xs text-slate-400 font-medium font-sans">itens</span>
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Movimentação de estoque
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 4: Ticket Médio por Categoria */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Percent size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Média por Categoria</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <Percent size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(avgRevenuePerCategory)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Distribuição proporcional
+                </span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Main Visual Panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Visual Donut Chart & Legend */}
+            <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Market Share Categorias</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão percentual do faturamento total</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <PieChartIcon size={14} />
+                </div>
+              </div>
+
+              {/* Graphic Stage */}
+              <div className="h-64 relative flex items-center justify-center">
+                <ResponsiveContainer id="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                  <PieChart>
+                    <Pie
+                      data={data}
+                      innerRadius={70}
+                      outerRadius={95}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="#fff" strokeWidth={2} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      formatter={(value: any) => [`${formatCurrency(Number(value))}`, 'Faturamento']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                {/* Donut Center Label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Faturado</span>
+                  <span className="text-lg font-black text-slate-800 font-mono tracking-tight mt-1">
+                    {new Intl.NumberFormat('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL' }).format(totalRevenue)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Enhanced Interactive List Legend */}
+              <div className="grid grid-cols-2 gap-3.5 mt-6 border-t border-slate-100 pt-5 pr-1 max-h-[140px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                {data.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50/50 border border-slate-100">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-slate-700 uppercase italic truncate leading-none mb-1">{entry.name}</p>
+                      <p className="text-[11px] font-mono font-black text-brand-blue flex items-center justify-between">
+                        <span>{entry.total}</span>
+                        <span className="text-slate-400 font-semibold text-[9px] ml-1">({entry.percent})</span>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Product Details Panel */}
+            <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Análise e Detalhamento</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Explore os produtos líderes por faturamento em cada categoria</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <Layers size={14} />
+                </div>
+              </div>
+
+              {/* Scrollable details list */}
+              <div className="space-y-4 overflow-y-auto pr-1 flex-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 max-h-[460px]">
+                {data.map((cat, i) => {
+                  const isExpanded = expandedCategory === cat.name;
+                  return (
+                    <div key={i} className="border border-slate-200/60 rounded-2xl overflow-hidden transition-all duration-200 shadow-xs">
+                      {/* Accordion header button */}
+                      <button 
+                        onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
+                        className={cn(
+                          "w-full flex items-center justify-between p-4 transition-all text-left",
+                          isExpanded ? "bg-slate-50 border-b border-slate-200/60" : "bg-white hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs border border-white" style={{ backgroundColor: cat.color }}></span>
+                          <div>
+                            <span className="text-xs font-black text-slate-800 uppercase italic tracking-wider block">{cat.name}</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase italic block mt-0.5 mt-0.5">{cat.products.length} produtos vendidos</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <span className="text-xs font-black text-brand-blue font-mono">{cat.total}</span>
+                            <span className="text-[10px] font-black text-slate-400 font-mono ml-1.5 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                              {cat.percent}
+                            </span>
+                          </div>
+                          <div className={cn("w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 transition-transform duration-200", isExpanded && "rotate-180 bg-brand-blue/10 text-brand-blue")}>
+                            <ChevronDown size={14} />
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Product Details under Accordion */}
+                      {isExpanded && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="bg-white p-4 space-y-3"
+                        >
+                          {/* Inner Table Header */}
+                          <div className="grid grid-cols-12 text-[9px] font-black text-slate-400 uppercase italic border-b border-slate-100 pb-2">
+                            <div className="col-span-6">Produto Comercializado</div>
+                            <div className="col-span-2 text-center">Unidades</div>
+                            <div className="col-span-4 text-right">Contribuição / Receita</div>
+                          </div>
+
+                          {/* Detail row items */}
+                          <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                            {cat.products.map((prod, idx) => {
+                              const productShare = cat.value > 0 ? (prod.total / cat.value) * 100 : 0;
+                              return (
+                                <div key={idx} className="flex flex-col gap-1.5 py-1.5 last:border-0 hover:bg-slate-55/65 transition-colors">
+                                  <div className="grid grid-cols-12 items-center text-xs">
+                                    <div className="col-span-6 font-black text-slate-700 truncate pr-2 uppercase italic text-[11px]">{prod.name}</div>
+                                    <div className="col-span-2 text-center font-black text-slate-800 font-mono text-[11px]">{prod.quantity}</div>
+                                    <div className="col-span-4 text-right font-black text-brand-blue font-mono text-[11px]">
+                                      {formatCurrency(prod.total)}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Micro progress bar details */}
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-1 bg-slate-50 border border-slate-100 rounded-full overflow-hidden">
+                                      <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${productShare}%` }}
+                                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                                        className="h-full rounded-full" 
+                                        style={{ backgroundColor: cat.color }}
+                                      />
+                                    </div>
+                                    <span className="text-[8px] font-mono font-black text-slate-400 shrink-0 select-none">
+                                      {productShare.toFixed(1)}% do setor
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-20 bg-white rounded-[2.2rem] border border-slate-200 p-8 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+            <Layers size={28} />
+          </div>
+          <h4 className="text-sm font-black uppercase italic text-slate-700">Nenhuma venda consolidada</h4>
+          <p className="text-xs font-semibold text-slate-400 max-w-sm mt-1 leading-relaxed text-center">
+            Não foram encontradas correspondências para agrupamento de produtos ou categorias no período selecionado de {new Date(startDate).toLocaleDateString('pt-BR')} a {new Date(endDate).toLocaleDateString('pt-BR')}.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
 function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales } = useERP();
+  const [chartMetric, setChartMetric] = React.useState<'vendas' | 'faturamento'>('vendas');
   
   const filteredSales = React.useMemo(() => {
     return sales.filter(s => {
@@ -2431,282 +4470,417 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
   }, [sales, startDate, endDate]);
 
   const hourCounts: Record<number, number> = {};
+  const hourRevenues: Record<number, number> = {};
   let totalSales = 0;
+  let totalRevenue = 0;
   
   filteredSales.forEach(sale => {
     const dateObj = new Date(sale.date);
     const hour = dateObj.getHours();
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    hourRevenues[hour] = (hourRevenues[hour] || 0) + (sale.total || 0);
     totalSales++;
+    totalRevenue += (sale.total || 0);
   });
 
-  const hours = Array.from({ length: 18 }, (_, i) => i + 6);
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6h to 23h
+  
   const chartData = hours.map(hour => ({
     hour: `${hour}h`,
     vendas: hourCounts[hour] || 0,
+    faturamento: hourRevenues[hour] || 0,
     fullHour: hour
   }));
 
   const maxVendas = Math.max(...Object.values(hourCounts), 0);
+  const maxFaturamento = Math.max(...Object.values(hourRevenues), 0);
+
   const peakHourRecord = Object.entries(hourCounts).sort(([, a], [, b]) => b - a)[0] || ["--", 0];
   const peakHour = peakHourRecord[0];
-  const avgVendas = hours.length > 0 ? (totalSales / hours.length).toFixed(1) : 0;
 
-  const morningSales = hours.filter(h => h < 12).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
-  const afternoonSales = hours.filter(h => h >= 12 && h < 18).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
-  const eveningSales = hours.filter(h => h >= 18).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+  const peakHourRevenueRecord = Object.entries(hourRevenues).sort(([, a], [, b]) => b - a)[0] || ["--", 0];
+  const peakHourRevenue = peakHourRevenueRecord[0];
+
+  const avgVendas = hours.length > 0 ? (totalSales / hours.length).toFixed(1) : 0;
+  const avgRevenue = hours.length > 0 ? (totalRevenue / hours.length) : 0;
+  const avgTicket = totalSales > 0 ? (totalRevenue / totalSales) : 0;
+
+  // Turnos (Shift volume & financial metrics)
+  const morningSalesCount = hours.filter(h => h < 12).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+  const morningRevenue = hours.filter(h => h < 12).reduce((sum, h) => sum + (hourRevenues[h] || 0), 0);
+
+  const afternoonSalesCount = hours.filter(h => h >= 12 && h < 18).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+  const afternoonRevenue = hours.filter(h => h >= 12 && h < 18).reduce((sum, h) => sum + (hourRevenues[h] || 0), 0);
+
+  const eveningSalesCount = hours.filter(h => h >= 18).reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+  const eveningRevenue = hours.filter(h => h >= 18).reduce((sum, h) => sum + (hourRevenues[h] || 0), 0);
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-6xl mx-auto"
-    >
-      <div className="bg-white rounded-[3rem] border border-brand-border shadow-2xl overflow-hidden">
-        {/* Cinematic Header */}
-        <div className="bg-slate-700 px-10 py-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-              <path fill="#3b82f6" d="M47.7,-62.4C61.4,-52.1,72.2,-37.9,76.5,-22.3C80.8,-6.7,78.6,10.2,71.4,24.8C64.2,39.4,52,51.7,37.9,59.3C23.8,66.9,7.8,69.9,-8,68.6C-23.8,67.3,-39.3,61.8,-51.1,51.8C-62.9,41.8,-71.1,27.3,-73.4,12.3C-75.7,-2.7,-72.1,-18.2,-64,-31.6C-55.9,-44.9,-43.3,-56.1,-29.6,-66.4C-15.9,-76.7,0,-86.1,15.9,-83.4C31.8,-80.7,47.7,-62.4Z" transform="translate(100 100)" />
-            </svg>
+    <div className="space-y-8">
+      {/* Module Title Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/60 pb-5 gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Clock size={11} className="text-brand-blue" />
+            Análise de Tráfego Horário
           </div>
-          
-          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-brand-blue">
-                  <Activity size={20} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">Central de Comando</h3>
-                  <p className="text-brand-blue-hover text-[10px] font-black uppercase mt-1 tracking-widest">Análise de Tráfego de Vendas</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-8 border-t md:border-t-0 border-white/10 pt-6 md:pt-0">
-              <div className="text-center group">
-                <p className="text-[10px] font-black text-white/40 uppercase italic mb-1 group-hover:text-brand-blue transition-colors">Vendas</p>
-                <p className="text-3xl font-black text-white tracking-tighter tabular-nums">{totalSales}</p>
-              </div>
-              <div className="text-center border-l border-white/10 pl-8 group">
-                <p className="text-[10px] font-black text-white/40 uppercase italic mb-1 group-hover:text-brand-blue transition-colors">Pico</p>
-                <div className="flex items-baseline justify-center gap-0.5">
-                  <p className="text-3xl font-black text-brand-blue tracking-tighter tabular-nums">{peakHour}</p>
-                  <span className="text-xs font-black text-white italic">h</span>
-                </div>
-              </div>
-              <div className="text-center border-l border-white/10 pl-8 group">
-                <p className="text-[10px] font-black text-white/40 uppercase italic mb-1 group-hover:text-brand-blue transition-colors">Média</p>
-                <p className="text-3xl font-black text-white tracking-tighter tabular-nums">{avgVendas}</p>
-              </div>
-            </div>
-          </div>
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Vendas por Hora</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Consolidação do fluxo de consumo, faturamento gerencial e comportamento de compra ao longo do dia comercial.
+          </p>
         </div>
 
-        <div className="p-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Detailed Flow Section */}
-          <div className="lg:col-span-8 flex flex-col justify-between h-[450px]">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-1 h-8 bg-brand-blue rounded-full" />
-                <div>
-                  <h4 className="text-lg font-black text-brand-text-main uppercase italic">Volume Estratégico</h4>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Ondas de consumo por hora</p>
-                </div>
-              </div>
-              <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-3">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-brand-blue" />
-                  <div className="w-2 h-2 rounded-full bg-brand-blue/30" />
-                </div>
-                <span className="text-[10px] font-black text-slate-500 uppercase italic">Dados em tempo real</span>
-              </div>
-            </div>
-
-            <div className="flex-1 w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                  <XAxis 
-                    dataKey="hour" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b', fontFamily: 'var(--font-mono)' }}
-                    interval={1}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b', fontFamily: 'var(--font-mono)' }}
-                  />
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-brand-text-main/90 backdrop-blur-xl p-5 border border-white/10 rounded-3xl shadow-2xl min-w-[160px] animate-in fade-in zoom-in duration-300">
-                             <div className="flex justify-between items-center mb-3">
-                               <span className="text-[11px] font-black text-white italic">{payload[0].payload.hour}</span>
-                               <span className="text-[9px] font-bold text-brand-blue uppercase px-2 py-0.5 bg-brand-blue/10 rounded-full">Análise</span>
-                             </div>
-                             <div className="space-y-1">
-                               <p className="text-3xl font-black text-white tabular-nums leading-none">{payload[0].value}</p>
-                               <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Vendas Concluídas</p>
-                             </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="vendas" 
-                    stroke="#3b82f6" 
-                    strokeWidth={5}
-                    fill="url(#areaGradient)" 
-                    animationDuration={2000}
-                    animationEasing="ease-in-out"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Side Performance Panel */}
-          <div className="lg:col-span-4 space-y-8">
-            <div className="grid grid-cols-2 gap-4">
-               {[
-                 { label: 'Matutino', val: morningSales, icon: <Zap size={14}/>, color: 'text-brand-blue' },
-                 { label: 'Vespertino', val: afternoonSales, icon: <TrendingUp size={14}/>, color: 'text-emerald-500' },
-                 { label: 'Noturno', val: eveningSales, icon: <Clock size={14}/>, color: 'text-brand-text-main' },
-                 { label: 'Pico', val: peakHour + 'h', icon: <Target size={14}/>, color: 'text-brand-blue' }
-               ].map((item, idx) => (
-                 <div key={idx} className="bg-slate-50 border border-slate-100 p-4 rounded-3xl group hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all cursor-default">
-                    <div className={cn("w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform", item.color)}>
-                      {item.icon}
-                    </div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase italic mb-0.5">{item.label}</p>
-                    <p className="text-xl font-black text-brand-text-main tabular-nums">{item.val}</p>
-                 </div>
-               ))}
-            </div>
-
-            <div className="bg-slate-700 rounded-[2.5rem] p-8 text-white relative shadow-2xl overflow-hidden group">
-               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-brand-blue/10 rounded-full blur-3xl group-hover:bg-brand-blue/20 transition-colors" />
-               <div className="relative z-10">
-                 <h5 className="text-[10px] font-black text-brand-blue uppercase italic tracking-widest mb-4">Relatório de Intensidade</h5>
-                 <div className="space-y-5">
-                   {[
-                     { label: 'Manhã', val: morningSales },
-                     { label: 'Tarde', val: afternoonSales },
-                     { label: 'Noite', val: eveningSales }
-                   ].map((p, i) => {
-                     const total = totalSales || 1;
-                     const percentage = Math.round((p.val / total) * 100);
-                     return (
-                       <div key={i}>
-                         <div className="flex justify-between items-end mb-2 px-1">
-                           <span className="text-[9px] font-black uppercase text-white/40">{p.label}</span>
-                           <span className="text-xs font-black text-brand-blue tabular-nums">{percentage}%</span>
-                         </div>
-                         <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                           <motion.div 
-                             initial={{ width: 0 }}
-                             animate={{ width: `${percentage}%` }}
-                             transition={{ duration: 1.5, delay: i * 0.2 }}
-                             className="h-full bg-brand-blue rounded-full"
-                           />
-                         </div>
-                       </div>
-                     );
-                   })}
-                 </div>
-               </div>
-            </div>
-
-            <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2.5rem] flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <Gauge size={24} />
-              </div>
-              <div>
-                <h5 className="text-xs font-black text-emerald-900 uppercase italic">Operação Otimizada</h5>
-                <p className="text-[10px] font-bold text-emerald-700/70 leading-tight mt-0.5">O pico às <span className="font-black">{peakHour}h</span> sugere reforço no atendimento neste intervalo.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Pro-Matrix Saturation View */}
-        <div className="bg-slate-50 p-10 border-t border-slate-100">
-           <div className="flex items-center justify-between mb-8">
-             <div>
-               <h4 className="text-xs font-black text-brand-text-main uppercase italic italic tracking-wider">Matriz de Saturação Horária</h4>
-               <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 leading-none">Mapa térmico de ocupação</p>
-             </div>
-             <div className="flex items-center gap-6">
-               <div className="flex items-center gap-2">
-                 <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Sem Vendas</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <div className="w-2.5 h-2.5 rounded-full bg-brand-blue" />
-                 <span className="text-[8px] font-black text-slate-400 uppercase italic">Pico de Vendas</span>
-               </div>
-             </div>
-           </div>
-
-           <div className="grid grid-cols-9 md:grid-cols-18 gap-3">
-             {hours.map((hour, idx) => {
-               const count = hourCounts[hour] || 0;
-               const intensity = maxVendas > 0 ? (count / maxVendas) : 0;
-               const isPeak = hour.toString() === peakHour;
-
-               return (
-                 <motion.div 
-                   key={hour}
-                   initial={{ scale: 0.8, opacity: 0 }}
-                   animate={{ scale: 1, opacity: 1 }}
-                   transition={{ delay: idx * 0.03 }}
-                   className="flex flex-col items-center gap-2 group"
-                 >
-                   <div 
-                     className={cn(
-                       "w-full aspect-[4/5] rounded-xl flex flex-col items-center justify-end p-2 transition-all duration-500 relative overflow-hidden border",
-                       count > 0 ? "border-brand-blue/10 shadow-lg shadow-brand-blue/5" : "border-slate-200/50"
-                     )}
-                     style={{ 
-                       backgroundColor: count > 0 ? `rgba(59, 130, 246, ${Math.max(0.05, intensity)})` : 'white' 
-                     }}
-                   >
-                     {isPeak && (
-                       <div className="absolute top-1 right-1">
-                         <div className="w-1.5 h-1.5 bg-brand-blue rounded-full animate-ping absolute" />
-                         <div className="w-1.5 h-1.5 bg-brand-blue rounded-full relative" />
-                       </div>
-                     )}
-                     <span className={cn(
-                       "text-[12px] font-black tabular-nums transition-colors duration-500",
-                       count > 0 ? "text-brand-text-main" : "text-slate-300"
-                     )}>{count}</span>
-                   </div>
-                   <span className={cn(
-                     "text-[9px] font-black uppercase tracking-tighter transition-colors",
-                     count > 0 ? "text-brand-text-main" : "text-slate-400"
-                   )}>{hour}h</span>
-                 </motion.div>
-               );
-             })}
-           </div>
+        {/* Visual Select Metric Tab */}
+        <div className="bg-slate-100 p-1 rounded-xl flex items-center shrink-0 self-start md:self-center">
+          <button
+            onClick={() => setChartMetric('vendas')}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+              chartMetric === 'vendas' 
+                ? "bg-white text-slate-800 shadow-sm" 
+                : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <ShoppingBag size={12} />
+            Qtd. Vendas
+          </button>
+          <button
+            onClick={() => setChartMetric('faturamento')}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+              chartMetric === 'faturamento' 
+                ? "bg-white text-slate-800 shadow-sm" 
+                : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <DollarSign size={12} />
+            Faturamento
+          </button>
         </div>
       </div>
-    </motion.div>
+
+      {totalSales > 0 ? (
+        <>
+          {/* Executive Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI 1: Total Revenue in Period */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Total</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center shrink-0">
+                  <DollarSign size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(totalRevenue)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  {totalSales} transações bem-sucedidas
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 2: Ticket Médio */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Percent size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Ticket Médio</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <Percent size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(avgTicket)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Média de consumo por ticket
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 3: Horário de Pico (Volume) */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Clock size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Pico de Movimento</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Clock size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {peakHour}h:00
+                </h3>
+                <span className="text-[10px] font-black text-amber-600 uppercase italic mt-1.5 flex items-center gap-1">
+                  <Zap size={11} /> Estágio de {hourCounts[Number(peakHour)] || 0} compras simultâneas
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 4: Pico Financeiro */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Trophy size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Pico de Faturamento</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Trophy size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight text-emerald-600">
+                  {peakHourRevenue}h:00
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Gerou {formatCurrency(hourRevenues[Number(peakHourRevenue)] || 0)} faturados
+                </span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Graphics Section and Shift panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Hourly Flow Chart Panel */}
+            <div className="lg:col-span-8 bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col justify-between min-h-[460px]">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">
+                    Fluxo Comercial {chartMetric === 'vendas' ? '(Volume de Pedidos)' : '(Volume Financeiro)'}
+                  </h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Dinâmica de faturamento e densidade por hora de atendimento</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <BarChart3 size={15} />
+                </div>
+              </div>
+
+              {/* Graphic Stage */}
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 15, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="hourChartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chartMetric === 'vendas' ? '#1e5eff' : '#10b981'} stopOpacity={0.4} />
+                        <stop offset="100%" stopColor={chartMetric === 'vendas' ? '#1e5eff' : '#10b981'} stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis 
+                      dataKey="hour" 
+                      tickLine={false} 
+                      axisLine={false}
+                      tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600, fontFamily: 'var(--font-mono)' }}
+                    />
+                    <YAxis 
+                      tickLine={false} 
+                      axisLine={false}
+                      tick={{ fontSize: 10, fill: '#64748B', fontWeight: 600, fontFamily: 'var(--font-mono)' }}
+                      tickFormatter={(val) => chartMetric === 'vendas' ? val : `R$ ${val.toLocaleString('pt-BR', { notation: 'compact' })}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      formatter={(val: any) => [
+                        chartMetric === 'vendas' ? `${val} vendas` : formatCurrency(Number(val)), 
+                        chartMetric === 'vendas' ? 'Volume de Vendas' : 'Receita Gerada'
+                      ]}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey={chartMetric} 
+                      stroke={chartMetric === 'vendas' ? '#1e5eff' : '#10b981'} 
+                      strokeWidth={4}
+                      fill="url(#hourChartGradient)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Performance Side Panel */}
+            <div className="lg:col-span-4 flex flex-col justify-between space-y-6">
+              {/* Shift KPI Breakdown */}
+              <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm space-y-5">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Distribuição por Turno</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Faturamento acumulado por divisão de turnos</p>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    { label: 'Matutino (06h - 11h)', val: morningRevenue, qty: morningSalesCount, color: '#1e5eff' },
+                    { label: 'Vespertino (12h - 17h)', val: afternoonRevenue, qty: afternoonSalesCount, color: '#10b981' },
+                    { label: 'Noturno (18h - 23h)', val: eveningRevenue, qty: eveningSalesCount, color: '#818cf8' }
+                  ].map((p, i) => {
+                    const total = totalRevenue || 1;
+                    const salesTotal = totalSales || 1;
+                    const revenuePercentage = (p.val / total) * 100;
+                    const selectionPercentage = chartMetric === 'vendas' ? (p.qty / salesTotal) * 100 : revenuePercentage;
+
+                    return (
+                      <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-2 relative z-10">
+                          <div>
+                            <span className="text-[10px] font-black uppercase text-slate-700 block italic leading-none">{p.label}</span>
+                            <span className="text-[9px] font-semibold text-slate-400 block mt-1">{p.qty} vendas efetuadas</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-black text-slate-800 font-mono block leading-none">{formatCurrency(p.val)}</span>
+                            <span className="text-[9px] font-bold text-slate-400 font-mono block mt-1">({revenuePercentage.toFixed(1)}%)</span>
+                          </div>
+                        </div>
+                        {/* Progress Bar */}
+                        <div className="h-1.5 w-full bg-slate-200/50 rounded-full overflow-hidden mt-1 relative z-10">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${selectionPercentage}%` }}
+                            transition={{ duration: 0.8, ease: 'easeOut' }}
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: p.color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Operational Advisory Warning Box */}
+              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2.2rem] flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/10 shrink-0">
+                  <Gauge size={22} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h5 className="text-xs font-black text-emerald-950 uppercase italic tracking-wider">Aconselhamento Operacional</h5>
+                  <p className="text-[10px] font-semibold text-emerald-800/80 leading-relaxed mt-1">
+                    O maior pico financeiro ocorre às <span className="font-extrabold text-emerald-950">{peakHourRevenue}h</span> ({formatCurrency(hourRevenues[Number(peakHourRevenue)] || 0)}), 
+                    enquanto o pico em fluxo de e-commerce/caixa é registrado às <span className="font-extrabold text-emerald-950">{peakHour}h</span> com {hourCounts[Number(peakHour)] || 0} transações. 
+                    Recomendamos escala reforçada de operadores e atendimento entre <span className="font-extrabold text-emerald-950">{Math.max(6, Number(peakHour) - 1)}h</span> e <span className="font-extrabold text-emerald-950">{Math.min(23, Number(peakHour) + 1)}h</span>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Saturação Grid (Heatmap Matrix) */}
+          <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200/80 shadow-sm flex flex-col shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 mb-6 gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Painel Térmico de Atendimento</h4>
+                <p className="text-[10px] font-medium text-slate-400 mt-0.5">Analise visual rápida de saturação de equipe e vendas hora a hora</p>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-md bg-slate-50 border border-slate-200" />
+                  <span className="text-[8px] font-black text-slate-400 uppercase italic">Ocioso</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-md bg-brand-blue/30" />
+                  <span className="text-[8px] font-black text-slate-400 uppercase italic">Baixo</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-md bg-brand-blue" />
+                  <span className="text-[8px] font-black text-slate-400 uppercase italic font-bold">Máximo</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-9 lg:grid-cols-18 gap-3.5">
+              {hours.map((hour, idx) => {
+                const count = hourCounts[hour] || 0;
+                const revenue = hourRevenues[hour] || 0;
+                const activeVal = chartMetric === 'vendas' ? count : revenue;
+                const activeMax = chartMetric === 'vendas' ? maxVendas : maxFaturamento;
+                
+                // compute color opacity based on intensity
+                const intensity = activeMax > 0 ? (activeVal / activeMax) : 0;
+                const isPeak = chartMetric === 'vendas' ? (hour.toString() === peakHour) : (hour.toString() === peakHourRevenue);
+
+                // color schema
+                const cellBgColor = activeVal > 0 
+                  ? `rgba(30, 95, 255, ${Math.max(0.08, intensity)})`
+                  : '#f8fafc';
+
+                return (
+                  <motion.div 
+                    key={hour}
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: idx * 0.02 }}
+                    className="flex flex-col items-center gap-2 group cursor-default"
+                  >
+                    <div 
+                      className={cn(
+                        "w-full aspect-[4/5] rounded-xl flex flex-col items-center justify-center p-2 transition-all duration-300 relative overflow-hidden border",
+                        activeVal > 0 ? "border-brand-blue/10 shadow-xs group-hover:scale-105 group-hover:shadow-md" : "border-slate-100"
+                      )}
+                      style={{ 
+                        backgroundColor: cellBgColor
+                      }}
+                    >
+                      {/* Peak indicator */}
+                      {isPeak && (
+                        <div className="absolute top-1 right-1">
+                          <span className="w-1.5 h-1.5 bg-brand-blue rounded-full animate-ping absolute" />
+                          <span className="w-1.5 h-1.5 bg-brand-blue rounded-full relative block" />
+                        </div>
+                      )}
+                      
+                      {/* Value Display */}
+                      <span className={cn(
+                        "text-xs font-black font-mono transition-colors duration-300 block text-center leading-none",
+                        activeVal > 0 ? "text-slate-800" : "text-slate-300"
+                      )}>
+                        {chartMetric === 'vendas' ? count : `${revenue.toLocaleString('pt-BR', { notation: 'compact' })}`}
+                      </span>
+                    </div>
+
+                    <span className={cn(
+                      "text-[9px] font-black uppercase tracking-widest transition-colors block text-center",
+                      activeVal > 0 ? "text-slate-700 font-bold" : "text-slate-400 font-medium"
+                    )}>{hour}h</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-20 bg-white rounded-[2.2rem] border border-slate-200 p-8 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+            <Clock size={28} />
+          </div>
+          <h4 className="text-sm font-black uppercase italic text-slate-700">Nenhum tráfego registrado</h4>
+          <p className="text-xs font-semibold text-slate-400 max-w-sm mt-1 leading-relaxed text-center">
+            Não foram encontradas correspondências de vendas no período selecionado de {new Date(startDate).toLocaleDateString('pt-BR')} a {new Date(endDate).toLocaleDateString('pt-BR')}.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2891,70 +5065,102 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
       </div>
 
       {/* Segmented Class Card KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total KPI */}
-        <div className="p-5 rounded-2xl bg-slate-100/50 dark:bg-slate-900/30 border border-brand-border shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Faturamento no Período</span>
-              <DollarSign size={16} className="text-slate-400" />
-            </div>
-            <p className="text-xl font-black text-brand-blue truncate" title={stats.formattedTotalRevenue}>
-              {stats.formattedTotalRevenue}
-            </p>
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <DollarSign size={140} className="text-slate-900" />
           </div>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            Base Calculada: {rawData.length} itens vendidos
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento no Período</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-600 flex items-center justify-center shrink-0">
+              <DollarSign size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-brand-blue font-mono tracking-tight" title={stats.formattedTotalRevenue}>
+              {stats.formattedTotalRevenue}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Base Calculada: {rawData.length} itens vendidos
+            </span>
+          </div>
+        </motion.div>
 
         {/* Classe A */}
-        <div className="p-5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Classe A — Alta Importância</span>
-              <Zap size={16} className="text-emerald-500" />
-            </div>
-            <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">
-              {stats.pctA.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
-            </p>
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Zap size={140} className="text-slate-900" />
           </div>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            {stats.countA} produtos ({(rawData.length > 0 ? (stats.countA / rawData.length) * 100 : 0).toFixed(0)}% do mix)
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Classe A — Alta Importância</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <Zap size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-600 font-mono tracking-tight">
+              {stats.pctA.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              {stats.countA} produtos ({(rawData.length > 0 ? (stats.countA / rawData.length) * 100 : 0).toFixed(0)}% do mix)
+            </span>
+          </div>
+        </motion.div>
 
         {/* Classe B */}
-        <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-brand-blue">Classe B — Média Importância</span>
-              <Layers size={16} className="text-brand-blue" />
-            </div>
-            <p className="text-xl font-black text-slate-800 dark:text-slate-350">
-              {stats.pctB.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
-            </p>
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Layers size={140} className="text-slate-900" />
           </div>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            {stats.countB} produtos ({(rawData.length > 0 ? (stats.countB / rawData.length) * 100 : 0).toFixed(0)}% do mix)
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest italic">Classe B — Média Importância</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <Layers size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {stats.pctB.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              {stats.countB} produtos ({(rawData.length > 0 ? (stats.countB / rawData.length) * 100 : 0).toFixed(0)}% do mix)
+            </span>
+          </div>
+        </motion.div>
 
         {/* Classe C */}
-        <div className="p-5 rounded-2xl bg-slate-100/30 dark:bg-slate-900/20 border border-brand-border shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Classe C — Baixa Importância</span>
-              <ShoppingBag size={16} className="text-slate-400" />
-            </div>
-            <p className="text-xl font-black text-slate-500">
-              {stats.pctC.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
-            </p>
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ShoppingBag size={140} className="text-slate-900" />
           </div>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            {stats.countC} produtos ({(rawData.length > 0 ? (stats.countC / rawData.length) * 100 : 0).toFixed(0)}% do mix)
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Classe C — Baixa Importância</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-500 flex items-center justify-center shrink-0">
+              <ShoppingBag size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-500 font-mono tracking-tight">
+              {stats.pctC.toFixed(1)}% <span className="text-xs font-normal text-slate-400">do faturamento</span>
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              {stats.countC} produtos ({(rawData.length > 0 ? (stats.countC / rawData.length) * 100 : 0).toFixed(0)}% do mix)
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       {/* Control Panel: Search + Class Filtering tabs */}
@@ -3315,76 +5521,911 @@ function DiscountAuditReport({ startDate, endDate }: { startDate: string, endDat
 }
 
 function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, paymentMethods } = useERP();
+  const { sales, paymentMethods, customers, systemUsers, products } = useERP();
   
-  const filteredSales = sales.filter(s => {
-    const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
-  });
+  // Tabs and drill-down state
+  const [activeTab, setActiveTab] = useState<'geral' | 'detalhes'>('geral');
+  const [selectedMethodId, setSelectedMethodId] = useState<string>('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+  
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedMethodId, searchTerm]);
 
-  const totalSalesAmount = filteredSales.reduce((acc, s) => acc + s.total, 0);
+  // 1. Filter sales in date range
+  const filteredSales = useMemo(() => {
+    return (sales || []).filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
 
-  const paymentTotals: Record<string, number> = {};
-  filteredSales.forEach(sale => {
-    const method = paymentMethods.find(m => m.id === sale.paymentMethod);
-    const methodName = method ? method.name : (sale.paymentMethod || 'Outros');
-    paymentTotals[methodName] = (paymentTotals[methodName] || 0) + sale.total;
-  });
+  const safePaymentMethods = useMemo(() => paymentMethods || [], [paymentMethods]);
 
-  const colors = ['#10B981', '#6366F1', '#0EA5E9', '#F43F5E', '#8B5CF6', '#F59E0B', '#64748B'];
-  const data = Object.entries(paymentTotals)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, value], index) => ({
-      name: name,
-      value,
-      percentage: totalSalesAmount > 0 ? ((value / totalSalesAmount) * 100).toFixed(1) : '0.0',
-      total: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value),
-      fill: colors[index % colors.length],
-      color: colors[index % colors.length]
-    }));
+  // 2. Calculations for each payment method
+  const paymentStats = useMemo(() => {
+    const statsMap = new Map<string, {
+      id: string;
+      name: string;
+      type: string;
+      count: number;
+      grossAmount: number;
+      fees: number;
+      netAmount: number;
+      avgTicket: number;
+      color: string;
+      taxPercentage: number;
+      taxFixed: number;
+    }>();
+
+    // Default system colors
+    const colors = ['#10B981', '#6366F1', '#0EA5E9', '#F43F5E', '#8B5CF6', '#F59E0B', '#14B8A6', '#3B82F6', '#EC4899', '#64748B'];
+
+    // List all methods (even unused ones during this period, for completeness)
+    safePaymentMethods.forEach((method, idx) => {
+      statsMap.set(method.id, {
+        id: method.id,
+        name: method.name,
+        type: method.type || 'Outro',
+        count: 0,
+        grossAmount: 0,
+        fees: 0,
+        netAmount: 0,
+        avgTicket: 0,
+        color: colors[idx % colors.length],
+        taxPercentage: method.taxPercentage || 0,
+        taxFixed: method.taxFixed || 0
+      });
+    });
+
+    // Group sales and add to stats
+    filteredSales.forEach(sale => {
+      const pmId = sale.paymentMethod;
+      let existing = statsMap.get(pmId);
+
+      // If it doesn't match an active paymentMethod ID, maybe it matches by name or is historic
+      if (!existing && pmId) {
+        // Try searching by name
+        const matchByName = safePaymentMethods.find(m => m.name.toLowerCase() === pmId.toLowerCase());
+        if (matchByName) {
+          existing = statsMap.get(matchByName.id);
+        }
+      }
+
+      const total = sale.total || 0;
+
+      if (existing) {
+        // Calculate fees for this transaction based on paymentMethod rules
+        const saleFee = (total * (existing.taxPercentage / 100)) + existing.taxFixed;
+        existing.count += 1;
+        existing.grossAmount += total;
+        existing.fees += saleFee;
+        existing.netAmount += (total - saleFee);
+      } else {
+        // Create an ad-hoc "Historic/Other" method grouping
+        const name = pmId || 'Outros';
+        const color = colors[statsMap.size % colors.length];
+        
+        // Let's check if we already created an ad-hoc grouping
+        let adhoc = Array.from(statsMap.values()).find(x => x.name === name);
+        if (!adhoc) {
+          const adhocId = pmId || 'other';
+          statsMap.set(adhocId, {
+            id: adhocId,
+            name: name,
+            type: 'Outro',
+            count: 1,
+            grossAmount: total,
+            fees: 0, // Assume 0 if unknown
+            netAmount: total,
+            avgTicket: total,
+            color,
+            taxPercentage: 0,
+            taxFixed: 0
+          });
+        } else {
+          adhoc.count += 1;
+          adhoc.grossAmount += total;
+          adhoc.netAmount += total;
+        }
+      }
+    });
+
+    // Final calculations and sorting
+    return Array.from(statsMap.values())
+      .filter(m => m.count > 0 || safePaymentMethods.some(pm => pm.id === m.id)) // only show if used OR defined
+      .map(m => {
+        return {
+          ...m,
+          avgTicket: m.count > 0 ? m.grossAmount / m.count : 0,
+          netAmount: m.grossAmount - m.fees
+        };
+      })
+      .sort((a, b) => b.grossAmount - a.grossAmount);
+  }, [filteredSales, safePaymentMethods]);
+
+  // Overall sums
+  const totalGrossAmount = useMemo(() => filteredSales.reduce((acc, s) => acc + s.total, 0), [filteredSales]);
+  const totalFeesAmount = useMemo(() => paymentStats.reduce((acc, p) => acc + p.fees, 0), [paymentStats]);
+  const totalNetAmount = useMemo(() => totalGrossAmount - totalFeesAmount, [totalGrossAmount, totalFeesAmount]);
+  const totalTransactionsCount = filteredSales.length;
+  const overallAvgTicket = totalTransactionsCount > 0 ? totalGrossAmount / totalTransactionsCount : 0;
+
+  // Chart structured data
+  const chartPieData = useMemo(() => {
+    return paymentStats
+      .filter(p => p.grossAmount > 0)
+      .map(p => ({
+        name: p.name,
+        value: p.grossAmount,
+        percentage: totalGrossAmount > 0 ? ((p.grossAmount / totalGrossAmount) * 100).toFixed(1) : '0.0',
+        color: p.color
+      }));
+  }, [paymentStats, totalGrossAmount]);
+
+  const chartBarData = useMemo(() => {
+    return paymentStats
+      .filter(p => p.grossAmount > 0)
+      .map(p => ({
+        name: p.name,
+        'Ticket Médio (R$)': parseFloat(p.avgTicket.toFixed(2)),
+        'Transações': p.count,
+        color: p.color
+      }));
+  }, [paymentStats]);
+
+  // Selected method stats (for drill-down and transactions list)
+  const selectedMethodStats = useMemo(() => {
+    if (selectedMethodId === 'All') return null;
+    return paymentStats.find(p => p.id === selectedMethodId) || null;
+  }, [selectedMethodId, paymentStats]);
+
+  // Filtered sales list for drill down
+  const drillDownSales = useMemo(() => {
+    let result = filteredSales;
+
+    // Filter by payment method
+    if (selectedMethodId !== 'All') {
+      result = result.filter(s => {
+        if (s.paymentMethod === selectedMethodId) return true;
+        // fallback search by name if ID was saved as method name
+        const matchMethod = safePaymentMethods.find(m => m.id === selectedMethodId);
+        if (matchMethod && s.paymentMethod === matchMethod.id) return true;
+        
+        const currentPMName = safePaymentMethods.find(m => m.id === s.paymentMethod)?.name || s.paymentMethod || 'Outros';
+        const targetPMName = matchMethod?.name || selectedMethodId;
+        return currentPMName.toLowerCase() === targetPMName.toLowerCase();
+      });
+    }
+
+    // Filter by search terms (customer or vendor)
+    if (searchTerm.trim() !== '') {
+      const q = searchTerm.toLowerCase();
+      result = result.filter(s => {
+        const customer = (customers || []).find(c => c.id === s.customerId);
+        const seller = (systemUsers || []).find(u => u.id === s.userId);
+        
+        const customerName = customer ? customer.name.toLowerCase() : 'consumidor final';
+        const sellerName = seller ? (seller.full_name || seller.username).toLowerCase() : 'sistema';
+        const saleId = s.id.toLowerCase();
+
+        return customerName.includes(q) || sellerName.includes(q) || saleId.includes(q);
+      });
+    }
+
+    return result;
+  }, [filteredSales, selectedMethodId, searchTerm, safePaymentMethods, customers, systemUsers]);
+
+  // Granular sales paginated
+  const totalPages = Math.ceil(drillDownSales.length / itemsPerPage) || 1;
+  const paginatedSales = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return drillDownSales.slice(startIdx, startIdx + itemsPerPage);
+  }, [drillDownSales, currentPage]);
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  };
+
+  const getMethodTypeBadgeStyle = (type: string) => {
+    switch (type) {
+      case 'Dinheiro': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'Pix': return 'bg-cyan-50 text-cyan-700 border-cyan-100';
+      case 'Crédito': return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+      case 'Débito': return 'bg-blue-50 text-blue-700 border-blue-100';
+      case 'Fiado': return 'bg-orange-50 text-orange-700 border-orange-100';
+      case 'Voucher': return 'bg-purple-50 text-purple-700 border-purple-100';
+      default: return 'bg-slate-50 text-slate-700 border-slate-200';
+    }
+  };
+
+  const getMethodIcon = (type: string) => {
+    switch (type) {
+      case 'Dinheiro': return <DollarSign className="w-3.5 h-3.5" />;
+      case 'Pix': return <Zap className="w-3.5 h-3.5" />;
+      case 'Crédito':
+      case 'Débito': return <CreditCard className="w-3.5 h-3.5" />;
+      case 'Fiado': return <User className="w-3.5 h-3.5" />;
+      case 'Voucher': return <Percent className="w-3.5 h-3.5" />;
+      default: return <Layers className="w-3.5 h-3.5" />;
+    }
+  };
+
+  // CSV Exporter for local table
+  const exportToCSV = () => {
+    try {
+      const headers = [
+        'Forma de Pagamento',
+        'Tipo',
+        'Taxa %',
+        'Taxa Fixa (R$)',
+        'Quantidade Transações',
+        'Faturamento Bruto (R$)',
+        'Custos Opera. (R$)',
+        'Faturamento Líquido (R$)',
+        'Ticket Médio (R$)',
+        '% de Participação'
+      ];
+
+      const rows = paymentStats.map(stat => {
+        const share = totalGrossAmount > 0 ? ((stat.grossAmount / totalGrossAmount) * 100).toFixed(1) : '0';
+        return [
+          stat.name,
+          stat.type,
+          stat.taxPercentage.toFixed(2),
+          stat.taxFixed.toFixed(2),
+          stat.count,
+          stat.grossAmount.toFixed(2),
+          stat.fees.toFixed(2),
+          stat.netAmount.toFixed(2),
+          stat.avgTicket.toFixed(2),
+          `${share}%`
+        ];
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Analise_Meios_Pagamento_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="h-64">
-          {data.length > 0 ? (
-            <ResponsiveContainer id="rel-cat-bar-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#6B7C93', fontWeight: 600}} tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)} />
-                <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB' }} formatter={(value: any, name: string, props: any) => [
-                  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0) + ` (${props.payload.percentage}%)`,
-                  'Total'
-                ]} />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-brand-blue/60 font-medium text-center">
-              Nenhum dado para exibir no gráfico neste período.
+    <div className="space-y-6">
+      {/* Menu de Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-1.5 scrollbar-none overflow-x-auto">
+          <button
+            onClick={() => { setActiveTab('geral'); }}
+            className={cn(
+              "px-4 py-2 text-xs font-black uppercase italic tracking-wider transition-all border-b-2",
+              activeTab === 'geral' 
+                ? "border-brand-blue text-brand-blue font-black" 
+                : "border-transparent text-slate-500 hover:text-slate-850 font-bold"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Activity size={13} />
+              Visão Consolidada
             </div>
-          )}
+          </button>
+          <button
+            onClick={() => { setActiveTab('detalhes'); }}
+            className={cn(
+              "px-4 py-2 text-xs font-black uppercase italic tracking-wider transition-all border-b-2",
+              activeTab === 'detalhes' 
+                ? "border-brand-blue text-brand-blue font-black" 
+                : "border-transparent text-slate-500 hover:text-slate-850 font-bold"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Search size={13} />
+              Investigação Detalhada
+            </div>
+          </button>
         </div>
-        <div className="space-y-4 flex flex-col justify-center">
-          {data.map((pay, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pay.color }}></div>
-                <span className="text-sm font-black text-brand-text-main uppercase italic">{pay.name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-brand-blue">{pay.total}</span>
-                <span className="text-xs font-bold text-brand-text-sec">({pay.percentage}%)</span>
-              </div>
-            </div>
-          ))}
+
+        {/* Ações Rápidas */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/50 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 cursor-pointer"
+          >
+            <Download size={13} />
+            Exportar CSV
+          </button>
+
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 cursor-pointer"
+          >
+            <Printer size={13} />
+            Imprimir dossiê
+          </button>
         </div>
       </div>
+
+      {/* KPI Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Faturamento Bruto */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-5 rounded-3xl bg-white border border-slate-150 shadow-sm relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute top-4 right-4 text-emerald-500 bg-emerald-50 p-2 rounded-2xl">
+            <DollarSign size={16} />
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Bruta Total</p>
+          <h3 className="text-xl font-black text-slate-800 mt-2 font-mono leading-none">{formatCurrency(totalGrossAmount)}</h3>
+          <div className="text-[10px] text-slate-400 font-semibold mt-2.5 flex items-center gap-1 uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            100% dos fluxos de entrada
+          </div>
+        </motion.div>
+
+        {/* Tarifas Estimadas */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-5 rounded-3xl bg-white border border-slate-150 shadow-sm relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute top-4 right-4 text-rose-500 bg-rose-50 p-2 rounded-2xl">
+            <Percent size={16} />
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Tarifas Descontadas</p>
+          <h3 className="text-xl font-black text-rose-600 mt-2 font-mono leading-none">{formatCurrency(totalFeesAmount)}</h3>
+          <div className="text-[10px] text-rose-600 font-bold mt-2.5 flex items-center gap-1 uppercase">
+            <span>Custo Médio:</span>
+            <span className="font-mono bg-rose-50 border border-rose-100 px-1.5 py-0.2 rounded font-black">
+              {totalGrossAmount > 0 ? ((totalFeesAmount / totalGrossAmount) * 100).toFixed(2) : '0.00'}%
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Faturamento Líquido */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-5 rounded-3xl bg-brand-text-main text-white relative overflow-hidden shadow-md group transition-all cursor-pointer"
+        >
+          <div className="absolute top-4 right-4 text-brand-text-sec bg-white/10 p-2 rounded-2xl">
+            <Wallet size={16} />
+          </div>
+          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">Recebível Líquido</p>
+          <h3 className="text-xl font-black text-brand-text-sec mt-2 font-mono leading-none">{formatCurrency(totalNetAmount)}</h3>
+          <div className="text-[10px] text-brand-text-sec/80 font-semibold mt-2.5 flex items-center gap-1 uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Previsão operacional líquida
+          </div>
+        </motion.div>
+
+        {/* Volume de Vendas */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-5 rounded-3xl bg-white border border-slate-150 shadow-sm relative overflow-hidden group transition-all cursor-pointer"
+        >
+          <div className="absolute top-4 right-4 text-indigo-500 bg-indigo-50 p-2 rounded-2xl">
+            <ShoppingCart size={16} />
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Transações Efetuadas</p>
+          <h3 className="text-xl font-black text-slate-800 mt-2 font-mono leading-none">
+            {totalTransactionsCount} <span className="text-[10px] font-black text-slate-400 uppercase font-sans">vendas</span>
+          </h3>
+          <div className="text-[10px] text-slate-400 font-bold mt-2.5 flex items-center gap-1 uppercase">
+            <span>Tkt. Médio Geral:</span>
+            <span className="font-mono text-slate-700">{formatCurrency(overallAvgTicket)}</span>
+          </div>
+        </motion.div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'geral' ? (
+          <motion.div
+            key="consolidado-view"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Charts & Interactive Segment */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Donut Chart (Volume Split) */}
+              <div className="lg:col-span-5 bg-white p-6 border border-slate-200 rounded-[2rem] shadow-sm flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-brand-text-main uppercase italic flex items-center gap-1.5">
+                    <PieIcon size={14} className="text-brand-blue" />
+                    Fração de Receita (%)
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 mt-1 uppercase">Participação de faturamento por meio de pagamento</p>
+                </div>
+                
+                <div className="h-60 w-full relative my-4 flex items-center justify-center">
+                  {chartPieData.length > 0 ? (
+                    <>
+                      <ResponsiveContainer id="rel-payment-donut-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                        <PieChart>
+                          <Pie
+                            data={chartPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={65}
+                            outerRadius={85}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            {chartPieData.map((entry, idx) => (
+                              <Cell key={`cell-${idx}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: any, name: string, props: any) => [
+                            formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
+                            name
+                          ]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      
+                      {/* Center Text inside the Donut */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lançados</span>
+                        <span className="text-lg font-black text-slate-800 font-mono mt-0.5">{formatCurrency(totalGrossAmount)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-slate-400 font-semibold text-xs text-center">Nenhum dado financeiro para o período.</div>
+                  )}
+                </div>
+
+                {/* Quick Pie Legend */}
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pt-4 border-t border-slate-100">
+                  {chartPieData.map((p, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                      <span className="truncate">{p.name} ({p.percentage}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bar Chart (Average Ticket comparison & Transaction limits) */}
+              <div className="lg:col-span-7 bg-white p-6 border border-slate-200 rounded-[2rem] shadow-sm flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-brand-text-main uppercase italic flex items-center gap-1.5">
+                    <BarChart3 size={14} className="text-brand-blue" />
+                    Ticket Médio por Meio de Pagamento
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 mt-1 uppercase">Comparativo do valor médio gasto por transação em cada plataforma</p>
+                </div>
+
+                <div className="h-60 w-full my-4">
+                  {chartBarData.length > 0 ? (
+                    <ResponsiveContainer id="rel-payment-bar-resp" width="105%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                      <BarChart data={chartBarData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748B', fontWeight: 700}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748B', fontWeight: 700}} tickFormatter={(val) => `R$${val}`} />
+                        <Tooltip cursor={{fill: '#F8FAFC'}} contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: 11, fontWeight: 700 }} />
+                        <Bar dataKey="Ticket Médio (R$)" radius={[6, 6, 0, 0]}>
+                          {chartBarData.map((entry, idx) => (
+                            <Cell key={`cell-bar-${idx}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-400 text-xs font-semibold">Nenhum indicador registrado.</div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-indigo-50/50 border border-indigo-100/40 rounded-2xl flex items-start gap-2.5">
+                  <Activity size={14} className="text-indigo-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-semibold text-indigo-950 uppercase leading-normal">
+                    <strong>Dica de Caixa:</strong> Meios com alto ticket médio mas pouca frequência podem ser impulsionados com ofertas escalonadas ou campanhas direcionadas.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Methods Analytical Ledger */}
+            <div className="bg-white border border-slate-200 rounded-[2.2rem] shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-brand-text-main uppercase italic flex items-center gap-2">
+                    <CreditCard size={15} className="text-brand-blue" />
+                    Desempenho Geral por Operador / Meio
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Mapeamento granular de transações, faturamento bruto, custos operacionais e faturamento líquido</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-150 bg-slate-50/50">
+                      <th className="py-4 pl-6 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Canal / Meio</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tipo de Relação</th>
+                      <th className="py-4 text-center text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Transações</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Bruto</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tarifário do Meio</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Custos de Gateway</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Líquido</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Ticket Médio</th>
+                      <th className="py-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paymentStats.map((stat) => {
+                      const sharePercentage = totalGrossAmount > 0 ? ((stat.grossAmount / totalGrossAmount) * 100).toFixed(1) : '0.0';
+                      
+                      return (
+                        <tr 
+                          key={stat.id}
+                          onClick={() => {
+                            setSelectedMethodId(stat.id);
+                            setActiveTab('detalhes');
+                          }}
+                          className="hover:bg-slate-50/50 transition-all cursor-pointer group"
+                        >
+                          {/* Name / Segment */}
+                          <td className="py-4 pl-6">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-xl shrink-0 flex items-center justify-center p-0.5 text-[10px] font-black text-white" style={{ backgroundColor: stat.color }}>
+                                {stat.name.charAt(0).toUpperCase()}
+                              </span>
+                              <span className="text-sm font-black text-slate-805 uppercase italic group-hover:text-brand-blue transition-colors">
+                                {stat.name}
+                              </span>
+                              {stat.count === 0 && (
+                                <span className="text-[8px] font-black border border-slate-200 bg-slate-50 text-slate-405 px-1.5 py-0.2 rounded uppercase italic shrink-0">Sem Uso</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Type Badge */}
+                          <td className="py-4">
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 px-2.5 py-0.5 border rounded-full text-[9px] font-black uppercase italic shrink-0",
+                              getMethodTypeBadgeStyle(stat.type)
+                            )}>
+                              {getMethodIcon(stat.type)}
+                              {stat.type}
+                            </span>
+                          </td>
+
+                          {/* Transaction Count */}
+                          <td className="py-4 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs font-black text-slate-800 font-mono">{stat.count}</span>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase italic">({sharePercentage}% de fat.)</span>
+                            </div>
+                          </td>
+
+                          {/* Gross Amount */}
+                          <td className="py-4 text-right">
+                            <span className="text-xs font-black text-slate-800 font-mono">{formatCurrency(stat.grossAmount)}</span>
+                          </td>
+
+                          {/* Fee configuration mapping */}
+                          <td className="py-4 text-right text-[10px] font-bold text-slate-500 uppercase italic">
+                            {stat.taxPercentage > 0 || stat.taxFixed > 0 ? (
+                              <div className="flex flex-col items-end">
+                                <span className="font-mono text-[10px] font-bold text-slate-600">{stat.taxPercentage}%</span>
+                                {stat.taxFixed > 0 ? <span className="text-[8px]">+ R$ {stat.taxFixed.toFixed(2)} fixos</span> : null}
+                              </div>
+                            ) : (
+                              <span className="text-slate-300">Isento</span>
+                            )}
+                          </td>
+
+                          {/* Estimated operating fees paid */}
+                          <td className="py-4 text-right">
+                            <span className="text-xs font-black text-rose-600 font-mono">
+                              {stat.fees > 0 ? `-${formatCurrency(stat.fees)}` : formatCurrency(0)}
+                            </span>
+                          </td>
+
+                          {/* Net Amount */}
+                          <td className="py-4 text-right">
+                            <span className="text-xs font-black text-emerald-600 font-mono">{formatCurrency(stat.netAmount)}</span>
+                          </td>
+
+                          {/* Ticket médio */}
+                          <td className="py-4 text-right">
+                            <span className="text-xs font-black text-brand-blue font-mono">{formatCurrency(stat.avgTicket)}</span>
+                          </td>
+
+                          {/* Chevron CTA */}
+                          <td className="py-4 text-center pr-6">
+                            <ChevronRight size={14} className="text-slate-400 group-hover:text-brand-blue group-hover:translate-x-1 transition-all" />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="detalhes-investigacao-view"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Dynamic selector and searches */}
+            <div className="p-6 bg-white border border-slate-200 rounded-[2rem] shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4 flex-1">
+                {/* Filter Method Selection */}
+                <div className="flex flex-col shrink-0">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Meio de Captura</label>
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={13} className="text-slate-400" />
+                    <select
+                      value={selectedMethodId}
+                      onChange={(e) => setSelectedMethodId(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-xs font-black text-slate-700 italic focus:outline-none focus:bg-white"
+                    >
+                      <option value="All">Meios (Todos)</option>
+                      {paymentStats.map(p => (
+                        <option key={p.id} value={p.id}>{p.name.toUpperCase()} ({p.count})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Live Search text input */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Filtrar Transações</label>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Nome do cliente, operador do caixa ou código do pedido..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-705 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue/20"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {selectedMethodStats && (
+                <div className="px-5 py-3.5 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col justify-center text-right self-stretch md:self-auto min-w-[180px]">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider leading-none">Filtro Ativo: {selectedMethodStats.name}</span>
+                  <div className="flex justify-end gap-2 items-baseline mt-1">
+                    <span className="text-xs font-bold text-slate-500">Média:</span>
+                    <span className="text-base font-black text-brand-blue font-mono">{formatCurrency(selectedMethodStats.avgTicket)}</span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-semibold uppercase italic mt-0.5 leading-none">Faturamento Líquido: {formatCurrency(selectedMethodStats.netAmount)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Method Ledger Tabular list with drill-downs */}
+            <div className="bg-white border border-slate-200 rounded-[2.2rem] shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-brand-text-main uppercase italic flex items-center gap-2">
+                    <Activity size={15} className="text-brand-blue" />
+                    Dossiê Cronológico de Lançamentos
+                  </h4>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">Clique em qualquer registro para visualizar os itens adquiridos pelo consumidor</p>
+                </div>
+                <span className="inline-flex px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-black text-slate-500 uppercase italic">
+                  {drillDownSales.length} lançamentos encontrados
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-150 bg-slate-50/50">
+                      <th className="py-4 pl-6 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Data / Hora</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">ID Código</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Meio</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Cliente</th>
+                      <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendedor / Caixa</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tarifa Gateway</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Líquido</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Bruto</th>
+                      <th className="py-4 w-12 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedSales.length > 0 ? paginatedSales.map((sale) => {
+                      const customer = (customers || []).find(c => c.id === sale.customerId);
+                      const seller = (systemUsers || []).find(u => u.id === sale.userId);
+                      
+                      // Look up current or fallback method mapping
+                      const salePMId = sale.paymentMethod;
+                      const currentMethod = safePaymentMethods.find(m => m.id === salePMId) || 
+                                           safePaymentMethods.find(m => m.name.toLowerCase() === salePMId?.toLowerCase());
+                      
+                      const isExpanded = expandedSaleId === sale.id;
+                      
+                      // Calculate dynamic transaction gateway fees
+                      const taxPct = currentMethod ? currentMethod.taxPercentage : 0;
+                      const taxFix = currentMethod ? currentMethod.taxFixed : 0;
+                      const calculatedFee = (sale.total * (taxPct / 100)) + taxFix;
+                      const calculatedNet = sale.total - calculatedFee;
+
+                      const pmName = currentMethod ? currentMethod.name : (sale.paymentMethod || 'Outros');
+                      const pmType = currentMethod ? currentMethod.type : 'Outro';
+
+                      return (
+                        <React.Fragment key={sale.id}>
+                          <tr 
+                            onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                            className="hover:bg-slate-50/50 cursor-pointer transition-colors"
+                          >
+                            {/* Timestamp */}
+                            <td className="py-4 pl-6 text-xs font-bold text-slate-800 font-mono">
+                              {new Date(sale.date).toLocaleString('pt-BR')}
+                            </td>
+                            
+                            {/* ID */}
+                            <td className="py-4 text-[10px] font-black text-slate-405 font-mono uppercase tracking-tight">
+                              #{sale.id.slice(0, 8)}
+                            </td>
+
+                            {/* Payment Method badge */}
+                            <td className="py-4">
+                              <span className={cn(
+                                "inline-flex items-center gap-1.5 px-2 py-0.2 border rounded-full text-[9px] font-black uppercase italic shrink-0",
+                                getMethodTypeBadgeStyle(pmType)
+                              )}>
+                                {getMethodIcon(pmType)}
+                                {pmName}
+                              </span>
+                            </td>
+
+                            {/* Customer */}
+                            <td className="py-4 text-xs font-black text-slate-700 uppercase italic">
+                              {customer ? customer.name : 'Consumidor Final'}
+                            </td>
+
+                            {/* Seller/Operator */}
+                            <td className="py-4 text-xs font-black text-slate-700 uppercase italic">
+                              {seller ? (seller.full_name || seller.username) : 'Sistema'}
+                            </td>
+
+                            {/* Calculated Fee for transaction */}
+                            <td className="py-4 text-right">
+                              <span className="text-xs font-bold text-rose-600 font-mono">
+                                {calculatedFee > 0 ? `-${formatCurrency(calculatedFee)}` : formatCurrency(0)}
+                              </span>
+                            </td>
+
+                            {/* Net Receivable value for transaction */}
+                            <td className="py-4 text-right">
+                              <span className="text-xs font-black text-emerald-600 font-mono">
+                                {formatCurrency(calculatedNet)}
+                              </span>
+                            </td>
+
+                            {/* Gross value */}
+                            <td className="py-4 text-right">
+                              <span className="text-xs font-black text-brand-blue font-mono">
+                                {formatCurrency(sale.total)}
+                              </span>
+                            </td>
+
+                            {/* Expander Icon */}
+                            <td className="py-4 text-center pr-6">
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-605 rotate-180 transition-transform" /> : <ChevronDown className="w-4 h-4 text-slate-400 transition-transform" />}
+                            </td>
+                          </tr>
+                          
+                          {/* Expanded Order Items Row */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/40">
+                              <td colSpan={9} className="py-4 px-6 md:px-10 border-t border-b border-slate-100">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <ShoppingCart size={13} className="text-brand-blue" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Itens comprados nesta transação</span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {sale.items.map((item, index) => {
+                                      const prod = (products || []).find(p => p.id === item.productId);
+                                      return (
+                                        <div key={index} className="p-3 bg-white border border-slate-150 rounded-2xl flex items-center justify-between shadow-xs">
+                                          <div className="flex flex-col">
+                                            <span className="text-xs font-black text-slate-800 uppercase italic">
+                                              {prod ? prod.name : 'Produto Desconhecido'}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-bold mt-0.5 uppercase font-mono">
+                                              {item.quantity} un x {formatCurrency(item.price)}
+                                            </span>
+                                          </div>
+                                          <span className="text-xs font-black text-slate-800 font-mono">
+                                            {formatCurrency(item.price * item.quantity)}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-slate-400 text-xs font-black uppercase italic">
+                          Nenhuma transação financeira corresponde aos filtros selecionados.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination controls */}
+              {drillDownSales.length > itemsPerPage && (
+                <div className="p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase">
+                    Mostrando {paginatedSales.length} de {drillDownSales.length} lançamentos
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(c => Math.max(c - 1, 1))}
+                      className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 rounded-xl text-xs font-black transition-colors border",
+                            page === currentPage 
+                              ? "bg-brand-blue border-brand-blue text-white shadow-sm shadow-brand-blue/25" 
+                              : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(c => Math.min(c + 1, totalPages))}
+                      className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -3414,14 +6455,22 @@ function CriticalStockReport({ startDate, endDate }: { startDate: string, endDat
 
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-2xl bg-orange-50 border border-orange-100 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-          <AlertTriangle size={20} />
-        </div>
-        <div>
-          <h5 className="text-sm font-black text-orange-950 uppercase italic">Atenção: {lowStockProducts.length} Itens com Estoque Crítico</h5>
-          <p className="text-[10px] font-medium text-orange-600/60 uppercase">Considere repor o estoque destes produtos.</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-6 rounded-3xl bg-orange-50/50 border border-orange-100 flex items-center gap-4 shadow-xs relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <AlertTriangle size={140} className="text-orange-900" />
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-orange-150 text-orange-600 flex items-center justify-center shrink-0">
+            <AlertTriangle size={22} className="animate-pulse" />
+          </div>
+          <div>
+            <h5 className="text-sm font-black text-orange-950 uppercase italic leading-tight">{lowStockProducts.length} Itens com Estoque Crítico</h5>
+            <p className="text-[10px] font-black text-orange-600/70 uppercase italic mt-1 tracking-wider">Ação recomendada para reposição do estoque.</p>
+          </div>
+        </motion.div>
       </div>
       
       <div className="overflow-x-auto">
@@ -3522,25 +6571,38 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-            <AlertCircle size={20} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-6 rounded-3xl bg-rose-50/50 border border-rose-100 flex items-center gap-4 shadow-xs relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <AlertCircle size={140} className="text-rose-900" />
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-rose-150 text-rose-600 flex items-center justify-center shrink-0">
+            <AlertCircle size={22} className="animate-pulse" />
           </div>
           <div>
-            <h5 className="text-sm font-black text-rose-950 uppercase italic">{expiredCount} Lotes Vencidos</h5>
-            <p className="text-[10px] font-medium text-rose-600/60 uppercase">Ação imediata recomendada.</p>
+            <h5 className="text-sm font-black text-rose-950 uppercase italic leading-tight">{expiredCount} Lotes Vencidos</h5>
+            <p className="text-[10px] font-black text-rose-600/70 uppercase italic mt-1 tracking-wider">Ação e descarte imediatos recomendados.</p>
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
-            <Clock size={20} />
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="p-6 rounded-3xl bg-amber-50/50 border border-amber-100 flex items-center gap-4 shadow-xs relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Clock size={140} className="text-amber-900" />
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-amber-150 text-amber-600 flex items-center justify-center shrink-0">
+            <Clock size={22} />
           </div>
           <div>
-            <h5 className="text-sm font-black text-amber-950 uppercase italic">{soonCount} Lotes Vencendo em Breve</h5>
-            <p className="text-[10px] font-medium text-amber-600/60 uppercase">Vencimento nos próximos 30 dias.</p>
+            <h5 className="text-sm font-black text-amber-950 uppercase italic leading-tight">{soonCount} Lotes Vencendo em Breve</h5>
+            <p className="text-[10px] font-black text-amber-600/70 uppercase italic mt-1 tracking-wider">Vencimento nos próximos 30 dias.</p>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <table className="w-full text-left border-collapse">
@@ -3646,31 +6708,279 @@ function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDat
     };
   }).sort((a, b) => b.total - a.total);
 
+  // Compute key metrics for the cards
+  const totalSalesVolume = React.useMemo(() => {
+    return data.reduce((acc, curr) => acc + curr.total, 0);
+  }, [data]);
+
+  const totalSalesCount = React.useMemo(() => {
+    return data.reduce((acc, curr) => acc + curr.count, 0);
+  }, [data]);
+
+  const averageSaleValue = React.useMemo(() => {
+    return totalSalesCount > 0 ? totalSalesVolume / totalSalesCount : 0;
+  }, [totalSalesVolume, totalSalesCount]);
+
+  const topSeller = React.useMemo(() => {
+    return data.length > 0 ? data[0] : null;
+  }, [data]);
+
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="space-y-6">
-      <h4 className="text-xl font-bold text-slate-800">Vendas por Vendedor</h4>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-50">
-              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendedor</th>
-              <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Qtd. Vendas</th>
-              <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Total Vendido</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {data.map((row, idx) => (
-              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                <td className="py-4 text-sm font-black text-brand-text-main uppercase italic">{row.sellerName}</td>
-                <td className="py-4 text-sm font-bold text-brand-text-main">{row.count}</td>
-                <td className="py-4 text-right text-sm font-black text-brand-blue">{formatCurrency(row.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-8">
+      {/* Module Title */}
+      <div className="flex items-center justify-between border-b border-slate-200/60 pb-5">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Trophy size={11} className="text-brand-blue animate-bounce" />
+            Performance Comercial
+          </div>
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Vendas por Vendedor</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Mapeamento analítico e rankings de conversões individuais da equipe de vendas no período selecionado.
+          </p>
+        </div>
       </div>
+
+      {data.length > 0 ? (
+        <>
+          {/* Executive Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card 1: Revenue Volume */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Volume Total Faturado</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center shrink-0">
+                  <DollarSign size={16} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(totalSalesVolume)}
+                </h3>
+                <div className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Valor bruto transacionado
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Card 2: Top Performer */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group bg-gradient-to-br from-amber-50/10 to-amber-50/40"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.04] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Trophy size={140} className="text-amber-600" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest italic">Melhor Vendedor (Top 1)</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/50 shadow-xs">
+                  <Trophy size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-lg font-black text-slate-800 italic uppercase truncate max-w-[200px]">
+                  {topSeller?.sellerName}
+                </h3>
+                <div className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 flex items-center gap-1">
+                  <Award size={12} />
+                  {formatCurrency(topSeller?.total || 0)} faturados
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Card 3: Formatted Volume transactions */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <ShoppingBag size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Quantidade de Conversões</span>
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <ShoppingBag size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {totalSalesCount} <span className="text-sm text-slate-400 font-medium">pedidos</span>
+                </h3>
+                <div className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Vendas executadas com sucesso
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Card 4: Executive individual ticket avg */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Percent size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Ticket Médio por Venda</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Percent size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(averageSaleValue)}
+                </h3>
+                <div className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Média geral por transação
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Charts Display */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Visual Ranking chart */}
+            <div className="lg:col-span-12 bg-white p-7 rounded-[2rem] border border-slate-200/80 shadow-xs flex flex-col shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Gráfico Comparativo de Vendas</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão consolidada de valores vendidos por profissional</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <BarChart3 size={14} />
+                </div>
+              </div>
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis 
+                      dataKey="sellerName" 
+                      tickLine={false} 
+                      axisLine={false}
+                      tick={{fontSize: 10, fill: '#64748B', fontWeight: 600}}
+                    />
+                    <YAxis 
+                      tickLine={false} 
+                      axisLine={false}
+                      tick={{fontSize: 10, fill: '#64748B', fontWeight: 600}}
+                      tickFormatter={(val) => `R$ ${val.toLocaleString('pt-BR', { notation: 'compact' })}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      formatter={(value: any) => [`${formatCurrency(Number(value))}`, 'Faturamento']}
+                    />
+                    <Bar dataKey="total" fill="#1e5eff" radius={[8, 8, 0, 0]} maxBarSize={45}>
+                      {data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === 0 ? '#1e5eff' : index === 1 ? '#00e676' : '#818cf8'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Performance Listing */}
+          <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200/80 shadow-xs flex flex-col shrink-0">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Quadro de Líderes do Período</h4>
+                <p className="text-[10px] font-medium text-slate-400 mt-0.5">Ranking e market share de cada vendedor no faturamento</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                <Trophy size={14} />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic w-16">Rank</th>
+                    <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Vendedor</th>
+                    <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic text-center w-28">Nº de Vendas</th>
+                    <th className="pb-3 text-[9px] font-black text-slate-400 uppercase tracking-widest italic w-44">Participação % (Share)</th>
+                    <th className="pb-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Total Desempenhado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {data.map((row, idx) => {
+                    const sharePercent = totalSalesVolume > 0 ? (row.total / totalSalesVolume) * 100 : 0;
+                    
+                    // Award badges for top 3
+                    const rankBadgeColor = 
+                      idx === 0 ? 'bg-amber-50 text-amber-700 border border-amber-200/40 font-black' :
+                      idx === 1 ? 'bg-slate-100 text-slate-600 border border-slate-300/30 font-black' :
+                      idx === 2 ? 'bg-orange-50 text-orange-700 border border-orange-200/30 font-black' :
+                      'bg-slate-50 text-slate-400 font-bold';
+
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="py-4">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-[9px] uppercase italic ${rankBadgeColor}`}>
+                            #{idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-4 text-xs font-black text-slate-800 uppercase italic">
+                          <div className="flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold uppercase text-[10px] group-hover:bg-brand-blue group-hover:text-white transition-all shrink-0">
+                              {row.sellerName.substring(0, 2)}
+                            </span>
+                            <span className="truncate">{row.sellerName}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 text-center text-xs font-black text-slate-800 font-mono">
+                          {row.count}
+                        </td>
+                        <td className="py-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] font-mono font-black text-slate-700 shrink-0 w-10">
+                              {sharePercent.toFixed(1)}%
+                            </span>
+                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${sharePercent}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut' }}
+                                className="h-full bg-brand-blue rounded-full" 
+                                style={{
+                                  backgroundColor: idx === 0 ? '#1e5eff' : idx === 1 ? '#00e676' : '#818cf8'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 text-right text-xs font-black text-brand-blue font-mono">
+                          {formatCurrency(row.total)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200/50 p-8 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+            <Trophy size={28} />
+          </div>
+          <h4 className="text-sm font-black uppercase italic text-slate-700">Nenhum resultado registrado</h4>
+          <p className="text-xs font-semibold text-slate-400 max-w-sm mt-1 leading-relaxed">
+            Não foram encontradas transações vinculadas a vendedores no período selecionado de {new Date(startDate).toLocaleDateString('pt-BR')} a {new Date(endDate).toLocaleDateString('pt-BR')}.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -3686,6 +6996,27 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
     });
   }, [returns, startDate, endDate]);
 
+  const stats = React.useMemo(() => {
+    let total = 0;
+    let devolucoes = 0;
+    let estornos = 0;
+    filteredReturns.forEach(r => {
+      total += Number(r.total || 0);
+      if (r.type === 'Devolução') {
+        devolucoes++;
+      } else {
+        estornos++;
+      }
+    });
+
+    return {
+      total,
+      devolucoes,
+      estornos,
+      count: filteredReturns.length
+    };
+  }, [filteredReturns]);
+
   const getProductNames = (items: any[]) => {
     return (items || []).map(item => {
       const product = products.find(p => p.id === item.productId);
@@ -3697,7 +7028,81 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
 
   return (
     <div className="space-y-6">
-      <h4 className="text-xl font-bold text-slate-800">Relatório de Estorno e Devolução</h4>
+      {/* Executive Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {/* Card 1: Total Reembolsado */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <DollarSign size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Total Desembolsado / Reembolsado</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100/50 text-rose-600 flex items-center justify-center shrink-0">
+              <DollarSign size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-rose-600 font-mono tracking-tight">
+              {formatCurrency(stats.total)}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Impacto financeiro de quebras/estornos
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 2: Devolucoes */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <RotateCcw size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Quantidade Devoluções</span>
+            <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-100/50 text-orange-600 flex items-center justify-center shrink-0">
+              <RotateCcw size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {stats.devolucoes} ocorrências
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Trocas físicas de produtos
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 3: Estornos */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <AlertCircle size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Quantidade Estornos</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/50 text-indigo-600 flex items-center justify-center shrink-0">
+              <AlertCircle size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {stats.estornos} ocorrências
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Cancelamentos financeiros de vendas
+            </span>
+          </div>
+        </motion.div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -3764,6 +7169,9 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
 
   const totalCost = costData.reduce((acc, item) => acc + item.totalCost, 0);
 
+  const totalQtySold = costData.reduce((acc, item) => acc + item.qty, 0);
+  const avgItemCost = totalQtySold > 0 ? (totalCost / totalQtySold) : 0;
+
   return (
     <div className="space-y-6">
       <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 text-center">
@@ -3773,10 +7181,77 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Custo Total Acumulado</p>
-          <h4 className="text-2xl font-black text-slate-800">R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-        </div>
+        {/* Card 1: Total Cost */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Calculator size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Custo Total de Aquisição (CMV)</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-605 flex items-center justify-center shrink-0">
+              <Calculator size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Gasto bruto para repor estoque
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 2: Quantity Sold */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ShoppingBag size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Total de Itens Vendidos</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-brand-blue flex items-center justify-center shrink-0">
+              <ShoppingBag size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {totalQtySold} unidades
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Volume total escoado no período
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 3: Avg Item Cost */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Percent size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Custo Unitário Médio</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <Percent size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-600 font-mono tracking-tight">
+              R$ {avgItemCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Gasto médio ponderado por unidade
+            </span>
+          </div>
+        </motion.div>
       </div>
       
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
@@ -4056,18 +7531,77 @@ function GeneralStockReport() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total de Itens Físicos</p>
-          <h4 className="text-2xl font-black text-slate-800">{totals.stock.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</h4>
-        </div>
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Custo Total do Estoque</p>
-          <h4 className="text-2xl font-black text-slate-800">R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-        </div>
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor de Venda Total</p>
-          <h4 className="text-2xl font-black text-brand-blue">R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-        </div>
+        {/* Card 1: Total Itens Fisicos */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Package size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Total de Itens Físicos</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-600 flex items-center justify-center shrink-0">
+              <Package size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {totals.stock.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Volume físico unificado em estoque
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 2: Custo Total do Estoque */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <DollarSign size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Custo Total em Estoque</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-600 flex items-center justify-center shrink-0">
+              <DollarSign size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Capital empatado em materiais físicos
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 3: Valor de Venda Total */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <TrendingUp size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-brand-blue uppercase tracking-widest italic">Potencial de Faturamento</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-150 text-brand-blue flex items-center justify-center shrink-0">
+              <TrendingUp size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-brand-blue font-mono tracking-tight">
+              R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Valor estimado de vendas brutas
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -4348,19 +7882,77 @@ function StockProfitReport() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Custo Total em Estoque</p>
-          <h4 className="text-2xl font-black text-slate-800">R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-        </div>
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Venda Total Prevista</p>
-          <h4 className="text-2xl font-black text-brand-blue">R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-        </div>
-        <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lucro Bruto Potencial</p>
-          <h4 className="text-2xl font-black text-emerald-500">R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
-          <p className="text-[10px] font-bold text-emerald-600 mt-1">Margem Média: {totalMargin.toFixed(2)}%</p>
-        </div>
+        {/* Card 1: Custo Total em Estoque */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <DollarSign size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Custo Total em Estoque</span>
+            <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200/30 text-slate-605 flex items-center justify-center shrink-0">
+              <DollarSign size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Capital empatado em materiais físicos
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 2: Venda Total Prevista */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <TrendingUp size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-brand-blue uppercase tracking-widest italic">Venda Total Prevista</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-150 text-brand-blue flex items-center justify-center shrink-0">
+              <TrendingUp size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-brand-blue font-mono tracking-tight">
+              R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Volume potencial de faturamento bruto
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Card 3: Lucro Bruto Potencial */}
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Percent size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Lucro Bruto Potencial</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <Percent size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-600 font-mono tracking-tight">
+              R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <span className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 block">
+              Margem Média Projetada: {totalMargin.toFixed(2)}%
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -4758,68 +8350,110 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
       </div>
 
       {/* KPI Stats Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Inflows Card */}
-        <div className="p-5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Entradas Totais</span>
-            <ArrowUpRight size={16} className="text-emerald-500" />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ArrowUpRight size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-emerald-700 dark:text-emerald-400 truncate" title={stats.formattedInflows}>
-            {stats.formattedInflows}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            {filteredSales.length} transações comerciais
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Entradas Totais</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <ArrowUpRight size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-600 font-mono tracking-tight" title={stats.formattedInflows}>
+              {stats.formattedInflows}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              {filteredSales.length} transações comerciais
+            </span>
+          </div>
+        </motion.div>
 
         {/* Outflows Card */}
-        <div className="p-5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/30 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Saídas Totais</span>
-            <ArrowDownRight size={16} className="text-rose-500" />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ArrowDownRight size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-rose-700 dark:text-rose-400 truncate" title={stats.formattedOutflows}>
-            {stats.formattedOutflows}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            {filteredExpenses.length} despesas e taxas
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest italic">Saídas Totais</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100/50 text-rose-600 flex items-center justify-center shrink-0">
+              <ArrowDownRight size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-rose-600 font-mono tracking-tight" title={stats.formattedOutflows}>
+              {stats.formattedOutflows}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              {filteredExpenses.length} despesas e taxas
+            </span>
+          </div>
+        </motion.div>
 
         {/* Saldo Líquido Card */}
-        <div className={cn("p-5 rounded-2xl shadow-sm flex flex-col justify-between border",
-          stats.balance >= 0 
-            ? "bg-slate-100/50 dark:bg-slate-900/30 border-[#e2e8f0]" 
-            : "bg-amber-50/50 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/30"
-        )}>
-          <div className="flex items-center justify-between mb-2">
-            <span className={cn("text-[10px] font-black uppercase tracking-wider", stats.balance >= 0 ? "text-slate-400" : "text-amber-600")}>
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className={cn("p-6 rounded-3xl border shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all",
+            stats.balance >= 0 
+              ? "bg-white border-slate-200/80" 
+              : "bg-amber-50/50 border-amber-100"
+          )}
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Activity size={140} className="text-slate-900" />
+          </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className={cn("text-[10px] font-black uppercase tracking-widest italic", stats.balance >= 0 ? "text-slate-400" : "text-amber-600")}>
               Saldo de Caixa
             </span>
-            <Activity size={16} className={stats.balance >= 0 ? "text-slate-400" : "text-amber-500"} />
+            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border",
+              stats.balance >= 0 ? "bg-slate-50 border-slate-200 text-slate-505" : "bg-amber-50 border-amber-200 text-amber-505"
+            )}>
+              <Activity size={15} />
+            </div>
           </div>
-          <p className={cn("text-xl font-black truncate", stats.balance >= 0 ? "text-slate-800 dark:text-slate-200" : "text-amber-700 dark:text-amber-400")} title={stats.formattedBalance}>
-            {stats.formattedBalance}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            {stats.balance >= 0 ? 'Resultado Superavitário' : 'Resultado Deficitário'}
-          </p>
-        </div>
+          <div className="mt-2">
+            <h3 className={cn("text-2xl font-black font-mono tracking-tight", stats.balance >= 0 ? "text-slate-800" : "text-amber-700")} title={stats.formattedBalance}>
+              {stats.formattedBalance}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              {stats.balance >= 0 ? 'Resultado Superavitário' : 'Resultado Deficitário'}
+            </span>
+          </div>
+        </motion.div>
 
         {/* Margem Card */}
-        <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-brand-blue">Eficiência de Caixa</span>
-            <Percent size={16} className="text-brand-blue" />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Percent size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-slate-800 dark:text-slate-350">
-            {stats.margin.toFixed(1)}% <span className="text-xs font-normal text-slate-400">de margem</span>
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            Retenção de caixa p/ faturamento
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest italic">Eficiência de Caixa</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <Percent size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-850 font-mono tracking-tight">
+              {stats.margin.toFixed(1)}% <span className="text-xs font-normal text-slate-400">de margem</span>
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Retenção de caixa p/ faturamento
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       {/* Dual Visualizers Block */}
@@ -5214,62 +8848,102 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Pending Unpaid */}
-        <div className="p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/10 border border-amber-100 dark:border-amber-900/30 shadow-sm flex flex-col justify-between font-sans">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Total Aberto (Geral)</span>
-            <AlertCircle size={16} className="text-amber-500" />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <AlertCircle size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-amber-700 dark:text-amber-400 truncate" title={stats.formattedUnpaid}>
-            {stats.formattedUnpaid}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            Todas as duplicatas não pagas
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest italic">Total Aberto (Geral)</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-250 text-amber-600 flex items-center justify-center shrink-0">
+              <AlertCircle size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-amber-700 font-mono tracking-tight" title={stats.formattedUnpaid}>
+              {stats.formattedUnpaid}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Todas as duplicatas não pagas
+            </span>
+          </div>
+        </motion.div>
 
         {/* Total Overdue */}
-        <div className="p-5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/30 shadow-sm flex flex-col justify-between font-sans">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Total Vencido</span>
-            <AlertTriangle size={16} className="text-rose-500 animate-bounce" />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <AlertTriangle size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-rose-700 dark:text-rose-400 truncate" title={stats.formattedOverdue}>
-            {stats.formattedOverdue}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-rose-500 mt-2">
-            Atenção imediata para juros
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest italic">Total Vencido</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100/50 text-rose-600 flex items-center justify-center shrink-0">
+              <AlertTriangle size={15} className="animate-bounce" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-rose-700 font-mono tracking-tight" title={stats.formattedOverdue}>
+              {stats.formattedOverdue}
+            </h3>
+            <span className="text-[10px] font-black text-rose-500 uppercase italic mt-1.5 block">
+              Atenção imediata para juros e multas
+            </span>
+          </div>
+        </motion.div>
 
         {/* Period Upcoming */}
-        <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 shadow-sm flex flex-col justify-between font-sans">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-brand-blue">A Vencer (No Período)</span>
-            <Clock size={16} className="text-brand-blue" />
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Clock size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-slate-800 dark:text-slate-200 truncate" title={stats.formattedPeriodUpcoming}>
-            {stats.formattedPeriodUpcoming}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            Programado p/ os filtros selecionados
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest italic">A Vencer (No Período)</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <Clock size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight" title={stats.formattedPeriodUpcoming}>
+              {stats.formattedPeriodUpcoming}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Programado p/ os filtros selecionados
+            </span>
+          </div>
+        </motion.div>
 
         {/* Period Paid */}
-        <div className="p-5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 shadow-sm flex flex-col justify-between font-sans">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Pago (No Período)</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+        <motion.div 
+          whileHover={{ y: -4 }}
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+        >
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Zap size={140} className="text-slate-900" />
           </div>
-          <p className="text-xl font-black text-emerald-700 dark:text-emerald-400 truncate" title={stats.formattedPeriodPaid}>
-            {stats.formattedPeriodPaid}
-          </p>
-          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-2">
-            Liquidados na data de referência
-          </p>
-        </div>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Pago (No Período)</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-650 flex items-center justify-center shrink-0">
+              <Zap size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-emerald-700 font-mono tracking-tight" title={stats.formattedPeriodPaid}>
+              {stats.formattedPeriodPaid}
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+              Liquidados na data de referência
+            </span>
+          </div>
+        </motion.div>
       </div>
 
       {/* Control Panel: Filters */}
