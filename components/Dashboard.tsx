@@ -282,253 +282,389 @@ export function Dashboard() {
     .slice(0, 3);
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-8 p-6 md:p-8 relative bg-brand-bg/50">
+      {/* Visual top bar glow effect */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-blue/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-brand-green/3 rounded-full blur-[120px] pointer-events-none" />
+
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+        <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-              <Gauge size={24} />
+            <div className="w-12 h-12 rounded-[1.25rem] bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/20 shadow-inner group transition-all duration-300 hover:scale-105">
+              <Gauge size={24} className="animate-pulse" />
             </div>
-            <h1 className="text-3xl font-black uppercase italic tracking-tight text-brand-text-main">Dashboard Executivo</h1>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] italic text-brand-blue bg-brand-blue/15 px-2 py-0.5 rounded-full leading-none">CONSOLIDADO</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  Tempo Real
+                </span>
+              </div>
+              <h1 className="text-3xl font-black uppercase italic tracking-tight text-brand-text-main mt-1">Dashboard Executivo</h1>
+            </div>
           </div>
-          <p className="text-brand-text-sec text-sm font-medium ml-13">Visão geral em tempo real da performance do seu negócio.</p>
+          <p className="text-brand-text-sec text-xs font-semibold ml-15 leading-relaxed">
+            Visão gerencial consolidada e análise de performance de faturamento, margem e fluxo de caixa.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <a 
             href="/consulta-preco" 
-            className="flex items-center gap-2 px-4 py-2 bg-brand-blue/10 text-brand-blue rounded-xl text-xs font-black uppercase italic hover:bg-brand-blue hover:text-white transition-all border border-brand-blue/20"
+            className="flex items-center gap-2.5 px-5 py-3 bg-brand-blue text-white rounded-2xl text-[11px] font-black uppercase italic hover:bg-brand-blue-hover transition-all border border-brand-blue/20 hover:shadow-lg hover:shadow-brand-blue/25"
           >
             <Monitor size={16} />
             Terminal de Consulta
           </a>
-          <div className="flex items-center gap-3 bg-brand-card border border-brand-border p-2 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-bg rounded-xl border border-brand-border">
-            <Calendar size={16} className="text-brand-blue" />
-            <input 
-              type="date" 
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent border-none text-xs font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-28"
-            />
-          </div>
-          <span className="text-brand-text-sec font-black italic text-xs">A</span>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-bg rounded-xl border border-brand-border">
-            <Calendar size={16} className="text-brand-blue" />
-            <input 
-              type="date" 
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent border-none text-xs font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-28"
-            />
+
+          <div className="flex items-center gap-3 bg-brand-card border border-brand-border p-2 rounded-2xl shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center gap-2 px-3 py-2 bg-brand-bg rounded-xl border border-brand-border transition-all hover:border-slate-300">
+              <Calendar size={14} className="text-brand-blue" />
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent border-none text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-28"
+              />
+            </div>
+            <span className="text-brand-text-sec font-black italic text-xs px-1">A</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-brand-bg rounded-xl border border-brand-border transition-all hover:border-slate-300">
+              <Calendar size={14} className="text-brand-blue" />
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent border-none text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-28"
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {/* Main Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      {/* Main Metrics Grid (Dynamic Bento Theme) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 relative z-10">
         <MetricCard 
           label="Faturamento Bruto" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSales)}
-          trend={`${profitTrend.toFixed(1)}%`}
+          trend={`${profitTrend >= 0 ? '+' : ''}${profitTrend.toFixed(1)}%`}
           positive={profitTrend >= 0}
           icon={DollarSign}
           color="blue"
+          subText="Total de vendas brutas"
         />
         <MetricCard 
           label="Lucro Líquido Estimado" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalProfit)}
-          trend={`${profitTrend.toFixed(1)}%`}
+          trend={`${profitTrend >= 0 ? '+' : ''}${profitTrend.toFixed(1)}%`}
           positive={profitTrend >= 0}
           icon={TrendingUp}
           color="green"
+          subText="Deduções e custos aplicados"
         />
         <MetricCard 
           label="Ticket Médio" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ticketMedio)}
-          trend={`${ticketMedioTrend.toFixed(1)}%`}
+          trend={`${ticketMedioTrend >= 0 ? '+' : ''}${ticketMedioTrend.toFixed(1)}%`}
           positive={ticketMedioTrend >= 0}
           icon={ShoppingCart}
           color="purple"
+          subText="Faturamento médio por venda"
         />
         <MetricCard 
           label="Margem de Lucro" 
           value={`${profitMargin.toFixed(1)}%`}
-          trend={`${marginTrend.toFixed(1)}%`}
+          trend={`${marginTrend >= 0 ? '+' : ''}${marginTrend.toFixed(1)}%`}
           positive={marginTrend >= 0}
           icon={Percent}
           color="orange"
+          subText="Retorno líquido gerado"
         />
         <MetricCard 
           label="Vendas em Oferta" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPromoSales)}
-          trend={`${promoSalesCount} vendas`}
+          trend={`${promoSalesCount} itens`}
           positive={true}
           icon={Zap}
-          color="blue"
+          color="cyan"
+          subText="Total com preço reduzido"
         />
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
         {/* Sales Performance Chart */}
-        <div className="lg:col-span-2 bg-brand-card border border-brand-border rounded-[2.5rem] p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
+        <div className="lg:col-span-2 bg-brand-card border border-brand-border rounded-[2.5rem] p-6 md:p-8 shadow-sm hover:shadow-md transition-all">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+              <div className="w-11 h-11 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/10">
                 <Activity size={20} />
               </div>
-              <h3 className="text-lg font-black uppercase italic text-brand-text-main">Desempenho de Vendas</h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-brand-blue"></div>
-                <span className="text-[10px] font-bold text-brand-text-sec uppercase">Vendas</span>
+              <div>
+                <h3 className="text-base font-black uppercase italic tracking-tight text-brand-text-main">Desempenho de Vendas</h3>
+                <p className="text-[10px] font-bold text-brand-text-sec uppercase">Série histórica de transações do período</p>
               </div>
+            </div>
+            <div className="flex items-center gap-4 bg-brand-bg px-4 py-2 border border-brand-border rounded-xl">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-blue"></span>
+                <span className="text-[10px] font-black uppercase italic text-brand-text-main">Venda Individual</span>
+              </div>
+              <span className="text-slate-300">|</span>
+              <span className="text-[10px] font-black uppercase italic text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full">
+                {filteredSales.length} Pedidos
+              </span>
             </div>
           </div>
           
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={filteredSales.map((s, i) => ({ name: `Venda ${i+1}`, value: s.total }))}>
+              <AreaChart data={filteredSales.map((s, i) => ({ name: `Venda #${i+1}`, value: s.total }))}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1E5EFF" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#1E5EFF" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" hide />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93', fontWeight: 600}} />
-                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
-                <Area type="monotone" dataKey="value" stroke="#1E5EFF" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tickFormatter={(val) => `R$ ${val}`} 
+                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }} 
+                />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 shadow-xl">
+                          <p className="text-[10px] font-black uppercase text-slate-400 italic tracking-wider mb-1">Faturamento Eventual</p>
+                          <p className="text-sm font-black text-white">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(payload[0].value))}
+                          </p>
+                          {payload[0].payload.name && (
+                            <span className="text-[9px] font-semibold text-slate-500 uppercase block mt-1.5">{payload[0].payload.name}</span>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#2563eb" 
+                  strokeWidth={3} 
+                  fillOpacity={1} 
+                  fill="url(#colorSales)"
+                  activeDot={{ r: 6, strokeWidth: 0, fill: '#2563eb' }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Category Distribution */}
-        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-              <Target size={20} />
+        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-6 md:p-8 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-11 h-11 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/10">
+                <Target size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-black uppercase italic tracking-tight text-brand-text-main">Vendas por Categoria</h3>
+                <p className="text-[10px] font-bold text-brand-text-sec uppercase">Representação acúmulo de portfólio</p>
+              </div>
             </div>
-            <h3 className="text-lg font-black uppercase italic text-brand-text-main">Vendas por Categoria</h3>
-          </div>
-          
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
-              </PieChart>
-            </ResponsiveContainer>
+            
+            <div className="h-64 w-full relative flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={85}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 shadow-xl">
+                            <p className="text-[10px] font-black uppercase text-slate-400 italic tracking-wider mb-1">Categoria de Venda</p>
+                            <p className="text-xs font-black text-white uppercase italic mb-0.5">{data.name}</p>
+                            <p className="text-sm font-black text-brand-green">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(data.value))}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+
+              {/* Centered label inside Pie Chart */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                <span className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest leading-none">TOTAL</span>
+                <span className="text-lg font-black text-brand-text-main uppercase italic mt-1 leading-none">
+                  {new Intl.NumberFormat('pt-BR', { style: 'decimal' }).format(categoryData.length)} Cat.
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-4 pt-4 border-t border-brand-border space-y-2.5">
             {categoryData.slice(0, 4).map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-xs font-bold text-brand-text-main">{item.name}</span>
+              <div key={index} className="flex items-center justify-between p-1 hover:bg-brand-bg rounded-lg transition-colors">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
+                  <span className="text-xs font-black text-brand-text-main uppercase italic truncate max-w-[130px]">{item.name}</span>
                 </div>
                 <span className="text-xs font-black text-brand-text-sec">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
                 </span>
               </div>
             ))}
+            {categoryData.length === 0 && (
+              <div className="text-center py-4 text-xs font-semibold text-brand-text-sec italic">
+                Nenhuma categoria registrada.
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Bottom Grid: Sellers and Payments */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
         {/* Top Products */}
-        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-                <Package size={20} />
+        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-6 md:p-8 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/10">
+                  <Package size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase italic tracking-tight text-brand-text-main">Ranking de Produtos</h3>
+                  <p className="text-[10px] font-bold text-brand-text-sec uppercase">Top 3 mais lucrativos do período</p>
+                </div>
               </div>
-              <h3 className="text-lg font-black uppercase italic text-brand-text-main">Ranking de Produtos</h3>
+              <a 
+                href="/relatorios" 
+                className="text-xs font-black text-brand-blue hover:text-brand-blue-hover uppercase italic bg-brand-blue/10 px-3.5 py-1.5 rounded-xl border border-brand-blue/10 transition-colors"
+              >
+                Ver Relatórios
+              </a>
             </div>
-            <a href="/relatorios?report=vendas_produto" className="text-xs font-bold text-brand-blue hover:underline">Ver Todos</a>
-          </div>
 
-          <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={product.id} className="flex items-center justify-between p-4 bg-brand-bg rounded-2xl border border-brand-border hover:border-brand-blue/30 transition-all group">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-brand-card flex items-center justify-center text-xs font-black text-brand-text-sec border border-brand-border group-hover:bg-brand-blue group-hover:text-white transition-all">
-                    #{index + 1}
+            <div className="space-y-4">
+              {topProducts.map((product, index) => {
+                const medalColors = [
+                  'bg-amber-400 text-amber-950 border-amber-300 shadow-amber-200/50', // Gold
+                  'bg-slate-300 text-slate-800 border-slate-200 shadow-slate-100/50', // Silver
+                  'bg-amber-700 text-amber-50 border-amber-600 shadow-amber-800/10'   // Bronze
+                ];
+
+                return (
+                  <div 
+                    key={product.id} 
+                    className="flex items-center justify-between p-4 bg-brand-bg rounded-[1.5rem] border border-brand-border hover:border-brand-blue/30 transition-all group hover:bg-white"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={cn(
+                        "w-10 h-10 rounded-[1rem] flex items-center justify-center text-xs font-black border shadow-md transition-transform duration-300 group-hover:scale-110",
+                        medalColors[index] || 'bg-slate-100 text-brand-text-sec border-slate-200'
+                      )}>
+                        #{index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-black text-brand-text-main uppercase italic truncate max-w-[210px]" title={product.name}>
+                          {product.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-black text-brand-text-sec uppercase bg-slate-200/50 px-2 py-0.5 rounded">
+                            {product.quantity} unidades
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-black text-brand-text-main">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.profit)}
+                      </p>
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic bg-emerald-500/10 text-emerald-500 border border-emerald-500/10">
+                        Margem: {product.margin}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-black text-brand-text-main uppercase italic truncate max-w-[180px]">{product.name}</h4>
-                    <p className="text-[10px] font-bold text-brand-text-sec uppercase">{product.quantity} unidades vendidas</p>
-                  </div>
+                );
+              })}
+              {topProducts.length === 0 && (
+                <div className="py-12 text-center rounded-2xl border border-dashed border-brand-border bg-brand-bg/50">
+                  <p className="text-sm font-semibold text-brand-text-sec italic">Nenhum produto registrado no período.</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-black text-brand-text-main" title="Lucro Bruto">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.profit)}
-                  </p>
-                  <p className="text-[10px] font-bold text-brand-green uppercase italic">Margem: {product.margin}%</p>
-                </div>
-              </div>
-            ))}
-            {topProducts.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-sm font-medium text-brand-text-sec italic">Nenhuma venda registrada no período.</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
         {/* Payment Methods */}
-        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-              <CreditCard size={20} />
+        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-6 md:p-8 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-11 h-11 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/10">
+                <CreditCard size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-black uppercase italic tracking-tight text-brand-text-main">Meios de Pagamento</h3>
+                <p className="text-[10px] font-bold text-brand-text-sec uppercase">Distribuição percentual de recebidores</p>
+              </div>
             </div>
-            <h3 className="text-lg font-black uppercase italic text-brand-text-main">Meios de Pagamento</h3>
-          </div>
 
-          <div className="space-y-6">
-            {paymentData.map((item, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-brand-text-main uppercase italic">{item.name}</span>
-                  <span className="text-xs font-black text-brand-blue">{item.value}%</span>
+            <div className="space-y-5">
+              {paymentData.map((item, index) => {
+                const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500', 'bg-indigo-500', 'bg-slate-500'];
+                const trackingColor = colors[index % colors.length] || 'bg-brand-blue';
+
+                return (
+                  <div key={index} className="space-y-1.5 p-2.5 rounded-2xl hover:bg-brand-bg border border-transparent hover:border-brand-border transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("w-2 h-2 rounded-full", trackingColor)}></span>
+                        <span className="text-xs font-black text-brand-text-main uppercase italic">{item.name}</span>
+                      </div>
+                      <span className="text-xs font-black text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full">{item.value}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/40">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${item.value}%` }}
+                        transition={{ duration: 1, delay: index * 0.1 }}
+                        className={cn("h-full rounded-full transition-all duration-500", trackingColor)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              {paymentData.length === 0 && (
+                <div className="py-12 text-center rounded-2xl border border-dashed border-brand-border bg-brand-bg/50">
+                  <p className="text-sm font-semibold text-brand-text-sec italic">Nenhum pagamento registrado no período.</p>
                 </div>
-                <div className="h-2 w-full bg-brand-bg rounded-full overflow-hidden border border-brand-border">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.value}%` }}
-                    transition={{ duration: 1, delay: index * 0.1 }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                </div>
-              </div>
-            ))}
-            {paymentData.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-sm font-medium text-brand-text-sec italic">Nenhum pagamento registrado no período.</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -536,32 +672,89 @@ export function Dashboard() {
   );
 }
 
-function MetricCard({ label, value, trend, positive, icon: Icon, color }: { label: string, value: string, trend: string, positive: boolean, icon: any, color: string }) {
-  const colorClasses: Record<string, string> = {
-    blue: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20',
-    green: 'bg-brand-green/10 text-brand-green border-brand-green/20',
-    purple: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    orange: 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+function MetricCard({ 
+  label, 
+  value, 
+  trend, 
+  positive, 
+  icon: Icon, 
+  color, 
+  subText 
+}: { 
+  label: string, 
+  value: string, 
+  trend: string, 
+  positive: boolean, 
+  icon: any, 
+  color: string, 
+  subText?: string 
+}) {
+  const colorClasses: Record<string, { bg: string, ring: string, icon: string, trendBg: string }> = {
+    blue: {
+      bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+      ring: 'hover:border-blue-500/30 hover:shadow-blue-500/5',
+      icon: 'text-blue-500',
+      trendBg: 'bg-emerald-500/10 text-emerald-500'
+    },
+    green: {
+      bg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+      ring: 'hover:border-emerald-500/30 hover:shadow-emerald-500/5',
+      icon: 'text-emerald-500',
+      trendBg: 'bg-emerald-500/10 text-emerald-500'
+    },
+    purple: {
+      bg: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+      ring: 'hover:border-purple-500/30 hover:shadow-purple-500/5',
+      icon: 'text-purple-500',
+      trendBg: 'bg-purple-500/10 text-purple-500'
+    },
+    orange: {
+      bg: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+      ring: 'hover:border-amber-500/30 hover:shadow-amber-500/5',
+      icon: 'text-amber-500',
+      trendBg: 'bg-amber-500/10 text-amber-500'
+    },
+    cyan: {
+      bg: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
+      ring: 'hover:border-cyan-500/30 hover:shadow-cyan-500/5',
+      icon: 'text-cyan-500',
+      trendBg: 'bg-cyan-500/10 text-cyan-500'
+    }
   };
 
+  const scheme = colorClasses[color] || colorClasses.blue;
+
   return (
-    <div className="bg-brand-card border border-brand-border rounded-[2rem] p-4 md:p-5 shadow-sm hover:shadow-md transition-all group">
-      <div className="flex items-center justify-between mb-3">
-        <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110", colorClasses[color])}>
+    <div className={cn(
+      "bg-brand-card border border-brand-border rounded-[2rem] p-5 shadow-sm hover:shadow-lg transition-all duration-300 group hover:-translate-y-1 relative overflow-hidden",
+      scheme.ring
+    )}>
+      {/* Dynamic background card element */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-slate-200/5 to-transparent rounded-bl-3xl pointer-events-none" />
+
+      <div className="flex items-center justify-between mb-4">
+        <div className={cn(
+          "w-11 h-11 rounded-2xl flex items-center justify-center border transition-all duration-300 group-hover:scale-110 shadow-xs", 
+          scheme.bg
+        )}>
           <Icon size={20} />
         </div>
         <div className={cn(
-          "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase italic",
-          positive ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-danger/10 text-brand-danger'
+          "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase italic border border-transparent",
+          positive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/15' : 'bg-rose-500/10 text-rose-500 border-rose-500/15'
         )}>
-          {positive ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+          {positive ? <ArrowUpRight size={11} className="stroke-[3px]" /> : <ArrowDownRight size={11} className="stroke-[3px]" />}
           {trend}
         </div>
       </div>
-      <div className="space-y-1 min-w-0">
-        <p className="text-[9px] md:text-[10px] font-black uppercase italic text-brand-text-sec tracking-widest leading-none truncate" title={label}>{label}</p>
-        <h4 className="text-base xl:text-lg font-black text-brand-text-main tracking-tight truncate leading-none" title={value}>{value}</h4>
+      <div className="space-y-1.5 min-w-0">
+        <p className="text-[10px] font-black uppercase italic text-brand-text-sec tracking-widest leading-none truncate" title={label}>{label}</p>
+        <h4 className="text-[20px] font-black text-brand-text-main tracking-tight truncate leading-none pt-0.5" title={value}>{value}</h4>
+        {subText && (
+          <p className="text-[9px] font-bold text-slate-400 capitalize truncate leading-none pt-1" title={subText}>{subText}</p>
+        )}
       </div>
     </div>
   );
 }
+

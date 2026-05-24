@@ -584,49 +584,58 @@ export default function NovaCompraPage() {
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen">
+    <div className="p-4 md:p-8 space-y-8 bg-brand-bg/50 min-h-screen relative">
+      {/* Visual background glow */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-blue/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-brand-green/3 rounded-full blur-[120px] pointer-events-none" />
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
         <div className="flex items-center gap-4">
           <Link 
             href="/compras"
-            className="p-3 bg-white border border-brand-border rounded-2xl text-brand-text-sec hover:text-brand-blue transition-all active:scale-95"
+            className="w-14 h-14 rounded-3xl bg-brand-card border border-brand-border flex items-center justify-center text-brand-text-sec hover:text-brand-blue transition-all active:scale-95 shadow-sm"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={24} />
           </Link>
           <div>
-            <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Nova Compra</h2>
-            <p className="text-xs md:text-sm text-brand-text-sec font-bold uppercase tracking-widest opacity-60">Entrada de Mercadoria</p>
+            <h2 className="text-3xl lg:text-4xl font-black text-brand-text-main uppercase italic tracking-tight">Nova Compra</h2>
+            <p className="text-sm text-brand-text-sec font-bold uppercase tracking-widest opacity-70 mt-1">Entrada de Mercadoria e Lotes</p>
           </div>
         </div>
 
         {(supplierId || items.length > 0) && (
           <button 
             onClick={handleClearDraft}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-black uppercase italic tracking-tight hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-rose-100 transition-all shadow-sm active:scale-95"
           >
-            <Trash2 size={14} />
+            <Trash2 size={16} />
             Limpar formulário
           </button>
         )}
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-        <div className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl font-black uppercase italic tracking-tight transition-all shrink-0 ${activeTab === 1 ? 'bg-brand-blue text-white' : 'text-slate-400 bg-slate-50'}`}>
-          <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] ${activeTab === 1 ? 'bg-white text-brand-blue' : 'bg-slate-200 text-slate-500'}`}>1</div>
-          <span className="text-xs md:text-sm">Fornecedor</span>
-        </div>
-        <ChevronRight className="text-slate-300 shrink-0" size={16} />
-        <div className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl font-black uppercase italic tracking-tight transition-all shrink-0 ${activeTab === 2 ? 'bg-brand-blue text-white' : 'text-slate-400 bg-slate-50'}`}>
-          <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] ${activeTab === 2 ? 'bg-white text-brand-blue' : 'bg-slate-200 text-slate-500'}`}>2</div>
-          <span className="text-xs md:text-sm">Produtos</span>
-        </div>
-        <ChevronRight className="text-slate-300 shrink-0" size={16} />
-        <div className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl font-black uppercase italic tracking-tight transition-all shrink-0 ${activeTab === 3 ? 'bg-brand-blue text-white' : 'text-slate-400 bg-slate-50'}`}>
-          <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] ${activeTab === 3 ? 'bg-white text-brand-blue' : 'bg-slate-200 text-slate-500'}`}>3</div>
-          <span className="text-xs md:text-sm">Finalizar</span>
-        </div>
+      <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 relative z-10">
+        {[1, 2, 3].map((tab) => (
+          <div 
+            key={tab}
+            className={cn(
+              "flex items-center gap-3 px-6 py-4 rounded-3xl font-black uppercase italic tracking-tight transition-all shrink-0 border",
+              activeTab === tab 
+                ? 'bg-brand-blue text-white border-brand-blue shadow-lg shadow-brand-blue/20' 
+                : 'text-brand-text-sec bg-brand-card border-brand-border'
+            )}
+          >
+            <div className={cn(
+              "w-8 h-8 rounded-2xl flex items-center justify-center text-xs",
+              activeTab === tab ? 'bg-white/20 text-white' : 'bg-brand-bg text-brand-text-sec'
+            )}>{tab}</div>
+            <span className="text-sm">
+              {tab === 1 ? 'Fornecedor' : tab === 2 ? 'Produtos' : 'Finalizar'}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* Tab Content */}

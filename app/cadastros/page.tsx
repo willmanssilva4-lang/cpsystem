@@ -31,47 +31,53 @@ export default function RegistrationsPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="w-full h-full flex flex-col gap-4"
+      className="w-full h-full flex flex-col gap-5"
     >
-      <div className="bg-slate-50 text-brand-blue p-4 rounded-2xl group-hover:bg-brand-blue group-hover:text-white transition-colors border border-brand-border/50 w-fit">
-        <option.icon size={32} />
+      <div className="w-14 h-14 rounded-3xl bg-brand-bg flex items-center justify-center text-brand-blue border border-brand-border group-hover:bg-brand-blue group-hover:text-white transition-all duration-300 shadow-sm shrink-0">
+        <option.icon size={26} strokeWidth={2.5} />
       </div>
       <div>
-        <div className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">{option.label}</div>
-        <div className="text-xs text-brand-text-main/40 font-bold uppercase italic leading-tight mt-2">{option.description}</div>
+        <div className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">{option.label}</div>
+        <div className="text-[11px] text-brand-text-sec font-bold uppercase italic leading-snug mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
+          {option.description}
+        </div>
       </div>
     </motion.div>
   );
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Cadastros</h1>
-        <p className="text-brand-blue/60 font-medium text-sm">Gerencie as configurações base do seu sistema.</p>
+    <div className="p-4 md:p-8 space-y-8 bg-brand-bg/50 min-h-screen relative">
+      {/* Visual background glow */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-blue/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-brand-green/3 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="flex flex-col gap-2 relative z-10">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-[2rem] bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/20 shadow-inner">
+            <LayoutGrid size={32} />
+          </div>
+          <div>
+            <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Cadastros</h1>
+            <p className="text-brand-text-sec font-medium text-sm mt-1 max-w-xl">Gerencie as configurações operacionais, equipe, estoque e parceiros do seu sistema em um único painel consolidado.</p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
         {REGISTRATION_OPTIONS.map((option, index) => {
-          if (option.label === 'Clientes') {
-            return (
-              <button
-                key={option.label}
-                onClick={() => setIsCustomerModalOpen(true)}
-                className="group flex flex-col items-start gap-4 p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-blue-hover hover:shadow-xl hover:-translate-y-1 transition-all text-left active:scale-[0.98] w-full"
-              >
-                {renderCardContent(option, index)}
-              </button>
-            );
-          }
+          const WrapperButton = option.label === 'Clientes' ? 'button' : Link;
+          const wrapperProps = option.label === 'Clientes' 
+            ? { onClick: () => setIsCustomerModalOpen(true) } as const
+            : { href: option.href } as const;
 
           return (
-            <Link
+            <WrapperButton
               key={option.label}
-              href={option.href}
-              className="group flex flex-col items-start gap-4 p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-blue-hover hover:shadow-xl hover:-translate-y-1 transition-all text-left active:scale-[0.98]"
+              {...wrapperProps}
+              className="group flex flex-col items-start gap-4 p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
             >
               {renderCardContent(option, index)}
-            </Link>
+            </WrapperButton>
           );
         })}
       </div>

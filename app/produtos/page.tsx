@@ -27,7 +27,11 @@ import {
   History,
   ArrowLeftRight,
   ClipboardList,
-  Info
+  Info,
+  Minus,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn, formatDateTimeBR } from '@/lib/utils';
@@ -591,24 +595,27 @@ export default function ProductsPage() {
               {/* Top row: Search and Actions */}
               <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                 <div className="relative w-full md:w-96">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-blue transition-colors" size={17} />
                   <input 
-                    className="w-full pl-10 pr-4 h-10 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue text-sm font-medium text-slate-700 transition-all outline-none"
+                    className="w-full pl-10 pr-4 h-10 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:ring-4 focus:ring-brand-blue/10 focus:border-brand-blue text-sm font-medium text-slate-700 transition-all outline-none shadow-inner"
                     placeholder="Buscar por produto..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                  <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-lg text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap">
-                    <Upload size={16} />
+                  <button 
+                    onClick={() => setShowImportModal(true)} 
+                    className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-xl text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
+                  >
+                    <Upload size={14} className="stroke-[2.5]" />
                     <span>Importar</span>
                   </button>
                   <button 
                     onClick={exportProducts} 
-                    className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-lg text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+                    className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-xl text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
                   >
-                    <Download size={16} />
+                    <Download size={14} className="stroke-[2.5]" />
                     <span>Exportar</span>
                   </button>
                 </div>
@@ -625,12 +632,14 @@ export default function ProductsPage() {
                       setShowCategoryMenu(false);
                     }}
                     className={cn(
-                      "flex items-center gap-2 px-3 h-10 border rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors w-full md:w-auto justify-between md:justify-start",
-                      selectedDepartamento ? "bg-brand-blue text-white border-brand-blue" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                      "flex items-center gap-2 px-4 h-10 border rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer transition-all duration-200 w-full md:w-auto justify-between md:justify-start active:scale-95",
+                      selectedDepartamento 
+                        ? "bg-brand-blue text-white border-brand-blue shadow-md shadow-brand-blue/10" 
+                        : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:border-slate-300"
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <Filter size={16} />
+                      <Filter size={14} className="stroke-[2.5]" />
                       <span>{selectedDepartamento ? departamentos.find(d => d.id === selectedDepartamento)?.nome : 'Departamentos'}</span>
                     </div>
                     <ChevronDown size={14} />
@@ -761,28 +770,85 @@ export default function ProductsPage() {
                     <tr key={product.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="hidden sm:flex w-8 h-8 rounded bg-slate-100 items-center justify-center text-slate-400">
-                            <Package size={16} />
+                          <div className="hidden sm:flex w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 items-center justify-center text-slate-400 shadow-sm group-hover:border-brand-blue/25 group-hover:bg-slate-100/40 transition-colors">
+                            <Package size={18} className="text-slate-400 group-hover:text-brand-blue/70 transition-colors" />
                           </div>
                           <div className="flex flex-col max-w-[180px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[500px]">
-                            <span className="font-medium text-slate-700 text-xs md:text-sm truncate" title={product.name}>{product.name}</span>
-                            <div className="flex items-center gap-2 mt-1">
+                            <span className="font-bold text-slate-800 text-xs md:text-sm truncate group-hover:text-brand-blue transition-colors" title={product.name}>{product.name}</span>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               {getCodigoMercadologico(product) && (
-                                <span className="text-[10px] text-brand-blue font-black tracking-widest bg-brand-blue/5 px-1.5 py-0.5 rounded">
+                                <span className="text-[9px] text-brand-blue font-black tracking-widest bg-brand-blue/5 px-1.5 py-0.5 rounded border border-brand-blue/10">
                                   {getCodigoMercadologico(product)}
                                 </span>
                               )}
-                              <span className="text-[10px] text-slate-400 font-bold uppercase md:hidden">{getCategoryName(product)}</span>
+                              {product.brand && product.brand !== 'PADRAO' && product.brand !== 'PADRÃO' && (
+                                <span className="text-[9px] text-slate-500 font-extrabold bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                  {product.brand}
+                                </span>
+                              )}
+                              <span className="text-[9px] text-slate-400 font-bold uppercase md:hidden">{getCategoryName(product)}</span>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-500">{getCategoryName(product)}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{Number.isInteger(product.stock) ? product.stock : product.stock.toFixed(3)}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700 whitespace-nowrap">
-                        <span className="text-slate-400">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        <span className="mx-2 text-slate-300">/</span>
-                        <span className="text-brand-blue">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <td className="hidden md:table-cell px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-600 block">{getCategoryName(product)}</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">{getDepartamentoName(product)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn(
+                              "text-sm font-black",
+                              product.status !== 'Inativo' && product.stock <= product.minStock ? "text-amber-600 font-extrabold" : "text-slate-700"
+                            )}>
+                              {Number.isInteger(product.stock) ? product.stock : product.stock.toFixed(3)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">{product.unit || 'UN'}</span>
+                          </div>
+                          
+                          {/* Stock Health Bar */}
+                          {product.status !== 'Inativo' && (
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all duration-300",
+                                    product.stock <= 0 ? "bg-rose-500" :
+                                    product.stock <= product.minStock ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
+                                  )}
+                                  style={{ width: `${product.stock <= 0 ? 0 : Math.max(8, Math.min((product.stock / Math.max(1, product.minStock * 1.5)) * 100, 100))}%` }}
+                                />
+                              </div>
+                              {product.stock <= product.minStock && (
+                                <span className="text-[8px] font-black uppercase text-amber-600 tracking-widest block whitespace-nowrap animate-pulse">Min: {product.minStock}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col text-slate-700">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider w-8">Custo:</span>
+                            <span className="text-xs text-slate-500 font-bold">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider w-8">Venda:</span>
+                            <span className="text-xs text-brand-blue font-black bg-brand-blue/5 px-2 py-0.5 rounded">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          
+                          {/* Margem / Profit Percentage badge */}
+                          {product.profitPercentage > 0 && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <span className="text-[8px] font-extrabold text-emerald-600 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-100 uppercase tracking-widest leading-none">
+                                +{product.profitPercentage.toFixed(0)}% margem
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="hidden sm:table-cell px-6 py-4">
                         <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (product.stock <= product.minStock ? 'Estoque Baixo' : 'Ativo')} />
@@ -1020,102 +1086,275 @@ export default function ProductsPage() {
       )}
 
       {activeTab === 'ajustes' && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in duration-300">
           <div className="p-8 space-y-8">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-lg font-black text-slate-700 uppercase italic tracking-tight">Ajuste de Estoque em Massa</h3>
-              <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Selecione os produtos para ajustar o saldo</p>
+            <div className="flex flex-col gap-1.5 border-b border-slate-100 pb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                  <Settings2 size={16} className="stroke-[2.5]" />
+                </div>
+                <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Ajuste de Estoque em Massa</h3>
+              </div>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Selecione qualquer produto no catálogo para ajustar seu saldo físico rapidamente</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="md:col-span-2 space-y-6">
-                <div className="space-y-4">
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Selecionar Produto:</label>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Form Col */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Selecionar Produto */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Selecionar Produto:</label>
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-450 z-10" size={16} />
                     <select 
                       value={adjustmentProductId}
                       onChange={(e) => setAdjustmentProductId(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:ring-4 focus:ring-brand-blue/5 focus:border-brand-blue text-xs font-bold text-slate-700 transition-all outline-none appearance-none"
+                      className="w-full pl-11 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:ring-4 focus:ring-brand-blue/10 focus:border-brand-blue text-xs font-bold text-slate-700 transition-all outline-none appearance-none cursor-pointer"
                     >
-                      <option value="">Selecione um produto...</option>
+                      <option value="">Selecione um produto comercial...</option>
                       {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} (SKU: {p.sku}) - Estoque: {p.stock}</option>
+                        <option key={p.id} value={p.id}>{p.name} (SKU: {p.sku}) — Estoque Atual: {p.stock} {p.unit || 'UN'}</option>
                       ))}
                     </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown size={14} className="stroke-[2.5]" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Ajuste:</label>
-                    <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Tipo de Ajuste */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Tipo de Ajuste:</label>
+                    <div className="flex bg-slate-50 p-1.5 rounded-xl border border-slate-200">
                       <button 
+                        type="button"
                         onClick={() => setAdjustmentType('ENTRADA')}
                         className={cn(
-                          "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black uppercase italic text-xs transition-all",
-                          adjustmentType === 'ENTRADA' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                          "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black uppercase italic text-xs transition-all duration-200 cursor-pointer",
+                          adjustmentType === 'ENTRADA' 
+                            ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/15" 
+                            : "text-slate-450 hover:text-slate-705"
                         )}
                       >
-                        <TrendingUp size={16} />
+                        <TrendingUp size={14} className="stroke-[2.5]" />
                         Entrada
                       </button>
                       <button 
+                        type="button"
                         onClick={() => setAdjustmentType('SAÍDA')}
                         className={cn(
-                          "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black uppercase italic text-xs transition-all",
-                          adjustmentType === 'SAÍDA' ? "bg-white text-rose-600 shadow-sm" : "text-slate-400 hover:text-rose-500"
+                          "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black uppercase italic text-xs transition-all duration-200 cursor-pointer",
+                          adjustmentType === 'SAÍDA' 
+                            ? "bg-rose-500 text-white shadow-lg shadow-rose-500/15" 
+                            : "text-slate-455 hover:text-rose-600"
                         )}
                       >
-                        <TrendingDown size={16} />
+                        <TrendingDown size={14} className="stroke-[2.5]" />
                         Saída
                       </button>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Quantidade:</label>
-                    <input 
-                      type="number"
-                      value={adjustmentQty}
-                      onChange={(e) => setAdjustmentQty(Number(e.target.value))}
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-xl font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                      placeholder="0"
-                    />
+
+                  {/* Quantidade */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3 flex flex-col justify-between">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Quantidade a ser Ajustada:</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAdjustmentQty(prev => Math.max(0, prev - 1))}
+                        className="w-11 h-11 shrink-0 flex items-center justify-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-extrabold hover:text-slate-800 transition-colors cursor-pointer active:scale-90"
+                      >
+                        <Minus size={16} className="stroke-[2.5]" />
+                      </button>
+                      <input 
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={adjustmentQty || ''}
+                        onChange={(e) => setAdjustmentQty(Math.max(0, Number(e.target.value)))}
+                        className="w-full bg-slate-50/50 border border-slate-200 h-11 rounded-xl text-center text-lg font-black text-slate-800 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all"
+                        placeholder="0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAdjustmentQty(prev => prev + 1)}
+                        className="w-11 h-11 shrink-0 flex items-center justify-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-extrabold hover:text-slate-800 transition-colors cursor-pointer active:scale-90"
+                      >
+                        <Plus size={16} className="stroke-[2.5]" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Motivo do Ajuste:</label>
-                  <select 
-                    value={adjustmentReason}
-                    onChange={(e) => setAdjustmentReason(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                  >
-                    <option value="Correção de Saldo">Correção de Saldo</option>
-                    <option value="Avaria / Quebra">Avaria / Quebra</option>
-                    <option value="Vencimento">Vencimento</option>
-                    <option value="Bonificação">Bonificação</option>
-                    <option value="Doação">Doação</option>
-                    <option value="Outros">Outros</option>
-                  </select>
+                {/* Motivo do Ajuste */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Motivo do Ajuste:</label>
+                  <div className="relative">
+                    <select 
+                      value={adjustmentReason}
+                      onChange={(e) => setAdjustmentReason(e.target.value)}
+                      className="w-full bg-slate-50/60 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all cursor-pointer appearance-none"
+                    >
+                      <option value="Correção de Saldo">Correção de Saldo</option>
+                      <option value="Avaria / Quebra">Avaria / Quebra</option>
+                      <option value="Vencimento">Vencimento</option>
+                      <option value="Bonificação">Bonificação</option>
+                      <option value="Doação">Doação</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown size={14} className="stroke-[2.5]" />
+                    </div>
+                  </div>
                 </div>
 
+                {/* Botão de Confirmação */}
                 <button 
+                  type="button"
                   onClick={handleStockAdjustment}
-                  disabled={isAdjusting}
-                  className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-50"
+                  disabled={isAdjusting || !adjustmentProductId || adjustmentQty <= 0}
+                  className={cn(
+                    "w-full text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer",
+                    adjustmentType === 'ENTRADA' 
+                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" 
+                      : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/10"
+                  )}
                 >
-                  {isAdjusting ? 'Processando...' : 'Confirmar Ajuste de Estoque'}
+                  {isAdjusting ? (
+                    <>
+                      <RefreshCw className="animate-spin" size={16} />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      Confirmar Ajuste Manual
+                    </>
+                  )}
                 </button>
               </div>
 
+              {/* Sidebar Card Col */}
               <div className="space-y-6">
-                <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Instruções</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                    O ajuste de estoque é uma operação crítica. Certifique-se de que o motivo selecionado condiz com a realidade física. 
-                    <br /><br />
-                    Todas as alterações serão registradas no histórico de movimentações com o seu usuário.
+                {/* Card Resumo do Estoque */}
+                {(() => {
+                  const selectedProduct = products.find(p => p.id === adjustmentProductId);
+                  if (!selectedProduct) {
+                    return (
+                      <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-200 border-dashed text-center space-y-3 flex flex-col items-center justify-center min-h-[220px]">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                          <Package size={18} className="stroke-[2.2]" />
+                        </div>
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Simulador de Saldo</h4>
+                        <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider leading-relaxed px-4">
+                          Selecione um produto para visualizar a projeção do saldo resultante e alertas de cobertura.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const displayStock = selectedProduct.stock;
+                  const projectedStock = displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty);
+                  const minStock = selectedProduct.minStock ?? 0;
+
+                  return (
+                    <div className="bg-gradient-to-br from-white to-slate-50 p-6 rounded-[24px] border border-slate-200 shadow-sm space-y-5">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <div className="w-7 h-7 rounded-lg bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                          <History size={14} className="stroke-[2.5]" />
+                        </div>
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Previsão Demonstrada</h4>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Saldo Atual */}
+                        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-150 shadow-sm">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Saldo Atual:</span>
+                          <span className="text-xs font-black text-slate-705">{displayStock} {selectedProduct.unit || 'UN'}</span>
+                        </div>
+
+                        {/* Transição do Ajuste */}
+                        <div className="flex items-center justify-between px-3">
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ajuste</span>
+                            <span className={cn(
+                              "text-xs font-black",
+                              adjustmentType === 'ENTRADA' ? "text-emerald-500" : "text-rose-500"
+                            )}>
+                              {adjustmentType === 'ENTRADA' ? `+ ${adjustmentQty}` : `- ${adjustmentQty}`} {selectedProduct.unit || 'UN'}
+                            </span>
+                          </div>
+                          <ArrowRight size={14} className="text-slate-350" />
+                          <div className="flex flex-col items-end">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Resultará</span>
+                            <span className={cn(
+                              "text-xs font-black",
+                              projectedStock < 0 ? "text-rose-600" : "text-brand-blue"
+                            )}>
+                              {projectedStock} {selectedProduct.unit || 'UN'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="h-px bg-slate-150" />
+
+                        {/* Novo Saldo */}
+                        <div className="flex justify-between items-center pt-1 animate-pulse">
+                          <span className="text-[10px] font-black text-slate-550 uppercase tracking-wider">Novo Saldo Projetado:</span>
+                          <span className={cn(
+                            "text-lg font-black italic tracking-tighter",
+                            projectedStock < 0 ? "text-rose-600" : "text-brand-blue"
+                          )}>
+                            {projectedStock} {selectedProduct.unit || 'UN'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Alertas específicos dependendo do saldo projetado */}
+                      {(() => {
+                        if (projectedStock < 0) {
+                          return (
+                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex gap-2.5 items-start">
+                              <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-black uppercase text-rose-700 block tracking-wider leading-none">Saldo Negativo Detectado</span>
+                                <p className="text-[9px] text-rose-500 leading-relaxed font-bold uppercase tracking-wide">Atenção! Esta ação deixará o estoque no valor negativo de {projectedStock}. Verifique a consistência física.</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        if (projectedStock <= minStock) {
+                          return (
+                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-2.5 items-start">
+                              <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-black uppercase text-amber-700 block tracking-wider leading-none">Estoque Crítico / Baixo</span>
+                                <p className="text-[9px] text-amber-500 leading-relaxed font-bold uppercase tracking-wide">O novo saldo de {projectedStock} estará igual ou abaixo do estoque mínimo definido de {minStock}. Recomenda-se providenciar novas compras.</p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-xl flex gap-2.5 items-start">
+                            <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black uppercase text-emerald-700 block tracking-wider leading-none">Estoque Seguro</span>
+                              <p className="text-[9px] text-emerald-650 leading-relaxed font-bold uppercase tracking-wide">Com o saldo projetado em {projectedStock} {selectedProduct.unit || 'UN'}, o produto permanecerá saudável com nível de segurança.</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })()}
+
+                {/* Informativo Extra */}
+                <div className="bg-slate-50 p-5 rounded-[20px] border border-slate-150 space-y-2">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none block">Normativa de Auditoria</span>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide leading-relaxed">
+                    Todo ajuste manual em massa gera uma movimentação correspondente no registro histórico que poderá ser consultado na aba Movimentações com registro automático de operador.
                   </p>
                 </div>
               </div>
@@ -1125,25 +1364,25 @@ export default function ProductsPage() {
       )}
 
       {activeTab === 'inventario' && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-300">
           {/* Header & Filters */}
-          <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-8">
-            <div className="flex flex-wrap items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
-                  <ClipboardList size={28} />
+          <div className="bg-white p-8 rounded-[24px] border border-slate-200 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shadow-inner">
+                  <ClipboardList size={22} className="stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Inventário de Estoque</h3>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Gestão e Reconciliação de Contagens Físicas</p>
+                  <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Inventário de Estoque</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider font-sans">Gestão, reconciliação e auditoria de contagens físicas de estoque</p>
                 </div>
               </div>
 
               <button 
                 onClick={handleStartInventory}
-                className="bg-brand-blue hover:bg-brand-blue-hover text-white px-8 py-4 rounded-2xl font-black uppercase italic text-sm tracking-widest transition-all shadow-xl shadow-brand-blue/20 active:scale-95 flex items-center gap-3"
+                className="bg-brand-blue hover:bg-brand-blue-hover text-white px-6 py-3.5 rounded-xl font-black uppercase italic text-xs tracking-widest transition-all shadow-lg shadow-brand-blue/15 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto"
               >
-                <Plus size={20} />
+                <Plus size={16} className="stroke-[2.5]" />
                 Novo Inventário
               </button>
             </div>
@@ -1155,38 +1394,48 @@ export default function ProductsPage() {
                   type="date" 
                   value={inventoryFilter.date}
                   onChange={(e) => setInventoryFilter(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 px-4 h-11 rounded-xl text-xs font-bold text-slate-600 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Categoria</label>
-                <select 
-                  value={inventoryFilter.category}
-                  onChange={(e) => setInventoryFilter(prev => ({ ...prev, category: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
-                >
-                  <option value="">Todas as Categorias</option>
-                  {categorias.map(cat => (
-                    <option key={cat.id} value={cat.nome}>{cat.nome}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select 
+                    value={inventoryFilter.category}
+                    onChange={(e) => setInventoryFilter(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 pl-4 pr-10 h-11 rounded-xl text-xs font-bold text-slate-600 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">Todas as Categorias</option>
+                    {categorias.map(cat => (
+                      <option key={cat.id} value={cat.nome}>{cat.nome}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDown size={14} />
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Status</label>
-                <select 
-                  value={inventoryFilter.status}
-                  onChange={(e) => setInventoryFilter(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
-                >
-                  <option value="">Todos os Status</option>
-                  <option value="Concluído">Finalizado</option>
-                  <option value="Em Andamento">Em Andamento</option>
-                </select>
+                <div className="relative">
+                  <select 
+                    value={inventoryFilter.status}
+                    onChange={(e) => setInventoryFilter(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 pl-4 pr-10 h-11 rounded-xl text-xs font-bold text-slate-600 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">Todos os Status</option>
+                    <option value="Concluído">Finalizado</option>
+                    <option value="Em Andamento">Em Andamento</option>
+                  </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDown size={14} />
+                  </div>
+                </div>
               </div>
               <div className="flex items-end">
                 <button 
                   onClick={() => setInventoryFilter({ date: '', category: '', status: '' })}
-                  className="w-full py-3 text-slate-400 hover:text-brand-blue text-[10px] font-black uppercase tracking-widest transition-all"
+                  className="w-full h-11 border border-slate-200 hover:border-brand-blue/30 text-slate-400 hover:text-brand-blue text-[10px] font-black uppercase tracking-widest transition-all rounded-xl cursor-pointer bg-slate-50/30 hover:bg-white animate-transition"
                 >
                   Limpar Filtros
                 </button>
@@ -1195,20 +1444,20 @@ export default function ProductsPage() {
           </div>
 
           {/* Main Table */}
-          <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nº</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsável</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                  <tr className="bg-slate-50/60 border-b border-slate-150">
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Nº</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Data / Localização</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Responsável</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Tipo de Escopo</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status de Auditoria</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Controles</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {inventories.length > 0 ? (
                     inventories
                       .filter(inv => {
@@ -1217,57 +1466,60 @@ export default function ProductsPage() {
                         return true;
                       })
                       .map((inv, idx) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/50 transition-all group">
-                        <td className="px-8 py-5">
-                          <span className="text-xs font-black text-slate-400">#{inventories.length - idx}</span>
+                      <tr key={inv.id} className="hover:bg-slate-50/40 transition-colors group">
+                        <td className="px-8 py-4">
+                          <span className="text-xs font-black text-slate-450 font-mono">#{inventories.length - idx}</span>
                         </td>
-                        <td className="px-8 py-5">
-                          <div className="flex flex-col">
+                        <td className="px-8 py-4">
+                          <div className="flex flex-col gap-0.5">
                             <span className="text-sm font-black text-slate-700">{new Date(inv.date).toLocaleDateString('pt-BR')}</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{inv.location}</span>
+                            <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">{inv.location || 'Sem Localização'}</span>
                           </div>
                         </td>
-                        <td className="px-8 py-5">
-                          <span className="text-sm font-bold text-slate-600">{inv.responsible || 'Sistema'}</span>
+                        <td className="px-8 py-4">
+                          <span className="text-xs font-bold text-slate-650">{inv.responsible || 'Sistema'}</span>
                         </td>
-                        <td className="px-8 py-5">
-                          <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+                        <td className="px-8 py-4">
+                          <span className="inline-flex px-2.5 py-1 bg-slate-100 text-slate-650 rounded-lg text-[9px] font-black uppercase tracking-wider">
                             {inv.type || 'Geral'}
                           </span>
                         </td>
-                        <td className="px-8 py-5">
+                        <td className="px-8 py-4">
                           <span className={cn(
-                            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                            inv.status === 'Concluído' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider",
+                            inv.status === 'Concluído' 
+                              ? "bg-emerald-50 text-emerald-600 border border-emerald-200/55" 
+                              : "bg-amber-50 text-amber-600 border border-amber-200/55"
                           )}>
+                            <span className={cn("w-1.5 h-1.5 rounded-full", inv.status === 'Concluído' ? "bg-emerald-500" : "bg-amber-500")} />
                             {inv.status === 'Concluído' ? 'Finalizado' : 'Em Andamento'}
                           </span>
                         </td>
-                        <td className="px-8 py-5 text-right relative">
+                        <td className="px-8 py-4 text-right relative">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
                               setActiveMenuId(activeMenuId === inv.id ? null : inv.id);
                             }}
-                            className="p-2 text-slate-400 hover:text-brand-blue transition-all"
+                            className="p-1.5 text-slate-400 hover:text-brand-blue border border-transparent hover:border-slate-200 hover:bg-slate-50 rounded-lg transition-all cursor-pointer"
                           >
-                            <Settings2 size={18} />
+                            <Settings2 size={16} />
                           </button>
                           
                           {activeMenuId === inv.id && (
-                            <div className="absolute right-8 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                              <div className="p-2">
+                            <div className="absolute right-8 top-11 w-48 bg-white rounded-xl shadow-xl border border-slate-150 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                              <div className="p-1.5">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (window.confirm('Tem certeza que deseja excluir este inventário?')) {
+                                    if (window.confirm('Tem certeza que deseja excluir este registro de inventário? A exclusão é permanente.')) {
                                       deleteInventory(inv.id);
                                     }
                                     setActiveMenuId(null);
                                   }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-extrabold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={14} className="stroke-[2]" />
                                   Excluir Inventário
                                 </button>
                               </div>
@@ -1279,9 +1531,9 @@ export default function ProductsPage() {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-8 py-20 text-center">
-                        <div className="flex flex-col items-center gap-4 text-slate-300">
-                          <ClipboardList size={48} className="opacity-20" />
-                          <p className="text-sm font-black uppercase tracking-widest">Nenhum inventário registrado</p>
+                        <div className="flex flex-col items-center gap-4 text-slate-350">
+                          <ClipboardList size={40} className="stroke-[1.5] opacity-40" />
+                          <p className="text-[10px] font-black uppercase tracking-widest font-mono">Nenhum inventário registrado no histórico</p>
                         </div>
                       </td>
                     </tr>
@@ -1558,23 +1810,42 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
 
 function SummaryCard({ title, value, icon: Icon, color }: any) {
   const colors: any = {
-    green: "bg-brand-green/10 text-brand-green",
-    red: "bg-brand-danger/10 text-brand-danger",
-    blue: "bg-brand-blue/10 text-brand-blue",
-    orange: "bg-brand-warning/10 text-brand-warning",
+    green: {
+      bg: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      vText: "text-emerald-700",
+      accent: "from-emerald-400 to-teal-500"
+    },
+    red: {
+      bg: "bg-rose-50 text-rose-600 border-rose-100",
+      vText: "text-rose-700",
+      accent: "from-rose-400 to-red-500"
+    },
+    blue: {
+      bg: "bg-blue-50 text-blue-600 border-blue-100",
+      vText: "text-blue-700",
+      accent: "from-blue-400 to-indigo-500"
+    },
+    orange: {
+      bg: "bg-amber-50 text-amber-600 border-amber-100",
+      vText: "text-amber-700",
+      accent: "from-amber-400 to-orange-500"
+    },
   };
 
+  const scheme = colors[color] || colors.blue;
+
   return (
-    <div className="bg-white p-2 md:p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2 min-w-0">
-      <div className={`p-1.5 md:p-2 rounded-xl shrink-0 ${colors[color]}`}>
-        <Icon size={18} className="md:w-5 md:h-5" />
+    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 min-w-0 hover:-translate-y-1 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+      {/* Decorative gradient corner bottom bar */}
+      <div className={`absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r ${scheme.accent} opacity-40 group-hover:opacity-100 transition-opacity`} />
+      
+      <div className={`p-3 rounded-xl shrink-0 border ${scheme.bg}`}>
+        <Icon size={20} className="stroke-[2.2]" />
       </div>
+      
       <div className="min-w-0 flex-1">
-        <p className="text-[8px] md:text-[9px] font-black text-slate-400 mb-0.5 truncate uppercase tracking-widest leading-none" title={title}>{title}</p>
-        <p className={cn(
-          "text-xs md:text-sm xl:text-base font-black truncate leading-none",
-          color === 'orange' ? "text-brand-warning" : "text-slate-700"
-        )} title={value}>{value}</p>
+        <p className="text-[10px] font-black text-slate-400 mb-1 truncate uppercase tracking-widest leading-none" title={title}>{title}</p>
+        <p className={`text-base md:text-lg font-black truncate leading-tight ${scheme.vText}`} title={value}>{value}</p>
       </div>
     </div>
   );
@@ -1582,18 +1853,18 @@ function SummaryCard({ title, value, icon: Icon, color }: any) {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: any = {
-    'Disponivel': 'bg-brand-green text-white',
-    'Estoque Baixo': 'bg-amber-100 text-amber-600',
-    'Pago': 'bg-brand-blue text-white',
-    'Indisponivel': 'bg-brand-danger text-white',
-    'Ativo': 'bg-brand-green text-white',
-    'Inativo': 'bg-slate-200 text-slate-500',
+    'Disponivel': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'Estoque Baixo': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Pago': 'bg-blue-50 text-blue-700 border-blue-200',
+    'Indisponivel': 'bg-rose-50 text-rose-700 border-rose-200',
+    'Ativo': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'Inativo': 'bg-slate-50 text-slate-500 border-slate-200',
   };
 
   return (
     <span className={cn(
-      "px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider",
-      styles[status] || 'bg-slate-100 text-slate-600'
+      "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border whitespace-nowrap",
+      styles[status] || 'bg-slate-50 text-slate-600 border-slate-200'
     )}>
       {status}
     </span>

@@ -5864,37 +5864,51 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Faturamento Bruto */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="p-5 rounded-3xl bg-white border border-slate-150 shadow-sm relative overflow-hidden group transition-all cursor-pointer"
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
         >
-          <div className="absolute top-4 right-4 text-emerald-500 bg-emerald-50 p-2 rounded-2xl">
-            <DollarSign size={16} />
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <DollarSign size={140} className="text-slate-900" />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Bruta Total</p>
-          <h3 className="text-xl font-black text-slate-800 mt-2 font-mono leading-none">{formatCurrency(totalGrossAmount)}</h3>
-          <div className="text-[10px] text-slate-400 font-semibold mt-2.5 flex items-center gap-1 uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            100% dos fluxos de entrada
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Receita Bruta Total</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-150 text-emerald-600 flex items-center justify-center shrink-0">
+              <DollarSign size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{formatCurrency(totalGrossAmount)}</h3>
+            <span className="text-[10px] text-slate-400 font-black uppercase italic mt-1.5 flex items-center gap-1.5 leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              100% dos fluxos de entrada
+            </span>
           </div>
         </motion.div>
 
         {/* Tarifas Estimadas */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="p-5 rounded-3xl bg-white border border-slate-150 shadow-sm relative overflow-hidden group transition-all cursor-pointer"
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
         >
-          <div className="absolute top-4 right-4 text-rose-500 bg-rose-50 p-2 rounded-2xl">
-            <Percent size={16} />
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Percent size={140} className="text-slate-900" />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Tarifas Descontadas</p>
-          <h3 className="text-xl font-black text-rose-600 mt-2 font-mono leading-none">{formatCurrency(totalFeesAmount)}</h3>
-          <div className="text-[10px] text-rose-600 font-bold mt-2.5 flex items-center gap-1 uppercase">
-            <span>Custo Médio:</span>
-            <span className="font-mono bg-rose-50 border border-rose-100 px-1.5 py-0.2 rounded font-black">
-              {totalGrossAmount > 0 ? ((totalFeesAmount / totalGrossAmount) * 100).toFixed(2) : '0.00'}%
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Tarifas Descontadas</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-150 text-rose-600 flex items-center justify-center shrink-0">
+              <Percent size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-rose-600 font-mono tracking-tight">{formatCurrency(totalFeesAmount)}</h3>
+            <span className="text-[10px] text-rose-605 font-black uppercase italic mt-1.5 flex items-center gap-1.5 leading-none">
+              <span>Custo Médio:</span>
+              <span className="font-mono bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">
+                {totalGrossAmount > 0 ? ((totalFeesAmount / totalGrossAmount) * 100).toFixed(2) : '0.00'}%
+              </span>
             </span>
           </div>
         </motion.div>
@@ -5902,34 +5916,48 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
         {/* Faturamento Líquido */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="p-5 rounded-3xl bg-brand-text-main text-white relative overflow-hidden shadow-md group transition-all cursor-pointer"
+          className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-850 shadow-md flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
         >
-          <div className="absolute top-4 right-4 text-brand-text-sec bg-white/10 p-2 rounded-2xl">
-            <Wallet size={16} />
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <Wallet size={140} className="text-white" />
           </div>
-          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">Recebível Líquido</p>
-          <h3 className="text-xl font-black text-brand-text-sec mt-2 font-mono leading-none">{formatCurrency(totalNetAmount)}</h3>
-          <div className="text-[10px] text-brand-text-sec/80 font-semibold mt-2.5 flex items-center gap-1 uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            Previsão operacional líquida
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Recebível Líquido</span>
+            <div className="w-8 h-8 rounded-xl bg-white/10 text-brand-text-sec flex items-center justify-center shrink-0">
+              <Wallet size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-brand-text-sec font-mono tracking-tight">{formatCurrency(totalNetAmount)}</h3>
+            <span className="text-[10px] text-brand-text-sec/80 font-black uppercase italic mt-1.5 flex items-center gap-1.5 leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Previsão operacional líquida
+            </span>
           </div>
         </motion.div>
 
         {/* Volume de Vendas */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="p-5 rounded-3xl bg-white border border-slate-150 shadow-sm relative overflow-hidden group transition-all cursor-pointer"
+          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all cursor-pointer"
         >
-          <div className="absolute top-4 right-4 text-indigo-500 bg-indigo-50 p-2 rounded-2xl">
-            <ShoppingCart size={16} />
+          <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+            <ShoppingCart size={140} className="text-slate-900" />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Transações Efetuadas</p>
-          <h3 className="text-xl font-black text-slate-800 mt-2 font-mono leading-none">
-            {totalTransactionsCount} <span className="text-[10px] font-black text-slate-400 uppercase font-sans">vendas</span>
-          </h3>
-          <div className="text-[10px] text-slate-400 font-bold mt-2.5 flex items-center gap-1 uppercase">
-            <span>Tkt. Médio Geral:</span>
-            <span className="font-mono text-slate-700">{formatCurrency(overallAvgTicket)}</span>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Transações Efetuadas</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-150 text-indigo-650 flex items-center justify-center shrink-0">
+              <ShoppingCart size={15} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+              {totalTransactionsCount} <span className="text-xs font-normal text-slate-400">vendas</span>
+            </h3>
+            <span className="text-[10px] text-slate-400 font-black uppercase italic mt-1.5 flex items-center gap-1.5 leading-none">
+              <span>Tkt. Médio Geral:</span>
+              <span className="font-mono text-slate-750">{formatCurrency(overallAvgTicket)}</span>
+            </span>
           </div>
         </motion.div>
       </div>
@@ -8674,7 +8702,7 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
   const [selectedStatus, setSelectedStatus] = useState<'All' | 'Pendente' | 'Vencido' | 'Pago'>('All');
   const [selectedCategory, setSelectedCategory] = useState<'All' | 'Compra de Mercadoria' | 'Outros'>('All');
   const [useDateFilter, setUseDateFilter] = useState(true);
-  const [dateFilterType, setDateFilterType] = useState<'dueDate' | 'issueDate'>('issueDate'); // Default to issueDate (Lançamento) so pending items created in the period show up!
+  const [dateFilterType, setDateFilterType] = useState<'dueDate' | 'issueDate'>('dueDate'); // Default to dueDate (Vencimento) so pending items due in the period show up!
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -8683,7 +8711,7 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
   // Process expenses to identify exact status, due date, isOverdue, etc.
   const processedExpenses = useMemo(() => {
     return expenses.map(e => {
-      const dueDateStr = e.dueDate ? e.dueDate.split('T')[0] : e.date.split('T')[0];
+      const dueDateStr = getLocalDateString(e.dueDate || e.date);
       const isPaid = e.status === 'Pago';
       const isOverdue = !isPaid && dueDateStr < todayStr;
       
@@ -8707,7 +8735,7 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
   const stats = useMemo(() => {
     // Current period expenses matching the date filter
     const periodExpenses = processedExpenses.filter(e => {
-      const targetDate = dateFilterType === 'dueDate' ? e.dueDateStr : e.date.split('T')[0];
+      const targetDate = dateFilterType === 'dueDate' ? e.dueDateStr : getLocalDateString(e.date);
       return targetDate >= startDate && targetDate <= endDate;
     });
 
@@ -8761,7 +8789,7 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
       // 4. Date filter
       let matchesDate = true;
       if (useDateFilter) {
-        const targetDate = dateFilterType === 'dueDate' ? item.dueDateStr : item.date.split('T')[0];
+        const targetDate = dateFilterType === 'dueDate' ? item.dueDateStr : getLocalDateString(item.date);
         matchesDate = targetDate >= startDate && targetDate <= endDate;
       }
 

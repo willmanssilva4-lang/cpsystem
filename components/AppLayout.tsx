@@ -3,14 +3,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useERP } from '@/lib/context';
 import { Sidebar } from '@/components/Sidebar';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GlobalAlert } from '@/components/GlobalAlert';
 import { AuthGuard } from '@/components/AuthGuard';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle } from 'lucide-react';
+import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle, AlertTriangle, ArrowRight, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
+import { CentralFinanceiraModal } from '@/components/CentralFinanceiraModal';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
 import { getLocalDateString, cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 
 function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { user: any, onMenuClick: () => void, onHelpClick: () => void, showMenuToggleOnDesktop?: boolean }) {
   const { products, expenses, lotes, systemSettings, sendEmailNotification } = useERP();
@@ -313,14 +317,97 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
   );
 }
 
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { GlobalAlert } from '@/components/GlobalAlert';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, systemSettings } = useERP();
+  const { user, systemSettings, expenses, sales } = useERP();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'overdue' | 'upcoming' | 'sales'>('overdue');
+  
+  const today = getLocalDateString();
+
+  useEffect(() => {
+    if (pathname === '/login' && typeof window !== 'undefined') {
+      sessionStorage.removeItem('erp_overdue_alert_shown');
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    const isLoginPage = pathname === '/login';
+    const isPDVPage = pathname === '/pdv';
+    const isPriceCheckPage = pathname === '/consulta-preco';
+
+    if (isLoginPage || isPDVPage || isPriceCheckPage) return;
+
+    if (typeof window !== 'undefined' && Array.isArray(expenses) && expenses.length > 0) {
+      try {
+        const overdue = expenses.filter(e => {
+          if (!e) return false;
+          const isPaid = e.status === 'Pago' || !!e.paymentDate;
+          const dueDateStr = getLocalDateString(e?.dueDate || e?.date);
+          return !isPaid && dueDateStr && dueDateStr < today;
+        });
+
+        const upcoming = expenses.filter(e => {
+          if (!e) return false;
+          const isPaid = e.status === 'Pago' || !!e.paymentDate;
+          const dueDateStr = getLocalDateString(e?.dueDate || e?.date);
+          return !isPaid && dueDateStr && dueDateStr >= today;
+        });
+
+        if (overdue.length > 0 || upcoming.length > 0) {
+          const alreadyShown = sessionStorage.getItem('erp_overdue_alert_shown');
+          if (!alreadyShown) {
+            setModalTab(overdue.length > 0 ? 'overdue' : 'upcoming');
+            setShowOverdueModal(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking overdue in layout:', err);
+      }
+    }
+  }, [expenses, pathname, today]);
+
+  const overdueExpenses = Array.isArray(expenses)
+    ? expenses.filter(e => {
+        if (!e) return false;
+        const isPaid = e.status === 'Pago' || !!e.paymentDate;
+        const dueDate = new Date(e.dueDate || e.date);
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        return !isPaid && dueDate < todayDate;
+      })
+    : [];
+
+  const upcomingExpenses = Array.isArray(expenses)
+    ? expenses.filter(e => {
+        if (!e) return false;
+        const isPaid = e.status === 'Pago' || !!e.paymentDate;
+        const dueDate = new Date(e.dueDate || e.date);
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        return !isPaid && dueDate >= todayDate;
+      }).sort((a, b) => {
+        const dateA = new Date(a.dueDate || a.date).getTime();
+        const dateB = new Date(b.dueDate || b.date).getTime();
+        return dateA - dateB;
+      })
+    : [];
+
+  const getDaysDiffValue = (dateInput: string | Date) => {
+    try {
+      const date = new Date(dateInput);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      const diffTime = date.getTime() - today.getTime();
+      return Math.round(diffTime / (1000 * 60 * 60 * 24));
+    } catch {
+      return 0;
+    }
+  };
 
   useEffect(() => {
     if (!systemSettings?.theme) return;
@@ -371,11 +458,241 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </main>
           <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-          <GlobalAlert />
+          {/* Overdue/Upcoming Expenses Modal Alert */}
+          <AnimatePresence>
+            {showOverdueModal && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-sm">
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="bg-white rounded-[2rem] border border-slate-200/60 shadow-2xl overflow-hidden max-w-lg w-full flex flex-col max-h-[90vh]"
+                >
+                  <div className="p-7 flex-1 overflow-y-auto">
+                    {/* Header */}
+                    <div className="flex items-start gap-4">
+                      <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 transition-colors ${
+                        modalTab === 'overdue' ? 'bg-rose-50 border-rose-100 text-rose-500' : 
+                        modalTab === 'upcoming' ? 'bg-amber-50 border-amber-100 text-amber-500' :
+                        'bg-brand-blue/10 border-brand-blue/20 text-brand-blue'
+                      }`}>
+                        {modalTab === 'overdue' && <AlertTriangle size={26} className="animate-pulse" />}
+                        {modalTab === 'upcoming' && <Calendar size={26} />}
+                        {modalTab === 'sales' && <TrendingUp size={26} />}
+                      </div>
+                      <div className="flex-1">
+                        <span className={`text-[10px] font-black uppercase tracking-widest italic transition-colors ${
+                          modalTab === 'overdue' ? 'text-rose-500' : 
+                          modalTab === 'upcoming' ? 'text-amber-500' : 'text-brand-blue'
+                        }`}>
+                          {modalTab === 'overdue' ? 'ALERTA RELEVANTE' : 
+                           modalTab === 'upcoming' ? 'PLANEJAMENTO FINANCEIRO' : 'RESUMO DE CAIXA'}
+                        </span>
+                        <h3 className="text-2xl font-black text-slate-850 tracking-tight mt-0.5">
+                          {modalTab === 'overdue' ? 'Duplicatas Vencidas' : 
+                           modalTab === 'upcoming' ? 'Duplicatas A Vencer' : 'Vendas Recentes'}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">
+                          {modalTab === 'overdue' ? 'Identificamos contas com data de vencimento expirada. Regularize seus débitos.' :
+                           modalTab === 'upcoming' ? 'Fique atento às contas com vencimento futuro.' :
+                           'Acompanhe as últimas vendas realizadas no sistema.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Integrated Sub-tabs */}
+                    <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl mt-6 gap-0.5 shrink-0">
+                      <button
+                        onClick={() => setModalTab('overdue')}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 ${
+                          modalTab === 'overdue' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        Vencidas
+                      </button>
+                      <button
+                        onClick={() => setModalTab('upcoming')}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 ${
+                          modalTab === 'upcoming' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        A Vencer
+                      </button>
+                      <button
+                        onClick={() => setModalTab('sales')}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 ${
+                          modalTab === 'sales' ? 'bg-white text-brand-blue shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        Receitas
+                      </button>
+                    </div>
+
+                    {/* Items List */}
+                    <div className="mt-6 border-y border-slate-100 min-h-[140px] max-h-[300px] overflow-y-auto py-2">
+                      {modalTab === 'overdue' && (
+                        <div className="space-y-1">
+                          {overdueExpenses.length === 0 ? (
+                            <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                              Não há duplicatas vencidas no momento 🎉
+                            </div>
+                          ) : (
+                            overdueExpenses.slice(0, 5).map((item, idx) => {
+                              const dtStr = getLocalDateString(item?.dueDate || item?.date || '');
+                              const displayDate = dtStr ? dtStr.split('-').reverse().join('/') : 'N/A';
+                              const daysLate = Math.abs(getDaysDiffValue(dtStr));
+                              return (
+                                <div key={item?.id || idx} className="py-2.5 flex items-center justify-between text-slate-700">
+                                  <div className="min-w-0 pr-4">
+                                    <p className="text-xs font-bold text-slate-800 truncate">{item?.description || 'Despesa Sem Descrição'}</p>
+                                    <span className="text-[10px] font-black uppercase text-rose-500 tracking-wider flex items-center gap-1 mt-0.5">
+                                      Venceu: {displayDate} ({daysLate} {daysLate === 1 ? 'dia' : 'dias'})
+                                    </span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="text-sm font-black text-rose-600 font-mono">
+                                      R$ {(item?.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                          {overdueExpenses.length > 5 && (
+                            <div className="pt-2 text-center border-t border-slate-100 mt-2">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                + {overdueExpenses.length - 5} listadas
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {modalTab === 'upcoming' && (
+                        <div className="space-y-1">
+                          {upcomingExpenses.length === 0 ? (
+                            <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                              Não há vencimentos próximos!
+                            </div>
+                          ) : (
+                            upcomingExpenses.slice(0, 5).map((item, idx) => {
+                              const dtStr = getLocalDateString(item?.dueDate || item?.date || '');
+                              const displayDate = dtStr ? dtStr.split('-').reverse().join('/') : 'N/A';
+                              const daysToDue = getDaysDiffValue(dtStr);
+                              return (
+                                <div key={item?.id || idx} className="py-2.5 flex items-center justify-between text-slate-700">
+                                  <div className="min-w-0 pr-4">
+                                    <p className="text-xs font-bold text-slate-800 truncate">{item?.description || 'Despesa Sem Descrição'}</p>
+                                    <span className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1 mt-0.5 ${
+                                      daysToDue === 0 ? 'text-rose-500 font-bold' : daysToDue === 1 ? 'text-amber-500' : 'text-slate-400'
+                                    }`}>
+                                      {displayDate} • {daysToDue === 0 ? 'Hoje' : daysToDue === 1 ? 'Amanhã' : `Em ${daysToDue} dias`}
+                                    </span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="text-sm font-black text-slate-900 font-mono">
+                                      R$ {(item?.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                          {upcomingExpenses.length > 5 && (
+                            <div className="pt-2 text-center border-t border-slate-100 mt-2">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                + {upcomingExpenses.length - 5} listadas
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {modalTab === 'sales' && (
+                        <div className="space-y-1">
+                          {sales.length === 0 ? (
+                            <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                              Nenhuma venda registrada
+                            </div>
+                          ) : (
+                            [...sales].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((item, idx) => {
+                              const dt = new Date(item.date);
+                              const displayDate = `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
+                              return (
+                                <div key={item?.id || idx} className="py-2.5 flex items-center justify-between text-slate-700">
+                                  <div className="min-w-0 pr-4">
+                                    <p className="text-xs font-bold text-slate-800 truncate">{item?.productName || item?.description || 'Venda Sem Descrição'}</p>
+                                    <span className="text-[10px] font-black uppercase text-brand-blue tracking-wider flex items-center gap-1 mt-0.5">
+                                      Vendido em: {displayDate}
+                                    </span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="text-sm font-black text-emerald-600 font-mono">
+                                      + R$ {(item?.total || item?.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Summary & Actions */}
+                    <div className="mt-4 flex flex-col gap-4">
+                       <div className="flex bg-slate-50 p-3 rounded-xl justify-between items-center">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                            {modalTab === 'overdue' ? 'T. Vencido' : modalTab === 'upcoming' ? 'T. A Vencer' : 'T. Receitas' }
+                          </p>
+                          <p className={`text-base font-black font-mono ${
+                            modalTab === 'overdue' ? 'text-rose-600' : modalTab === 'upcoming' ? 'text-amber-600' : 'text-emerald-600'
+                          }`}>
+                            R$ {
+                              modalTab === 'overdue' ? overdueExpenses.reduce((s,e) => s + (e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2}) :
+                              modalTab === 'upcoming' ? upcomingExpenses.reduce((s,e) => s + (e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2}) :
+                              sales.reduce((s,e) => s + (e.total || e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})
+                            }
+                          </p>
+                       </div>
+                       
+                       <div className="flex gap-2 justify-end">
+                         <button
+                           onClick={() => {
+                             if (typeof window !== 'undefined') {
+                               sessionStorage.setItem('erp_overdue_alert_shown', 'true');
+                             }
+                             setShowOverdueModal(false);
+                           }}
+                           className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition-colors"
+                         >
+                           Fechar
+                         </button>
+                         <Link
+                           href={modalTab === 'sales' ? "/vendas" : "/financeiro?tab=pagar"}
+                           onClick={() => {
+                             if (typeof window !== 'undefined') {
+                               sessionStorage.setItem('erp_overdue_alert_shown', 'true');
+                             }
+                             setShowOverdueModal(false);
+                           }}
+                           className="px-5 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-xs"
+                         >
+                           Acessar Painel <ArrowRight size={14} />
+                         </Link>
+                       </div>
+                    </div>
+
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Fixed Help Button [?] */}
           {/* Help button removed */}
         </div>
       </AuthGuard>
     );
+
 }

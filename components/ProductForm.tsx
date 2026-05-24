@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight, RefreshCw, Tag, Layers, Box, DollarSign, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn, formatDateTimeBR, formatDateBR } from '@/lib/utils';
@@ -512,354 +512,385 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center overflow-hidden">
-      <div className="bg-white w-full h-full shadow-2xl border-0 overflow-hidden flex flex-col animate-in zoom-in duration-300">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] flex items-center justify-center p-0 md:p-4 lg:p-6 overflow-hidden transition-all duration-300">
+      <div className="bg-white w-full h-full md:max-w-7xl md:h-[90vh] md:rounded-[32px] md:border md:border-slate-100 shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="bg-white px-8 py-6 flex justify-between items-center border-b border-slate-100">
+        <div className="bg-gradient-to-r from-slate-50 to-white px-6 md:px-8 py-5 flex justify-between items-center border-b border-slate-100/80">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-              <Package size={24} />
+            <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shadow-inner flex-shrink-0">
+              <Package size={22} className="stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase italic">Cadastro de Produto</h2>
-              <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Preencha os dados abaixo para continuar</p>
+              <h2 className="text-lg md:text-2xl font-sans font-black text-slate-800 tracking-tight uppercase italic flex flex-wrap items-center gap-2">
+                {initialData ? 'Edição de Produto' : 'Novo Produto'}
+                {initialData && (
+                  <span className="bg-brand-blue/10 text-brand-blue font-bold px-2.5 py-0.5 rounded-full text-[10px] tracking-widest uppercase italic border border-brand-blue/20">
+                    SKU: {formData.sku || initialData.sku || 'N/D'}
+                  </span>
+                )}
+              </h2>
+              <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">
+                {initialData ? `Altamente configurável | Editando: ${formData.name || ''}` : 'Painel administrativo de cadastro de produtos'}
+              </p>
             </div>
           </div>
           <button 
+            type="button"
             onClick={onClose} 
-            className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full text-slate-400 transition-all active:scale-95"
+            className="bg-slate-100 hover:bg-rose-500 hover:text-white p-2.5 rounded-full text-slate-400 transition-all duration-200 active:scale-95 shadow-sm"
           >
-            <X size={24} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="bg-slate-50 px-8 flex gap-8 border-b border-slate-100">
-          {[
-            { id: 'geral', label: 'Dados Gerais', icon: Package },
-            { id: 'movimentacoes', label: 'Movimentações', icon: History, hidden: !initialData || !initialData.id },
-            { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2, hidden: !initialData || !initialData.id },
-            { id: 'inventario', label: 'Inventário', icon: ClipboardList, hidden: !initialData || !initialData.id },
-            { id: 'lotes', label: 'Lotes Ativos', icon: Package, hidden: !initialData || !initialData.id },
-          ].filter(t => !t.hidden).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as any)}
-              className={cn(
-                "flex items-center gap-2 py-4 text-xs font-black uppercase italic tracking-widest transition-all relative",
-                activeTab === tab.id ? "text-brand-blue" : "text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-brand-blue rounded-t-full" />
-              )}
-            </button>
-          ))}
+        <div className="bg-slate-50/60 px-6 md:px-8 border-b border-slate-100">
+          <div className="flex gap-4 md:gap-6 overflow-x-auto scrollbar-none py-1">
+            {[
+              { id: 'geral', label: 'Dados Gerais', icon: Package },
+              { id: 'movimentacoes', label: 'Movimentações', icon: History, hidden: !initialData || !initialData.id },
+              { id: 'ajustes', label: 'Ajustes de Estoque', icon: Settings2, hidden: !initialData || !initialData.id },
+              { id: 'inventario', label: 'Inventário', icon: ClipboardList, hidden: !initialData || !initialData.id },
+              { id: 'lotes', label: 'Lotes Ativos', icon: Package, hidden: !initialData || !initialData.id },
+            ].filter(t => !t.hidden).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  setHistoryPage(1);
+                }}
+                className={cn(
+                  "flex items-center gap-2 py-3.5 text-xs font-black uppercase italic tracking-widest transition-all relative active:scale-95 whitespace-nowrap",
+                  activeTab === tab.id 
+                    ? "text-brand-blue font-bold" 
+                    : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                <tab.icon size={14} className={cn("stroke-[2.5]", activeTab === tab.id ? "text-brand-blue" : "text-slate-400")} />
+                {tab.label}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-blue rounded-t-full" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-slate-50/30">
           {activeTab === 'geral' && (
-            <form onSubmit={handleSubmit} onKeyDown={handleEnterAsTab} className="p-8 text-brand-text-main">
-              <div className="flex flex-col lg:flex-row gap-12">
-            {/* Left Side - Form Fields */}
-            <div className="flex-1 space-y-8 min-w-0">
-              
-              {/* Section: Identificação */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Identificação</h4>
-                <div className="flex flex-wrap gap-4">
-                  <div className="w-48">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest whitespace-nowrap" title="Código interno do sistema (SKU)">Código Interno:</label>
-                    <div className="flex gap-2">
-                      <input 
-                        name="sku"
-                        value={formData.sku}
-                        onChange={handleChange}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') e.preventDefault();
-                        }}
-                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200 px-2 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                      />
-                      <button 
-                        type="button" 
-                        onClick={generateSKU}
-                        className="bg-brand-blue hover:bg-brand-blue-hover text-white text-[10px] font-black px-2.5 py-2.5 rounded-xl uppercase italic transition-all shadow-lg shadow-brand-blue/20 active:scale-95 flex-shrink-0"
-                        title="Gerar Código (F1)"
-                      >
-                        <RefreshCw size={14} />
-                      </button>
+            <form onSubmit={handleSubmit} onKeyDown={handleEnterAsTab} className="p-6 md:p-8 text-brand-text-main">
+              <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 items-start">
+                {/* Left Side - Form Fields */}
+                <div className="flex-1 space-y-6 min-w-0 w-full">
+                  
+                  {/* Card: Identificação */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 hover:border-slate-200/80 transition-all">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="w-7 h-7 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-600">
+                        <Tag size={14} className="stroke-[2.5]" />
+                      </div>
+                      <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest italic">Identificação Básica</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                      {/* Descrição */}
+                      <div className="md:col-span-8">
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Descrição / Nome do Produto:</label>
+                        <input 
+                          name="name"
+                          required
+                          value={formData.name}
+                          onChange={handleChange}
+                          placeholder="Ex: Coca-Cola Lata 350ml"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                      </div>
+                      
+                      {/* Unidade */}
+                      <div className="md:col-span-4">
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Unidade Comercial:</label>
+                        <select 
+                          name="unit"
+                          value={formData.unit}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm cursor-pointer"
+                        >
+                          <option value="UN">UN (Unidade)</option>
+                          <option value="KG">KG (Quilograma)</option>
+                          <option value="G">G (Grama)</option>
+                          <option value="LT">LT (Litro)</option>
+                          <option value="ML">ML (Mililitro)</option>
+                          <option value="CX">CX (Caixa)</option>
+                          <option value="PC">PC (Peça)</option>
+                          <option value="PT">PT (Pacote)</option>
+                          <option value="FD">FD (Fardo)</option>
+                          <option value="DZ">DZ (Dúzia)</option>
+                          <option value="M">M (Metro)</option>
+                          <option value="M2">M2 (Metro Quadrado)</option>
+                          <option value="M3">M3 (Metro Cúbico)</option>
+                          <option value="RL">RL (Rolo)</option>
+                          <option value="PR">PR (Par)</option>
+                          <option value="BD">BD (Balde)</option>
+                          <option value="GL">GL (Galão)</option>
+                          <option value="JG">JG (Jogo)</option>
+                          <option value="KT">KT (Kit)</option>
+                        </select>
+                      </div>
+
+                      {/* Código Interno / SKU */}
+                      <div className="md:col-span-6">
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest" title="Código interno do sistema (SKU)">Código Interno / EAN:</label>
+                        <div className="flex gap-2">
+                          <input 
+                            name="sku"
+                            value={formData.sku}
+                            onChange={handleChange}
+                            placeholder="789..."
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') e.preventDefault();
+                            }}
+                            className="flex-1 min-w-0 bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                          />
+                          <button 
+                            type="button" 
+                            onClick={generateSKU}
+                            className="bg-brand-blue hover:bg-brand-blue-hover text-white text-[10px] font-bold px-3 py-2.5 rounded-xl uppercase italic transition-all shadow-md shadow-brand-blue/10 active:scale-95 flex-shrink-0 flex items-center gap-1"
+                            title="Gerar SKU Aleatório (F1)"
+                          >
+                            <RefreshCw size={12} className="stroke-[3]" />
+                            <span>Gerar</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="md:col-span-6">
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Estado de Venda / Status:</label>
+                        <select 
+                          name="status"
+                          value={formData.status}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm cursor-pointer"
+                        >
+                          <option value="Ativo">🟢 ATIVO NO PDV / PEDIDO</option>
+                          <option value="Inativo">🔴 INATIVO / SUSPENSO</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Descrição:</label>
-                    <input 
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="w-32">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Status:</label>
-                    <select 
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="Ativo">ATIVO</option>
-                      <option value="Inativo">INATIVO</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
 
-              {/* Section: Classificação */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Classificação</h4>
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Departamento:</label>
-                    <select 
-                      value={departamentoId}
-                      onChange={(e) => {
-                        setDepartamentoId(e.target.value);
-                        setCategoryId('');
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          subcategoria_id: '',
-                          codigo_mercadologico: '',
-                          category: 'PADRAO'
-                        }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="">Selecione...</option>
-                      {departamentos.map(dept => (
-                        <option key={dept.id} value={dept.id}>{dept.codigo ? `${dept.codigo} - ` : ''}{dept.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
-                    <select 
-                      value={categoryId}
-                      onChange={(e) => {
-                        const newCatId = e.target.value;
-                        setCategoryId(newCatId);
-                        setFormData(prev => {
-                          const cat = categorias.find(c => c.id === newCatId);
-                          return { 
-                            ...prev, 
-                            subcategoria_id: '',
-                            codigo_mercadologico: '',
-                            category: cat ? cat.nome : 'PADRAO'
-                          };
-                        });
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="">Selecione...</option>
-                      {categorias
-                        .filter(cat => !departamentoId || cat.departamento_id === departamentoId)
-                        .map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.codigo ? `${cat.codigo} - ` : ''}{cat.nome}</option>
-                        ))}
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Subcategoria:</label>
-                    <select 
-                      name="subcategoria_id"
-                      value={formData.subcategoria_id}
-                      onChange={(e) => {
-                        handleChange(e);
-                        // Force clearing mercadologico so it gets recalculated
-                        setFormData(prev => ({ ...prev, codigo_mercadologico: '' }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="">Selecione...</option>
-                      {subcategorias
-                        .filter(sub => !categoryId || sub.categoria_id === categoryId)
-                        .map(sub => (
-                          <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
-                        ))}
-                    </select>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Marca:</label>
-                    <input 
-                      list="brands-list"
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      placeholder="Ex: PADRAO"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                    <datalist id="brands-list">
-                      {uniqueBrands.map(brand => (
-                        <option key={brand} value={brand} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor:</label>
-                    <input 
-                      list="suppliers-list"
-                      name="supplier"
-                      value={formData.supplier}
-                      onChange={handleChange}
-                      placeholder="Ex: Fornecedor PADRAO"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                    <datalist id="suppliers-list">
-                      <option value="PADRAO" />
-                      {suppliers.map(sup => (
-                        <option key={sup.id} value={sup.name} />
-                      ))}
-                      {/* Also add unique values from products */}
-                      {Array.from(new Set(products.map(p => p.supplier).filter(Boolean))).map(s => (
-                         <option key={s} value={s} />
-                      ))}
-                    </datalist>
-                  </div>
-                </div>
-              </div>
+                  {/* Card: Classificação Comercial */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 hover:border-slate-200/80 transition-all">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                        <Layers size={14} className="stroke-[2.5]" />
+                      </div>
+                      <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest italic">Classificação Comercial</h4>
+                    </div>
 
-              {/* Section: Especificações de Produto */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Especificações</h4>
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Gramatura:</label>
-                    <input 
-                      name="gramatura"
-                      value={formData.gramatura}
-                      onChange={handleChange}
-                      placeholder="Ex: 500g, 1kg, 200ml"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Segmento:</label>
-                    <input 
-                      list="segmentos-list"
-                      name="segmento"
-                      value={formData.segmento || ''}
-                      onChange={handleChange}
-                      placeholder="Ex: Automotivo"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                    <datalist id="segmentos-list">
-                      {uniqueSegmentos.map(seg => (
-                        <option key={seg} value={seg} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Seção:</label>
-                    <input 
-                      list="secoes-list"
-                      name="section"
-                      value={formData.section || ''}
-                      onChange={handleChange}
-                      placeholder="Ex: Frios"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                    <datalist id="secoes-list">
-                      {uniqueSecoes.map(sec => (
-                        <option key={sec} value={sec} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Embalagem:</label>
-                    <input 
-                      name="tipo_embalagem"
-                      value={formData.tipo_embalagem}
-                      onChange={handleChange}
-                      placeholder="Ex: Lata, Plástico, Vidro"
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                </div>
-              </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Departamento */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Departamento:</label>
+                        <select 
+                          value={departamentoId}
+                          onChange={(e) => {
+                            setDepartamentoId(e.target.value);
+                            setCategoryId('');
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              subcategoria_id: '',
+                              codigo_mercadologico: '',
+                              category: 'PADRAO'
+                            }));
+                          }}
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm cursor-pointer"
+                        >
+                          <option value="">Selecione...</option>
+                          {departamentos.map(dept => (
+                            <option key={dept.id} value={dept.id}>{dept.codigo ? `${dept.codigo} - ` : ''}{dept.nome}</option>
+                          ))}
+                        </select>
+                      </div>
 
-              {/* Section: Preços */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Preços e Margem</h4>
-                <div className="flex flex-wrap gap-4 items-end">
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Custo:</label>
-                    <input 
-                      type="number"
-                      name="costPrice"
-                      step="0.001"
-                      value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(3) : (typeof formData.costPrice === 'number' ? Number(formData.costPrice.toFixed(3)) : formData.costPrice)}
-                      readOnly={calculatedKitStock !== null || calculatedVirtualCost !== null}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const costPrice = val === '' ? 0 : Number(val);
-                        let profitPercentage = Number(formData.profitPercentage);
-                        let salePrice = 0;
+                      {/* Categoria */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Categoria:</label>
+                        <select 
+                          value={categoryId}
+                          disabled={!departamentoId}
+                          onChange={(e) => {
+                            const newCatId = e.target.value;
+                            setCategoryId(newCatId);
+                            setFormData(prev => {
+                              const cat = categorias.find(c => c.id === newCatId);
+                              return { 
+                                ...prev, 
+                                subcategoria_id: '',
+                                codigo_mercadologico: '',
+                                category: cat ? cat.nome : 'PADRAO'
+                              };
+                            });
+                          }}
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="">Selecione...</option>
+                          {categorias
+                            .filter(cat => !departamentoId || cat.departamento_id === departamentoId)
+                            .map(cat => (
+                              <option key={cat.id} value={cat.id}>{cat.codigo ? `${cat.codigo} - ` : ''}{cat.nome}</option>
+                            ))}
+                        </select>
+                      </div>
 
-                        if (pricingMethod === 'markup') {
-                          salePrice = costPrice * (1 + (profitPercentage / 100));
-                        } else {
-                          const margin = profitPercentage >= 100 ? 99.99 : profitPercentage;
-                          salePrice = costPrice / (1 - (margin / 100));
-                        }
-                        
-                        salePrice = roundPrice(salePrice);
-                        const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                        
-                        let finalProfitPercentage = profitPercentage;
-                        if (costPrice > 0) {
-                          if (pricingMethod === 'markup') {
-                            finalProfitPercentage = (profit / costPrice) * 100;
-                          } else {
-                            finalProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
-                          }
-                        }
+                      {/* Subcategoria */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Subcategoria:</label>
+                        <select 
+                          name="subcategoria_id"
+                          value={formData.subcategoria_id}
+                          disabled={!categoryId}
+                          onChange={(e) => {
+                            handleChange(e);
+                            setFormData(prev => ({ ...prev, codigo_mercadologico: '' }));
+                          }}
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="">Selecione...</option>
+                          {subcategorias
+                            .filter(sub => !categoryId || sub.categoria_id === categoryId)
+                            .map(sub => (
+                              <option key={sub.id} value={sub.id}>{sub.codigo ? `${sub.codigo} - ` : ''}{sub.nome}</option>
+                            ))}
+                        </select>
+                      </div>
 
-                        setFormData(prev => ({ ...prev, costPrice: val === '' ? '' : costPrice, salePrice, profit, profitPercentage: Math.round(finalProfitPercentage * 100) / 100 }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                  
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Lucro (R$):</label>
-                    <input 
-                      type="number"
-                      name="profit"
-                      value={formData.profit === '' ? '' : formData.profit}
-                      step="0.01"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const profit = val === '' ? '' : Math.round(Number(val) * 100) / 100;
-                        const costPrice = Number(formData.costPrice);
-                        const salePrice = costPrice + (profit === '' ? 0 : profit);
-                        let profitPercentage = 0;
-                        if (pricingMethod === 'markup') {
-                          profitPercentage = costPrice > 0 ? ((profit === '' ? 0 : profit) / costPrice) * 100 : 0;
-                        } else {
-                          profitPercentage = salePrice > 0 ? ((profit === '' ? 0 : profit) / salePrice) * 100 : 0;
-                        }
-                        setFormData(prev => ({ ...prev, profit, salePrice, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
+                      {/* Marca */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Marca comercial:</label>
+                        <input 
+                          list="brands-list"
+                          name="brand"
+                          value={formData.brand}
+                          onChange={handleChange}
+                          placeholder="Ex: PADRAO"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                        <datalist id="brands-list">
+                          {uniqueBrands.map(brand => (
+                            <option key={brand} value={brand} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Fornecedor */}
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Fornecedor principal:</label>
+                        <input 
+                          list="suppliers-list"
+                          name="supplier"
+                          value={formData.supplier}
+                          onChange={handleChange}
+                          placeholder="Ex: Fornecedor PADRAO"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                        <datalist id="suppliers-list">
+                          <option value="PADRAO" />
+                          {suppliers.map(sup => (
+                            <option key={sup.id} value={sup.name} />
+                          ))}
+                          {Array.from(new Set(products.map(p => p.supplier).filter(Boolean))).map(s => (
+                             <option key={s} value={s} />
+                          ))}
+                        </datalist>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="w-32">
-                    <div className="flex justify-between items-center mb-1.5">
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 tracking-widest">Lucro (%):</label>
-                      <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  {/* Card: Especificações de Embalagem e Logística */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 hover:border-slate-200/80 transition-all">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600">
+                        <Box size={14} className="stroke-[2.5]" />
+                      </div>
+                      <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest italic">Especificações Físicas e Logística</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Gramatura */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Gramatura / Volume:</label>
+                        <input 
+                          name="gramatura"
+                          value={formData.gramatura}
+                          onChange={handleChange}
+                          placeholder="Ex: 500g, 1kg, 200ml"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                      </div>
+
+                      {/* Tipo de Embalagem */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Embalagem:</label>
+                        <input 
+                          name="tipo_embalagem"
+                          value={formData.tipo_embalagem}
+                          onChange={handleChange}
+                          placeholder="Ex: Lata, Plástico, Vidro"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                      </div>
+
+                      {/* Segmento */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Segmento:</label>
+                        <input 
+                          list="segmentos-list"
+                          name="segmento"
+                          value={formData.segmento || ''}
+                          onChange={handleChange}
+                          placeholder="Ex: Automotivo"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                        <datalist id="segmentos-list">
+                          {uniqueSegmentos.map(seg => (
+                            <option key={seg} value={seg} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Seção */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Seção / Corredor:</label>
+                        <input 
+                          list="secoes-list"
+                          name="section"
+                          value={formData.section || ''}
+                          onChange={handleChange}
+                          placeholder="Ex: Frios"
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                        />
+                        <datalist id="secoes-list">
+                          {uniqueSecoes.map(sec => (
+                            <option key={sec} value={sec} />
+                          ))}
+                        </datalist>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card: Preçário e Margem Financeira */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 hover:border-slate-200/80 transition-all">
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                          <DollarSign size={14} className="stroke-[2.5]" />
+                        </div>
+                        <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest italic">Preçário e Margens Financeiras</h4>
+                      </div>
+
+                      {/* MKP vs MRG Selection Slider Pill */}
+                      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
                         <button
                           type="button"
                           disabled={!pricingSettings.allowEditOnProduct}
@@ -872,12 +903,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, profit }));
                           }}
                           className={cn(
-                            "px-1.5 py-0.5 text-[8px] font-black uppercase italic rounded-md transition-all",
-                            pricingMethod === 'markup' ? "bg-white text-brand-blue shadow-sm" : "text-slate-400 hover:text-slate-600",
+                            "px-3 py-1 text-[10px] font-black uppercase italic rounded-lg transition-all",
+                            pricingMethod === 'markup' 
+                              ? "bg-white text-brand-blue shadow-sm shadow-slate-200" 
+                              : "text-slate-400 hover:text-slate-600",
                             !pricingSettings.allowEditOnProduct && "opacity-50 cursor-not-allowed"
                           )}
                         >
-                          MKP
+                          Markup (MKP)
                         </button>
                         <button
                           type="button"
@@ -891,334 +924,442 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             setFormData(prev => ({ ...prev, profitPercentage: Math.round(newProfitPercentage * 100) / 100, profit }));
                           }}
                           className={cn(
-                            "px-1.5 py-0.5 text-[8px] font-black uppercase italic rounded-md transition-all",
-                            pricingMethod === 'margin' ? "bg-white text-brand-blue shadow-sm" : "text-slate-400 hover:text-slate-600",
+                            "px-3 py-1 text-[10px] font-black uppercase italic rounded-lg transition-all",
+                            pricingMethod === 'margin' 
+                              ? "bg-white text-brand-blue shadow-sm shadow-slate-200" 
+                              : "text-slate-400 hover:text-slate-600",
                             !pricingSettings.allowEditOnProduct && "opacity-50 cursor-not-allowed"
                           )}
                         >
-                          MRG
+                          Margem (MRG)
                         </button>
                       </div>
                     </div>
-                    <div className="relative">
-                      <input 
-                        type="number"
-                        name="profitPercentage"
-                        value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage}
-                        readOnly={!pricingSettings.allowEditOnProduct}
-                        step="0.01"
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const profitPercentage = val === '' ? '' : Number(val);
-                          const costPrice = Number(formData.costPrice);
-                          let salePrice = 0;
-                          if (pricingMethod === 'markup') {
-                            salePrice = costPrice * (1 + ((profitPercentage === '' ? 0 : profitPercentage) / 100));
-                          } else {
-                            const margin = (profitPercentage === '' ? 0 : profitPercentage) >= 100 ? 99.99 : (profitPercentage === '' ? 0 : profitPercentage);
-                            salePrice = costPrice / (1 - (margin / 100));
-                          }
-                          salePrice = roundPrice(salePrice);
-                          const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                          setFormData(prev => ({ ...prev, profitPercentage, salePrice, profit }));
-                        }}
-                        className={cn(
-                          "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                          pricingSettings.allowEditOnProduct 
-                            ? "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
-                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                        )}
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-black text-[10px]">%</span>
+
+                    <div className="space-y-4">
+                      {/* Sub-Grids of main Pricing Strategy */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                        {/* Custo */}
+                        <div>
+                          <label className="block text-[9px] font-black mb-1 uppercase text-slate-400 tracking-wider">Custo Unitário:</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                            <input 
+                              type="number"
+                              name="costPrice"
+                              step="0.001"
+                              value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(3) : (typeof formData.costPrice === 'number' ? Number(formData.costPrice.toFixed(3)) : formData.costPrice)}
+                              readOnly={calculatedKitStock !== null || calculatedVirtualCost !== null}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const costPrice = val === '' ? 0 : Number(val);
+                                let profitPercentage = Number(formData.profitPercentage);
+                                let salePrice = 0;
+
+                                if (pricingMethod === 'markup') {
+                                  salePrice = costPrice * (1 + (profitPercentage / 100));
+                                } else {
+                                  const margin = profitPercentage >= 100 ? 99.99 : profitPercentage;
+                                  salePrice = costPrice / (1 - (margin / 100));
+                                }
+                                
+                                salePrice = roundPrice(salePrice);
+                                const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                                
+                                let finalProfitPercentage = profitPercentage;
+                                if (costPrice > 0) {
+                                  if (pricingMethod === 'markup') {
+                                    finalProfitPercentage = (profit / costPrice) * 100;
+                                  } else {
+                                    finalProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+                                  }
+                                }
+
+                                setFormData(prev => ({ ...prev, costPrice: val === '' ? '' : costPrice, salePrice, profit, profitPercentage: Math.round(finalProfitPercentage * 100) / 100 }));
+                              }}
+                              className="w-full bg-white border border-slate-200/80 pl-8 pr-3 py-2 rounded-xl text-sm font-black text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
+                            />
+                          </div>
+                        </div>
+
+                        {/* Lucro R$ */}
+                        <div>
+                          <label className="block text-[9px] font-black mb-1 uppercase text-slate-400 tracking-wider">Lucro Líquido:</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                            <input 
+                              type="number"
+                              name="profit"
+                              value={formData.profit === '' ? '' : formData.profit}
+                              step="0.01"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const profit = val === '' ? '' : Math.round(Number(val) * 100) / 100;
+                                const costPrice = Number(formData.costPrice);
+                                const salePrice = costPrice + (profit === '' ? 0 : profit);
+                                let profitPercentage = 0;
+                                if (pricingMethod === 'markup') {
+                                  profitPercentage = costPrice > 0 ? ((profit === '' ? 0 : profit) / costPrice) * 100 : 0;
+                                } else {
+                                  profitPercentage = salePrice > 0 ? ((profit === '' ? 0 : profit) / salePrice) * 100 : 0;
+                                }
+                                setFormData(prev => ({ ...prev, profit, salePrice, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
+                              }}
+                              className="w-full bg-white border border-slate-200/80 pl-8 pr-3 py-2 rounded-xl text-sm font-black text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
+                            />
+                          </div>
+                        </div>
+
+                        {/* Lucro % (MKP/MRG) */}
+                        <div>
+                          <label className="block text-[9px] font-black mb-1 uppercase text-slate-400 tracking-wider">
+                            Coeficiente ({(pricingMethod === 'markup' ? 'MKP' : 'MRG')}):
+                          </label>
+                          <div className="relative">
+                            <input 
+                              type="number"
+                              name="profitPercentage"
+                              value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage}
+                              readOnly={!pricingSettings.allowEditOnProduct}
+                              step="0.01"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const profitPercentage = val === '' ? '' : Number(val);
+                                const costPrice = Number(formData.costPrice);
+                                let salePrice = 0;
+                                if (pricingMethod === 'markup') {
+                                  salePrice = costPrice * (1 + ((profitPercentage === '' ? 0 : profitPercentage) / 100));
+                                } else {
+                                  const margin = (profitPercentage === '' ? 0 : profitPercentage) >= 100 ? 99.99 : (profitPercentage === '' ? 0 : profitPercentage);
+                                  salePrice = costPrice / (1 - (margin / 100));
+                                }
+                                salePrice = roundPrice(salePrice);
+                                const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                                setFormData(prev => ({ ...prev, profitPercentage, salePrice, profit }));
+                              }}
+                              className={cn(
+                                "w-full border border-slate-200/80 px-3 py-2 rounded-xl text-sm font-black text-center outline-none transition-all pr-7 shadow-xs",
+                                pricingSettings.allowEditOnProduct 
+                                  ? "bg-white text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
+                                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                              )}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-extrabold text-xs">%</span>
+                          </div>
+                        </div>
+
+                        {/* Venda principal */}
+                        <div className="bg-emerald-50 border border-emerald-200/60 p-1.5 rounded-xl">
+                          <label className="block text-[8px] font-black uppercase text-emerald-600 tracking-wider mb-0.5 ml-1">Preço Venda (PDV):</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-600 font-black text-xs">R$</span>
+                            <input 
+                              type="text"
+                              inputMode="decimal"
+                              name="salePrice"
+                              value={(formData.salePrice as any) === '' ? '' : formData.salePrice.toString().replace('.', ',')}
+                              readOnly={!pricingSettings.allowEditOnProduct}
+                              onChange={(e) => {
+                                const val = e.target.value.replace('.', ',');
+                                const normalized = val.replace(',', '.');
+                                const salePrice = normalized === '' ? 0 : Number(normalized);
+                                const costPrice = Number(formData.costPrice);
+                                const profit = Math.round((salePrice - costPrice) * 100) / 100;
+                                let profitPercentage = 0;
+                                if (pricingMethod === 'markup') {
+                                  profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
+                                } else {
+                                  profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+                                }
+                                if (normalized === '' || !isNaN(Number(normalized))) {
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    salePrice: normalized, 
+                                    profit, 
+                                    profitPercentage: Math.round(profitPercentage * 100) / 100 
+                                  }));
+                                }
+                              }}
+                              className={cn(
+                                "w-full border-0 px-2 pl-7.5 py-1.5 rounded-lg text-sm font-black text-center outline-none transition-all",
+                                pricingSettings.allowEditOnProduct 
+                                  ? "bg-white text-emerald-700 shadow-sm focus:ring-2 focus:ring-emerald-400" 
+                                  : "bg-amber-100/50 text-slate-400 cursor-not-allowed"
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Outros Preços Adicionais */}
+                      <div className="space-y-3 pt-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block border-b border-dashed border-slate-100 pb-1.5 font-sans">Preços Especiais & Canais Regulados</span>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {/* Preço 2 */}
+                          <div>
+                            <label className="block text-[9px] font-black mb-1 uppercase text-slate-400 tracking-wider">Preço Prazo / 2:</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                              <input 
+                                ref={termPriceInputRef}
+                                type="number"
+                                name="termPrice"
+                                value={formData.termPrice}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormData(prev => ({ ...prev, termPrice: val === '' ? '' : Number(val) }));
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200/80 pl-8 pr-3 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
+                              />
+                            </div>
+                          </div>
+
+                          {/* Preço Atacado */}
+                          <div>
+                            <label className="block text-[9px] font-black mb-1 uppercase text-slate-400 tracking-wider">Atacado:</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                              <input 
+                                type="number"
+                                name="wholesalePrice"
+                                value={formData.wholesalePrice}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200/80 pl-8 pr-3 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
+                              />
+                            </div>
+                          </div>
+
+                          {/* Qtd Mínima Atacado */}
+                          <div>
+                            <label className="block text-[9px] font-black mb-1 uppercase text-slate-400 tracking-wider">Qtd Min Atacado:</label>
+                            <input 
+                              type="number"
+                              name="wholesaleMinQty"
+                              value={formData.wholesaleMinQty}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData(prev => ({ ...prev, wholesaleMinQty: val === '' ? 0 : Number(val) }));
+                              }}
+                              placeholder="Ex: 3"
+                              className="w-full bg-slate-50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
+                            />
+                          </div>
+
+                          {/* Clube */}
+                          <div className="bg-sky-50 border border-sky-100 p-1 rounded-xl">
+                            <label className="block text-[8px] font-black uppercase text-sky-600 tracking-wider mb-0.5 ml-1">Preço Clube / VIP:</label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sky-600 font-extrabold text-xs">R$</span>
+                              <input 
+                                type="number"
+                                name="clubPrice"
+                                value={formData.clubPrice}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormData(prev => ({ ...prev, clubPrice: val === '' ? '' : Number(val) }));
+                                }}
+                                className="w-full border-0 px-2 pl-7 py-1.5 rounded-lg text-sm font-black text-center outline-none bg-white text-sky-700 shadow-sm focus:ring-2 focus:ring-sky-400" 
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Venda:</label>
-                    <input 
-                      type="text"
-                      inputMode="decimal"
-                      name="salePrice"
-                      value={(formData.salePrice as any) === '' ? '' : formData.salePrice.toString().replace('.', ',')}
-                      readOnly={!pricingSettings.allowEditOnProduct}
-                      onChange={(e) => {
-                        const val = e.target.value.replace('.', ',');
-                        const normalized = val.replace(',', '.');
-                        const salePrice = normalized === '' ? 0 : Number(normalized);
-                        const costPrice = Number(formData.costPrice);
-                        const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                        let profitPercentage = 0;
-                        if (pricingMethod === 'markup') {
-                          profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
-                        } else {
-                          profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
-                        }
-                        if (normalized === '' || !isNaN(Number(normalized))) {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            salePrice: normalized, 
-                            profit, 
-                            profitPercentage: Math.round(profitPercentage * 100) / 100 
-                          }));
-                        }
-                      }}
-                      className={cn(
-                        "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                        pricingSettings.allowEditOnProduct 
-                          ? "bg-slate-50 text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5" 
-                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      )}
-                    />
-                  </div>
-
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Preço 2:</label>
-                    <input 
-                      ref={termPriceInputRef}
-                      type="number"
-                      name="termPrice"
-                      value={formData.termPrice}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, termPrice: val === '' ? '' : Number(val) }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Atacado:</label>
-                    <input 
-                      type="number"
-                      name="wholesalePrice"
-                      value={formData.wholesalePrice}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Qtd. Atacado:</label>
-                    <input 
-                      type="number"
-                      name="wholesaleMinQty"
-                      value={formData.wholesaleMinQty}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, wholesaleMinQty: val === '' ? 0 : Number(val) }));
-                      }}
-                      placeholder="Ex: 3"
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Clube:</label>
-                    <input 
-                      type="number"
-                      name="clubPrice"
-                      value={formData.clubPrice}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData(prev => ({ ...prev, clubPrice: val === '' ? '' : Number(val) }));
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-brand-blue focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Estoque e Outros */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Estoque e Outros</h4>
-                <div className="flex flex-wrap gap-4">
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Estoque:</label>
-                    <input 
-                      type="number"
-                      name="stock"
-                      value={displayStock}
-                      onChange={handleChange}
-                      readOnly={calculatedKitStock !== null || calculatedVirtualStock !== null}
-                      className={cn(
-                        "w-full border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all",
-                        (calculatedKitStock !== null || calculatedVirtualStock !== null) ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-slate-50 text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5"
-                      )}
-                    />
-                    {calculatedKitStock !== null && (
-                      <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1 text-center">Via Kit</p>
-                    )}
-                    {calculatedVirtualStock !== null && (
-                      <p className="text-[8px] text-brand-blue font-black uppercase italic mt-1 text-center">Via Prod. Base</p>
-                    )}
-                  </div>
-                  <div className="w-24">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Est. Mín:</label>
-                    <input 
-                      type="number"
-                      name="minStock"
-                      value={formData.minStock}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="w-32">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Controlar Est.:</label>
-                    <select 
-                      name="controlStock"
-                      value={formData.controlStock}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="SIM">SIM</option>
-                      <option value="NÃO">NÃO</option>
-                    </select>
-                  </div>
-                  <div className="w-32">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Unidade:</label>
-                    <select 
-                      name="unit"
-                      value={formData.unit}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="UN">UN (Unidade)</option>
-                      <option value="KG">KG (Quilograma)</option>
-                      <option value="G">G (Grama)</option>
-                      <option value="LT">LT (Litro)</option>
-                      <option value="ML">ML (Mililitro)</option>
-                      <option value="CX">CX (Caixa)</option>
-                      <option value="PC">PC (Peça)</option>
-                      <option value="PT">PT (Pacote)</option>
-                      <option value="FD">FD (Fardo)</option>
-                      <option value="DZ">DZ (Dúzia)</option>
-                      <option value="M">M (Metro)</option>
-                      <option value="M2">M2 (Metro Quadrado)</option>
-                      <option value="M3">M3 (Metro Cúbico)</option>
-                      <option value="RL">RL (Rolo)</option>
-                      <option value="PR">PR (Par)</option>
-                      <option value="BD">BD (Balde)</option>
-                      <option value="GL">GL (Galão)</option>
-                      <option value="JG">JG (Jogo)</option>
-                      <option value="KT">KT (Kit)</option>
-                    </select>
-                  </div>
-                  <div className="w-36">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Validade:</label>
-                    <input 
-                      type="date"
-                      name="validade"
-                      value={formData.validade}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Cód. Mercadológico:</label>
-                    <input 
-                      type="text"
-                      name="codigo_mercadologico"
-                      value={formData.codigo_mercadologico || ''}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                      placeholder={
-                        (() => {
-                          if (!formData.subcategoria_id) return 'Automático';
-                          const sub = subcategorias.find(s => s.id === formData.subcategoria_id);
-                          if (!sub) return 'Automático';
-                          const cat = categorias.find(c => c.id === sub.categoria_id);
-                          if (!cat) return sub.codigo || 'Automático';
-                          const dep = departamentos.find(d => d.id === cat.departamento_id);
-                          if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
-                          return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
-                        })()
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Tipo de Produto */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-100 pb-2">Tipo de Produto</h4>
-                <div className="flex flex-wrap gap-4">
-                  <div className="w-48">
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo:</label>
-                    <select 
-                      name="product_type"
-                      value={formData.product_type}
-                      onChange={handleChange}
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                    >
-                      <option value="SALE">PRODUTO DE VENDA</option>
-                      <option value="BASE">PRODUTO BASE (ESTOQUE)</option>
-                      <option value="KIT">KIT / COMBO</option>
-                    </select>
-                  </div>
-
-                  {formData.product_type === 'SALE' && (
-                    <>
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Produto Base (Estoque Real):</label>
-                        <select 
-                          name="base_product_id"
-                          value={formData.base_product_id}
-                          onChange={handleChange}
-                          className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                        >
-                          <option value="">Selecione o produto base...</option>
-                          {products.filter(p => p.product_type === 'BASE' && p.id !== initialData?.id).map(p => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
-                          ))}
-                          {products.filter(p => p.product_type === 'BASE' && p.id !== initialData?.id).length === 0 && (
-                            <option disabled>Nenhum produto base cadastrado</option>
-                          )}
-                        </select>
+                  {/* Card: Gestão de Estoque */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 hover:border-slate-200/80 transition-all">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="w-7 h-7 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-600">
+                        <ClipboardList size={14} className="stroke-[2.5]" />
                       </div>
-                      <div className="w-44">
-                        <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Fator Conversão:</label>
+                      <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest italic">Estoque e Demais Parâmetros</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Estoque Atual */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Estoque Físico:</label>
                         <input 
                           type="number"
-                          step="any"
-                          name="conversion_factor"
-                          value={formData.conversion_factor}
+                          name="stock"
+                          value={displayStock}
                           onChange={handleChange}
-                          className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all" 
-                          placeholder="Ex: 900"
+                          readOnly={calculatedKitStock !== null || calculatedVirtualStock !== null}
+                          className={cn(
+                            "w-full border px-3 py-2.5 rounded-xl text-sm font-black text-center outline-none transition-all shadow-xs",
+                            (calculatedKitStock !== null || calculatedVirtualStock !== null) 
+                              ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" 
+                              : "bg-slate-50 border-slate-200 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5"
+                          )}
                         />
-                        <p className="text-[10px] text-brand-blue font-bold mt-1 uppercase italic leading-tight">Ex: 900 para ml ou 0,9 para litros</p>
+                        {calculatedKitStock !== null && (
+                          <span className="inline-block bg-brand-blue/10 text-brand-blue font-bold px-1.5 py-0.5 rounded text-[8px] tracking-widest uppercase italic mt-1.5 text-center w-full">Kit Vinculado</span>
+                        )}
+                        {calculatedVirtualStock !== null && (
+                          <span className="inline-block bg-brand-blue/10 text-brand-blue font-bold px-1.5 py-0.5 rounded text-[8px] tracking-widest uppercase italic mt-1.5 text-center w-full">Virtual (Prod Base)</span>
+                        )}
                       </div>
-                    </>
-                  )}
 
-                  {formData.product_type === 'KIT' && (
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Composição / Ingredientes:</label>
-                      <div className="flex gap-2">
+                      {/* Estoque Mínimo */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Estoque Mínimo:</label>
                         <input 
-                          type="text"
-                          readOnly
-                          value={formData.composition.length > 0 ? `${formData.composition.length} Itens no Kit` : 'Nenhum'}
-                          className="flex-1 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all cursor-default"
+                          type="number"
+                          name="minStock"
+                          value={formData.minStock}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-black text-center text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
                         />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowCompositionModal(true)}
-                          className="bg-brand-blue text-white px-4 py-2.5 rounded-xl shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center gap-2 text-xs font-black uppercase italic"
+                      </div>
+
+                      {/* Controlar Estoque */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Controlar Estoque?</label>
+                        <select 
+                          name="controlStock"
+                          value={formData.controlStock}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all cursor-pointer shadow-xs"
                         >
-                          <Plus size={16} />
-                          Editar Kit
-                        </button>
+                          <option value="SIM">SIM, CONTROLAR</option>
+                          <option value="NÃO">NÃO CONTROLAR</option>
+                        </select>
+                      </div>
+
+                      {/* Validade */}
+                      <div>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Data de Validade:</label>
+                        <input 
+                          type="date"
+                          name="validade"
+                          value={formData.validade}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all cursor-pointer shadow-xs" 
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
 
-            </div>
+                    {/* Código Mercadológico */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Cód. Mercadológico / Classificação:</label>
+                      <input 
+                        type="text"
+                        name="codigo_mercadologico"
+                        value={formData.codigo_mercadologico || ''}
+                        onChange={handleChange}
+                        className="w-full bg-slate-50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all placeholder-slate-400"
+                        placeholder={
+                          (() => {
+                            if (!formData.subcategoria_id) return 'Código gerado automaticamente';
+                            const sub = subcategorias.find(s => s.id === formData.subcategoria_id);
+                            if (!sub) return 'Código gerado automaticamente';
+                            const cat = categorias.find(c => c.id === sub.categoria_id);
+                            if (!cat) return sub.codigo || 'Código gerado automaticamente';
+                            const dep = departamentos.find(d => d.id === cat.departamento_id);
+                            if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
+                            return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
+                          })()
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Card: Tipo de Venda & Vínculos Complexos */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 hover:border-slate-200/80 transition-all">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-600">
+                        <Layers size={14} className="stroke-[2.5]" />
+                      </div>
+                      <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest italic">Tipo comercial do produto</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                      {/* Tipo */}
+                      <div className={cn(
+                        "md:col-span-12",
+                        formData.product_type !== 'BASE' && "md:col-span-4"
+                      )}>
+                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Item:</label>
+                        <select 
+                          name="product_type"
+                          value={formData.product_type}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all cursor-pointer shadow-xs"
+                        >
+                          <option value="SALE">PRODUTO DE VENDA COLOQUIAL</option>
+                          <option value="BASE">PRODUTO BASE (ESTOQUE REAL)</option>
+                          <option value="KIT">KIT / COMBO COMPOSTO</option>
+                        </select>
+                      </div>
+
+                      {formData.product_type === 'SALE' && (
+                        <>
+                          {/* Produto Base */}
+                          <div className="md:col-span-5">
+                            <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Vincular Produto Base (Estoque Real):</label>
+                            <select 
+                              name="base_product_id"
+                              value={formData.base_product_id}
+                              onChange={handleChange}
+                              className="w-full bg-slate-50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all cursor-pointer shadow-xs"
+                            >
+                              <option value="">Nenhum (Estoque Direto no Item)</option>
+                              {products.filter(p => p.product_type === 'BASE' && p.id !== initialData?.id).map(p => (
+                                <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                              ))}
+                              {products.filter(p => p.product_type === 'BASE' && p.id !== initialData?.id).length === 0 && (
+                                <option disabled>Nenhum produto base cadastrado</option>
+                              )}
+                            </select>
+                          </div>
+                          
+                          {/* Fator de conversão */}
+                          <div className="md:col-span-3">
+                            <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Fator de Conversão:</label>
+                            <input 
+                              type="number"
+                              step="any"
+                              name="conversion_factor"
+                              disabled={!formData.base_product_id}
+                              value={formData.conversion_factor}
+                              onChange={handleChange}
+                              className="w-full bg-slate-50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs" 
+                              placeholder="Ex: 900"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {formData.product_type === 'KIT' && (
+                        <div className="md:col-span-8">
+                          <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Componentes do Combo:</label>
+                          <div className="flex gap-2">
+                            <div className="flex-1 bg-slate-50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 flex items-center">
+                              {formData.composition.length > 0 ? (
+                                <span className="font-extrabold text-brand-blue italic">{formData.composition.length} produtos adicionados ao kit</span>
+                              ) : (
+                                "Nenhum produto vinculado ainda"
+                              )}
+                            </div>
+                            <button 
+                              type="button" 
+                              onClick={() => setShowCompositionModal(true)}
+                              className="bg-brand-blue hover:bg-brand-blue-hover text-white px-4 py-2.5 rounded-xl shadow-md shadow-brand-blue/10 active:scale-95 flex items-center gap-2 text-xs font-black uppercase italic transition-all"
+                            >
+                              <Plus size={14} className="stroke-[3]" />
+                              Configure Kit
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
 
             <div className="w-full lg:w-56 flex flex-col gap-6">
               <input 
@@ -1307,34 +1448,132 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
 
           {activeTab === 'movimentacoes' && (
             <div className="p-8 space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-black text-slate-700 uppercase italic tracking-tight">Histórico de Movimentações</h3>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Histórico de Movimentações</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Visão detalhada do fluxo de entrada, saída e saldo de estoque</p>
+                </div>
                 <div className="flex gap-2">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">
-                    <Download size={14} />
+                  <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm active:scale-95">
+                    <Download size={13} className="stroke-[2.5]" />
                     Exportar PDF
                   </button>
                 </div>
               </div>
 
-              <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
+              {/* Cards de Estatísticas e Visão Geral */}
+              {(() => {
+                const productMovements = stockMovements.filter(m => m.productId === initialData?.id);
+                
+                const totalEntradas = productMovements
+                  .filter(m => m.type === 'ENTRADA' || m.type === 'COMPRA' || (m.type === 'AJUSTE' && m.quantity > 0))
+                  .reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+
+                const totalSaidas = productMovements
+                  .filter(m => m.type === 'SAÍDA' || (m.type === 'AJUSTE' && m.quantity < 0))
+                  .reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+
+                const currentStock = initialData?.stock ?? 0;
+                const minStock = initialData?.minStock ?? 0;
+                const minReached = currentStock <= minStock;
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Card 1: Estoque de Segurança */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1.5 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Estoque Disponível</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className={cn(
+                            "text-3xl font-black italic tracking-tighter leading-none shrink-0",
+                            currentStock <= 0 ? "text-rose-600" : minReached ? "text-amber-500" : "text-brand-blue"
+                          )}>
+                            {Number.isInteger(currentStock) ? currentStock : currentStock.toFixed(3)}
+                          </span>
+                          <span className="text-xs text-slate-400 font-extrabold uppercase">{initialData?.unit || 'UN'}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 block">
+                          Mínimo de Segurança: <strong className="font-extrabold">{minStock} {initialData?.unit || 'UN'}</strong>
+                        </span>
+                      </div>
+                      <div className={cn(
+                        "p-3.5 rounded-xl border z-10 transition-colors duration-250",
+                        currentStock <= 0 ? "bg-rose-50 border-rose-100 text-rose-600 group-hover:bg-rose-100/60" : 
+                        minReached ? "bg-amber-50 border-amber-100 text-amber-600 group-hover:bg-amber-100/60" : 
+                        "bg-brand-blue/5 border-brand-blue/10 text-brand-blue group-hover:bg-brand-blue/10"
+                      )}>
+                        <Package size={22} className="stroke-[2.2]" />
+                      </div>
+                    </div>
+
+                    {/* Card 2: Entradas Acumuladas */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1.5 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Total de Entradas</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-black text-emerald-600 italic tracking-tighter leading-none shrink-0">
+                            +{Number.isInteger(totalEntradas) ? totalEntradas : totalEntradas.toFixed(3)}
+                          </span>
+                          <span className="text-xs text-slate-400 font-extrabold uppercase">{initialData?.unit || 'UN'}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wide">
+                          Compras e reposições de estoque
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 z-10 group-hover:bg-emerald-100/60 transition-colors duration-250">
+                        <ArrowUpRight size={22} className="stroke-[2.5]" />
+                      </div>
+                    </div>
+
+                    {/* Card 3: Saídas Acumuladas */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1.5 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Total de Saídas</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-black text-rose-600 italic tracking-tighter leading-none shrink-0">
+                            -{Number.isInteger(totalSaidas) ? totalSaidas : totalSaidas.toFixed(3)}
+                          </span>
+                          <span className="text-xs text-slate-400 font-extrabold uppercase">{initialData?.unit || 'UN'}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wide">
+                          Vendas faturadas e ajustes negativos
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50 text-rose-600 z-10 group-hover:bg-rose-100/60 transition-colors duration-250">
+                        <ArrowDownRight size={22} className="stroke-[2.5]" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-white">
+                  <thead className="bg-[#fcfdfe] border-b border-slate-150">
                     <tr>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data/Hora</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Origem/Destino</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Qtd</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Saldo</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuário</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Data/Hora</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Tipo de Transação</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono font-bold">Origem/Histórico</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono text-center">Quantidade</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono text-center">Saldo Resultante</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Operador</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {(() => {
                       const filtered = stockMovements
                         .filter(m => m.productId === initialData?.id)
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                       
+                      // Calcular os saldos retroativos com precisão absoluta
+                      const movementBalances: Record<string, number> = {};
+                      let currentBalance = initialData?.stock ?? 0;
+                      for (let i = 0; i < filtered.length; i++) {
+                        const m = filtered[i];
+                        movementBalances[m.id] = currentBalance;
+                        currentBalance -= m.quantity;
+                      }
+
                       const totalHistoryItems = filtered.length;
                       const paginated = filtered.slice(
                         (historyPage - 1) * itemsPerPage,
@@ -1343,35 +1582,67 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
 
                       return (
                         <>
-                          {paginated.map((mov) => (
-                            <tr key={mov.id} className="hover:bg-white transition-colors">
-                              <td className="px-6 py-4 text-xs font-bold text-slate-600">
-                                {formatDateTimeBR(mov.date)}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={cn(
-                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
-                                  mov.type === 'ENTRADA' ? "bg-emerald-100 text-emerald-600" : 
-                                  mov.type === 'SAÍDA' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                          {paginated.map((mov) => {
+                            const resBalance = movementBalances[mov.id] ?? 0;
+                            const isPositive = mov.quantity > 0;
+                            const isNegValue = mov.quantity < 0;
+                            
+                            return (
+                              <tr key={mov.id} className="hover:bg-slate-50/40 transition-colors group">
+                                <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                                  {formatDateTimeBR(mov.date)}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={cn(
+                                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                                      mov.type === 'ENTRADA' || mov.type === 'COMPRA'
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+                                        : mov.type === 'SAÍDA'
+                                        ? "bg-rose-50 text-rose-700 border-rose-100" 
+                                        : "bg-amber-50 text-amber-700 border-amber-100"
+                                    )}>
+                                      {mov.type === 'ENTRADA' || mov.type === 'COMPRA' ? (
+                                        <TrendingUp size={11} className="stroke-[2.5]" />
+                                      ) : mov.type === 'SAÍDA' ? (
+                                        <TrendingDown size={11} className="stroke-[2.5]" />
+                                      ) : (
+                                        <RefreshCw size={11} className="stroke-[2.5]" />
+                                      )}
+                                      {mov.type}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-semibold text-slate-605 max-w-xs truncate" title={mov.origin}>
+                                  {mov.origin}
+                                </td>
+                                <td className={cn(
+                                  "px-6 py-4 text-xs font-black text-center whitespace-nowrap",
+                                  isPositive ? "text-emerald-600" : isNegValue ? "text-rose-600" : "text-slate-650"
                                 )}>
-                                  {mov.type}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-500">{mov.origin}</td>
-                              <td className={cn(
-                                "px-6 py-4 text-xs font-black text-center",
-                                mov.quantity > 0 ? "text-emerald-500" : "text-rose-500"
-                              )}>
-                                {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
-                              </td>
-                              <td className="px-6 py-4 text-xs font-black text-slate-700 text-center">-</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-400">{mov.userName || mov.userId}</td>
-                            </tr>
-                          ))}
+                                  {isPositive ? `+${mov.quantity}` : mov.quantity}
+                                </td>
+                                <td className="px-6 py-4 text-xs font-black text-slate-700 text-center bg-slate-50/20 group-hover:bg-slate-50/40 transition-colors">
+                                  {Number.isInteger(resBalance) ? resBalance : resBalance.toFixed(3)}
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-400 max-w-[120px] truncate" title={mov.userName || mov.userId}>
+                                  {mov.userName || mov.userId}
+                                </td>
+                              </tr>
+                            );
+                          })}
                           {totalHistoryItems === 0 && (
                             <tr>
-                              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest italic">
-                                Nenhuma movimentação para este produto
+                              <td colSpan={6} className="px-6 py-16 text-center">
+                                <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                                  <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
+                                    <History size={20} />
+                                  </div>
+                                  <h4 className="text-xs font-black uppercase text-slate-700 tracking-wider mt-1">Sem Histórico de Estoque</h4>
+                                  <p className="text-[10px] text-slate-400 uppercase font-block tracking-widest leading-relaxed">
+                                    ESTE PRODUTO AINDA NÃO APRESENTOU MOVIMENTAÇÕES DE ESTOQUE REGISTRADAS.
+                                  </p>
+                                </div>
                               </td>
                             </tr>
                           )}
@@ -1438,60 +1709,92 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           )}
 
           {activeTab === 'ajustes' && (
-            <div className="p-8 space-y-8">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-lg font-black text-slate-700 uppercase italic tracking-tight">Ajuste Manual de Estoque</h3>
-                <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Utilize para correções pontuais de inventário</p>
+            <div className="p-8 space-y-8 animate-in fade-in duration-300">
+              <div className="flex flex-col gap-1.5 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                    <Settings2 size={16} className="stroke-[2.5]" />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Ajuste Manual de Estoque</h3>
+                </div>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Configure correções pontuais, avarias ou auditorias físicas de inventário</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-2 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Tipo de Ajuste:</label>
-                      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Form Col */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Tipo de Ajuste */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                      <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Tipo de Ajuste:</label>
+                      <div className="flex bg-slate-50 p-1.5 rounded-xl border border-slate-200">
                         <button 
                           type="button"
                           onClick={() => setAdjustmentType('ENTRADA')}
                           className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black uppercase italic text-xs transition-all",
-                            adjustmentType === 'ENTRADA' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                            "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black uppercase italic text-xs transition-all duration-200 cursor-pointer",
+                            adjustmentType === 'ENTRADA' 
+                              ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/15" 
+                              : "text-slate-450 hover:text-slate-705"
                           )}
                         >
-                          <TrendingUp size={16} />
+                          <TrendingUp size={14} className="stroke-[2.5]" />
                           Entrada
                         </button>
                         <button 
                           type="button"
                           onClick={() => setAdjustmentType('SAÍDA')}
                           className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black uppercase italic text-xs transition-all",
-                            adjustmentType === 'SAÍDA' ? "bg-white text-rose-600 shadow-sm" : "text-slate-400 hover:text-rose-500"
+                            "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black uppercase italic text-xs transition-all duration-200 cursor-pointer",
+                            adjustmentType === 'SAÍDA' 
+                              ? "bg-rose-500 text-white shadow-lg shadow-rose-500/15" 
+                              : "text-slate-450 hover:text-rose-600"
                           )}
                         >
-                          <TrendingDown size={16} />
+                          <TrendingDown size={14} className="stroke-[2.5]" />
                           Saída
                         </button>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Quantidade:</label>
-                      <input 
-                        type="number"
-                        value={adjustmentQty}
-                        onChange={(e) => setAdjustmentQty(Number(e.target.value))}
-                        className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-xl font-black text-center text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
-                        placeholder="0"
-                      />
+
+                    {/* Quantidade */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3 flex flex-col justify-between">
+                      <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Quantidade a ser Ajustada:</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAdjustmentQty(prev => Math.max(0, prev - 1))}
+                          className="w-11 h-11 shrink-0 flex items-center justify-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-extrabold hover:text-slate-800 transition-colors cursor-pointer active:scale-90"
+                        >
+                          <Minus size={16} className="stroke-[2.5]" />
+                        </button>
+                        <input 
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={adjustmentQty || ''}
+                          onChange={(e) => setAdjustmentQty(Math.max(0, Number(e.target.value)))}
+                          className="w-full bg-slate-50/50 border border-slate-200 h-11 rounded-xl text-center text-lg font-black text-slate-800 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all"
+                          placeholder="0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAdjustmentQty(prev => prev + 1)}
+                          className="w-11 h-11 shrink-0 flex items-center justify-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-extrabold hover:text-slate-800 transition-colors cursor-pointer active:scale-90"
+                        >
+                          <Plus size={16} className="stroke-[2.5]" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Motivo do Ajuste:</label>
+                  {/* Motivo do Ajuste */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Motivo do Ajuste:</label>
                     <select 
                       value={adjustmentReason}
                       onChange={(e) => setAdjustmentReason(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                      className="w-full bg-slate-50/60 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all cursor-pointer"
                     >
                       <option value="Correção de Saldo">Correção de Saldo</option>
                       <option value="Avaria / Quebra">Avaria / Quebra</option>
@@ -1502,51 +1805,144 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold mb-1.5 uppercase text-slate-400 tracking-widest">Observações:</label>
+                  {/* Observações */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Observações / Detalhes:</label>
                     <textarea 
                       value={adjustmentNotes}
                       onChange={(e) => setAdjustmentNotes(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all h-32 resize-none"
-                      placeholder="Descreva o motivo detalhado do ajuste..."
+                      className="w-full bg-slate-50/60 border border-slate-200 px-4 py-3.5 rounded-xl text-sm font-bold text-slate-750 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all h-28 resize-none placeholder:text-slate-400 placeholder:font-normal"
+                      placeholder="Adicione informações adicionais sobre esta alteração manual de estoque..."
                     />
                   </div>
 
+                  {/* Botão de Confirmação */}
                   <button 
                     type="button"
                     onClick={handleStockAdjustment}
-                    disabled={isAdjusting}
-                    className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl shadow-brand-blue/20 transition-all active:scale-95 disabled:opacity-50"
+                    disabled={isAdjusting || adjustmentQty <= 0}
+                    className={cn(
+                      "w-full text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer",
+                      adjustmentType === 'ENTRADA' 
+                        ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/10" 
+                        : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/10"
+                    )}
                   >
-                    {isAdjusting ? 'Processando...' : 'Confirmar Ajuste'}
+                    {isAdjusting ? (
+                      <>
+                        <RefreshCw className="animate-spin" size={16} />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        Confirmar Ajuste Manual
+                      </>
+                    )}
                   </button>
                 </div>
 
+                {/* Sidebar Card Col */}
                 <div className="space-y-6">
-                  <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumo do Estoque</h4>
+                  {/* Card Resumo do Estoque */}
+                  <div className="bg-gradient-to-br from-white to-slate-50 p-6 rounded-[24px] border border-slate-200 shadow-sm space-y-5">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <div className="w-7 h-7 rounded-lg bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                        <History size={14} className="stroke-[2.5]" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Previsão Demonstrada</h4>
+                    </div>
+
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500">Saldo Atual:</span>
-                        <span className="text-sm font-black text-slate-700">{displayStock} UN</span>
+                      {/* Saldo Atual */}
+                      <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-150 shadow-inner">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saldo Atual:</span>
+                        <span className="text-sm font-black text-slate-700">{displayStock} {initialData?.unit || 'UN'}</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500">Ajuste:</span>
-                        <span className={cn(
-                          "text-sm font-black",
-                          adjustmentType === 'ENTRADA' ? "text-emerald-500" : "text-rose-500"
-                        )}>
-                          {adjustmentType === 'ENTRADA' ? `+${adjustmentQty}` : `-${adjustmentQty}`} UN
-                        </span>
+
+                      {/* Transição do Ajuste */}
+                      <div className="flex items-center justify-between px-3">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ajuste</span>
+                          <span className={cn(
+                            "text-sm font-black",
+                            adjustmentType === 'ENTRADA' ? "text-emerald-500" : "text-rose-500"
+                          )}>
+                            {adjustmentType === 'ENTRADA' ? `+ ${adjustmentQty}` : `- ${adjustmentQty}`} {initialData?.unit || 'UN'}
+                          </span>
+                        </div>
+                        <ArrowRight size={16} className="text-slate-350" />
+                        <div className="flex flex-col items-end">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Resultará</span>
+                          <span className={cn(
+                            "text-sm font-black",
+                            displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty) < 0 ? "text-rose-600" : "text-brand-blue"
+                          )}>
+                            {displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)} {initialData?.unit || 'UN'}
+                          </span>
+                        </div>
                       </div>
+
                       <div className="h-px bg-slate-200" />
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-700">Novo Saldo:</span>
-                        <span className="text-lg font-black text-brand-blue">
-                          {displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)} UN
+
+                      {/* Novo Saldo */}
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-[10px] font-black text-slate-550 uppercase tracking-wider">Novo Saldo Projetado:</span>
+                        <span className={cn(
+                          "text-xl font-black italic tracking-tighter",
+                          displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty) < 0 ? "text-rose-600" : "text-brand-blue"
+                        )}>
+                          {displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty)} {initialData?.unit || 'UN'}
                         </span>
                       </div>
                     </div>
+
+                    {/* Alertas específicos dependendo do saldo projetado */}
+                    {(() => {
+                      const projected = displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty);
+                      const minStock = initialData?.minStock ?? 0;
+                      
+                      if (projected < 0) {
+                        return (
+                          <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex gap-2.5 items-start">
+                            <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-black uppercase text-rose-700 block tracking-wider leading-none">Saldo Negativo Detectado</span>
+                              <p className="text-[9px] text-rose-500 leading-relaxed font-bold uppercase tracking-wide">Atenção! Esta ação deixará o estoque no valor negativo de {projected}. Verifique a consistência.</p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      if (projected <= minStock) {
+                        return (
+                          <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-2.5 items-start">
+                            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-black uppercase text-amber-700 block tracking-wider leading-none">Estoque Crítico / Baixo</span>
+                              <p className="text-[9px] text-amber-500 leading-relaxed font-bold uppercase tracking-wide">O novo saldo de {projected} estará igual ou abaixo do estoque mínimo definido de {minStock}. Recomenda-se providenciar novas compras.</p>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-xl flex gap-2.5 items-start">
+                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-black uppercase text-emerald-700 block tracking-wider leading-none">Estoque Saudável</span>
+                            <p className="text-[9px] text-emerald-650 leading-relaxed font-bold uppercase tracking-wide">Com o saldo projetado em {projected}, o produto permanecerá com nível de estoque seguro de segurança.</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Informativo Extra */}
+                  <div className="bg-slate-50 p-5 rounded-[20px] border border-slate-150 space-y-2">
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none block">Normativa de Auditoria</span>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide leading-relaxed">
+                      Todo ajuste manual gera uma movimentação correspondente no registro histórico que poderá ser consultado a qualquer momento na aba Movimentações com registro automático de data, horário e operador.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1554,213 +1950,481 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           )}
 
           {activeTab === 'inventario' && (
-            <div className="space-y-8">
-              <div className="flex flex-wrap items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
-                    <ClipboardList size={28} />
+            <div className="space-y-6 animate-in fade-in duration-300 text-slate-700">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                    <ClipboardList size={18} className="stroke-[2.5]" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Inventário de Estoque</h3>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Gestão e Reconciliação de Contagens Físicas</p>
+                    <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Inventário de Estoque</h3>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Gestão e Reconciliação de Contagens Físicas</p>
                   </div>
                 </div>
 
                 <button 
                   type="button"
                   onClick={handleStartInventory}
-                  className="bg-brand-blue hover:bg-brand-blue-hover text-white px-8 py-4 rounded-2xl font-black uppercase italic text-sm tracking-widest transition-all shadow-xl shadow-brand-blue/20 active:scale-95 flex items-center gap-3"
+                  className="bg-brand-blue hover:bg-brand-blue-hover text-white px-6 h-11 rounded-xl font-black uppercase italic text-xs tracking-widest transition-all shadow-md shadow-brand-blue/15 active:scale-95 flex items-center gap-2 cursor-pointer"
                 >
-                  <Plus size={20} />
+                  <Plus size={14} className="stroke-[2.5]" />
                   Novo Inventário
                 </button>
               </div>
 
+              {/* Stats Panel */}
+              {(() => {
+                const totalAuditorias = inventories.length;
+                const concluidas = inventories.filter(inv => inv.status === 'Concluído').length;
+                const emAndamento = inventories.length - concluidas;
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Total Auditorias */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Total de Auditorias</span>
+                        <span className="text-3xl font-black text-slate-800 italic tracking-tighter leading-none block">
+                          {totalAuditorias}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wide">
+                          Contagens físicas cadastradas
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-slate-200 bg-white text-slate-500 z-10 group-hover:bg-slate-100 transition-colors duration-250 shadow-inner">
+                        <ClipboardList size={20} className="stroke-[2.2]" />
+                      </div>
+                    </div>
+
+                    {/* Concluídas */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Concluídas</span>
+                        <span className="text-3xl font-black text-emerald-650 italic tracking-tighter leading-none block font-mono">
+                          {concluidas}
+                        </span>
+                        <span className="text-[9px] font-bold text-emerald-600 block uppercase tracking-wide">
+                          Estoques atualizados com sucesso
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 z-10 group-hover:bg-emerald-100/60 transition-colors duration-250">
+                        <CheckCircle2 size={20} className="stroke-[2.2]" />
+                      </div>
+                    </div>
+
+                    {/* Em Andamento */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Em Andamento</span>
+                        <span className="text-3xl font-black text-amber-500 italic tracking-tighter leading-none block font-mono">
+                          {emAndamento}
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-600 block uppercase tracking-wide">
+                          Aguardando finalização ou contagem
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-amber-100 bg-amber-50 text-amber-600 z-10 group-hover:bg-amber-100/60 transition-colors duration-250">
+                        <RefreshCw size={20} className="stroke-[2.2] animate-spin-[20s]" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-slate-100">
+              <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Data</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block leading-none">Filtrar por Data:</label>
                   <input 
                     type="date" 
                     value={inventoryFilter.date}
                     onChange={(e) => setInventoryFilter(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                    className="w-full bg-slate-50/60 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all cursor-pointer"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Status</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block leading-none">Filtrar por Status:</label>
                   <select 
                     value={inventoryFilter.status}
                     onChange={(e) => setInventoryFilter(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 focus:border-brand-blue outline-none transition-all"
+                    className="w-full bg-slate-50/60 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-650 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none transition-all cursor-pointer"
                   >
                     <option value="">Todos os Status</option>
-                    <option value="Concluído">Finalizado</option>
+                    <option value="Concluído">Finalizado (Concluído)</option>
                     <option value="Em Andamento">Em Andamento</option>
                   </select>
                 </div>
-                <div className="flex items-end">
-                  <button 
-                    type="button"
-                    onClick={() => setInventoryFilter({ date: '', status: '' })}
-                    className="w-full py-3 text-slate-400 hover:text-brand-blue text-[10px] font-black uppercase tracking-widest transition-all"
-                  >
-                    Limpar Filtros
-                  </button>
+                <div>
+                  {(inventoryFilter.date || inventoryFilter.status) ? (
+                    <button 
+                      type="button"
+                      onClick={() => setInventoryFilter({ date: '', status: '' })}
+                      className="w-full h-10 border border-dashed border-rose-200 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      Limpar Filtros
+                    </button>
+                  ) : (
+                    <div className="text-[10px] text-slate-450 font-semibold px-1 py-3 bg-slate-50 rounded-xl border border-slate-200/60 text-center uppercase tracking-wider whitespace-nowrap">
+                      Nenhum filtro ativo no momento
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Table */}
-              <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/50 border-b border-slate-100">
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nº</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsável</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
+                    <thead className="bg-[#fcfdfe] border-b border-slate-150">
+                      <tr>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Nº Ref</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Data do Inventário</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Operador Responsável</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Tipo / Escopo</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Situação</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono text-right">Ações</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {inventories.length > 0 ? (
-                        inventories
-                          .filter(inv => {
-                            if (inventoryFilter.date && !inv.date.startsWith(inventoryFilter.date)) return false;
-                            if (inventoryFilter.status && inv.status !== inventoryFilter.status) return false;
-                            return true;
-                          })
-                          .map((inv, idx) => (
-                          <tr key={inv.id} className="hover:bg-slate-50/50 transition-all group">
-                            <td className="px-8 py-5">
-                              <span className="text-xs font-black text-slate-400">#{inventories.length - idx}</span>
-                            </td>
-                            <td className="px-8 py-5">
-                              <div className="flex flex-col">
-                                <span className="text-sm font-black text-slate-700">{formatDateBR(inv.date)}</span>
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{inv.location}</span>
-                              </div>
-                            </td>
-                            <td className="px-8 py-5">
-                              <span className="text-sm font-bold text-slate-600">{inv.responsible || 'Sistema'}</span>
-                            </td>
-                            <td className="px-8 py-5">
-                              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                {inv.type || 'Geral'}
-                              </span>
-                            </td>
-                            <td className="px-8 py-5">
-                              <span className={cn(
-                                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                                inv.status === 'Concluído' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
-                              )}>
-                                {inv.status === 'Concluído' ? 'Finalizado' : 'Em Andamento'}
-                              </span>
-                            </td>
-                            <td className="px-8 py-5 text-right">
-                              <button type="button" className="p-2 text-slate-400 hover:text-brand-blue transition-all">
-                                <Settings2 size={18} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="px-8 py-20 text-center">
-                            <div className="flex flex-col items-center gap-4 text-slate-300">
-                              <ClipboardList size={48} className="opacity-20" />
-                              <p className="text-sm font-black uppercase tracking-widest">Nenhum inventário registrado</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+                    <tbody className="divide-y divide-slate-100">
+                      {(() => {
+                        const filteredList = inventories.filter(inv => {
+                          if (inventoryFilter.date && !inv.date.startsWith(inventoryFilter.date)) return false;
+                          if (inventoryFilter.status && inv.status !== inventoryFilter.status) return false;
+                          return true;
+                        });
 
-          {activeTab === 'lotes' && (
-            <div className="space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
-                  <Package size={28} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Lotes em Estoque</h3>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Controle de Lotes e Validades (PEPS)</p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/50 border-b border-slate-100">
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lote</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Validade</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Custo Unit.</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Qtd Inicial</th>
-                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Saldo Atual</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {lotes.filter(l => l.productId === initialData?.id).length > 0 ? (
-                        lotes
-                          .filter(l => l.productId === initialData?.id)
-                          .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime())
-                          .map((lote) => (
-                            <tr key={lote.id} className="hover:bg-slate-50/50 transition-all group">
-                              <td className="px-8 py-5">
-                                <span className="text-sm font-black text-slate-700">{lote.numeroLote}</span>
+                        if (filteredList.length > 0) {
+                          return filteredList.map((inv, idx) => (
+                            <tr key={inv.id} className="hover:bg-slate-50/45 transition-colors group">
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-mono font-black text-slate-400">#{inventories.length - idx}</span>
                               </td>
-                              <td className="px-8 py-5">
-                                <span className="text-sm font-bold text-slate-600">{formatDateBR(lote.dataEntrada)}</span>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-slate-800">{formatDateBR(inv.date)}</span>
+                                  <span className="text-[10px] text-slate-400 font-extrabold uppercase mt-0.5 tracking-wider">{inv.location || 'Depósito Principal'}</span>
+                                </div>
                               </td>
-                              <td className="px-8 py-5">
-                                <span className={cn(
-                                  "text-sm font-bold",
-                                  lote.validade && new Date(lote.validade) < new Date() ? "text-rose-500" : "text-slate-600"
-                                )}>
-                                  {lote.validade ? formatDateBR(lote.validade) : '-'}
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-semibold text-slate-600 block max-w-[150px] truncate" title={inv.responsible || 'Sistema'}>
+                                  {inv.responsible || 'Sistema'}
                                 </span>
                               </td>
-                              <td className="px-8 py-5">
-                                <span className="text-sm font-black text-brand-blue">R$ {lote.custoUnit.toFixed(2)}</span>
-                              </td>
-                              <td className="px-8 py-5 text-center">
-                                <span className="text-sm font-bold text-slate-500">{lote.quantidadeInicial}</span>
-                              </td>
-                              <td className="px-8 py-5 text-center">
-                                <span className={cn(
-                                  "text-sm font-black",
-                                  lote.saldoAtual > 0 ? "text-emerald-600" : "text-slate-400"
-                                )}>
-                                  {lote.saldoAtual}
+                              <td className="px-6 py-4">
+                                <span className="px-2.5 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-[9px] font-black uppercase tracking-wider">
+                                  {inv.type || 'Geral'}
                                 </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={cn(
+                                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                                  inv.status === 'Concluído' 
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-150" 
+                                    : "bg-amber-50 text-amber-700 border-amber-150"
+                                )}>
+                                  {inv.status === 'Concluído' ? (
+                                    <>
+                                      <CheckCircle2 size={10} className="stroke-[2.5]" />
+                                      Finalizado
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      Em Andamento
+                                    </>
+                                  )}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button 
+                                  type="button" 
+                                  onClick={handleStartInventory}
+                                  className="p-2 text-slate-400 hover:text-brand-blue hover:bg-brand-blue/5 rounded-lg transition-all cursor-pointer active:scale-90"
+                                  title="Ajustar / Ver Inventário"
+                                >
+                                  <Settings2 size={15} />
+                                </button>
                               </td>
                             </tr>
-                          ))
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="px-8 py-20 text-center">
-                            <div className="flex flex-col items-center gap-4 text-slate-300">
-                              <Package size={48} className="opacity-20" />
-                              <p className="text-sm font-black uppercase tracking-widest">Nenhum lote registrado para este produto</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
+                          ));
+                        }
+
+                        return (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-16 text-center">
+                              <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                                <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
+                                  <ClipboardList size={20} />
+                                </div>
+                                <h4 className="text-xs font-black uppercase text-slate-700 tracking-wider mt-1">Sem Inventários Localizados</h4>
+                                <p className="text-[10px] text-slate-400 uppercase font-block tracking-widest leading-relaxed">
+                                  {inventories.length > 0 
+                                    ? "A busca não retornou resultados com os filtros ativos." 
+                                    : "Este produto ainda não possui contagens físicas ou auditorias cadastradas."}
+                                </p>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })()}
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
           )}
+
+          {activeTab === 'lotes' && (() => {
+            const productLotes = lotes.filter(l => l.productId === initialData?.id);
+            const totalLotes = productLotes.length;
+            const totalSaldo = productLotes.reduce((acc, l) => acc + l.saldoAtual, 0);
+            
+            const now = new Date();
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+            const expiredLotesCount = productLotes.filter(l => l.validade && new Date(l.validade) < now).length;
+            const criticalLotesCount = productLotes.filter(l => l.validade && new Date(l.validade) >= now && new Date(l.validade) <= thirtyDaysFromNow).length;
+            const activeLotesCount = productLotes.filter(l => l.saldoAtual > 0).length;
+
+            const averageCost = productLotes.length > 0
+              ? productLotes.reduce((acc, l) => acc + l.custoUnit, 0) / productLotes.length
+              : initialData?.costPrice || 0;
+
+            const isReconciled = totalSaldo === (initialData?.stock || 0);
+
+            return (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Header Section */}
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shadow-inner flex-shrink-0">
+                    <Package size={22} className="stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Lotes em Estoque</h3>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider font-sans">
+                      Controle inteligente de lotes, validades e rastreamento PEPS (Primeiro que Entra, Primeiro que Sai)
+                    </p>
+                  </div>
+                </div>
+
+                {/* KPI Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
+                  {/* Card 1: Saldo total em lotes */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2 mb-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Consolidado em Lotes</span>
+                      {isReconciled ? (
+                        <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200/50">
+                          <CheckCircle2 size={10} />
+                          CONCILIADO
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200/50" title={`Diferença de ${(initialData?.stock || 0) - totalSaldo} unidades em relação ao cadastro`}>
+                          <AlertTriangle size={10} />
+                          DIVERGENTE
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-2xl font-black text-slate-800 italic tracking-tighter leading-none mt-1">
+                        {totalSaldo} <span className="text-xs uppercase font-bold not-italic text-slate-400">{initialData?.unit || 'UN'}</span>
+                      </p>
+                      <span className="text-[9px] text-slate-400 uppercase font-extrabold mt-1.5 block">
+                        Estoque Cadastrado: <strong className="text-slate-600">{initialData?.stock || 0} {initialData?.unit || 'UN'}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Batches count */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2 mb-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Lotes Ativos</span>
+                      <div className="w-5 h-5 rounded bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                        <Box size={12} className="stroke-[2.5]" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-black text-brand-blue italic tracking-tighter leading-none mt-1">
+                        {activeLotesCount} <span className="text-xs uppercase font-bold not-italic text-slate-400">ativos</span>
+                      </p>
+                      <span className="text-[9px] text-slate-400 uppercase font-extrabold mt-1.5 block">
+                        Total cadastrado: {totalLotes} lotes
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Expiry Status */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2 mb-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Validades</span>
+                      {expiredLotesCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 border border-rose-200/50 animate-pulse">
+                          CRÍTICO
+                        </span>
+                      ) : criticalLotesCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200/50">
+                          ATENÇÃO
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200/50">
+                          SEGURO
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      {expiredLotesCount > 0 ? (
+                        <p className="text-2xl font-black text-rose-600 italic tracking-tighter leading-none mt-1">
+                          {expiredLotesCount} <span className="text-xs uppercase font-bold not-italic text-rose-400">vencidos</span>
+                        </p>
+                      ) : criticalLotesCount > 0 ? (
+                        <p className="text-2xl font-black text-amber-600 italic tracking-tighter leading-none mt-1">
+                          {criticalLotesCount} <span className="text-xs uppercase font-bold not-italic text-amber-400">em alerta</span>
+                        </p>
+                      ) : (
+                        <p className="text-2xl font-black text-emerald-600 italic tracking-tighter leading-none mt-1">
+                          100% <span className="text-xs uppercase font-bold not-italic text-emerald-400">regular</span>
+                        </p>
+                      )}
+                      <span className="text-[9px] text-slate-400 uppercase font-extrabold mt-1.5 block">
+                        Monitoramento contínuo
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Average Cost */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2 mb-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Custo Médio Lotes</span>
+                      <div className="w-5 h-5 rounded bg-emerald-55 flex items-center justify-center text-emerald-650 bg-emerald-50">
+                        <DollarSign size={12} className="stroke-[2.5]" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-black text-emerald-600 italic tracking-tighter leading-none mt-1">
+                        R$ {averageCost.toFixed(2)}
+                      </p>
+                      <span className="text-[9px] text-slate-400 uppercase font-extrabold mt-1.5 block">
+                        Custo do Cadastro: R$ {initialData?.costPrice?.toFixed(2) || '0,00'}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Batches Table Card */}
+                <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/65 border-b border-slate-150">
+                          <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Lote ID / Fila PEPS</th>
+                          <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Data Entrada</th>
+                          <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Vencimento / Status</th>
+                          <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Valor de Custo</th>
+                          <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-center">Quantidades (Inicial → Atual)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {productLotes.length > 0 ? (
+                          productLotes
+                            .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime())
+                            .map((lote, index) => {
+                              const isExpired = lote.validade && new Date(lote.validade) < now;
+                              const isCritical = lote.validade && !isExpired && new Date(lote.validade) <= thirtyDaysFromNow;
+                              const isPepsNext = index === 0 && lote.saldoAtual > 0;
+
+                              return (
+                                <tr key={lote.id} className="hover:bg-slate-50/40 transition-colors group">
+                                  <td className="px-8 py-4">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-sm font-black text-slate-700 font-mono tracking-wide">{lote.numeroLote}</span>
+                                      {isPepsNext ? (
+                                        <span className="inline-flex self-start px-2 py-0.5 bg-brand-blue/10 text-brand-blue text-[8px] font-black uppercase tracking-wider rounded-md">
+                                          PRÓXIMO A SAIR (PEPS)
+                                        </span>
+                                      ) : lote.saldoAtual > 0 ? (
+                                        <span className="inline-flex self-start px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-wider rounded-md">
+                                          Fila: {index + 1}º
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex self-start px-2 py-0.5 bg-slate-50 text-slate-355 text-[8px] font-bold text-slate-400 uppercase tracking-wider rounded-md">
+                                          Esgotado
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-8 py-4">
+                                    <span className="text-xs font-bold text-slate-600 font-mono">{formatDateBR(lote.dataEntrada)}</span>
+                                  </td>
+                                  <td className="px-8 py-4">
+                                    {lote.validade ? (
+                                      <div className="flex flex-col gap-1">
+                                        <span className={cn(
+                                          "text-xs font-black font-mono",
+                                          isExpired ? "text-rose-600" : isCritical ? "text-amber-600" : "text-emerald-600"
+                                        )}>
+                                          {formatDateBR(lote.validade)}
+                                        </span>
+                                        <span className={cn(
+                                          "inline-flex self-start items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wide border leading-none",
+                                          isExpired 
+                                            ? "bg-rose-50 text-rose-600 border-rose-200/50" 
+                                            : isCritical 
+                                              ? "bg-amber-50 text-amber-600 border-amber-200/50 animate-pulse" 
+                                              : "bg-emerald-50 text-emerald-600 border-emerald-200/55"
+                                        )}>
+                                          <span className={cn("w-1 h-1 rounded-full", isExpired ? "bg-rose-500" : isCritical ? "bg-amber-500" : "bg-emerald-500")} />
+                                          {isExpired ? 'Vencido / Descartar' : isCritical ? 'Atenção. Próx. Vencimento' : 'Seguro'}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Sem Vencimento</span>
+                                    )}
+                                  </td>
+                                  <td className="px-8 py-4">
+                                    <span className="text-sm font-black text-emerald-650 font-mono text-emerald-600">
+                                      R$ {lote.custoUnit.toFixed(2)}
+                                    </span>
+                                  </td>
+                                  <td className="px-8 py-4 text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <span className="text-xs font-bold text-slate-450 font-mono">{lote.quantidadeInicial}</span>
+                                      <span className="text-[10px] text-slate-300">→</span>
+                                      <span className={cn(
+                                        "px-2.5 py-1 rounded-lg text-xs font-black font-mono shadow-inner border",
+                                        lote.saldoAtual > 0 
+                                          ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+                                          : "bg-slate-50 text-slate-400 border-slate-150"
+                                      )}>
+                                        {lote.saldoAtual} {initialData?.unit || 'UN'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="px-8 py-20 text-center">
+                              <div className="flex flex-col items-center gap-4 text-slate-350">
+                                <Package size={40} className="stroke-[1.5] opacity-40" />
+                                <p className="text-[10px] font-black uppercase tracking-widest font-mono">
+                                  Nenhum registro de lote ativo localizado para este produto
+                                </p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Composition Modal (Cadastro de Kit) */}

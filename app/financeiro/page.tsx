@@ -19,8 +19,11 @@ import {
   CheckCircle2,
   Clock,
   Landmark,
-  Smartphone
+  Smartphone,
+  CreditCard,
+  Users
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn, getLocalDateString } from '@/lib/utils';
 import { 
   BarChart, 
@@ -50,6 +53,16 @@ import { DRE } from '@/components/financeiro/DRE';
 export default function FinancePage() {
   const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns } = useERP();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'despesas' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tab = searchParams.get('tab');
+      if (tab && ['dashboard', 'despesas', 'pagar', 'receber', 'fluxo', 'movimentacao', 'dre'].includes(tab)) {
+        setActiveTab(tab as any);
+      }
+    }
+  }, []);
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -402,6 +415,25 @@ export default function FinancePage() {
     return { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal, margemBruta, margemLiquida };
   }, [sales, expenses, products, isWithinRange]);
 
+  // --- 7. Totais do Dashboard ---
+  const dashboardDetails = useMemo(() => {
+    let chartEntradas = 0;
+    let chartSaidas = 0;
+    chartData.forEach(d => {
+      chartEntradas += d.entrada;
+      chartSaidas += d.saida;
+    });
+
+    const totalSalesByPayment = salesByPayment.reduce((acc, curr) => acc + curr.amount, 0);
+
+    return {
+      chartEntradas,
+      chartSaidas,
+      chartSaldo: chartEntradas - chartSaidas,
+      totalSalesByPayment
+    };
+  }, [chartData, salesByPayment]);
+
   if (!hasPermission('Financeiro', 'view')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -515,104 +547,208 @@ export default function FinancePage() {
             <div className="lg:col-span-2 space-y-6 md:space-y-8">
               
               {/* 2. Gráfico de Fluxo de Caixa */}
-              <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-black uppercase italic tracking-tight flex items-center gap-2">
-                    <Activity size={20} className="text-brand-blue" />
-                    Fluxo de Caixa
-                  </h3>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-705 shadow-sm">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  <div>
+                    <h3 className="text-sm font-black uppercase italic tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                      <Activity size={18} className="text-brand-blue" />
+                      Fluxo de Caixa no Período
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                      Saldo Líquido Plottado: {formatCurrency(dashboardDetails.chartSaldo)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-lg border border-emerald-100/20">
+                      Entradas: {formatCurrency(dashboardDetails.chartEntradas)}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-3 py-1 rounded-lg border border-rose-100/20">
+                      Saídas: {formatCurrency(dashboardDetails.chartSaidas)}
+                    </span>
+                  </div>
                 </div>
-                <div className="h-72 w-full">
+                <div className="h-72 w-full mt-2">
                   <ResponsiveContainer id="fin-cash-area-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorEntrada" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#00E676" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#00E676" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                         </linearGradient>
                         <linearGradient id="colorSaida" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93'}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#6B7C93'}} tickFormatter={(value) => `R$ ${value}`} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} tickFormatter={(value) => `R$ ${value}`} />
                       <Tooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: any) => formatCurrency(value)}
+                        contentStyle={{ 
+                          borderRadius: '16px', 
+                          border: '1px solid #f1f5f9', 
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.05)',
+                          padding: '12px'
+                        }}
+                        itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
+                        labelStyle={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }}
+                        formatter={(value: any) => [formatCurrency(value), '']}
                       />
-                      <Area type="monotone" dataKey="entrada" name="Entradas" stroke="#00E676" strokeWidth={3} fillOpacity={1} fill="url(#colorEntrada)" />
-                      <Area type="monotone" dataKey="saida" name="Saídas" stroke="#EF4444" strokeWidth={3} fillOpacity={1} fill="url(#colorSaida)" />
+                      <Area type="monotone" dataKey="entrada" name="Entradas (+)" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorEntrada)" />
+                      <Area type="monotone" dataKey="saida" name="Saídas (-)" stroke="#ef4444" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSaida)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* 6. DRE Automático */}
-              <div className="bg-brand-card p-4 md:p-6 rounded-2xl border border-brand-border shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-black uppercase italic tracking-tight flex items-center gap-2">
-                    <PieChartIcon size={20} className="text-indigo-500" />
-                    DRE Automático (Período)
-                  </h3>
+              {/* 3. DRE Automático Simplificado */}
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-705 shadow-sm relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-50 dark:border-slate-700/50 pb-4">
+                  <div>
+                    <h3 className="text-sm font-black uppercase italic tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                      <PieChartIcon size={18} className="text-indigo-500" />
+                      Demonstrativo Simplificado (Período)
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                      Resumo vertical do balanço operacional
+                    </p>
+                  </div>
                   <div className="flex gap-2">
-                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-widest" title="Margem sobre o custo do produto">
+                    <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-wider border border-emerald-100/20" title="Margem Bruta">
                       M. Bruta: {dre.margemBruta.toFixed(1)}%
                     </span>
                     <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
-                      dre.margemLiquida >= 0 ? "bg-indigo-50 text-indigo-600" : "bg-rose-50 text-rose-600"
-                    )} title="Margem final após todas as despesas">
+                      "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border",
+                      dre.margemLiquida >= 0 
+                        ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 border-indigo-100/20" 
+                        : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-455 border-rose-100/20"
+                    )} title="Margem Líquida">
                       M. Líquida: {dre.margemLiquida.toFixed(1)}%
                     </span>
                   </div>
                 </div>
                 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Receita Bruta (Vendas)</span>
-                    <span className="text-lg font-black text-emerald-600">{formatCurrency(dre.receita)}</span>
+                <div className="space-y-3">
+                  {/* Receita Bruta */}
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/10 border border-slate-100/40 dark:border-slate-850 hover:bg-slate-100/50 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 text-xs font-black flex items-center justify-center border border-emerald-100/10">+</span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Receita de Vendas</span>
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Faturamento bruto liquidado</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-[9px] text-slate-450 font-bold">100.0% RL</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(dre.receita)}</span>
+                    </div>
                   </div>
                   
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                      CMV (Custo da Mercadoria)
-                    </span>
-                    <span className="text-lg font-black text-rose-600">{formatCurrency(dre.cmv)}</span>
+                  {/* CMV */}
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/20 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded bg-rose-50 dark:bg-rose-950/30 text-rose-500 text-xs font-black flex items-center justify-center border border-rose-100/10">-</span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">CMV (Custo Mercadoria)</span>
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Custo dos itens faturados</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-[9px] text-rose-500 font-bold font-mono">
+                        {dre.receita > 0 ? `-${((dre.cmv / dre.receita) * 100).toFixed(1)}%` : '0.0%'}
+                      </span>
+                      <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.cmv)})</span>
+                    </div>
                   </div>
 
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100/50">
-                    <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Lucro Bruto</span>
-                    <span className="text-lg font-black text-emerald-600">{formatCurrency(dre.lucroBruto)}</span>
+                  {/* Lucro Bruto */}
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-500/[0.02] dark:bg-emerald-950/15 border border-emerald-550/20 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded bg-emerald-500 text-white text-xs font-black flex items-center justify-center shadow-sm">=</span>
+                      <div>
+                        <span className="text-xs font-black text-emerald-800 dark:text-emerald-400">Lucro Bruto Operacional</span>
+                        <p className="text-[8px] text-emerald-600/70 dark:text-emerald-500/70 font-bold uppercase tracking-wider">Margem Bruta sobre Custos</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-[9px] text-emerald-600 font-extrabold">{dre.margemBruta.toFixed(1)}%</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(dre.lucroBruto)}</span>
+                    </div>
                   </div>
                   
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                      Taxas Financeiras (Maquininhas)
-                    </span>
-                    <span className="text-lg font-black text-rose-600">{formatCurrency(dre.taxasMaquininhas)}</span>
+                  {/* Taxas Financeiras */}
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/20 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded bg-rose-50 dark:bg-rose-950/30 text-rose-500 text-xs font-black flex items-center justify-center border border-rose-100/10">-</span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Taxas de Cartões / Maquininhas</span>
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Tarifas e descontos de adquirentes</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-[9px] text-rose-500 font-bold">
+                        {dre.receita > 0 ? `-${((dre.taxasMaquininhas / dre.receita) * 100).toFixed(1)}%` : '0.0%'}
+                      </span>
+                      <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.taxasMaquininhas)})</span>
+                    </div>
                   </div>
 
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[10px]">-</span>
-                      Despesas Operacionais
-                    </span>
-                    <span className="text-lg font-black text-rose-600">{formatCurrency(dre.despesas)}</span>
+                  {/* Despesas Operacionais */}
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/20 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded bg-rose-50 dark:bg-rose-950/30 text-rose-500 text-xs font-black flex items-center justify-center border border-rose-100/10">-</span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Despesas Operacionais Gerais</span>
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Custos de infraestrutura e serviços</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-[9px] text-rose-500 font-bold">
+                        {dre.receita > 0 ? `-${((dre.despesas / dre.receita) * 100).toFixed(1)}%` : '0.0%'}
+                      </span>
+                      <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.despesas)})</span>
+                    </div>
                   </div>
                   
-                  <div className="flex justify-between items-center p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50">
-                    <span className="text-base font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest">= Lucro Real</span>
-                    <span className={cn("text-2xl font-black", dre.lucroReal >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                      {formatCurrency(dre.lucroReal)}
-                    </span>
+                  {/* Lucro Real */}
+                  <div className={cn(
+                    "flex justify-between items-center p-4 rounded-xl border relative overflow-hidden shadow-sm mt-4",
+                    dre.lucroReal >= 0 
+                      ? "bg-indigo-505/[0.03] dark:bg-indigo-950/15 border-indigo-500/20 dark:border-indigo-800/40" 
+                      : "bg-rose-550/[0.03] dark:bg-rose-950/15 border-rose-500/20 dark:border-rose-800/40"
+                  )}>
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn(
+                        "w-5 h-5 rounded text-white text-xs font-black flex items-center justify-center shadow-sm",
+                        dre.lucroReal >= 0 ? "bg-indigo-500" : "bg-rose-500"
+                      )}>=</span>
+                      <div>
+                        <span className={cn(
+                          "text-xs font-black uppercase tracking-wider",
+                          dre.lucroReal >= 0 ? "text-indigo-800 dark:text-indigo-400" : "text-rose-800 dark:text-rose-450"
+                        )}>Lucro Líquido Real</span>
+                        <p className={cn(
+                          "text-[8px] font-bold uppercase tracking-wider",
+                          dre.lucroReal >= 0 ? "text-indigo-650/70" : "text-rose-650/70"
+                        )}>Margem líquida após saídas</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className={cn(
+                        "text-[9px] font-black",
+                        dre.lucroReal >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"
+                      )}>{dre.margemLiquida.toFixed(1)}%</span>
+                      <span className={cn(
+                        "text-sm sm:text-base font-black",
+                        dre.lucroReal >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-405"
+                      )}>
+                        {formatCurrency(dre.lucroReal)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-
 
             </div>
 
@@ -620,83 +756,159 @@ export default function FinancePage() {
             <div className="space-y-6 md:space-y-8">
               
               {/* 3. Contas a Pagar / Receber */}
-              <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
-                <h3 className="text-lg font-black uppercase italic tracking-tight mb-6 flex items-center gap-2">
-                  <Calendar size={20} className="text-brand-warning" />
-                  Contas a Pagar / Receber
-                </h3>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-705 shadow-sm">
+                <div className="border-b border-slate-50 dark:border-slate-700/50 pb-4 mb-6">
+                  <h3 className="text-sm font-black uppercase italic tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                    <Calendar size={18} className="text-amber-500" />
+                    Compromissos de Hoje
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                    Agenda e responsabilidades financeiras
+                  </p>
+                </div>
                 
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1">
-                        <AlertCircle size={14} /> Contas a Pagar Hoje
+                  
+                  {/* Contas a Pagar Hoje */}
+                  <div className="p-4 rounded-2xl bg-rose-500/[0.02] dark:bg-rose-950/10 border border-rose-500/10">
+                    <div className="flex justify-between items-center mb-2.5">
+                      <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <AlertCircle size={13} className="animate-pulse" /> Contas a Pagar Hoje
                       </span>
-                      <span className="text-lg font-black text-rose-700 dark:text-rose-300">{formatCurrency(contas.aPagarHoje)}</span>
+                      <span className="text-base font-black text-rose-600 dark:text-rose-400">{formatCurrency(contas.aPagarHoje)}</span>
                     </div>
-                    {contas.aPagarHojeList.length > 0 && (
-                      <div className="mt-3 space-y-2">
+                    {contas.aPagarHojeList.length > 0 ? (
+                      <div className="mt-3 space-y-2 pt-2 border-t border-rose-500/5">
                         {contas.aPagarHojeList.slice(0, 3).map(e => (
-                          <div key={e.id} className="flex justify-between text-xs">
-                            <span className="text-slate-600 dark:text-slate-400 truncate pr-2">{e.description}</span>
-                            <span className="font-bold text-rose-600">{formatCurrency(e.amount)}</span>
+                          <div key={e.id} className="flex justify-between items-center text-xs">
+                            <span className="text-slate-600 dark:text-slate-400 truncate pr-2 font-medium">{e.description}</span>
+                            <span className="font-extrabold text-rose-500">{formatCurrency(e.amount)}</span>
                           </div>
                         ))}
                       </div>
+                    ) : (
+                      <p className="text-[9px] text-slate-400 font-bold uppercase italic mt-1.5">Sem faturas para pagar hoje</p>
                     )}
                   </div>
 
-                  <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                        <CheckCircle2 size={14} /> Contas a Receber Hoje
+                  {/* Contas a Receber Hoje */}
+                  <div className="p-4 rounded-2xl bg-emerald-500/[0.02] dark:bg-emerald-950/10 border border-emerald-500/10">
+                    <div className="flex justify-between items-center mb-2.5">
+                      <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <CheckCircle2 size={13} /> Contas a Receber Hoje
                       </span>
-                      <span className="text-lg font-black text-emerald-700 dark:text-emerald-300">{formatCurrency(contas.aReceberHoje)}</span>
+                      <span className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(contas.aReceberHoje)}</span>
                     </div>
-                    {contas.aReceberHojeList.length > 0 && (
-                      <div className="mt-3 space-y-2">
+                    {contas.aReceberHojeList.length > 0 ? (
+                      <div className="mt-3 space-y-2 pt-2 border-t border-emerald-500/5">
                         {contas.aReceberHojeList.slice(0, 3).map(s => (
-                          <div key={s.id} className="flex justify-between text-xs">
-                            <span className="text-slate-600 dark:text-slate-400 truncate pr-2">Venda #{s.id.slice(0,6)}</span>
-                            <span className="font-bold text-emerald-600">{formatCurrency(s.total)}</span>
+                          <div key={s.id} className="flex justify-between items-center text-xs">
+                            <span className="text-slate-600 dark:text-slate-400 truncate pr-2 font-medium">Venda #{s.id.slice(0,6)}</span>
+                            <span className="font-extrabold text-[#10b981]">{formatCurrency(s.total)}</span>
                           </div>
                         ))}
                       </div>
+                    ) : (
+                      <p className="text-[9px] text-slate-400 font-bold uppercase italic mt-1.5">Sem vendas pendentes hoje</p>
                     )}
                   </div>
 
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                        Contas Vencidas
+                  {/* Contas Vencidas */}
+                  <div className={cn(
+                    "p-4 rounded-2xl border transition-all flex items-center justify-between",
+                    contas.vencidas > 0 
+                      ? "bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30 text-rose-600"
+                      : "bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 text-slate-500"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle size={15} className={contas.vencidas > 0 ? "text-rose-500" : "text-slate-400"} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        Total de Contas Vencidas
                       </span>
-                      <span className="text-lg font-black text-slate-900 dark:text-white">{formatCurrency(contas.vencidas)}</span>
                     </div>
+                    <span className={cn(
+                      "text-base font-black",
+                      contas.vencidas > 0 ? "text-rose-700 dark:text-rose-455" : "text-slate-600 dark:text-slate-300"
+                    )}>
+                      {formatCurrency(contas.vencidas)}
+                    </span>
                   </div>
+
                 </div>
               </div>
 
               {/* 5. Resumo de Vendas por Pagamento */}
-              <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm">
-                <h3 className="text-lg font-black uppercase italic tracking-tight mb-6 flex items-center gap-2">
-                  <DollarSign size={20} className="text-brand-blue" />
-                  Vendas por Pagamento
-                </h3>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-705 shadow-sm">
+                <div className="border-b border-slate-50 dark:border-slate-700/50 pb-4 mb-6">
+                  <h3 className="text-sm font-black uppercase italic tracking-tight flex items-center gap-2 text-slate-900 dark:text-white">
+                    <DollarSign size={18} className="text-brand-blue" />
+                    Divisão por Canal de Entrada
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                    Métodos e canais de faturamento
+                  </p>
+                </div>
                 
-                <div className="space-y-3">
-                  {salesByPayment.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                          <Wallet size={16} />
+                <div className="space-y-4">
+                  {salesByPayment.map((item, index) => {
+                    const pct = dashboardDetails.totalSalesByPayment > 0 ? (item.amount / dashboardDetails.totalSalesByPayment) * 100 : 0;
+                    
+                    let IconComponent = Wallet;
+                    let colorClass = "bg-indigo-50 border-indigo-100 text-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-400";
+                    let progressClass = "bg-indigo-500";
+                    
+                    const lowerMethod = item.method.toLowerCase();
+                    if (lowerMethod.includes('pix')) {
+                      IconComponent = Smartphone;
+                      colorClass = "bg-purple-50 border-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400";
+                      progressClass = "bg-purple-500";
+                    } else if (lowerMethod.includes('dinheiro') || lowerMethod.includes('caixa')) {
+                      IconComponent = DollarSign;
+                      colorClass = "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400";
+                      progressClass = "bg-emerald-505 bg-emerald-500";
+                    } else if (lowerMethod.includes('crédito') || lowerMethod.includes('credito') || lowerMethod.includes('cartão')) {
+                      IconComponent = CreditCard;
+                      colorClass = "bg-blue-50 border-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400";
+                      progressClass = "bg-blue-500";
+                    } else if (lowerMethod.includes('débito') || lowerMethod.includes('debito')) {
+                      IconComponent = CreditCard;
+                      colorClass = "bg-sky-50 border-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400";
+                      progressClass = "bg-sky-500";
+                    } else if (lowerMethod.includes('fiado')) {
+                      IconComponent = Users;
+                      colorClass = "bg-amber-50 border-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400";
+                      progressClass = "bg-amber-500";
+                    }
+
+                    return (
+                      <div key={index} className="space-y-2 p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-all border border-transparent hover:border-slate-50 dark:hover:border-slate-800">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border shrink-0", colorClass)}>
+                              <IconComponent size={16} />
+                            </div>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{item.method}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-right">
+                            <span className="text-xs font-black text-slate-850 dark:text-slate-105">{formatCurrency(item.amount)}</span>
+                            <span className="text-[9px] text-slate-400 font-bold bg-slate-50 dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
+                              {pct.toFixed(1)}%
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.method}</span>
+
+                        {/* Progress metric bar */}
+                        <div className="w-full bg-slate-100 dark:bg-slate-900 h-1 rounded-full overflow-hidden">
+                          <div className={cn("h-full rounded-full transition-all duration-300", progressClass)} style={{ width: `${pct}%` }} />
+                        </div>
                       </div>
-                      <span className="text-sm font-black text-slate-900 dark:text-white">{formatCurrency(item.amount)}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {salesByPayment.length === 0 && (
-                    <p className="text-center py-4 text-xs text-slate-400 font-bold">Nenhuma venda registrada.</p>
+                    <div className="py-8 text-center text-slate-400 select-none">
+                      <Wallet size={24} className="mx-auto text-slate-300 opacity-60 mb-2" />
+                      <p className="text-[10px] font-bold uppercase tracking-wider italic">Nenhuma venda registrada.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -766,27 +978,53 @@ export default function FinancePage() {
 }
 
 function FinanceStatCard({ title, value, trend, icon: Icon, color }: any) {
-  const colors: any = {
-    "emerald": "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20",
-    "rose": "bg-rose-50 text-rose-600 dark:bg-rose-900/20",
-    "blue": "bg-blue-50 text-blue-600 dark:bg-blue-900/20",
-    "indigo": "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20",
+  const colorMap: any = {
+    emerald: {
+      accent: "from-emerald-400 to-emerald-500",
+      iconContainer: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+    },
+    rose: {
+      accent: "from-rose-400 to-rose-500",
+      iconContainer: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+    },
+    blue: {
+      accent: "from-blue-400 to-blue-500",
+      iconContainer: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+    },
+    indigo: {
+      accent: "from-indigo-400 to-indigo-500",
+      iconContainer: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+    }
   };
 
+  const scheme = colorMap[color] || colorMap.indigo;
+
   return (
-    <div className="bg-brand-card p-6 rounded-2xl border border-brand-border shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-4 mb-4">
-        <div className={`size-12 rounded-xl flex items-center justify-center ${colors[color]}`}>
-          <Icon size={24} />
+    <motion.div 
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="group relative overflow-hidden bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300"
+    >
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${scheme.accent} opacity-[0.03] rounded-full blur-xl group-hover:scale-150 transition-all duration-500`} />
+      
+      <div className="flex items-center gap-4">
+        <div className={`size-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105 ${scheme.iconContainer}`}>
+          <Icon size={22} />
         </div>
-        <div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
-          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">{value}</h3>
+        <div className="min-w-0">
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">{title}</p>
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1.5 truncate">
+            {value}
+          </h3>
         </div>
       </div>
-      <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{trend}</p>
+      <div className="mt-5 pt-3.5 border-t border-slate-50 dark:border-slate-700/50">
+        <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-indigo-500 transition-colors shrink-0 animate-pulse" />
+          {trend}
+        </p>
       </div>
-    </div>
+    </motion.div>
   );
 }

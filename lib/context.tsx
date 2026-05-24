@@ -1554,6 +1554,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('erp_user', JSON.stringify(fallbackUser));
         }
         
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('erp_overdue_alert_shown');
+        }
+
         // Fetch data immediately after successful login
         await fetchData();
         
@@ -1570,6 +1574,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('erp_user');
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('erp_overdue_alert_shown');
+    }
     setUser(null);
   }, []);
 

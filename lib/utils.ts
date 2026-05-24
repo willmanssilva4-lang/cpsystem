@@ -5,21 +5,35 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function getLocalDateString(dateInput: Date | string = new Date()) {
-  let date: Date;
-  if (typeof dateInput === 'string') {
-    // If it's just a date string like "YYYY-MM-DD", parse it as local
-    if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateInput.split('-').map(Number);
-      date = new Date(year, month - 1, day);
-    } else {
-      date = new Date(dateInput);
-    }
-  } else {
-    date = dateInput;
+export function getLocalDateString(dateInput: Date | string | null | undefined = new Date()) {
+  let val = dateInput;
+  if (val === null || val === undefined) {
+    val = new Date();
   }
   
-  if (isNaN(date.getTime())) return '';
+  let date: Date;
+  if (typeof val === 'string') {
+    val = val.trim();
+    if (!val) {
+      date = new Date();
+    } else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = val.split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    } else if (val.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const [day, month, year] = val.split('/').map(Number);
+      date = new Date(year, month - 1, day);
+    } else {
+      date = new Date(val);
+    }
+  } else if (val instanceof Date) {
+    date = val;
+  } else {
+    date = new Date();
+  }
+  
+  if (!date || isNaN(date.getTime())) {
+    date = new Date();
+  }
   
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -27,8 +41,22 @@ export function getLocalDateString(dateInput: Date | string = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export function toLocalDateString(isoDate: string) {
+export function toLocalDateString(isoDate: string | null | undefined) {
+  if (!isoDate || typeof isoDate !== 'string') {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   const date = new Date(isoDate);
+  if (isNaN(date.getTime())) {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
