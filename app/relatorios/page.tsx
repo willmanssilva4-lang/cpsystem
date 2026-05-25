@@ -59,7 +59,10 @@ import {
   Bot,
   User,
   Trophy,
-  Award
+  Award,
+  HelpCircle,
+  UserPlus,
+  RotateCcw
 } from 'lucide-react';
 import { 
   BarChart, 

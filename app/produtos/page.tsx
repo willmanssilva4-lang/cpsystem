@@ -31,7 +31,8 @@ import {
   Minus,
   AlertTriangle,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn, formatDateTimeBR } from '@/lib/utils';

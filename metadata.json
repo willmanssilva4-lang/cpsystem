@@ -1,5 +1,8 @@
 {
   "name": "Cpsystem",
   "description": "Sistema de Gestão Financeira Inteligente",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

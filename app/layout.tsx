@@ -1,27 +1,21 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import { ERPProvider } from '@/lib/context'
-import { AppLayout } from '@/components/AppLayout'
+import React from 'react';
+import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'Cpsystem',
-  description: 'ERP System'
-}
+export const metadata = {
+  title: 'Sistema ERP Integrado',
+  description: 'Uma plataforma moderna e integrada de gestão empresarial (ERP)',
+};
 
 export default function RootLayout({
-  children
+  children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>
-        <ERPProvider>
-          <AppLayout>
-            {children}
-          </AppLayout>
-        </ERPProvider>
+    <html lang="pt-BR" className="h-full">
+      <body className="h-full text-slate-900 selection:bg-blue-100 selection:text-blue-900">
+        {children}
       </body>
     </html>
-  )
+  );
 }

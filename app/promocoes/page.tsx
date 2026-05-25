@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useERP } from '@/lib/context';
-import { Plus, Search, Filter, Edit, Trash2, Tag, Percent, ShoppingBag, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Tag, Percent, ShoppingBag, Layers, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import PromotionModal from '@/components/PromotionModal';
 import { Promotion } from '@/lib/types';
 

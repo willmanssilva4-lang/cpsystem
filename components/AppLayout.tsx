@@ -354,7 +354,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           if (!e) return false;
           const isPaid = e.status === 'Pago' || !!e.paymentDate;
           const dueDateStr = getLocalDateString(e?.dueDate || e?.date);
-          return !isPaid && dueDateStr && dueDateStr >= today;
+          return !isPaid && dueDateStr && dueDateStr === today;
         });
 
         if (overdue.length > 0 || upcoming.length > 0) {
@@ -385,10 +385,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ? expenses.filter(e => {
         if (!e) return false;
         const isPaid = e.status === 'Pago' || !!e.paymentDate;
-        const dueDate = new Date(e.dueDate || e.date);
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
-        return !isPaid && dueDate >= todayDate;
+        const dueDateStr = getLocalDateString(e?.dueDate || e?.date);
+        return !isPaid && dueDateStr && dueDateStr === today;
       }).sort((a, b) => {
         const dateA = new Date(a.dueDate || a.date).getTime();
         const dateB = new Date(b.dueDate || b.date).getTime();
