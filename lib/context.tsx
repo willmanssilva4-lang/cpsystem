@@ -350,6 +350,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
           return {
             ...sale,
+            paymentMethod: sale.payment_method ?? sale.paymentMethod,
+            customerId: sale.customer_id ?? sale.customerId,
+            userId: sale.user_id ?? sale.userId,
+            cashRegisterId: sale.cash_register_id ?? sale.cashRegisterId,
+            maquininhaId: sale.maquininha_id ?? sale.maquininhaId,
+            taxAmount: sale.tax_amount !== undefined ? sale.tax_amount : sale.taxAmount,
+            netAmount: sale.net_amount !== undefined ? sale.net_amount : sale.netAmount,
+            companyId: sale.company_id ?? sale.companyId,
+            storeId: sale.store_id ?? sale.storeId,
             items: items
           };
         });
@@ -653,7 +662,22 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchData();
-    return inserted ? { ...inserted, items } : null;
+    if (inserted) {
+      return {
+        ...inserted,
+        paymentMethod: inserted.payment_method ?? inserted.paymentMethod,
+        customerId: inserted.customer_id ?? inserted.customerId,
+        userId: inserted.user_id ?? inserted.userId,
+        cashRegisterId: inserted.cash_register_id ?? inserted.cashRegisterId,
+        maquininhaId: inserted.maquininha_id ?? inserted.maquininhaId,
+        taxAmount: inserted.tax_amount !== undefined ? inserted.tax_amount : inserted.taxAmount,
+        netAmount: inserted.net_amount !== undefined ? inserted.net_amount : inserted.netAmount,
+        companyId: inserted.company_id ?? inserted.companyId,
+        storeId: inserted.store_id ?? inserted.storeId,
+        items
+      };
+    }
+    return null;
   };
 
   const updateSale = async (data: any) => {

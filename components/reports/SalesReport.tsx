@@ -251,7 +251,10 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
   const paymentBreakdown = useMemo(() => {
     const map = new Map<string, { name: string, total: number, count: number }>();
     processedSales.forEach(s => {
-      const methodObj = paymentMethods.find(m => m.id === s.paymentMethod);
+      const methodObj = paymentMethods.find(m => 
+        m.id === s.paymentMethod || 
+        m.name?.toLowerCase() === s.paymentMethod?.toLowerCase()
+      );
       const name = methodObj ? methodObj.name : (s.paymentMethod || 'Outros');
       const current = map.get(name) || { name, total: 0, count: 0 };
       current.total += s.total;
@@ -327,7 +330,10 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
       const rows = processedSales.map(sale => {
         const customer = customers.find(c => c.id === sale.customerId);
         const seller = systemUsers.find(u => u.id === sale.userId);
-        const method = paymentMethods.find(m => m.id === sale.paymentMethod);
+        const method = paymentMethods.find(m => 
+          m.id === sale.paymentMethod || 
+          m.name?.toLowerCase() === sale.paymentMethod?.toLowerCase()
+        );
         
         const saleCost = sale.items.reduce((itemAcc: number, item: any) => {
           const product = products.find(p => p.id === item.productId);
@@ -903,7 +909,10 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
               {currentSales.length > 0 ? currentSales.map((sale) => {
                 const customer = customers.find(c => c.id === sale.customerId);
                 const seller = systemUsers.find(u => u.id === sale.userId);
-                const method = paymentMethods.find(m => m.id === sale.paymentMethod);
+                const method = paymentMethods.find(m => 
+                  m.id === sale.paymentMethod || 
+                  m.name?.toLowerCase() === sale.paymentMethod?.toLowerCase()
+                );
                 const isExpanded = expandedSaleId === sale.id;
 
                 // Margem cálculo

@@ -1023,7 +1023,10 @@ function AdvancedPerformanceDashboard({
   // Payment Data Calculation
   const paymentTotals: Record<string, number> = {};
   filteredSales.forEach(sale => {
-    const method = paymentMethods.find(m => m.id === sale.paymentMethod);
+    const method = paymentMethods.find(m => 
+      m.id === sale.paymentMethod || 
+      m.name?.toLowerCase() === sale.paymentMethod?.toLowerCase()
+    );
     const methodName = method ? method.name : (sale.paymentMethod || 'Outros');
     paymentTotals[methodName] = (paymentTotals[methodName] || 0) + sale.total;
   });
