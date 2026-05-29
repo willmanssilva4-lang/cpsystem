@@ -405,14 +405,19 @@ export default function ProductsPage() {
     return true;
   });
 
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const currentProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const totalPages = Math.ceil(sortedFilteredProducts.length / itemsPerPage);
+  const currentProducts = sortedFilteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalStockValue = products.reduce((acc, p) => {
-    const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
-    if (isVirtual) return acc;
-    // Somente somamos valores de estoque positivo para a valorização
-    return acc + (Math.max(0, p.stock || 0) * (p.costPrice || 0));
+    const stock = Number(p.stock || 0);
+    const cost = Number(p.costPrice || 0);
+    
+    if (stock > 0 && cost > 0) {
+      return acc + (stock * cost);
+    }
+    return acc;
   }, 0);
   const lowStockCount = products.filter(p => p.status === 'Ativo' && (p.stock || 0) <= (p.minStock || 0)).length;
 
