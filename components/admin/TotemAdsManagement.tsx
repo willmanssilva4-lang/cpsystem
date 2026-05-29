@@ -19,7 +19,7 @@ export default function TotemAdsManagement() {
       setEditingAd(ad);
       setFormData({
         titulo: ad.titulo,
-        descricao: ad.descricao,
+        descricao: ad.descricao || '',
         imagem_url: ad.imagem_url,
         ativo: ad.ativo
       });

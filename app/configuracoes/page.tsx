@@ -149,7 +149,7 @@ function ToggleGroup({ label, description, defaultChecked = false, onChange }: {
 
 function CompanySettings() {
   const { companySettings, updateCompanySettings } = useERP();
-  const [formData, setFormData] = useState(companySettings);
+  const [formData, setFormData] = useState<any>(companySettings || {});
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -184,36 +184,36 @@ function CompanySettings() {
           <div className="flex-1 space-y-4">
             <InputGroup 
               label="Nome Fantasia" 
-              value={formData.tradeName} 
-              onChange={(e) => setFormData(prev => ({ ...prev, tradeName: e.target.value }))} 
+              value={formData?.tradeName || ''} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), tradeName: e.target.value }))} 
             />
             <InputGroup 
               label="Razão Social" 
-              value={formData.legalName} 
-              onChange={(e) => setFormData(prev => ({ ...prev, legalName: e.target.value }))} 
+              value={formData?.legalName || ''} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), legalName: e.target.value }))} 
             />
             <div className="grid grid-cols-2 gap-4">
               <InputGroup 
                 label="CNPJ" 
-                value={formData.cnpj} 
-                onChange={(e) => setFormData(prev => ({ ...prev, cnpj: e.target.value }))} 
+                value={formData?.cnpj || ''} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), cnpj: e.target.value }))} 
               />
               <InputGroup 
                 label="Inscrição Estadual" 
-                value={formData.stateRegistration} 
-                onChange={(e) => setFormData(prev => ({ ...prev, stateRegistration: e.target.value }))} 
+                value={formData?.stateRegistration || ''} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), stateRegistration: e.target.value }))} 
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <InputGroup 
                 label="E-mail" 
-                value={formData.email || ''} 
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} 
+                value={formData?.email || ''} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), email: e.target.value }))} 
               />
               <InputGroup 
                 label="Telefone" 
-                value={formData.phone || ''} 
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} 
+                value={formData?.phone || ''} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), phone: e.target.value }))} 
               />
             </div>
           </div>
@@ -255,7 +255,7 @@ function CompanySettings() {
                         if (ctx) {
                           ctx.drawImage(img, 0, 0, width, height);
                           const dataUrl = canvas.toDataURL('image/png', 0.8);
-                          setFormData(prev => ({ ...prev, logo: dataUrl }));
+                          setFormData((prev: any) => ({ ...(prev || {}), logo: dataUrl }));
                         }
                       };
                       if (event.target?.result) {
@@ -266,7 +266,7 @@ function CompanySettings() {
                   }
                 }} 
               />
-              {formData.logo ? (
+              {formData?.logo ? (
                 <div className="relative w-full h-full p-2">
                   <Image 
                     src={formData.logo} 
@@ -292,31 +292,31 @@ function CompanySettings() {
             <div className="md:col-span-2">
               <InputGroup 
                 label="Logradouro" 
-                value={formData.address.street} 
-                onChange={(e) => setFormData(prev => ({ ...prev, address: { ...prev.address, street: e.target.value } }))} 
+                value={formData?.address?.street || ''} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), street: e.target.value } }))} 
               />
             </div>
             <InputGroup 
               label="Número" 
-              value={formData.address.number} 
-              onChange={(e) => setFormData(prev => ({ ...prev, address: { ...prev.address, number: e.target.value } }))} 
+              value={formData?.address?.number || ''} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), number: e.target.value } }))} 
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InputGroup 
               label="Bairro" 
-              value={formData.address.neighborhood} 
-              onChange={(e) => setFormData(prev => ({ ...prev, address: { ...prev.address, neighborhood: e.target.value } }))} 
+              value={formData?.address?.neighborhood || ''} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), neighborhood: e.target.value } }))} 
             />
             <InputGroup 
               label="Cidade" 
-              value={formData.address.city} 
-              onChange={(e) => setFormData(prev => ({ ...prev, address: { ...prev.address, city: e.target.value } }))} 
+              value={formData?.address?.city || ''} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), city: e.target.value } }))} 
             />
             <InputGroup 
               label="Estado" 
-              value={formData.address.state} 
-              onChange={(e) => setFormData(prev => ({ ...prev, address: { ...prev.address, state: e.target.value } }))} 
+              value={formData?.address?.state || ''} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), state: e.target.value } }))} 
             />
           </div>
         </div>
@@ -475,12 +475,12 @@ function SystemSettings() {
     console.log('🖥️ SystemSettings mounted', { hasSettings: !!systemSettings });
   }, [systemSettings]);
 
-  const [formData, setFormData] = useState(systemSettings || {
+  const [formData, setFormData] = useState<any>(systemSettings || {
     theme: 'system',
     language: 'pt-BR',
     currency: 'BRL',
     timezone: 'America/Sao_Paulo',
-    notifications: { email: true, push: true, sms: false }
+    notifications: { email: true, push: true, sms: false, senderEmail: '' }
   });
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -668,7 +668,7 @@ function SystemSettings() {
             <p style="font-size: 12px; color: #64748b;">Este é um alerta automático do seu sistema ERP.</p>
           </div>
         `,
-        formData.notifications.senderEmail
+        formData?.notifications?.senderEmail
       );
 
       if (result.success) {
@@ -703,8 +703,8 @@ function SystemSettings() {
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Tema</label>
               <select 
-                value={formData.theme}
-                onChange={e => setFormData({...formData, theme: e.target.value as any})}
+                value={formData?.theme || 'system'}
+                onChange={e => setFormData((prev: any) => ({...(prev || {}), theme: e.target.value as any}))}
                 className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
               >
                 <option value="system">Sistema</option>
@@ -715,8 +715,8 @@ function SystemSettings() {
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Idioma</label>
               <select 
-                value={formData.language}
-                onChange={e => setFormData({...formData, language: e.target.value as any})}
+                value={formData?.language || 'pt-BR'}
+                onChange={e => setFormData((prev: any) => ({...(prev || {}), language: e.target.value as any}))}
                 className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
               >
                 <option value="pt-BR">Português (Brasil)</option>
@@ -726,15 +726,15 @@ function SystemSettings() {
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Moeda</label>
               <select 
-                value={formData.currency}
-                onChange={e => setFormData({...formData, currency: e.target.value as any})}
+                value={formData?.currency || 'BRL'}
+                onChange={e => setFormData((prev: any) => ({...(prev || {}), currency: e.target.value as any}))}
                 className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
               >
                 <option value="BRL">Real (R$)</option>
                 <option value="USD">Dólar ($)</option>
               </select>
             </div>
-            <InputGroup label="Fuso Horário" value={formData.timezone} onChange={e => setFormData({...formData, timezone: e.target.value})} />
+            <InputGroup label="Fuso Horário" value={formData?.timezone || ''} onChange={e => setFormData((prev: any) => ({...(prev || {}), timezone: e.target.value}))} />
           </div>
         </div>
 
@@ -748,23 +748,23 @@ function SystemSettings() {
               <ToggleGroup 
                 label="Notificações por Email" 
                 description="Receber alertas importantes por email." 
-                defaultChecked={formData.notifications.email}
-                onChange={(checked) => setFormData({...formData, notifications: {...formData.notifications, email: checked}})}
+                defaultChecked={formData?.notifications?.email || false}
+                onChange={(checked) => setFormData((prev: any) => ({...(prev || {}), notifications: {...(prev?.notifications || {}), email: checked}}))}
               />
               
-              {formData.notifications.email && (
+              {formData?.notifications?.email && (
                 <div className="pt-2">
                   <InputGroup 
                     label="E-mail de Envio (Remetente)" 
                     placeholder="ex: willmanssilva1@gmail.com"
-                    value={formData.notifications.senderEmail || ''} 
-                    onChange={e => setFormData({...formData, notifications: {...formData.notifications, senderEmail: e.target.value}})} 
+                    value={formData?.notifications?.senderEmail || ''} 
+                    onChange={e => setFormData((prev: any) => ({...(prev || {}), notifications: {...(prev?.notifications || {}), senderEmail: e.target.value}}))} 
                   />
                   <InputGroup 
                     label="E-mail de Destino (Recebimento)" 
                     placeholder="ex: willmanssilva1@gmail.com"
-                    value={formData.notifications.recipientEmail || ''} 
-                    onChange={e => setFormData({...formData, notifications: {...formData.notifications, recipientEmail: e.target.value}})} 
+                    value={formData?.notifications?.recipientEmail || ''} 
+                    onChange={e => setFormData((prev: any) => ({...(prev || {}), notifications: {...(prev?.notifications || {}), recipientEmail: e.target.value}}))} 
                   />
                   <p className="text-[10px] text-brand-text-main/50 mt-1 ml-1">
                     Deixe em branco para usar o padrão. Requer domínio verificado no Resend.
@@ -821,14 +821,14 @@ function SystemSettings() {
             <ToggleGroup 
               label="Notificações Push" 
               description="Receber alertas no navegador/app." 
-              defaultChecked={formData.notifications.push}
-              onChange={(checked) => setFormData({...formData, notifications: {...formData.notifications, push: checked}})}
+              defaultChecked={formData?.notifications?.push || false}
+              onChange={(checked) => setFormData((prev: any) => ({...(prev || {}), notifications: {...(prev?.notifications || {}), push: checked}}))}
             />
             <ToggleGroup 
               label="Notificações por SMS" 
               description="Receber alertas críticos por SMS." 
-              defaultChecked={formData.notifications.sms}
-              onChange={(checked) => setFormData({...formData, notifications: {...formData.notifications, sms: checked}})}
+              defaultChecked={formData?.notifications?.sms || false}
+              onChange={(checked) => setFormData((prev: any) => ({...(prev || {}), notifications: {...(prev?.notifications || {}), sms: checked}}))}
             />
           </div>
         </div>

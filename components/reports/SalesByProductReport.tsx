@@ -80,9 +80,9 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
 
     filteredSales.forEach(sale => {
       const saleTax = sale.taxAmount || 0;
-      const itemsSum = sale.items.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 1;
+      const itemsSum = sale.items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0) || 1;
 
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         if (!stats[item.productId]) {
           stats[item.productId] = { qty: 0, total: 0, totalCost: 0, totalTax: 0 };
         }
@@ -211,12 +211,12 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
       const isWithinDate = d >= startDate && d <= endDate;
-      const hasItem = s.items.some(item => item.productId === expandedProductId);
+      const hasItem = s.items.some((item: any) => item.productId === expandedProductId);
       return isWithinDate && hasItem;
     });
 
     return matches.map(sale => {
-      const item = sale.items.find(it => it.productId === expandedProductId)!;
+      const item = sale.items.find((it: any) => it.productId === expandedProductId)!;
       
       // Resolve operator/seller
       const user = systemUsers.find(u => u.id === sale.userId);
@@ -235,7 +235,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         itemTotal: item.price * item.quantity,
         sellerName,
         customerName,
-        isClub: customer?.isClub || false
+        isClub: customer?.isClubMember || false
       };
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expandedProductId, sales, startDate, endDate, filteredAndSortedData, customers, employees, systemUsers]);

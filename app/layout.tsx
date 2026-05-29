@@ -1,9 +1,11 @@
 import React from 'react';
 import './globals.css';
+import { ERPProvider } from '@/lib/context';
+import { AppLayout } from '@/components/AppLayout';
 
 export const metadata = {
-  title: 'Sistema ERP Integrado',
-  description: 'Uma plataforma moderna e integrada de gestão empresarial (ERP)',
+  title: 'CPSystem ERP - Gestão Integrada',
+  description: 'Sistema ERP Profissional para Gestão de Vendas, Estoque e Financeiro.',
 };
 
 export default function RootLayout({
@@ -14,7 +16,11 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="h-full">
       <body className="h-full text-slate-900 selection:bg-blue-100 selection:text-blue-900">
-        {children}
+        <ERPProvider>
+          <AppLayout>
+            {children}
+          </AppLayout>
+        </ERPProvider>
       </body>
     </html>
   );

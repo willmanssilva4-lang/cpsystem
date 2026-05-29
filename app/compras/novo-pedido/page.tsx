@@ -485,7 +485,6 @@ export default function NovaCompraPage() {
           const currentStock = currentProduct?.stock || 0;
           
           const updateData: any = { 
-            stock: currentStock + item.qty,
             cost_price: item.cost,
             supplier: supplierName,
             has_had_stock: true

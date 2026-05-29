@@ -47,11 +47,11 @@ export default function CustomersPage() {
     const productCounts: Record<string, number> = {};
     const categoryCounts: Record<string, number> = {};
 
-    customerSales.forEach(sale => {
-      sale.items.forEach(item => {
+    customerSales.forEach((sale: any) => {
+      sale.items?.forEach((item: any) => {
         productCounts[item.productId] = (productCounts[item.productId] || 0) + item.quantity;
         
-        const product = products.find(p => p.id === item.productId);
+        const product = products.find((p: any) => p.id === item.productId);
         if (product) {
           const catId = product.subcategoria_id;
           if (catId) {
@@ -332,7 +332,7 @@ export default function CustomersPage() {
                       <div className="flex-1">
                         <p className="text-sm font-bold">Venda #{sale.id.substring(0, 8).toUpperCase()}</p>
                         <p className="text-xs text-slate-500">
-                          {new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.items.length} itens
+                          {new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.items?.length || 0} itens
                         </p>
                       </div>
                       <p className="text-sm font-black text-brand-text-main">

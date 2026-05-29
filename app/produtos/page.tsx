@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { useERP } from '@/lib/context';
 import { 
@@ -35,7 +35,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { cn, formatDateTimeBR } from '@/lib/utils';
+import { cn, formatDateTimeBR, toLocalDateString } from '@/lib/utils';
 import { ProductForm } from '@/components/ProductForm';
 import { ProductDetails } from '@/components/ProductDetails';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
@@ -62,6 +62,7 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState<'Ativo' | 'Inativo' | 'Todos'>('Ativo');
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showDepartamentoMenu, setShowDepartamentoMenu] = useState(false);
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
@@ -298,6 +299,7 @@ export default function ProductsPage() {
             stock: parseNumber(item.Estoque || item['Estoque:'] || item.estoque),
             minStock: parseNumber(item['Estoque Mínimo'] || item['Estoque Mínimo:'] || item.estoque_minimo),
             status: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? 'Inativo' : 'Ativo',
+            active: (item.Status && String(item.Status).trim().toLowerCase() === 'inativo') ? false : true,
             brand: (item.Marca || item['Marca:'] || item['Marca'] || item.marca || item.brand || item.Brand) ? String(item.Marca || item['Marca:'] || item['Marca'] || item.marca || item.brand || item.Brand).trim() : 'PADRAO',
             gramatura: (item.Gramatura || item['Gramatura:'] || item.gramatura) ? String(item.Gramatura || item['Gramatura:'] || item.gramatura) : '',
             tipo_embalagem: (item['Tipo de Embalagem'] || item['Tipo de Embalagem:'] || item.tipo_embalagem) ? String(item['Tipo de Embalagem'] || item['Tipo de Embalagem:'] || item.tipo_embalagem) : '',
@@ -307,7 +309,7 @@ export default function ProductsPage() {
             section: (item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) ? String(item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) : '',
             supplier: (item.Fornecedor || item['Fornecedor:'] || item['Fornecedor'] || item.fornecedor || item.supplier || item.Supplier) ? String(item.Fornecedor || item['Fornecedor:'] || item['Fornecedor'] || item.fornecedor || item.supplier || item.Supplier).trim() : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
-          } as Product, true); // true para skipFetch
+          } as Product); 
 
           if (success) {
             importedCount++;
@@ -344,6 +346,22 @@ export default function ProductsPage() {
 
   // Adjustment form state
   const [adjustmentProductId, setAdjustmentProductId] = useState('');
+  const [adjustmentSearchTerm, setAdjustmentSearchTerm] = useState('');
+  const [isAdjustmentDropdownOpen, setIsAdjustmentDropdownOpen] = useState(false);
+  const adjustmentDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (adjustmentDropdownRef.current && !adjustmentDropdownRef.current.contains(event.target as Node)) {
+        setIsAdjustmentDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const [adjustmentType, setAdjustmentType] = useState<'ENTRADA' | 'SAÍDA'>('ENTRADA');
   const [adjustmentQty, setAdjustmentQty] = useState(0);
   const [adjustmentReason, setAdjustmentReason] = useState('Correção de Saldo');
@@ -359,6 +377,12 @@ export default function ProductsPage() {
                           (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()));
     
     if (!matchesSearch) return false;
+
+    // Se estiver filtrando por estoque baixo, ignoramos o filtro de status 'Ativo' 
+    // mas ainda respeitamos se o usuário selecionou explicitamente 'Inativo' ou 'Todos' no dropdown.
+    if (showLowStockOnly) {
+      if ((p.stock || 0) > (p.minStock || 0)) return false;
+    }
 
     // Filtro de Status
     if (statusFilter !== 'Todos') {
@@ -388,9 +412,9 @@ export default function ProductsPage() {
     const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
     if (isVirtual) return acc;
     // Somente somamos valores de estoque positivo para a valorização
-    return acc + (Math.max(0, p.stock) * p.costPrice);
+    return acc + (Math.max(0, p.stock || 0) * (p.costPrice || 0));
   }, 0);
-  const lowStockCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
+  const lowStockCount = products.filter(p => p.status === 'Ativo' && (p.stock || 0) <= (p.minStock || 0)).length;
 
   const handleSaveProduct = async (formData: any) => {
     let success = false;
@@ -477,11 +501,17 @@ export default function ProductsPage() {
 
   const handleStockAdjustment = async () => {
     if (!hasPermission('Gestão de Produtos', 'edit')) {
-      alert('Você não tem permissão para realizar ajustes de estoque.');
+      setCustomAlert({
+        message: 'Você não tem permissão para realizar ajustes de estoque.',
+        type: 'warning'
+      });
       return;
     }
     if (!adjustmentProductId || adjustmentQty <= 0) {
-      alert('Selecione um produto e informe uma quantidade válida.');
+      setCustomAlert({
+        message: 'Selecione um produto e informe uma quantidade válida.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -498,9 +528,14 @@ export default function ProductsPage() {
         companyId: user?.companyId || ''
       });
       
-      alert('Ajuste realizado com sucesso!');
+      setCustomAlert({
+        message: 'Ajuste realizado com sucesso!',
+        type: 'success'
+      });
       setAdjustmentQty(0);
       setAdjustmentProductId('');
+      setAdjustmentSearchTerm('');
+      setIsAdjustmentDropdownOpen(false);
     } catch (error) {
       console.error('Adjustment error:', error);
     } finally {
@@ -585,9 +620,32 @@ export default function ProductsPage() {
       {activeTab === 'produtos' && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            <SummaryCard title="Total de Produtos" value={products.length.toLocaleString('pt-BR')} icon={Package} color="green" />
-            <SummaryCard title="Estoque Baixo" value={lowStockCount.toLocaleString('pt-BR')} icon={AlertCircle} color="red" />
-            <SummaryCard title="Quantidade Total" value={products.reduce((acc, p) => acc + p.stock, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} icon={Package} color="blue" />
+            <SummaryCard 
+              title="Total de Produtos" 
+              value={products.length.toLocaleString('pt-BR')} 
+              icon={Package} 
+              color="green" 
+            />
+            <button 
+              onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+              className={cn(
+                "text-left transition-all",
+                showLowStockOnly && "ring-2 ring-rose-500 rounded-2xl"
+              )}
+            >
+              <SummaryCard 
+                title="Estoque Baixo" 
+                value={lowStockCount.toLocaleString('pt-BR')} 
+                icon={AlertCircle} 
+                color="red" 
+              />
+            </button>
+            <SummaryCard 
+              title="Quantidade Total" 
+              value={products.reduce((acc, p) => acc + p.stock, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} 
+              icon={Package} 
+              color="blue" 
+            />
             <SummaryCard title="Estoque Valorizado" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalStockValue)} icon={TrendingUp} color="orange" />
           </div>
 
@@ -834,11 +892,11 @@ export default function ProductsPage() {
                         <div className="flex flex-col text-slate-700">
                           <div className="flex items-center gap-1">
                             <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider w-8">Custo:</span>
-                            <span className="text-xs text-slate-500 font-bold">R$ {product.costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="text-xs text-slate-500 font-bold">R$ {(product.costPrice ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5">
                             <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider w-8">Venda:</span>
-                            <span className="text-xs text-brand-blue font-black bg-brand-blue/5 px-2 py-0.5 rounded">R$ {product.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="text-xs text-brand-blue font-black bg-brand-blue/5 px-2 py-0.5 rounded">R$ {(product.salePrice ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           
                           {/* Margem / Profit Percentage badge */}
@@ -1103,23 +1161,90 @@ export default function ProductsPage() {
               {/* Form Col */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Selecionar Produto */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+                <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3" ref={adjustmentDropdownRef}>
                   <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Selecionar Produto:</label>
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-450 z-10" size={16} />
-                    <select 
-                      value={adjustmentProductId}
-                      onChange={(e) => setAdjustmentProductId(e.target.value)}
-                      className="w-full pl-11 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:ring-4 focus:ring-brand-blue/10 focus:border-brand-blue text-xs font-bold text-slate-700 transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="">Selecione um produto comercial...</option>
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} (SKU: {p.sku}) — Estoque Atual: {p.stock} {p.unit || 'UN'}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ChevronDown size={14} className="stroke-[2.5]" />
-                    </div>
+                    <input 
+                      type="text"
+                      value={adjustmentSearchTerm}
+                      onChange={(e) => {
+                        setAdjustmentSearchTerm(e.target.value);
+                        setIsAdjustmentDropdownOpen(true);
+                        if (adjustmentProductId) {
+                          setAdjustmentProductId('');
+                        }
+                      }}
+                      onFocus={() => setIsAdjustmentDropdownOpen(true)}
+                      placeholder="Digite o nome, SKU ou código mercadológico para buscar..."
+                      className="w-full pl-11 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:ring-4 focus:ring-brand-blue/10 focus:border-brand-blue text-xs font-bold text-slate-700 transition-all outline-none"
+                    />
+                    {adjustmentSearchTerm ? (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setAdjustmentSearchTerm('');
+                          setAdjustmentProductId('');
+                          setIsAdjustmentDropdownOpen(false);
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      >
+                        <X size={14} className="stroke-[2.5]" />
+                      </button>
+                    ) : (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronDown size={14} className="stroke-[2.5]" />
+                      </div>
+                    )}
+
+                    {isAdjustmentDropdownOpen && (
+                      <div className="absolute left-0 right-0 mt-1.5 max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-50 divide-y divide-slate-100 scrollbar-thin">
+                        {(() => {
+                          const s = adjustmentSearchTerm.toLowerCase().trim();
+                          const filtered = products.filter(p => {
+                            if (!s) return true;
+                            return (
+                              (p.name && p.name.toLowerCase().includes(s)) ||
+                              (p.sku && p.sku.toLowerCase().includes(s)) ||
+                              (p.codigo_mercadologico && p.codigo_mercadologico.toLowerCase().includes(s))
+                            );
+                          });
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="p-4 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                Nenhum produto localizado
+                              </div>
+                            );
+                          }
+
+                          return filtered.slice(0, 50).map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setAdjustmentProductId(p.id);
+                                setAdjustmentSearchTerm(p.name);
+                                setIsAdjustmentDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-slate-50 flex flex-col gap-1 cursor-pointer",
+                                adjustmentProductId === p.id ? "bg-brand-blue/5 text-brand-blue" : "text-slate-700"
+                              )}
+                            >
+                              <div className="flex justify-between items-center gap-2">
+                                <span className={cn("truncate font-black", adjustmentProductId === p.id ? "text-brand-blue" : "text-slate-800")}>{p.name}</span>
+                                <span className="text-[10px] text-slate-400 shrink-0 font-mono font-normal">ESTOQUE: {p.stock} {p.unit || 'UN'}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono font-normal">
+                                {p.sku && <span>SKU: {p.sku}</span>}
+                                {p.codigo_mercadologico && <span>CÓD: {p.codigo_mercadologico}</span>}
+                              </div>
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1462,7 +1587,7 @@ export default function ProductsPage() {
                   {inventories.length > 0 ? (
                     inventories
                       .filter(inv => {
-                        if (inventoryFilter.date && !inv.date.startsWith(inventoryFilter.date)) return false;
+                        if (inventoryFilter.date && toLocalDateString(inv.date) !== inventoryFilter.date) return false;
                         if (inventoryFilter.status && inv.status !== inventoryFilter.status) return false;
                         return true;
                       })
@@ -1674,7 +1799,7 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
 
   const productLotes = lotes
     .filter(l => l.productId === product.id && l.saldoAtual > 0)
-    .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime());
+    .sort((a, b) => new Date(a.dataEntrada || '').getTime() - new Date(b.dataEntrada || '').getTime());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

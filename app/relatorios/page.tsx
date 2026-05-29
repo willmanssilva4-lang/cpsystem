@@ -183,7 +183,7 @@ function ReportsContent() {
       }
       
       let profit = 0;
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
         const cost = product ? product.costPrice : 0;
         profit += (item.price - cost) * item.quantity;
@@ -209,7 +209,7 @@ function ReportsContent() {
     const categoryTotals: Record<string, number> = {};
     let revenue = 0;
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
         let category = 'Outros';
         if (product && product.subcategoria_id) {
@@ -240,7 +240,7 @@ function ReportsContent() {
   const dynamicTopProducts = React.useMemo(() => {
     const productStats: Record<string, { qty: number, total: number }> = {};
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         if (!productStats[item.productId]) {
           productStats[item.productId] = { qty: 0, total: 0 };
         }
@@ -864,7 +864,7 @@ function AdvancedPerformanceDashboard({
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       const cost = product ? product.costPrice : 0;
       totalCost += cost * item.quantity;
@@ -878,11 +878,11 @@ function AdvancedPerformanceDashboard({
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
     const promoItemsTotal = s.items
-      .filter(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
-      .reduce((itemAcc, item) => itemAcc + (item.price * item.quantity), 0);
+      .filter((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
+      .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0);
     return acc + promoItemsTotal;
   }, 0);
-  const promoSalesCount = filteredSales.filter(s => s.items.some(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
+  const promoSalesCount = filteredSales.filter(s => s.items.some((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
 
   // Previous Period Data for Trends
   const start = new Date(safeStartDate);
@@ -914,7 +914,7 @@ function AdvancedPerformanceDashboard({
   
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       const cost = product ? product.costPrice : 0;
       prevTotalCost += cost * item.quantity;
@@ -996,7 +996,7 @@ function AdvancedPerformanceDashboard({
   // Category Data Calculation
   const categoryTotals: Record<string, number> = {};
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       let catName = 'Outros';
       if (product && product.subcategoria_id) {
@@ -1059,7 +1059,7 @@ function AdvancedPerformanceDashboard({
     sellerStats[sellerName].volume += 1;
     
     let saleCost = 0;
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       saleCost += (product ? product.costPrice : item.price * 0.7) * item.quantity;
     });
@@ -1082,7 +1082,7 @@ function AdvancedPerformanceDashboard({
   // Top Products Ranking
   const productStats: Record<string, { total: number, quantity: number, margin: number }> = {};
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       const productName = product?.name || 'Produto Desconhecido';
       if (!productStats[productName]) {
@@ -1741,7 +1741,7 @@ function AdvancedPerformanceDashboard({
                       dataKey="name" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fontSize: 10, fill: '#64748b', fontWeight: 650, fontStyle: 'italic', textTransform: 'uppercase' }} 
+                      tick={{ fontSize: 10, fill: '#64748b', fontWeight: 650, fontStyle: 'italic' }} 
                     />
                     <YAxis 
                       axisLine={false} 
@@ -2062,7 +2062,7 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
     const rBruta = filteredSales.reduce((acc, s) => acc + s.total, 0);
     let costOfGoods = 0;
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
         const cost = product ? product.costPrice : 0;
         costOfGoods += cost * item.quantity;
@@ -2142,7 +2142,7 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
 
   const productSales: Record<string, number> = {};
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       productSales[item.productId] = (productSales[item.productId] || 0) + item.quantity;
     });
   });
@@ -2929,7 +2929,7 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
 
       const rows = transitionSalesData.map(sale => {
         const customer = (customers || []).find(c => c.id === sale.customerId);
-        const qty = sale.items.reduce((acc, item) => acc + item.quantity, 0);
+        const qty = sale.items.reduce((acc: number, item: any) => acc + item.quantity, 0);
         return [
           new Date(sale.date).toLocaleString('pt-BR'),
           sale.id,
@@ -3175,7 +3175,7 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                               <Cell key={`cell-club-p-${idx}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: any, name: string, props: any) => [
+                          <Tooltip formatter={(value: any, name: any, props: any) => [
                             formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
                             name
                           ]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} />
@@ -3579,7 +3579,7 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                     {paginatedSalesList.length > 0 ? paginatedSalesList.map((sale) => {
                       const customer = (customers || []).find(c => c.id === sale.customerId);
                       const isExpanded = expandedSaleId === sale.id;
-                      const itemQuantitySum = sale.items.reduce((acc, it) => acc + it.quantity, 0);
+                      const itemQuantitySum = sale.items.reduce((acc: number, it: any) => acc + it.quantity, 0);
 
                       return (
                         <React.Fragment key={sale.id}>
@@ -3645,7 +3645,7 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                                   </div>
 
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {sale.items.map((item, index) => {
+                                    {sale.items.map((item: any, index: number) => {
                                       const prod = (products || []).find(p => p.id === item.productId);
                                       return (
                                         <div key={index} className="p-3 bg-white border border-slate-150 rounded-2xl flex items-center justify-between shadow-xs">
@@ -4102,7 +4102,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
   let totalRevenue = 0;
 
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       let category = 'Outros';
       if (product && product.subcategoria_id) {
@@ -4147,7 +4147,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
   const totalUnitsSold = React.useMemo(() => {
     let units = 0;
     filteredSales.forEach(s => {
-      s.items.forEach(i => {
+      s.items?.forEach((i: any) => {
         units += i.quantity;
       });
     });
@@ -4910,7 +4910,7 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
     let totalRevenue = 0;
 
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         const itemTotal = item.price * item.quantity;
         productTotals[item.productId] = (productTotals[item.productId] || 0) + itemTotal;
         productQtys[item.productId] = (productQtys[item.productId] || 0) + item.quantity;
@@ -6005,7 +6005,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                               <Cell key={`cell-${idx}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: any, name: string, props: any) => [
+                          <Tooltip formatter={(value: any, name: any, props: any) => [
                             formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
                             name
                           ]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} />
@@ -6294,8 +6294,8 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                       const isExpanded = expandedSaleId === sale.id;
                       
                       // Calculate dynamic transaction gateway fees
-                      const taxPct = currentMethod ? currentMethod.taxPercentage : 0;
-                      const taxFix = currentMethod ? currentMethod.taxFixed : 0;
+                      const taxPct = currentMethod?.taxPercentage || 0;
+                      const taxFix = currentMethod?.taxFixed || 0;
                       const calculatedFee = (sale.total * (taxPct / 100)) + taxFix;
                       const calculatedNet = sale.total - calculatedFee;
 
@@ -6377,7 +6377,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                                   </div>
                                   
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {sale.items.map((item, index) => {
+                                    {sale.items.map((item: any, index: number) => {
                                       const prod = (products || []).find(p => p.id === item.productId);
                                       return (
                                         <div key={index} className="p-3 bg-white border border-slate-150 rounded-2xl flex items-center justify-between shadow-xs">
@@ -6468,8 +6468,8 @@ function CriticalStockReport({ startDate, endDate }: { startDate: string, endDat
   
   const lowStockProducts = useMemo(() => {
     return products
-      .filter(p => p.status !== 'Inativo' && p.stock <= p.minStock)
-      .sort((a, b) => a.stock - b.stock);
+      .filter(p => p.status !== 'Inativo' && (p.stock || 0) <= (p.minStock || 0))
+      .sort((a, b) => (a.stock || 0) - (b.stock || 0));
   }, [products]);
 
   // Reset to page 1 if the dataset changes
@@ -7183,7 +7183,7 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
   const costData = React.useMemo(() => {
     const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
         const cost = Number(item.costPrice || 0) || (product ? Number(product.costPrice || 0) : 0);
         if (!stats[item.productId]) {

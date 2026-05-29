@@ -33,6 +33,9 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [lastChange, setLastChange] = useState(0);
   
+  const inputRef = useRef<HTMLInputElement>(null);
+  const voucherInputRef = useRef<HTMLInputElement>(null);
+  
   const subtotal = total;
   const totalToPay = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
   const totalPaid = Math.round(payments.reduce((acc, p) => acc + p.amount, 0) * 100) / 100;
@@ -42,6 +45,24 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const selectedMethodObj = activeMethods.find(m => m.name === activeMethod);
   const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito' || selectedMethodObj?.type === 'Pix';
   const isVoucher = selectedMethodObj?.type === 'Voucher' || activeMethod === 'Voucher';
+
+  useEffect(() => {
+    if (isVoucher) {
+      setTimeout(() => {
+        voucherInputRef.current?.focus();
+        voucherInputRef.current?.select();
+      }, 50);
+    } else if (!isCard || selectedMaquininhaId) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 50);
+    }
+  }, [activeMethod, selectedMaquininhaId, isCard, isVoucher]);
+
+  useEffect(() => {
+    setReceivedAmount(Math.round(remainingAmount * 100) / 100);
+  }, [remainingAmount]);
 
   const filteredMaquininhas = activeMaquininhas.filter(maq => {
     if (selectedMethodObj?.type === 'Débito') return (maq.taxa_debito || 0) > 0 || maq.nome.toLowerCase().includes('débito') || maq.nome.toLowerCase().includes('debito');
@@ -70,6 +91,46 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const taxAmount = (totalToPay * currentTaxPercentage) / 100;
   const netAmount = totalToPay - taxAmount;
 
+  const stateRef = useRef({
+    payments,
+    remainingAmount,
+    isCard,
+    selectedMaquininhaId,
+    filteredMaquininhas,
+    highlightedMaquininhaIndex,
+    activeMethod,
+    receivedAmount,
+    discount,
+    subtotal,
+    totalToPay,
+    totalPaid,
+    change,
+    taxAmount,
+    netAmount,
+    currentTaxPercentage,
+    activeMethods
+  });
+
+  stateRef.current = {
+    payments,
+    remainingAmount,
+    isCard,
+    selectedMaquininhaId,
+    filteredMaquininhas,
+    highlightedMaquininhaIndex,
+    activeMethod,
+    receivedAmount,
+    discount,
+    subtotal,
+    totalToPay,
+    totalPaid,
+    change,
+    taxAmount,
+    netAmount,
+    currentTaxPercentage,
+    activeMethods
+  };
+
   const selectMethod = useCallback((method: any) => {
     setActiveMethod(method.name);
     setSelectedMaquininhaId('');
@@ -84,7 +145,8 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   }, [remainingAmount, setSelectedMaquininhaId, setReceivedAmount]);
 
   const addPayment = useCallback(() => {
-    const amountToApply = Math.round(Math.min(receivedAmount || remainingAmount, remainingAmount) * 100) / 100;
+    const inputValue = inputRef.current ? Number(inputRef.current.value) : 0;
+    const amountToApply = Math.round(Math.min(inputValue || remainingAmount, remainingAmount) * 100) / 100;
     if (amountToApply <= 0 && remainingAmount > 0) return;
 
     // Recalculate tax for this specific payment part
@@ -122,13 +184,13 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
     setPayments(prev => [...prev, newPayment]);
     if (amountToApply >= remainingAmount) {
-      setLastChange(receivedAmount > remainingAmount ? receivedAmount - remainingAmount : 0);
+      setLastChange(inputValue > remainingAmount ? inputValue - remainingAmount : 0);
     }
     setReceivedAmount(0);
     setSelectedMaquininhaId('');
     
     // If it was the last payment, we might want to finalize, but let's let the user click confirm
-  }, [activeMethod, receivedAmount, remainingAmount, isCard, selectedMaquininhaId, activeMaquininhas, selectedMethodObj, setPayments, setReceivedAmount, setSelectedMaquininhaId, setLastChange]);
+  }, [activeMethod, remainingAmount, isCard, selectedMaquininhaId, activeMaquininhas, selectedMethodObj, setPayments, setReceivedAmount, setSelectedMaquininhaId, setLastChange]);
 
   const removePayment = (index: number) => {
     setPayments(prev => prev.filter((_, i) => i !== index));
@@ -185,13 +247,14 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   }, [voucherCode, getVoucherByCode, remainingAmount, activeMethod]);
 
   const handleFinalize = useCallback(async () => {
-    if (remainingAmount > 0) {
-      if (remainingAmount > 0) return;
+    const current = stateRef.current;
+    if (current.remainingAmount > 0) {
+      return;
     }
 
     // Process voucher updates before finalizing
     const voucherTotals: Record<string, number> = {};
-    for (const p of payments) {
+    for (const p of current.payments) {
       if (p.voucherCode) {
         voucherTotals[p.voucherCode] = (voucherTotals[p.voucherCode] || 0) + p.amount;
       }
@@ -210,23 +273,75 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     }
 
     onFinalize({
-      payments,
-      discount,
-      subtotal,
-      total: totalToPay,
-      totalPaid,
-      change
+      payments: current.payments,
+      discount: current.discount,
+      subtotal: current.subtotal,
+      total: current.totalToPay,
+      totalPaid: current.totalPaid,
+      change: current.change
     });
-  }, [onFinalize, payments, discount, subtotal, totalToPay, totalPaid, remainingAmount, change, getVoucherByCode, updateVoucher]);
+  }, [onFinalize, getVoucherByCode, updateVoucher]);
+
+  const confirmAndFinalize = useCallback(() => {
+    const current = stateRef.current;
+    
+    if (current.remainingAmount <= 0) {
+      handleFinalize();
+      return;
+    }
+
+    if (current.isCard && !current.selectedMaquininhaId && current.filteredMaquininhas.length > 0) {
+      const targetMaquininha = current.filteredMaquininhas[current.highlightedMaquininhaIndex] || current.filteredMaquininhas[0];
+      if (targetMaquininha) {
+        selectMaquininha(targetMaquininha);
+        return;
+      }
+    }
+
+    if (current.activeMethod === 'Vale Crédito') {
+       return;
+    }
+
+    const inputValue = inputRef.current ? Number(inputRef.current.value) : 0;
+    const amountToApply = Math.round((inputValue || current.receivedAmount || current.remainingAmount) * 100) / 100;
+
+    if (amountToApply >= current.remainingAmount) {
+      const partTaxPercentage = current.currentTaxPercentage;
+      const partTaxAmount = Math.round(((current.remainingAmount * partTaxPercentage) / 100) * 100) / 100;
+      const partNetAmount = Math.round((current.remainingAmount - partTaxAmount) * 100) / 100;
+
+      const finalPayment = {
+        method: current.activeMethod,
+        amount: current.remainingAmount,
+        maquininhaId: current.isCard ? current.selectedMaquininhaId : null,
+        taxAmount: partTaxAmount,
+        netAmount: partNetAmount,
+        taxPercentage: partTaxPercentage
+      };
+      
+      onFinalize({
+        payments: [...current.payments, finalPayment],
+        discount: current.discount,
+        subtotal: current.subtotal,
+        total: current.totalToPay,
+        totalPaid: current.totalPaid + current.remainingAmount,
+        change: Math.round((amountToApply - current.remainingAmount) * 100) / 100
+      });
+    } else {
+      addPayment();
+    }
+  }, [handleFinalize, selectMaquininha, addPayment, onFinalize]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const current = stateRef.current;
+
       // Prevent default for handled keys
-      if (e.key.startsWith('F') && !isNaN(Number(e.key.slice(1)))) {
+      if (e.key.startsWith('F') && !isNaN(Number(e.key.slice(1))) && e.key !== 'F10') {
         e.preventDefault();
         const index = Number(e.key.slice(1)) - 1;
-        if (activeMethods[index]) {
-          selectMethod(activeMethods[index]);
+        if (current.activeMethods[index]) {
+          selectMethod(current.activeMethods[index]);
         }
       }
 
@@ -236,59 +351,24 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
       if (e.key === 'Enter' || e.key === 'F10') {
         e.preventDefault();
-        if (isCard && !selectedMaquininhaId) {
-          if (filteredMaquininhas[highlightedMaquininhaIndex]) {
-            selectMaquininha(filteredMaquininhas[highlightedMaquininhaIndex]);
-          }
-        } else if (remainingAmount > 0) {
-          if (activeMethod === 'Vale Crédito') {
-             return;
-          }
-
-          const amountToApply = Math.round((receivedAmount || remainingAmount) * 100) / 100;
-          
-          // Se o valor for suficiente para quitar, finaliza direto
-          if (amountToApply >= remainingAmount) {
-            const finalPayment = {
-              method: activeMethod,
-              amount: remainingAmount,
-              maquininhaId: isCard ? selectedMaquininhaId : null,
-              taxAmount: taxAmount,
-              netAmount: netAmount,
-              taxPercentage: currentTaxPercentage
-            };
-            
-            onFinalize({
-              payments: [...payments, finalPayment],
-              discount,
-              subtotal,
-              total: totalToPay,
-              totalPaid: totalPaid + remainingAmount,
-              change: Math.round((amountToApply - remainingAmount) * 100) / 100
-            });
-          } else {
-            addPayment();
-          }
-        } else {
-          handleFinalize();
-        }
+        confirmAndFinalize();
       }
 
-      if (isCard && !selectedMaquininhaId) {
+      if (current.isCard && !current.selectedMaquininhaId && current.filteredMaquininhas.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setHighlightedMaquininhaIndex(prev => (prev + 1) % filteredMaquininhas.length);
+          setHighlightedMaquininhaIndex(prev => (prev + 1) % current.filteredMaquininhas.length);
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setHighlightedMaquininhaIndex(prev => (prev - 1 + filteredMaquininhas.length) % filteredMaquininhas.length);
+          setHighlightedMaquininhaIndex(prev => (prev - 1 + current.filteredMaquininhas.length) % current.filteredMaquininhas.length);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeMethods, filteredMaquininhas, highlightedMaquininhaIndex, isCard, selectedMaquininhaId, selectMethod, selectMaquininha, handleFinalize, onClose, addPayment, remainingAmount, receivedAmount, payments, payments.length, activeMethod, taxAmount, netAmount, currentTaxPercentage, onFinalize, discount, subtotal, totalToPay, totalPaid, selectedMethodObj]);
+  }, [selectMethod, confirmAndFinalize, onClose]);
 
   // ... (shortcuts and UI implementation)
   return (
@@ -369,7 +449,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             )}
 
             <AnimatePresence mode="wait">
-              {isCard && !selectedMaquininhaId ? (
+              {isCard && !selectedMaquininhaId && filteredMaquininhas.length > 0 ? (
                 <motion.div 
                   key="maq-selector"
                   initial={{ opacity: 0, y: 10 }}
@@ -442,6 +522,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                       <label className="text-sm font-black italic text-brand-blue">Informar Código do Cupom</label>
                       <div className="flex gap-2">
                         <input 
+                          ref={voucherInputRef}
                           type="text"
                           value={voucherCode}
                           onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
@@ -477,6 +558,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                         <label className="text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
                         <div className="flex gap-2">
                           <input 
+                            ref={inputRef}
                             type="number"
                             value={receivedAmount || ''}
                             placeholder={remainingAmount.toFixed(2)}
@@ -484,6 +566,13 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                             onFocus={(e) => e.target.select()}
                             className="flex-1 min-w-0 p-4 text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all"
                             autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === 'F10') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                confirmAndFinalize();
+                              }
+                            }}
                           />
                           <button 
                             onClick={addPayment}
@@ -516,12 +605,8 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
               <span className="text-sm font-black italic uppercase text-slate-400">Faltam R$ {remainingAmount.toFixed(2)}</span>
             )}
             <button 
-              onClick={handleFinalize} 
-              disabled={remainingAmount > 0}
-              className={cn(
-                "px-8 py-4 rounded-xl font-black italic uppercase transition-all",
-                remainingAmount <= 0 ? "bg-brand-green text-white" : "bg-slate-200 text-slate-400 cursor-not-allowed"
-              )}
+              onClick={confirmAndFinalize} 
+              className="px-8 py-4 rounded-xl font-black italic uppercase transition-all bg-brand-green text-white hover:bg-emerald-600 shadow-md active:scale-95"
             >
               Confirmar Venda (F10)
             </button>

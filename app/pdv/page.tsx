@@ -87,6 +87,7 @@ export default function PDVPage() {
   const [showDiscountItemModal, setShowDiscountItemModal] = useState(false);
   const [discountItemNumber, setDiscountItemNumber] = useState('');
   const [showOldRegisterWarning, setShowOldRegisterWarning] = useState(false);
+  const [oldRegisterWarningSelection, setOldRegisterWarningSelection] = useState<'continue' | 'close'>('continue');
   const hasWarnedOldRegister = useRef(false);
   const [reverseSaleId, setReverseSaleId] = useState('');
   const [discountType, setDiscountType] = useState<'item' | 'sale'>('sale');
@@ -98,6 +99,7 @@ export default function PDVPage() {
   const [saleDiscount, setSaleDiscount] = useState(0);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
   const [completedSale, setCompletedSale] = useState<any | null>(null);
+  const [completedSaleSelection, setCompletedSaleSelection] = useState<'print' | 'new_sale'>('new_sale');
   
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
@@ -116,7 +118,7 @@ export default function PDVPage() {
       const results = customers.filter(c => 
         c.name.toLowerCase().includes(value.toLowerCase()) ||
         c.document.includes(value) ||
-        c.phone.includes(value)
+        (c.phone && c.phone.includes(value))
       );
       setCustomerSearchResults(results);
     } else {
@@ -233,7 +235,7 @@ export default function PDVPage() {
         const cartItems = cart.filter(item => item.product.id === productId);
         const totalQty = cartItems.reduce((sum, item) => sum + item.quantity, 0);
         
-        const requiredQty = combo.comboItems.filter(id => id === productId).length;
+        const requiredQty = combo.comboItems.filter((id: any) => id === productId).length;
         
         const setsOfThisProduct = Math.floor(totalQty / requiredQty);
         if (setsOfThisProduct < minSets) {
@@ -410,6 +412,7 @@ export default function PDVPage() {
       setSelectedCartIndex(-1);
       setIsNavigatingCart(false);
       setShowPaymentModal(false);
+      setCompletedSaleSelection('new_sale');
       setCompletedSale(success);
       setSelectedCustomer(null);
     }
@@ -486,16 +489,16 @@ export default function PDVPage() {
         </head>
         <body>
           <div class="header">
-            <h2 style="margin: 0; font-size: 18px;">${companySettings.tradeName || 'CP PDV'}</h2>
-            ${companySettings.legalName ? `<p style="margin: 2px 0; font-size: 11px;">${companySettings.legalName}</p>` : ''}
-            <p style="margin: 2px 0; font-size: 11px;">CNPJ: ${companySettings.cnpj || ''} ${companySettings.stateRegistration ? `| IE: ${companySettings.stateRegistration}` : ''}</p>
-            <p style="margin: 2px 0; font-size: 11px;">${companySettings.address.street}, ${companySettings.address.number}</p>
-            <p style="margin: 2px 0; font-size: 11px;">${companySettings.address.neighborhood} - ${companySettings.address.city}/${companySettings.address.state}</p>
-            ${companySettings.phone || companySettings.email ? `
+            <h2 style="margin: 0; font-size: 18px;">${companySettings?.tradeName || 'CP PDV'}</h2>
+            ${companySettings?.legalName ? `<p style="margin: 2px 0; font-size: 11px;">${companySettings?.legalName}</p>` : ''}
+            <p style="margin: 2px 0; font-size: 11px;">CNPJ: ${companySettings?.cnpj || ''} ${companySettings?.stateRegistration ? `| IE: ${companySettings?.stateRegistration}` : ''}</p>
+            <p style="margin: 2px 0; font-size: 11px;">${companySettings?.address?.street || ''}, ${companySettings?.address?.number || ''}</p>
+            <p style="margin: 2px 0; font-size: 11px;">${companySettings?.address?.neighborhood || ''} - ${companySettings?.address?.city || ''}/${companySettings?.address?.state || ''}</p>
+            ${companySettings?.phone || companySettings?.email ? `
               <p style="margin: 2px 0; font-size: 11px;">
-                ${companySettings.phone ? `Fone: ${companySettings.phone}` : ''}
-                ${companySettings.phone && companySettings.email ? ' | ' : ''}
-                ${companySettings.email ? `Email: ${companySettings.email}` : ''}
+                ${companySettings?.phone ? `Fone: ${companySettings?.phone}` : ''}
+                ${companySettings?.phone && companySettings?.email ? ' | ' : ''}
+                ${companySettings?.email ? `Email: ${companySettings?.email}` : ''}
               </p>
             ` : ''}
             <div style="margin-top: 10px; border-top: 1px dashed #000; padding-top: 10px;">
@@ -594,10 +597,14 @@ export default function PDVPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     
     // Only focus barcode input if register is active and no modal is open
-    const isModalOpen = !!(showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || showPriceCheckModal || showProductListModal || showInvoiceModal || showCustomerSearch || showHelp || confirmDialog);
+    const isModalOpen = !!(showProductModal || showPaymentModal || showDiscountModal || showAuthModal || showSangriaModal || showSuprimentoModal || showClosureModal || showReverseModal || showOldRegisterWarning || showPriceCheckModal || showProductListModal || showInvoiceModal || showCustomerSearch || showHelp || confirmDialog || completedSale);
     
     if (activeRegister && !isModalOpen) {
       barcodeInputRef.current?.focus();
+    } else {
+      if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
     }
 
     return () => clearInterval(timer);
@@ -644,13 +651,29 @@ export default function PDVPage() {
       }
 
       if (completedSale) {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          e.stopPropagation();
+          setCompletedSaleSelection(prev => prev === 'print' ? 'new_sale' : 'print');
+          return;
+        }
         if (e.key === 'Enter') {
           e.preventDefault();
+          e.stopPropagation();
+          if (completedSaleSelection === 'print') {
+            handlePrintReceipt(completedSale);
+          }
           setCompletedSale(null);
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setCompletedSale(null);
+          return;
         }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setCompletedSale(null);
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
 
@@ -664,6 +687,24 @@ export default function PDVPage() {
           setConfirmDialog(null);
         }
         return;
+      }
+
+      if (showOldRegisterWarning) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setOldRegisterWarningSelection(prev => prev === 'continue' ? 'close' : 'continue');
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (oldRegisterWarningSelection === 'continue') {
+            setShowOldRegisterWarning(false);
+          } else {
+            setShowOldRegisterWarning(false);
+            setShowClosureModal(true);
+          }
+          return;
+        }
       }
 
       // If any modal is open or register is closed, don't process global shortcuts (except Esc)
@@ -982,7 +1023,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, pricingMode]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, oldRegisterWarningSelection, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, completedSaleSelection, pricingMode]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -1028,6 +1069,11 @@ export default function PDVPage() {
   }, [selectedIndex]);
 
   const handleQuantityKeyDown = (e: React.KeyboardEvent) => {
+    if (completedSale) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       if (currentProduct) {
@@ -1041,6 +1087,11 @@ export default function PDVPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (completedSale) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (isNavigatingCart) return; // Let the global handler deal with it
 
     if (e.key === 'ArrowDown') {
@@ -1101,7 +1152,7 @@ export default function PDVPage() {
       id: product.id,
       name: product.name,
       controlStockRaw: product.controlStock,
-      controlStockNormalized: product.controlStock?.toUpperCase(),
+      controlStockNormalized: String(product.controlStock).toUpperCase(),
       stock: product.stock,
       minStock: product.minStock,
       foundInProducts: !!currentProduct,
@@ -1279,7 +1330,7 @@ export default function PDVPage() {
             <Logo size="sm" hideText theme="dark" />
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-widest uppercase">{companySettings.tradeName || 'MERCADINHO SUPERNICE'}</h1>
+            <h1 className="text-xl font-bold tracking-widest uppercase">{companySettings?.tradeName || 'MERCADINHO SUPERNICE'}</h1>
           </div>
           <button
             onClick={() => {
@@ -1446,7 +1497,7 @@ export default function PDVPage() {
                 {companySettings?.logo ? (
                   <div className="relative w-80 h-80 mb-8">
                     <Image 
-                      src={companySettings.logo} 
+                      src={companySettings?.logo || ''} 
                       alt="Logo da Empresa" 
                       fill 
                       className="object-contain" 
@@ -2204,13 +2255,21 @@ export default function PDVPage() {
             <div className="grid grid-cols-1 gap-3">
               <button 
                 onClick={() => { handlePrintReceipt(completedSale); setCompletedSale(null); }}
-                className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-brand-text-main font-black rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
+                className={`w-full py-4 font-black rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 uppercase tracking-widest text-sm ${
+                  completedSaleSelection === 'print'
+                    ? 'bg-slate-800 text-white ring-2 ring-slate-800 ring-offset-2 scale-[1.02] shadow-lg'
+                    : 'bg-slate-100 hover:bg-slate-200 text-brand-text-main'
+                }`}
               >
                 <Printer size={18} /> Imprimir Cupom
               </button>
               <button 
                 onClick={() => setCompletedSale(null)}
-                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-hover text-white font-black rounded-xl transition-all active:scale-95 uppercase tracking-widest text-sm shadow-lg shadow-brand-blue/20"
+                className={`w-full py-4 font-black rounded-xl transition-all active:scale-95 uppercase tracking-widest text-sm transition-all focus:outline-none ${
+                  completedSaleSelection === 'new_sale'
+                    ? 'bg-brand-blue hover:bg-brand-blue-hover text-white ring-2 ring-brand-blue ring-offset-2 scale-[1.02] shadow-lg shadow-brand-blue/20'
+                    : 'bg-slate-100 hover:bg-slate-200 text-brand-text-main'
+                }`}
               >
                 Nova Venda (Enter)
               </button>
@@ -2239,7 +2298,11 @@ export default function PDVPage() {
               <div className="pt-4 flex gap-3">
                 <button
                   onClick={() => setShowOldRegisterWarning(false)}
-                  className="flex-1 h-11 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                  className={`flex-1 h-11 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
+                    oldRegisterWarningSelection === 'continue'
+                      ? 'bg-brand-blue text-white ring-2 ring-brand-blue ring-offset-2 scale-105 shadow-md shadow-brand-blue/30'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                  }`}
                 >
                   Continuar
                 </button>
@@ -2248,7 +2311,11 @@ export default function PDVPage() {
                     setShowOldRegisterWarning(false);
                     setShowClosureModal(true);
                   }}
-                  className="flex-1 h-11 bg-brand-blue-hover text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-blue transition-colors"
+                  className={`flex-1 h-11 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
+                    oldRegisterWarningSelection === 'close'
+                      ? 'bg-brand-blue-hover text-white ring-2 ring-brand-blue ring-offset-2 scale-105 shadow-md shadow-brand-blue/30'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                  }`}
                 >
                   Fechar Caixa
                 </button>

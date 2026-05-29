@@ -128,7 +128,7 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
     let cmv = 0;
     salesMonth.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items?.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
         const costPrice = item.costPrice || (product ? product.costPrice : 0);
         cmv += costPrice * item.quantity;
@@ -136,7 +136,7 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     });
 
     returnsMonth.forEach(ret => {
-      ret.items.forEach((item: ReturnItem) => {
+      ret.items?.forEach((item: ReturnItem) => {
         const product = products.find(p => p.id === item.productId);
         const costPrice = product ? product.costPrice : 0;
         cmv -= costPrice * item.quantity;

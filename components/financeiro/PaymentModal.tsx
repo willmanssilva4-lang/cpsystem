@@ -72,7 +72,7 @@ export function PaymentModal({ onClose, expense }: PaymentModalProps) {
       onClose();
     } catch (err: any) {
       if (setCustomAlert) {
-        setCustomAlert({ message: err.message || 'Erro ao salvar alterações.', type: 'danger' });
+        setCustomAlert({ message: err.message || 'Erro ao salvar alterações.', type: 'error' });
       }
     } finally {
       setIsSubmitting(false);
@@ -102,7 +102,7 @@ export function PaymentModal({ onClose, expense }: PaymentModalProps) {
       onClose();
     } catch (err: any) {
       if (setCustomAlert) {
-        setCustomAlert({ message: err.message || 'Erro ao registrar pagamento.', type: 'danger' });
+        setCustomAlert({ message: err.message || 'Erro ao registrar pagamento.', type: 'error' });
       }
     } finally {
       setIsMarkingPaid(false);

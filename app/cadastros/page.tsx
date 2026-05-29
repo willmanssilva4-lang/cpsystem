@@ -64,22 +64,25 @@ export default function RegistrationsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
-        {REGISTRATION_OPTIONS.map((option, index) => {
-          const WrapperButton = option.label === 'Clientes' ? 'button' : Link;
-          const wrapperProps = option.label === 'Clientes' 
-            ? { onClick: () => setIsCustomerModalOpen(true) } as const
-            : { href: option.href } as const;
-
-          return (
-            <WrapperButton
+        {REGISTRATION_OPTIONS.map((option, index) => (
+          option.label === 'Clientes' ? (
+            <button
               key={option.label}
-              {...wrapperProps}
+              onClick={() => setIsCustomerModalOpen(true)}
               className="group flex flex-col items-start gap-4 p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
             >
               {renderCardContent(option, index)}
-            </WrapperButton>
-          );
-        })}
+            </button>
+          ) : (
+            <Link
+              key={option.label}
+              href={option.href || '#'}
+              className="group flex flex-col items-start gap-4 p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
+            >
+              {renderCardContent(option, index)}
+            </Link>
+          )
+        ))}
       </div>
 
       {isCustomerModalOpen && (

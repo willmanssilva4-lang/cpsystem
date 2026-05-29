@@ -45,10 +45,10 @@ export function GlobalAlert() {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className={`max-w-md w-full p-8 rounded-2xl shadow-2xl border ${bgColors[customAlert.type]} flex flex-col items-center text-center gap-6 z-[9999]`}
+          className={`max-w-md w-full p-8 rounded-2xl shadow-2xl border ${bgColors[customAlert.type as 'success' | 'error' | 'warning' | 'info']} flex flex-col items-center text-center gap-6 z-[9999]`}
         >
           <div className="p-4 rounded-full bg-white shadow-md">
-            {icons[customAlert.type]}
+            {icons[customAlert.type as 'success' | 'error' | 'warning' | 'info']}
           </div>
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-slate-900 uppercase tracking-tight">

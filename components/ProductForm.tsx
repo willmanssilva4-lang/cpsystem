@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { X, Plus, Image as ImageIcon, Upload, Trash2, Search, Package, History, ArrowLeftRight, Settings2, ClipboardList, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight, RefreshCw, Tag, Layers, Box, DollarSign, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Product, CompositionItem } from '@/lib/types';
 import { useERP } from '@/lib/context';
-import { cn, formatDateTimeBR, formatDateBR } from '@/lib/utils';
+import { cn, formatDateTimeBR, formatDateBR, toLocalDateString } from '@/lib/utils';
 import { InventorySessionModal } from './InventorySessionModal';
 
 interface ProductFormProps {
@@ -47,13 +47,13 @@ function QuantityInput({ value, onChange }: { value: number, onChange: (val: num
 const DEFAULT_IMAGE = 'https://i.imgur.com/jGU5BUa.png';
 
 export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) {
-  const { products, pricingSettings, suppliers, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes } = useERP();
+  const { products, pricingSettings, suppliers, stockMovements, inventories, addStockMovement, addInventory, user, subcategorias, categorias, departamentos, lotes, setCustomAlert } = useERP();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const termPriceInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'geral' | 'movimentacoes' | 'ajustes' | 'inventario' | 'lotes'>('geral');
   const [showCompositionModal, setShowCompositionModal] = useState(false);
   const [kitTab, setKitTab] = useState<'info' | 'products' | 'financial'>('info');
-  const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>(pricingSettings.defaultMethod);
+  const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>(pricingSettings.defaultMethod || 'markup');
   const [searchTerm, setSearchTerm] = useState('');
   const [imageError, setImageError] = useState(false);
 
@@ -100,7 +100,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     subgroup?: string;
     departamento_id?: string;
     validade?: string;
-    product_type?: 'BASE' | 'SALE' | 'KIT';
+    product_type?: 'PADRAO' | 'BASE' | 'SALE' | 'KIT';
     base_product_id?: string;
     conversion_factor?: number;
     gramatura?: string;
@@ -122,7 +122,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         initialProfitPercentage = sale > 0 ? Math.round((initialProfit / sale) * 100) / 100 * 100 : 0;
       }
     } else if (initialProfitPercentage === '') {
-      initialProfitPercentage = pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin;
+      initialProfitPercentage = (pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin) ?? '';
     }
 
     return {
@@ -138,7 +138,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       clubPrice: initialData?.clubPrice ?? '',
       stock: initialData?.stock || 0,
       minStock: initialData?.minStock || 1,
-      controlStock: initialData?.controlStock || 'SIM',
+      controlStock: typeof initialData?.controlStock === 'boolean'
+        ? (initialData.controlStock ? 'SIM' : 'NÃO')
+        : (initialData?.controlStock || 'SIM'),
       subcategoria_id: initialData?.subcategoria_id || '',
       brand: initialData?.brand || 'PADRAO',
       composition: initialData?.composition || [] as CompositionItem[],
@@ -161,7 +163,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           if (a.validade && b.validade) {
             return new Date(b.validade).getTime() - new Date(a.validade).getTime();
           }
-          return new Date(b.dataEntrada).getTime() - new Date(a.dataEntrada).getTime();
+          const timeB = b.dataEntrada ? new Date(b.dataEntrada).getTime() : 0;
+          const timeA = a.dataEntrada ? new Date(a.dataEntrada).getTime() : 0;
+          return timeB - timeA;
         })[0];
         return latestLote.validade || '';
       })(),
@@ -320,7 +324,9 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
           if (a.validade && b.validade) {
             return new Date(b.validade).getTime() - new Date(a.validade).getTime();
           }
-          return new Date(b.dataEntrada).getTime() - new Date(a.dataEntrada).getTime();
+          const timeB = b.dataEntrada ? new Date(b.dataEntrada).getTime() : 0;
+          const timeA = a.dataEntrada ? new Date(a.dataEntrada).getTime() : 0;
+          return timeB - timeA;
         })[0];
         if (latestLote.validade) {
           setFormData(prev => ({ ...prev, validade: latestLote.validade }));
@@ -413,7 +419,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
 
   const handleStockAdjustment = async () => {
     if (!initialData || adjustmentQty <= 0) {
-      alert('Informe uma quantidade válida.');
+      setCustomAlert({
+        message: 'Informe uma quantidade válida.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -430,7 +439,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         userName: user?.name || 'Sistema'
       });
       
-      alert('Ajuste realizado com sucesso!');
+      setCustomAlert({
+        message: 'Ajuste realizado com sucesso!',
+        type: 'success'
+      });
       setAdjustmentQty(0);
       setAdjustmentNotes('');
       // Update local stock display
@@ -2089,7 +2101,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                     <tbody className="divide-y divide-slate-100">
                       {(() => {
                         const filteredList = inventories.filter(inv => {
-                          if (inventoryFilter.date && !inv.date.startsWith(inventoryFilter.date)) return false;
+                          if (inventoryFilter.date && toLocalDateString(inv.date) !== inventoryFilter.date) return false;
                           if (inventoryFilter.status && inv.status !== inventoryFilter.status) return false;
                           return true;
                         });
@@ -2189,7 +2201,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
             const activeLotesCount = productLotes.filter(l => l.saldoAtual > 0).length;
 
             const averageCost = productLotes.length > 0
-              ? productLotes.reduce((acc, l) => acc + l.custoUnit, 0) / productLotes.length
+              ? productLotes.reduce((acc, l) => acc + (l.custoUnit || 0), 0) / productLotes.length
               : initialData?.costPrice || 0;
 
             const isReconciled = totalSaldo === (initialData?.stock || 0);
@@ -2330,7 +2342,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       <tbody className="divide-y divide-slate-100">
                         {productLotes.length > 0 ? (
                           productLotes
-                            .sort((a, b) => new Date(a.dataEntrada).getTime() - new Date(b.dataEntrada).getTime())
+                            .sort((a, b) => {
+                              const tA = a.dataEntrada ? new Date(a.dataEntrada).getTime() : 0;
+                              const tB = b.dataEntrada ? new Date(b.dataEntrada).getTime() : 0;
+                              return tA - tB;
+                            })
                             .map((lote, index) => {
                               const isExpired = lote.validade && new Date(lote.validade) < now;
                               const isCritical = lote.validade && !isExpired && new Date(lote.validade) <= thirtyDaysFromNow;
@@ -2386,12 +2402,12 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   </td>
                                   <td className="px-8 py-4">
                                     <span className="text-sm font-black text-emerald-650 font-mono text-emerald-600">
-                                      R$ {lote.custoUnit.toFixed(2)}
+                                      R$ {(lote.custoUnit || 0).toFixed(2)}
                                     </span>
                                   </td>
                                   <td className="px-8 py-4 text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                      <span className="text-xs font-bold text-slate-450 font-mono">{lote.quantidadeInicial}</span>
+                                      <span className="text-xs font-bold text-slate-450 font-mono">{lote.quantidadeInicial ?? lote.saldoAtual}</span>
                                       <span className="text-[10px] text-slate-300">→</span>
                                       <span className={cn(
                                         "px-2.5 py-1 rounded-lg text-xs font-black font-mono shadow-inner border",
@@ -2721,7 +2737,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             return (
                               <div key={item.productId} className="px-2 py-3 grid grid-cols-12 gap-4 items-center bg-white border border-slate-50 rounded-xl hover:border-brand-border transition-colors">
                                 <div className="col-span-5">
-                                  <div className="font-bold text-brand-text-main text-xs truncate">{item.name} {product?.gramatura && <span className="text-brand-blue-hover/60">({product.gramatura})</span>}</div>
+                                  <div className="font-bold text-brand-text-main text-xs truncate">{product?.name || 'Item'} {product?.gramatura && <span className="text-brand-blue-hover/60">({product.gramatura})</span>}</div>
                                   {isLowStock && <div className="text-[9px] text-rose-500 font-black uppercase italic">⚠️ Estoque Baixo</div>}
                                 </div>
                                 <div className="col-span-2 flex justify-center">

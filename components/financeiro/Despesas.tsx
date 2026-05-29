@@ -48,7 +48,7 @@ export function Despesas({ expenses }: { expenses: Expense[] }) {
           (e.supplier || '').toLowerCase().includes(term)
         );
       })
-      .sort((a, b) => new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime());
+      .sort((a, b) => new Date(b.paymentDate || b.date || '1970-01-01').getTime() - new Date(a.paymentDate || a.date || '1970-01-01').getTime());
   }, [expenses, searchTerm, typeFilter, categoryFilter]);
 
   // Reset pagination on filter change

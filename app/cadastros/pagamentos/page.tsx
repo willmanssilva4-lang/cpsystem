@@ -261,14 +261,14 @@ export default function PagamentosPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
-                        {method.taxPercentage > 0 && (
+                        {(method.taxPercentage || 0) > 0 && (
                           <span className="text-xs font-bold text-brand-text-main/60">
-                            {method.taxPercentage}%
+                            {method.taxPercentage || 0}%
                           </span>
                         )}
-                        {method.taxFixed > 0 && (
+                        {(method.taxFixed || 0) > 0 && (
                           <span className="text-xs font-bold text-brand-text-main/60">
-                            R$ {method.taxFixed.toFixed(2)}
+                            R$ {(method.taxFixed || 0).toFixed(2)}
                           </span>
                         )}
                         {method.taxPercentage === 0 && method.taxFixed === 0 && (

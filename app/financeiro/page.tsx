@@ -114,8 +114,8 @@ export default function FinancePage() {
 
     // CMV no Período
     let cmvHoje = 0;
-    salesInPeriod.forEach(sale => {
-      sale.items.forEach(item => {
+    salesInPeriod.forEach((sale: any) => {
+      sale.items?.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
         if (product) {
           cmvHoje += product.costPrice * item.quantity;
@@ -247,10 +247,10 @@ export default function FinancePage() {
     
     // Vendas em Dinheiro
     let salesCash = 0;
-    sales.forEach(s => {
+    sales.forEach((s: any) => {
       if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
-        s.payments.forEach(p => {
+        s.payments.forEach((p: any) => {
           if (p.method === 'Dinheiro') {
             salesCash += p.amount;
           }
@@ -273,10 +273,10 @@ export default function FinancePage() {
 
     // 2. Mercado Pago
     let salesMercadoPago = 0;
-    sales.forEach(s => {
+    sales.forEach((s: any) => {
       if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
-        s.payments.forEach(p => {
+        s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
           if (name.includes('mercado') || name.includes('mercadopago')) {
             salesMercadoPago += p.amount;
@@ -296,10 +296,10 @@ export default function FinancePage() {
 
     // 3. Conta Bancária
     let salesBank = 0;
-    sales.forEach(s => {
+    sales.forEach((s: any) => {
       if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
-        s.payments.forEach(p => {
+        s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
           if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
             salesBank += p.amount;
@@ -322,10 +322,10 @@ export default function FinancePage() {
 
     // 4. Conta PIX
     let salesPix = 0;
-    sales.forEach(s => {
+    sales.forEach((s: any) => {
       if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
-        s.payments.forEach(p => {
+        s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
           if (name.includes('pix') && !name.includes('mercado')) {
             salesPix += p.amount;
@@ -357,10 +357,10 @@ export default function FinancePage() {
   // --- 5. Resumo de Vendas por Pagamento ---
   const salesByPayment = useMemo(() => {
     const totals: Record<string, number> = {};
-    sales.forEach(s => {
+    sales.forEach((s: any) => {
       if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
-        s.payments.forEach(p => {
+        s.payments.forEach((p: any) => {
           totals[p.method] = (totals[p.method] || 0) + p.amount;
         });
       } else {
@@ -379,9 +379,9 @@ export default function FinancePage() {
     const receita = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Taxas de Maquininhas (Financeiras)
-    const taxasMaquininhas = salesInPeriod.reduce((acc, s) => {
+    const taxasMaquininhas = salesInPeriod.reduce((acc, s: any) => {
       if (s.payments && Array.isArray(s.payments) && s.payments.length > 0) {
-        return acc + s.payments.reduce((pAcc, p) => pAcc + (p.taxAmount || 0), 0);
+        return acc + s.payments.reduce((pAcc: number, p: any) => pAcc + (p.taxAmount || 0), 0);
       }
       // @ts-ignore
       if (s.taxAmount) return acc + s.taxAmount;
@@ -389,8 +389,8 @@ export default function FinancePage() {
     }, 0);
 
     let cmv = 0;
-    salesInPeriod.forEach(sale => {
-      sale.items.forEach(item => {
+    salesInPeriod.forEach((sale: any) => {
+      sale.items?.forEach((item: any) => {
         const cost = item.costPrice && item.costPrice > 0 
           ? item.costPrice 
           : (products.find(p => p.id === item.productId)?.costPrice || 0);

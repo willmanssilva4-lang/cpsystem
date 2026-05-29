@@ -1,6 +1,6 @@
 {
-  "name": "Cpsystem",
-  "description": "Sistema de Gestão Financeira Inteligente",
+  "name": "CPSystem ERP",
+  "description": "Sistema de Gestão ERP Profissional - PDV, Estoque e Financeiro",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

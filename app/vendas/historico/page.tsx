@@ -39,6 +39,22 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const settings = companySettings || {
+      tradeName: 'CP PDV',
+      legalName: '',
+      cnpj: '',
+      stateRegistration: '',
+      address: {
+        street: 'Rua Principal',
+        number: 'S/N',
+        neighborhood: 'Centro',
+        city: 'Cidade',
+        state: 'ST'
+      },
+      phone: '',
+      email: ''
+    };
+
     const itemsHtml = sale.items.map(item => {
       const product = products.find(p => p.id === item.productId);
       return `
@@ -64,16 +80,16 @@ export default function SalesHistoryPage() {
         </head>
         <body>
           <div class="header">
-            <h2 style="margin: 0; font-size: 18px;">${companySettings.tradeName || 'CP PDV'}</h2>
-            ${companySettings.legalName ? `<p style="margin: 2px 0; font-size: 11px;">${companySettings.legalName}</p>` : ''}
-            <p style="margin: 2px 0; font-size: 11px;">CNPJ: ${companySettings.cnpj || ''} ${companySettings.stateRegistration ? `| IE: ${companySettings.stateRegistration}` : ''}</p>
-            <p style="margin: 2px 0; font-size: 11px;">${companySettings.address.street}, ${companySettings.address.number}</p>
-            <p style="margin: 2px 0; font-size: 11px;">${companySettings.address.neighborhood} - ${companySettings.address.city}/${companySettings.address.state}</p>
-            ${companySettings.phone || companySettings.email ? `
+            <h2 style="margin: 0; font-size: 18px;">${settings.tradeName || 'CP PDV'}</h2>
+            ${settings.legalName ? `<p style="margin: 2px 0; font-size: 11px;">${settings.legalName}</p>` : ''}
+            <p style="margin: 2px 0; font-size: 11px;">CNPJ: ${settings.cnpj || ''} ${settings.stateRegistration ? `| IE: ${settings.stateRegistration}` : ''}</p>
+            <p style="margin: 2px 0; font-size: 11px;">${settings.address?.street || 'Rua Principal'}, ${settings.address?.number || 'S/N'}</p>
+            <p style="margin: 2px 0; font-size: 11px;">${settings.address?.neighborhood || 'Centro'} - ${settings.address?.city || 'Cidade'}/${settings.address?.state || 'ST'}</p>
+            ${settings.phone || settings.email ? `
               <p style="margin: 2px 0; font-size: 11px;">
-                ${companySettings.phone ? `Fone: ${companySettings.phone}` : ''}
-                ${companySettings.phone && companySettings.email ? ' | ' : ''}
-                ${companySettings.email ? `Email: ${companySettings.email}` : ''}
+                ${settings.phone ? `Fone: ${settings.phone}` : ''}
+                ${settings.phone && settings.email ? ' | ' : ''}
+                ${settings.email ? `Email: ${settings.email}` : ''}
               </p>
             ` : ''}
             <div style="margin-top: 10px; border-top: 1px dashed #000; padding-top: 10px;">
@@ -238,11 +254,11 @@ export default function SalesHistoryPage() {
                         return (
                           <tr 
                             key={sale.id} 
-                            className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedSale?.id === sale.id ? 'bg-blue-50/50' : ''} ${sale.status === 'Cancelada' ? 'opacity-60' : ''}`}
+                            className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedSale?.id === sale.id ? 'bg-blue-50/50' : ''} ${(sale.status === 'Cancelada' || sale.status === 'cancelada') ? 'opacity-60' : ''}`}
                             onClick={() => setSelectedSale(sale)}
                           >
                             <td className="px-6 py-4">
-                              <p className={`font-black italic uppercase leading-tight ${sale.status === 'Cancelada' ? 'text-red-500 line-through' : 'text-brand-text-main'}`}>#{sale.id.substring(0, 8).toUpperCase()}</p>
+                              <p className={`font-black italic uppercase leading-tight ${(sale.status === 'Cancelada' || sale.status === 'cancelada') ? 'text-red-500 line-through' : 'text-brand-text-main'}`}>#{sale.id.substring(0, 8).toUpperCase()}</p>
                               <p className="text-[10px] text-brand-text-sec font-bold">{formatDateTimeBR(sale.date)}</p>
                             </td>
                             <td className="px-6 py-4">
@@ -254,7 +270,7 @@ export default function SalesHistoryPage() {
                               <p className="text-[10px] text-brand-text-sec font-bold uppercase">{sale.items.length} Itens</p>
                             </td>
                             <td className="px-6 py-4 text-center flex flex-col items-center gap-1 justify-center">
-                               {sale.status === 'Cancelada' ? (
+                               {(sale.status === 'Cancelada' || sale.status === 'cancelada') ? (
                                  <span className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest">
                                    Cancelada
                                  </span>
@@ -349,14 +365,14 @@ export default function SalesHistoryPage() {
                 </div>
                 
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-                  {selectedSale.status === 'Cancelada' && (
+                  {(selectedSale.status === 'Cancelada' || selectedSale.status === 'cancelada') && (
                     <div className="bg-red-50 border-2 border-dashed border-red-200 rounded-xl p-4 flex items-center justify-center">
                       <p className="text-red-600 font-black italic uppercase tracking-widest text-sm flex items-center gap-2">
                         <Trash2 size={16} /> Venda Cancelada
                       </p>
                     </div>
                   )}
-                  {selectedSale.status !== 'Cancelada' && returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') && (
+                  {!(selectedSale.status === 'Cancelada' || selectedSale.status === 'cancelada') && returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') && (
                     <div className="bg-yellow-50 border-2 border-dashed border-yellow-200 rounded-xl p-4 flex items-center justify-center">
                       <p className="text-yellow-700 font-black italic uppercase tracking-widest text-sm flex items-center gap-2">
                         <ShoppingCart size={16} /> Venda com Devolução/Estorno
@@ -426,8 +442,8 @@ export default function SalesHistoryPage() {
                       <div className="flex items-center gap-3 text-sm">
                         <ShieldCheck size={16} className="text-brand-text-sec" />
                         <span className="font-bold text-brand-text-sec uppercase text-[10px]">Status:</span>
-                        <span className={`font-black italic uppercase ${selectedSale.status === 'Cancelada' ? 'text-red-500' : returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') ? 'text-yellow-600' : 'text-green-600'}`}>
-                          {selectedSale.status === 'Cancelada' ? 'Cancelada' : returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') ? 'Estornada/Devolvida' : 'Concluída'}
+                        <span className={`font-black italic uppercase ${(selectedSale.status === 'Cancelada' || selectedSale.status === 'cancelada') ? 'text-red-500' : returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') ? 'text-yellow-600' : 'text-green-600'}`}>
+                          {(selectedSale.status === 'Cancelada' || selectedSale.status === 'cancelada') ? 'Cancelada' : returns.some(r => r.saleId === selectedSale.id && r.status !== 'CANCELADO') ? 'Estornada/Devolvida' : 'Concluída'}
                         </span>
                       </div>
                     </div>
@@ -442,7 +458,7 @@ export default function SalesHistoryPage() {
                     </button>
                     <button 
                       onClick={() => setShowConfirmDelete(true)}
-                      disabled={selectedSale.status === 'Cancelada'}
+                      disabled={selectedSale.status === 'Cancelada' || selectedSale.status === 'cancelada'}
                       className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-black italic uppercase text-[10px] tracking-widest transition-all active:scale-95 border-2 border-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 size={14} /> Cancelar Venda

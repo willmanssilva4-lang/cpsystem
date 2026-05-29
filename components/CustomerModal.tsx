@@ -34,9 +34,9 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
       setFormData({
         name: customerToEdit.name,
         document: customerToEdit.document,
-        phone: customerToEdit.phone,
-        email: customerToEdit.email,
-        status: customerToEdit.status,
+        phone: customerToEdit.phone || '',
+        email: customerToEdit.email || '',
+        status: customerToEdit.status || 'Ativo',
         image: customerToEdit.image || '',
         isClubMember: customerToEdit.isClubMember || false,
         clubJoinDate: customerToEdit.clubJoinDate || ''

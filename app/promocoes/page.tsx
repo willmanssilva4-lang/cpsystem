@@ -194,12 +194,12 @@ export default function PromocoesPage() {
                   </td>
                   <td className="py-5 px-6 text-right">
                     <div className="font-mono font-black text-slate-700 dark:text-slate-300 text-sm">
-                      {sales.reduce((acc, sale) => acc + sale.items.filter(i => i.promotionId === promo.id).reduce((sum, i) => sum + i.quantity, 0), 0)}
+                      {sales.reduce((acc, sale) => acc + sale.items.filter((i: any) => i.promotionId === promo.id).reduce((sum: number, i: any) => sum + i.quantity, 0), 0)}
                     </div>
                   </td>
                   <td className="py-5 px-6 text-right">
                     <div className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                      R$ {sales.reduce((acc, sale) => acc + sale.items.filter(i => i.promotionId === promo.id).reduce((sum, i) => sum + (i.discount || 0) * i.quantity, 0), 0).toFixed(2).replace('.', ',')}
+                      R$ {sales.reduce((acc, sale) => acc + sale.items.filter((i: any) => i.promotionId === promo.id).reduce((sum: number, i: any) => sum + (i.discount || 0) * i.quantity, 0), 0).toFixed(2).replace('.', ',')}
                     </div>
                   </td>
                   <td className="py-5 px-6">

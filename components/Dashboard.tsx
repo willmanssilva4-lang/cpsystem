@@ -99,7 +99,7 @@ export function Dashboard() {
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       const cost = product ? product.costPrice : 0;
       totalCost += cost * item.quantity;
@@ -112,12 +112,12 @@ export function Dashboard() {
 
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
-    const promoItemsTotal = s.items
-      .filter(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
-      .reduce((itemAcc, item) => itemAcc + (item.price * item.quantity), 0);
+    const promoItemsTotal = (s.items || [])
+      .filter((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
+      .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0);
     return acc + promoItemsTotal;
   }, 0);
-  const promoSalesCount = filteredSales.filter(s => s.items.some(item => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
+  const promoSalesCount = filteredSales.filter(s => (s.items || []).some((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
 
   // Previous Period Data for Trends
   const start = new Date(startDate);
@@ -149,7 +149,7 @@ export function Dashboard() {
   
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       const cost = product ? product.costPrice : 0;
       prevTotalCost += cost * item.quantity;
@@ -175,7 +175,7 @@ export function Dashboard() {
   // Category Data Calculation
   const categoryTotals: Record<string, number> = {};
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       let catName = 'Outros';
       if (product && product.subcategoria_id) {
@@ -227,7 +227,7 @@ export function Dashboard() {
     sellerStats[sellerName].volume += 1;
     
     let saleCost = 0;
-    sale.items.forEach(item => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       saleCost += (product ? product.costPrice : item.price * 0.7) * item.quantity;
     });
@@ -250,7 +250,7 @@ export function Dashboard() {
   // Top Products Ranking
   const productStats: Record<string, { total: number, quantity: number, cost: number }> = {};
   filteredSales.forEach(sale => {
-    sale.items.forEach(item => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       const productName = product?.name || 'Produto Desconhecido';
       if (!productStats[productName]) {
@@ -691,34 +691,34 @@ function MetricCard({
 }) {
   const colorClasses: Record<string, { bg: string, ring: string, icon: string, trendBg: string }> = {
     blue: {
-      bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-      ring: 'hover:border-blue-500/30 hover:shadow-blue-500/5',
-      icon: 'text-blue-500',
-      trendBg: 'bg-emerald-500/10 text-emerald-500'
+      bg: 'bg-brand-blue/20 text-brand-blue border-brand-blue/30',
+      ring: 'hover:border-brand-blue/50 hover:shadow-brand-blue/10',
+      icon: 'text-brand-blue',
+      trendBg: 'bg-emerald-500/15 text-emerald-600'
     },
     green: {
-      bg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-      ring: 'hover:border-emerald-500/30 hover:shadow-emerald-500/5',
-      icon: 'text-emerald-500',
-      trendBg: 'bg-emerald-500/10 text-emerald-500'
+      bg: 'bg-brand-green/20 text-brand-green border-brand-green/30',
+      ring: 'hover:border-brand-green/50 hover:shadow-brand-green/10',
+      icon: 'text-brand-green',
+      trendBg: 'bg-emerald-500/15 text-emerald-600'
     },
     purple: {
-      bg: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-      ring: 'hover:border-purple-500/30 hover:shadow-purple-500/5',
+      bg: 'bg-purple-500/20 text-purple-600 border-purple-500/30',
+      ring: 'hover:border-purple-500/50 hover:shadow-purple-500/10',
       icon: 'text-purple-500',
-      trendBg: 'bg-purple-500/10 text-purple-500'
+      trendBg: 'bg-purple-500/15 text-purple-600'
     },
     orange: {
-      bg: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-      ring: 'hover:border-amber-500/30 hover:shadow-amber-500/5',
+      bg: 'bg-amber-500/20 text-amber-600 border-amber-500/30',
+      ring: 'hover:border-amber-500/50 hover:shadow-amber-500/10',
       icon: 'text-amber-500',
-      trendBg: 'bg-amber-500/10 text-amber-500'
+      trendBg: 'bg-amber-500/15 text-amber-500'
     },
     cyan: {
-      bg: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
-      ring: 'hover:border-cyan-500/30 hover:shadow-cyan-500/5',
+      bg: 'bg-cyan-500/20 text-cyan-600 border-cyan-500/30',
+      ring: 'hover:border-cyan-500/50 hover:shadow-cyan-500/10',
       icon: 'text-cyan-500',
-      trendBg: 'bg-cyan-500/10 text-cyan-500'
+      trendBg: 'bg-cyan-500/15 text-cyan-500'
     }
   };
 

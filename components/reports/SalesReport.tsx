@@ -89,7 +89,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
         const fallbackNameMatches = s.customerId === 'final' ? 'consumidor final'.includes(lowerSearch) : false;
         
         // Search in items
-        const itemMatches = s.items.some(item => {
+        const itemMatches = s.items.some((item: any) => {
           const p = products.find(prod => prod.id === item.productId);
           return p ? p.name.toLowerCase().includes(lowerSearch) : false;
         });
@@ -111,7 +111,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     // 4.1 Product Category filter
     if (selectedCategory !== 'All') {
       result = result.filter(s => {
-        return s.items.some(item => {
+        return s.items.some((item: any) => {
           const product = products.find(p => p.id === item.productId);
           if (product && product.subcategoria_id) {
             const sub = subcategorias?.find(sc => sc.id === product.subcategoria_id);
@@ -216,7 +216,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
 
   const estimatedProfit = useMemo(() => {
     return processedSales.reduce((acc, sale) => {
-      const saleCost = sale.items.reduce((itemAcc, item) => {
+      const saleCost = sale.items.reduce((itemAcc: number, item: any) => {
         const product = products.find(p => p.id === item.productId);
         return itemAcc + ((product?.costPrice || 0) * item.quantity);
       }, 0);
@@ -264,7 +264,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
   const topSellingProducts = useMemo(() => {
     const map = new Map<string, { name: string, qty: number, total: number }>();
     processedSales.forEach(s => {
-      s.items.forEach(item => {
+      s.items.forEach((item: any) => {
         const prod = products.find(p => p.id === item.productId);
         const name = prod ? prod.name : 'Produto Desconhecido';
         const current = map.get(item.productId) || { name, qty: 0, total: 0 };
@@ -329,13 +329,13 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
         const seller = systemUsers.find(u => u.id === sale.userId);
         const method = paymentMethods.find(m => m.id === sale.paymentMethod);
         
-        const saleCost = sale.items.reduce((itemAcc, item) => {
+        const saleCost = sale.items.reduce((itemAcc: number, item: any) => {
           const product = products.find(p => p.id === item.productId);
           return itemAcc + ((product?.costPrice || 0) * item.quantity);
         }, 0);
         const saleTax = sale.taxAmount || 0;
         const netProfit = sale.total - saleCost - saleTax;
-        const totalItemQty = sale.items.reduce((acc, it) => acc + it.quantity, 0);
+        const totalItemQty = sale.items.reduce((acc: number, it: any) => acc + it.quantity, 0);
 
         return [
           new Date(sale.date).toLocaleString('pt-BR'),
@@ -907,13 +907,13 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                 const isExpanded = expandedSaleId === sale.id;
 
                 // Margem cálculo
-                const saleCost = sale.items.reduce((itemAcc, item) => {
+                const saleCost = sale.items.reduce((itemAcc: number, item: any) => {
                   const product = products.find(p => p.id === item.productId);
                   return itemAcc + ((product?.costPrice || 0) * item.quantity);
                 }, 0);
                 const saleTax = sale.taxAmount || 0;
                 const netProfit = sale.total - saleCost - saleTax;
-                const totalItemQty = sale.items.reduce((acc, it) => acc + it.quantity, 0);
+                const totalItemQty = sale.items.reduce((acc: number, it: any) => acc + it.quantity, 0);
 
                 return (
                   <React.Fragment key={sale.id}>
@@ -950,7 +950,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                       <td className="py-4 text-xs font-black text-slate-800">
                         <div className="flex items-center gap-2">
                           <span className="uppercase italic">{customer ? customer.name : 'Consumidor Final'}</span>
-                          {customer?.isClub && (
+                          {customer?.isClubMember && (
                             <span className="bg-amber-100 text-amber-700 text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-tight scale-95 shrink-0">
                               Clube
                             </span>
@@ -1056,7 +1056,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
 
                               {/* Item list layout grids */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {sale.items.map((item, idx) => {
+                                {sale.items.map((item: any, idx: number) => {
                                   const product = products.find(p => p.id === item.productId);
                                   const productCost = product ? (product.costPrice || 0) : 0;
                                   const itemSubtotal = item.price * item.quantity;
@@ -1121,7 +1121,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                   <td colSpan={4} className="py-5 pl-4 text-left uppercase italic font-black text-slate-700">TOTAIS FILTRADOS DO PERÍODO</td>
                   <td></td>
                   <td className="py-5 text-center text-slate-850">
-                    {processedSales.reduce((acc, sale) => acc + sale.items.reduce((sc, it) => sc + it.quantity, 0), 0)} un
+                    {processedSales.reduce((acc: number, sale: any) => acc + sale.items.reduce((sc: number, it: any) => sc + it.quantity, 0), 0)} un
                   </td>
                   <td className="py-5 text-right text-emerald-600 font-black">
                     {formatCurrency(estimatedProfit)}

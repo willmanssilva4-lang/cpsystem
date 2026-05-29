@@ -10,7 +10,6 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle, AlertTriangle, ArrowRight, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
-import { CentralFinanceiraModal } from '@/components/CentralFinanceiraModal';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
 import { getLocalDateString, cn } from '@/lib/utils';
@@ -195,6 +194,9 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
 
   return (
     <header id="top-bar" className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
+      {/* Brand Accent Line */}
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-brand-blue via-brand-green to-brand-blue-hover z-20" />
+      
       <div className="flex items-center gap-2 md:gap-6">
         <button 
           id="mobile-menu-toggle"

@@ -27,14 +27,15 @@ import { useERP } from '@/lib/context';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-  { icon: ClipboardList, label: 'Cadastros', href: '/cadastros' },
-  { icon: Wallet, label: 'Financeiro', href: '/financeiro' },
-  { icon: Package, label: 'Estoque', href: '/produtos' },
-  { icon: Truck, label: 'Compras', href: '/compras' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/', color: 'text-brand-blue' },
+  { icon: ClipboardList, label: 'Cadastros', href: '/cadastros', color: 'text-brand-green' },
+  { icon: Wallet, label: 'Financeiro', href: '/financeiro', color: 'text-amber-500' },
+  { icon: Package, label: 'Estoque', href: '/produtos', color: 'text-orange-500' },
+  { icon: Truck, label: 'Compras', href: '/compras', color: 'text-emerald-500' },
   { 
     icon: ShoppingCart, 
     label: 'Vendas', 
+    color: 'text-brand-blue',
     subItems: [
       { icon: ShoppingCart, label: 'PDV', href: '/pdv' },
       { icon: ClipboardList, label: 'Histórico de Vendas', href: '/vendas/historico' },
@@ -43,11 +44,11 @@ const NAV_ITEMS = [
       { icon: BarChart3, label: 'Auditoria de Vendas', href: '/vendas/auditoria' },
     ]
   },
-  { icon: Tag, label: 'Promoções', href: '/promocoes' },
-  { icon: Users, label: 'Clientes', href: '/clientes' },
-  { icon: BarChart3, label: 'Relatórios', href: '/relatorios' },
-  { icon: Settings, label: 'Configurações', href: '/configuracoes' },
-  { icon: ShieldCheck, label: 'Gestão de Empresas', href: '/admin/companies', superAdminOnly: true },
+  { icon: Tag, label: 'Promoções', href: '/promocoes', color: 'text-rose-500' },
+  { icon: Users, label: 'Clientes', href: '/clientes', color: 'text-blue-400' },
+  { icon: BarChart3, label: 'Relatórios', href: '/relatorios', color: 'text-purple-500' },
+  { icon: Settings, label: 'Configurações', href: '/configuracoes', color: 'text-slate-400' },
+  { icon: ShieldCheck, label: 'Gestão de Empresas', href: '/admin/companies', superAdminOnly: true, color: 'text-brand-green' },
 ];
 
 export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, onClose?: () => void, hideOnDesktop?: boolean }) {
@@ -123,7 +124,7 @@ export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, 
                   )}
                 >
                   <div className="flex items-center gap-4">
-                    <item.icon size={20} className={isAnySubActive ? "text-white" : "text-white/60"} />
+                    <item.icon size={20} className={isAnySubActive ? "text-white" : cn(item.color || "text-white/60")} />
                     <span>{item.label}</span>
                   </div>
                   {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -158,7 +159,7 @@ export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, 
                                 : "text-white/50 hover:bg-brand-blue/30 hover:text-white"
                             )}
                           >
-                            <sub.icon size={16} className={isSubActive ? "text-white" : "text-white/50"} />
+                            <sub.icon size={16} className={isSubActive ? "text-white" : (item.color || "text-white/50")} />
                             <span>{sub.label}</span>
                           </Link>
                         );
@@ -187,7 +188,7 @@ export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, 
                   : "text-white/60 hover:bg-brand-blue hover:text-white"
               )}
             >
-              <item.icon size={20} className={isActive ? "text-white" : "text-white/60"} />
+              <item.icon size={20} className={isActive ? "text-white" : cn(item.color || "text-white/60")} />
               <span>{item.label}</span>
             </Link>
           );

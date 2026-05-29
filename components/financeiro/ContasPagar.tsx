@@ -140,7 +140,7 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
         'Valor da Conta': e.amount,
         'Data Competência': e.issueDate ? formatDateBR(e.issueDate) : '-',
         'Data Vencimento': formatDateBR(e.dueDate),
-        'Data Liquidação': e.paymentDate ? formatDateBR(e.paymentDate) : '-',
+        'Data Liquidação': e.date ? formatDateBR(e.date) : '-',
         'Status Atual': calculatedStatus,
         'Meio de Liquidação': e.paymentMethod || '-',
         'Conta de Origem': e.financialAccount || '-'
@@ -456,9 +456,9 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
                       <div className="text-xs font-black text-slate-800 dark:text-slate-200">
                         {e.description}
                       </div>
-                      {e.origin && (
+                      {e.type && (
                         <div className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold mt-0.5">
-                          {e.origin}
+                          {e.type}
                         </div>
                       )}
                     </td>
