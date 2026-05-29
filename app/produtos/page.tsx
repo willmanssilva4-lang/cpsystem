@@ -411,6 +411,9 @@ export default function ProductsPage() {
   const currentProducts = sortedFilteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalStockValue = products.reduce((acc, p) => {
+    // Opção 1: Excluir produtos tipo KIT ou produtos com base_product_id
+    if (p.product_type === 'KIT' || !!p.base_product_id) return acc;
+
     const stock = Number(p.stock || 0);
     const cost = Number(p.costPrice || 0);
     

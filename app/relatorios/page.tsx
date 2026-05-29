@@ -7496,7 +7496,7 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
 }
 
 function GeneralStockReport() {
-  const { products, categorias, subcategorias, suppliers } = useERP();
+  const { products, categorias, subcategorias, suppliers, stockMovements } = useERP();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [selectedSupplier, setSelectedSupplier] = React.useState<string>('all');
@@ -7530,25 +7530,27 @@ function GeneralStockReport() {
           matchesSupplier = p.supplier === selectedSupplier;
         }
 
-        return matchesSearch && matchesCategory && matchesSupplier;
+        return matchesSearch && matchesCategory && matchesSupplier && (p.stock || 0) > 0;
       })
       .map(p => {
         const sub = subcategorias.find(s => s.id === p.subcategoria_id);
         const cat = categorias.find(c => c.id === sub?.categoria_id);
+        
+
         return {
           name: p.name,
           sku: p.sku,
           category: cat?.nome || 'Sem Categoria',
           subcategory: sub?.nome || 'Sem Subcategoria',
           supplier: p.supplier || 'Sem Fornecedor',
-          stock: p.stock,
+          stock: p.stock || 0,
           minStock: p.minStock,
           costPrice: p.costPrice,
           salePrice: p.salePrice,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, searchTerm, selectedCategory, selectedSupplier, subcategorias, categorias]);
+  }, [products, searchTerm, selectedCategory, selectedSupplier, subcategorias, categorias, stockMovements]);
 
   const totals = reportData.reduce((acc, item) => ({
     stock: acc.stock + item.stock,
