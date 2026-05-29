@@ -422,7 +422,18 @@ export default function ProductsPage() {
     }
     return acc;
   }, 0);
-  const lowStockCount = products.filter(p => p.status === 'Ativo' && (p.stock || 0) <= (p.minStock || 0)).length;
+  const lowStockCount = React.useMemo(() => {
+    const movementsMap = new Map();
+    stockMovements.forEach(m => {
+       const modifier = ['SAIDA', 'SAÍDA', 'VENDA', 'PERDA'].includes((m.type || '').toUpperCase()) ? -1 : 1;
+       movementsMap.set(m.productId, (movementsMap.get(m.productId) || 0) + (m.quantity * modifier));
+    });
+
+    return products.filter(p => {
+      const realStock = (p.stock || 0) + (movementsMap.get(p.id) || 0);
+      return p.status === 'Ativo' && realStock <= (p.minStock || 0);
+    }).length;
+  }, [products, stockMovements]);
 
   const handleSaveProduct = async (formData: any) => {
     let success = false;
@@ -634,11 +645,9 @@ export default function ProductsPage() {
               icon={Package} 
               color="green" 
             />
-            <button 
-              onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+            <div
               className={cn(
-                "text-left transition-all",
-                showLowStockOnly && "ring-2 ring-rose-500 rounded-2xl"
+                "text-left transition-all"
               )}
             >
               <SummaryCard 
@@ -647,10 +656,15 @@ export default function ProductsPage() {
                 icon={AlertCircle} 
                 color="red" 
               />
-            </button>
+            </div>
             <SummaryCard 
               title="Quantidade Total" 
-              value={products.reduce((acc, p) => acc + p.stock, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} 
+              value={products
+                .reduce((acc, p) => {
+                  if (p.product_type === 'KIT' || !!p.base_product_id) return acc;
+                  return acc + (p.stock || 0);
+                }, 0)
+                .toLocaleString('pt-BR', { maximumFractionDigits: 2 })} 
               icon={Package} 
               color="blue" 
             />

@@ -334,7 +334,7 @@ function ReportsContent() {
     { id: 'meios_pagamento', category: 'vendas', title: 'Relatório de Meios de Pagamento (Análise Profunda)', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
     { id: 'estorno_devolucao', category: 'financeiro', title: 'Relatório de Estorno e Devolução', description: 'Monitoramento de estornos e devoluções realizadas.', icon: RefreshCw },
     { id: 'relatorio_custo', category: 'financeiro', title: 'Relatório de Custo', description: 'Análise detalhada dos custos de aquisição e CMV.', icon: Calculator },
-    { id: 'lucro_estoque', category: 'estoque', title: 'Relatório de Lucro no Estoque', description: 'Projeção de lucro bruto baseado no saldo atual de estoque.', icon: TrendingUp },
+    { id: 'lucro_estoque', category: 'estoque', title: 'Lucro no Estoque', description: 'Projeção de lucro bruto baseado no saldo atual de estoque.', icon: TrendingUp },
     { id: 'clube_clientes', category: 'gerencial', title: 'Relatório Cliente Clube', description: 'Análise de adesão, economia gerada e frequência de membros do clube.', icon: UserCheck },
     { id: 'clube_vendas', category: 'vendas', title: 'Vendas Cliente Clube', description: 'Comparativo de vendas entre membros do clube e clientes comuns.', icon: ShoppingCart },
   ];
@@ -693,7 +693,7 @@ function ReportsContent() {
                   {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Compras' && <PurchasesReport startDate={startDate} endDate={endDate} />}
-                  {selectedReportView === 'Relatório de Lucro no Estoque' && <StockProfitReport />}
+                  {selectedReportView === 'Lucro no Estoque' && <StockProfitReport />}
                   {selectedReportView === 'Relatório de Estoque Geral' && <GeneralStockReport />}
                   {selectedReportView === 'Relatório Cliente Clube' && <ClubCustomersReport />}
                   {selectedReportView === 'Vendas Cliente Clube' && <ClubSalesReport startDate={startDate} endDate={endDate} />}
@@ -704,7 +704,7 @@ function ReportsContent() {
                     <AccountsPayableReport startDate={startDate} endDate={endDate} />
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Relatório de Lucro no Estoque', 'Relatório de Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Relatório de Meios de Pagamento (Análise Profunda)'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Relatório de Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Relatório de Meios de Pagamento (Análise Profunda)'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -7530,7 +7530,7 @@ function GeneralStockReport() {
           matchesSupplier = p.supplier === selectedSupplier;
         }
 
-        return matchesSearch && matchesCategory && matchesSupplier && (p.stock || 0) > 0;
+        return matchesSearch && matchesCategory && matchesSupplier && (p.stock || 0) > 0 && p.product_type !== 'KIT' && !p.base_product_id;
       })
       .map(p => {
         const sub = subcategorias.find(s => s.id === p.subcategoria_id);
@@ -7913,7 +7913,7 @@ function StockProfitReport() {
     <div className="space-y-6">
       <div className="p-8 rounded-3xl bg-emerald-50 border border-emerald-100 text-center">
         <TrendingUp size={48} className="mx-auto text-emerald-600 mb-4" />
-        <h4 className="text-xl font-bold text-slate-800">Relatório de Lucro no Estoque</h4>
+        <h4 className="text-xl font-bold text-slate-800">Lucro no Estoque</h4>
         <p className="text-sm text-slate-500 mt-2">Projeção de lucro bruto baseado no saldo atual de estoque e preços de venda.</p>
       </div>
 
