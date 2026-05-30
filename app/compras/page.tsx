@@ -48,8 +48,13 @@ const QUICK_ACTIONS = [
 
 export default function PurchasingPage() {
   const router = useRouter();
-  const { hasPermission, user } = useERP();
+  const { hasPermission, user, suppliers } = useERP();
+  const [isSuppliersModalOpen, setIsSuppliersModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const handleOpenSuppliersModal = () => {
+    setIsSuppliersModalOpen(true);
+  };
   const [stats, setStats] = useState<any[]>([
     { label: 'Pedidos Pendentes', value: '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
     { label: 'Entradas (Mês)', value: 'R$ 0,00', icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
@@ -120,18 +125,22 @@ export default function PurchasingPage() {
           .select('*', { count: 'exact', head: true });
 
         if (targetCompanyId) {
-          suppliersCountQuery = suppliersCountQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+          suppliersCountQuery = suppliersCountQuery
+            .in('company_id', [targetCompanyId, null]);
         } else {
-          suppliersCountQuery = suppliersCountQuery.is('company_id', null);
+          suppliersCountQuery = suppliersCountQuery
+            .is('company_id', null);
         }
 
-        const { count: activeSuppliersCount } = await suppliersCountQuery;
+        const activeSuppliersCount = suppliers.filter(s => s.status === 'Ativo').length;
+        
+        console.log('[DEBUG] activeSuppliersCount (context-based):', activeSuppliersCount);
 
         setStats([
           { label: 'Pedidos Pendentes', value: pendingCount?.toString() || '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'Entradas (Mês)', value: `R$ ${monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
           { label: 'Abaixo do Estoque', value: belowStockCountActual.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
-          { label: 'Fornecedores Ativos', value: activeSuppliersCount?.toString() || '0', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Fornecedores Ativos', value: activeSuppliersCount.toString(), icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
         ]);
 
         // Fetch recent orders
@@ -357,10 +366,11 @@ export default function PurchasingPage() {
         {stats.map((stat, index) => (
           <motion.div
             key={stat.label}
+            onClick={stat.label === 'Fornecedores Ativos' ? handleOpenSuppliersModal : undefined}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="p-4 md:p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-border transition-all min-w-0"
+            className={`p-4 md:p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-border transition-all min-w-0 ${stat.label === 'Fornecedores Ativos' ? 'cursor-pointer hover:shadow-lg' : ''}`}
           >
             <div className={`${stat.bg} ${stat.color} w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center mb-4 shrink-0`}>
               <stat.icon size={20} />
@@ -685,6 +695,29 @@ export default function PurchasingPage() {
           </div>
         </div>
       </div>
+      {/* Suppliers Modal */}
+      {isSuppliersModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsSuppliersModalOpen(false)}>
+          <div className="bg-white rounded-[32px] p-8 w-full max-w-2xl border border-brand-border" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight mb-4">Fornecedores Ativos</h2>
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
+              {suppliers.length === 0 && <p className="text-center italic">Nenhum fornecedor encontrado.</p>}
+              {suppliers.filter(s => s.status === 'Ativo').map(s => (
+                <div key={s.id} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center border border-slate-100">
+                  <span className="font-bold text-brand-text-main">{s.name}</span>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-black uppercase italic">ATIVO</span>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={() => setIsSuppliersModalOpen(false)}
+              className="mt-6 w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-brand-blue-hover transition-all"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

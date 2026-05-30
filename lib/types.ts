@@ -48,6 +48,7 @@ export interface Supplier {
   address?: string;
   contact?: string;
   cnpj?: string;
+  status?: 'Ativo' | 'Inativo';
 }
 
 export interface StockMovement {
