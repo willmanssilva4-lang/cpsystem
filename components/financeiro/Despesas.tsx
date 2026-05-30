@@ -35,17 +35,25 @@ export function Despesas({ expenses }: { expenses: Expense[] }) {
 
   // Filter Expenses (only Paid or category-controlled)
   const filteredExpenses = useMemo(() => {
+    if (!Array.isArray(expenses)) return [];
     return expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria')
+      .filter(e => e && e.status === 'Pago' && e.category !== 'Compra de Mercadoria')
       .filter(e => {
-        if (typeFilter !== 'ALL' && e.type !== typeFilter) return false;
-        if (categoryFilter !== 'ALL' && e.category !== categoryFilter) return false;
+        const eType = e.type || 'Variável';
+        if (typeFilter !== 'ALL' && eType !== typeFilter) return false;
+        
+        const eCategory = e.category || '';
+        if (categoryFilter !== 'ALL' && eCategory !== categoryFilter) return false;
+        
+        const desc = (e.description || '').toLowerCase();
+        const cat = (eCategory || '').toLowerCase();
+        const supp = (e.supplier || '').toLowerCase();
         
         const term = searchTerm.toLowerCase();
         return (
-          e.description.toLowerCase().includes(term) ||
-          e.category.toLowerCase().includes(term) ||
-          (e.supplier || '').toLowerCase().includes(term)
+          desc.includes(term) ||
+          cat.includes(term) ||
+          supp.includes(term)
         );
       })
       .sort((a, b) => new Date(b.paymentDate || b.date || '1970-01-01').getTime() - new Date(a.paymentDate || a.date || '1970-01-01').getTime());

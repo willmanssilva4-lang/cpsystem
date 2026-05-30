@@ -10,7 +10,7 @@ interface PricingSettingsModalProps {
 }
 
 export default function PricingSettingsModal({ onClose }: PricingSettingsModalProps) {
-  const { pricingSettings, updatePricingSettings } = useERP();
+  const { pricingSettings, updatePricingSettings, setCustomAlert } = useERP();
   const [formData, setFormData] = useState(pricingSettings);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -26,15 +26,19 @@ export default function PricingSettingsModal({ onClose }: PricingSettingsModalPr
         setIsSaving(false);
         setShowSuccess(true);
         
-        // Show native alert as requested, but with a slight delay to ensure UI updates
-        setTimeout(() => {
-          alert('✅ Configurações de precificação salvas com sucesso!');
-          onClose();
-        }, 100);
+        // Show beautiful centered global alert and close modal
+        setCustomAlert({
+          type: 'success',
+          message: 'Configurações de precificação salvas com sucesso!'
+        });
+        onClose();
       } catch (error) {
         console.error('Erro ao salvar:', error);
         setIsSaving(false);
-        alert('❌ Erro ao salvar as configurações.');
+        setCustomAlert({
+          type: 'error',
+          message: 'Erro ao salvar as configurações.'
+        });
       }
     }, 600);
   };

@@ -1,20 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
 
-const envFile = fs.readFileSync('.env', 'utf8');
-const urlMatch = envFile.match(/NEXT_PUBLIC_SUPABASE_URL=(.*)/);
-const keyMatch = envFile.match(/NEXT_PUBLIC_SUPABASE_ANON_KEY=(.*)/);
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!urlMatch || !keyMatch) {
-  console.error('Missing Supabase credentials in .env');
+if (!url || !key) {
+  console.error('Missing Supabase credentials in process.env');
   process.exit(1);
 }
 
-const supabase = createClient(urlMatch[1], keyMatch[1]);
+const supabase = createClient(url, key);
 
 async function check() {
-  const { data, error } = await supabase.from('products').select('validade').limit(1);
-  console.log('Data:', data);
-  console.log('Error:', error);
+  const testData = {
+    description: 'TEST EXPENSE',
+    category: 'Geral',
+    amount: 100,
+    status: 'Pago',
+    due_date: '2026-05-30',
+    type: 'Variável'
+  };
+  const { data, error } = await supabase.from('expenses').insert([testData]).select();
+  console.log('Insert result data:', data, 'error:', error);
 }
 check();

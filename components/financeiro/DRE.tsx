@@ -117,13 +117,42 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
     const receitaLiquida = receitaBruta - deducoes;
 
-    const taxasMaquininhas = salesMonth.reduce((acc, s) => {
-      if (s.payments && Array.isArray(s.payments) && s.payments.length > 0) {
-        return acc + s.payments.reduce((pAcc, p) => pAcc + (p.taxAmount || 0), 0);
+    const taxasMaquininhas = salesMonth.reduce((acc, s: any) => {
+      let saleTax = 0;
+      let paymentsArr: any[] = [];
+      
+      if (s.payments) {
+        if (Array.isArray(s.payments)) {
+          paymentsArr = s.payments;
+        } else if (typeof s.payments === 'string') {
+          try {
+            const parsed = JSON.parse(s.payments);
+            if (Array.isArray(parsed)) {
+              paymentsArr = parsed;
+            } else if (typeof parsed === 'object' && parsed !== null) {
+              paymentsArr = [parsed];
+            }
+          } catch (e) {
+            console.error('Error parsing payments json string in DRE', e);
+          }
+        } else if (typeof s.payments === 'object') {
+          paymentsArr = [s.payments];
+        }
       }
-      // @ts-ignore
-      if (s.taxAmount) return acc + s.taxAmount;
-      return acc;
+
+      if (paymentsArr && paymentsArr.length > 0) {
+        saleTax = paymentsArr.reduce((pAcc: number, p: any) => {
+          const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+          return pAcc + (Number(t) || 0);
+        }, 0);
+      }
+      
+      if (saleTax === 0) {
+        const t = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+        saleTax = Number(t) || 0;
+      }
+      
+      return acc + saleTax;
     }, 0);
 
     let cmv = 0;

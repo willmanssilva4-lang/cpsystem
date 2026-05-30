@@ -50,8 +50,49 @@ import { FluxoCaixa } from '@/components/financeiro/FluxoCaixa';
 import { MovimentacaoFinanceira } from '@/components/financeiro/MovimentacaoFinanceira';
 import { DRE } from '@/components/financeiro/DRE';
 
+// Helper de cálculo robusto e unificado de taxas de vendas (maquininhas/PIX/cartões)
+const calculateSaleTax = (sale: any): number => {
+  if (!sale) return 0;
+  let totalTax = 0;
+  let paymentsArr: any[] = [];
+  
+  if (sale.payments) {
+    if (Array.isArray(sale.payments)) {
+      paymentsArr = sale.payments;
+    } else if (typeof sale.payments === 'string') {
+      try {
+        const parsed = JSON.parse(sale.payments);
+        if (Array.isArray(parsed)) {
+          paymentsArr = parsed;
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          paymentsArr = [parsed];
+        }
+      } catch (e) {
+        console.error('Error parsing payments json string in DRE helper', e);
+      }
+    } else if (typeof sale.payments === 'object') {
+      paymentsArr = [sale.payments];
+    }
+  }
+
+  if (paymentsArr && paymentsArr.length > 0) {
+    totalTax = paymentsArr.reduce((pAcc: number, p: any) => {
+      const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+      return pAcc + (Number(t) || 0);
+    }, 0);
+  }
+  
+  // Se o total das taxas das parcelas/pagamentos for 0, tenta do nível da venda
+  if (totalTax === 0) {
+    const t = sale.taxAmount !== undefined ? sale.taxAmount : (sale.tax_amount !== undefined ? sale.tax_amount : 0);
+    totalTax = Number(t) || 0;
+  }
+  
+  return totalTax;
+};
+
 export default function FinancePage() {
-  const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns } = useERP();
+  const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns, maquininhas } = useERP();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'despesas' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
 
   useEffect(() => {
@@ -124,7 +165,7 @@ export default function FinancePage() {
     });
 
     // Taxas no Período
-    const taxasHoje = salesInPeriod.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+    const taxasHoje = salesInPeriod.reduce((acc, s) => acc + calculateSaleTax(s), 0);
 
     // Lucro no Período (Bruto)
     const lucroHoje = faturamentoHoje - cmvHoje - taxasHoje;
@@ -138,7 +179,7 @@ export default function FinancePage() {
       return acc;
     }, 0);
     
-    const totalEntradas = sales.filter(s => s.status !== 'Cancelada').reduce((acc, s) => acc + (s.total - (s.taxAmount || 0)), 0);
+    const totalEntradas = sales.filter(s => s.status !== 'Cancelada').reduce((acc, s) => acc + (s.total - calculateSaleTax(s)), 0);
     const totalDespesasPagas = expenses.filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria').reduce((acc, e) => acc + e.amount, 0);
     const totalReturns = (returns || []).reduce((acc, r) => acc + r.total, 0);
     const totalCompras = stockMovements.filter(m => m.type === 'COMPRA').reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
@@ -356,22 +397,42 @@ export default function FinancePage() {
 
   // --- 5. Resumo de Vendas por Pagamento ---
   const salesByPayment = useMemo(() => {
-    const totals: Record<string, number> = {};
+    const totals: Record<string, { amount: number; maquininhaNames: Set<string> }> = {};
     sales.forEach((s: any) => {
       if (s.status === 'Cancelada') return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
-          totals[p.method] = (totals[p.method] || 0) + p.amount;
+          const key = p.method;
+          if (!totals[key]) {
+            totals[key] = { amount: 0, maquininhaNames: new Set() };
+          }
+          totals[key].amount += p.amount;
+          if (p.maquininhaId) {
+            const maq = (maquininhas || []).find((m: any) => m.id === p.maquininhaId);
+            if (maq) totals[key].maquininhaNames.add(maq.nome);
+          }
         });
       } else {
-        totals[s.paymentMethod] = (totals[s.paymentMethod] || 0) + s.total;
+        const key = s.paymentMethod;
+        if (!totals[key]) {
+          totals[key] = { amount: 0, maquininhaNames: new Set() };
+        }
+        totals[key].amount += s.total;
+        if (s.maquininhaId) {
+          const maq = (maquininhas || []).find((m: any) => m.id === s.maquininhaId);
+          if (maq) totals[key].maquininhaNames.add(maq.nome);
+        }
       }
     });
     
     return Object.entries(totals)
-      .map(([method, amount]) => ({ method, amount }))
+      .map(([method, data]) => ({ 
+        method, 
+        amount: data.amount,
+        maquininhas: Array.from(data.maquininhaNames).join(', ')
+      }))
       .sort((a, b) => b.amount - a.amount);
-  }, [sales]);
+  }, [sales, maquininhas]);
 
   // --- 6. DRE Automático ---
   const dre = useMemo(() => {
@@ -379,14 +440,7 @@ export default function FinancePage() {
     const receita = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Taxas de Maquininhas (Financeiras)
-    const taxasMaquininhas = salesInPeriod.reduce((acc, s: any) => {
-      if (s.payments && Array.isArray(s.payments) && s.payments.length > 0) {
-        return acc + s.payments.reduce((pAcc: number, p: any) => pAcc + (p.taxAmount || 0), 0);
-      }
-      // @ts-ignore
-      if (s.taxAmount) return acc + s.taxAmount;
-      return acc;
-    }, 0);
+    const taxasMaquininhas = salesInPeriod.reduce((acc, s: any) => acc + calculateSaleTax(s), 0);
 
     let cmv = 0;
     salesInPeriod.forEach((sale: any) => {
@@ -887,7 +941,14 @@ export default function FinancePage() {
                             <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border shrink-0", colorClass)}>
                               <IconComponent size={16} />
                             </div>
-                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{item.method}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{item.method}</span>
+                              {item.maquininhas && (
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-wider mt-0.5">
+                                  {item.maquininhas}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 text-right">
                             <span className="text-xs font-black text-slate-850 dark:text-slate-105">{formatCurrency(item.amount)}</span>

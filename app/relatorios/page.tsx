@@ -608,11 +608,7 @@ function ReportsContent() {
                             whileTap={{ scale: 0.98 }}
                             key={report.id}
                             onClick={() => {
-                              if (report.id === 'dash_exec') {
-                                setSelectedReportView(null); // Already on dashboard
-                              } else {
-                                handleReportClick(report.title);
-                              }
+                              handleReportClick(report.title);
                             }}
                             className="group p-6 md:p-7 rounded-[2rem] bg-white border border-slate-200/80 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-200/50 transition-all text-left flex flex-col justify-between min-h-[200px] relative overflow-hidden"
                           >
@@ -703,8 +699,15 @@ function ReportsContent() {
                   {selectedReportView === 'Contas a Pagar' && (
                     <AccountsPayableReport startDate={startDate} endDate={endDate} />
                   )}
+                  {selectedReportView === 'Dashboard Executivo' && (
+                    <AdvancedPerformanceDashboard 
+                      startDate={startDate} 
+                      endDate={endDate} 
+                      onViewReport={(reportName) => handleReportClick(reportName)}
+                    />
+                  )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
+                  {!['Dashboard Executivo', 'Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -819,7 +822,7 @@ function AdvancedPerformanceDashboard({
   onOpenCatalog?: () => void,
   onViewReport?: (reportName: string) => void
 }) {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert, fetchData } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
 
@@ -837,6 +840,199 @@ function AdvancedPerformanceDashboard({
   }
 
   const [reportType, setReportType] = useState('Relatório de Vendas');
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  // Self-contained high precision UUID generator to prevent build or runtime import errors
+  const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  const handleGenerateTestData = async () => {
+    if (products.length === 0) {
+      setCustomAlert({ message: 'Necessário ter produtos cadastrados para gerar vendas de teste.', type: 'error' });
+      return;
+    }
+    setIsSeeding(true);
+    setCustomAlert({ message: 'Iniciando geração de dados reais de demonstração no banco de dados...', type: 'info' });
+    
+    try {
+      const selectedProducts = products.filter(p => p.status !== 'Inativo' && (p.salePrice || (p as any).sale_price || 0) > 0).slice(0, 30);
+      const paymentIds = paymentMethods.map(m => m.id);
+      const customerIds = customers.map(c => c.id);
+      const userIds = systemUsers.map(u => u.id);
+      
+      const salesToInsert = [];
+      const movementsToInsert = [];
+      const expensesToInsert = [];
+      
+      const companyId = (products[0] as any)?.company_id || (products[0] as any)?.companyId || null;
+      const todayDate = new Date();
+      
+      // Generate 25 sales distributed over the last 30 days
+      for (let i = 0; i < 25; i++) {
+        const saleDate = new Date(todayDate);
+        saleDate.setDate(todayDate.getDate() - Math.floor(Math.random() * 30));
+        saleDate.setHours(9 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60));
+        
+        const itemsCount = 1 + Math.floor(Math.random() * 3);
+        let saleTotal = 0;
+        let saleCost = 0;
+        const saleId = generateUUID();
+        
+        for (let j = 0; j < itemsCount; j++) {
+          const randProd = selectedProducts[Math.floor(Math.random() * selectedProducts.length)];
+          if (randProd) {
+            const qty = 1 + Math.floor(Math.random() * 3);
+            const itemPrice = randProd.salePrice || (randProd as any).sale_price || 10;
+            const itemCost = randProd.costPrice || (randProd as any).cost_price || (itemPrice * 0.6);
+            
+            saleTotal += itemPrice * qty;
+            saleCost += itemCost * qty;
+            
+            movementsToInsert.push({
+              id: generateUUID(),
+              product_id: randProd.id,
+              type: 'VENDA',
+              quantity: -qty, // Outflow of stock
+              origin: `Venda #${saleId.substring(0, 8)}`,
+              date: saleDate.toISOString(),
+              company_id: companyId
+            });
+          }
+        }
+        
+        const randomPayment = paymentIds[Math.floor(Math.random() * paymentIds.length)] || 'Dinheiro';
+        const randomCustomer = customerIds.length > 0 ? customerIds[Math.floor(Math.random() * customerIds.length)] : null;
+        const randomUser = userIds.length > 0 ? userIds[Math.floor(Math.random() * userIds.length)] : null;
+        
+        salesToInsert.push({
+          id: saleId,
+          payment_method: randomPayment,
+          customer_id: randomCustomer,
+          user_id: randomUser,
+          total: saleTotal,
+          discount: 0,
+          notes: 'Venda de demonstração gerada automaticamente',
+          status: 'Finalizada',
+          date: saleDate.toISOString(),
+          tax_amount: saleTotal * 0.05, // 5% tax
+          net_amount: saleTotal * 0.95,
+          company_id: companyId
+        });
+      }
+      
+      // Generate 6 expenses distributed over the last 30 days
+      const dExpensesList = [
+        { desc: 'Aluguel do Espaço Comercial', cat: 'Infraestrutura', min: 1200, max: 1500 },
+        { desc: 'Energia Elétrica Copel / Coelba', cat: 'Utilidades', min: 250, max: 480 },
+        { desc: 'Assinatura Software ERP e Licenças', cat: 'Administrativo', min: 149, max: 149 },
+        { desc: 'Serviço de Internet Fibra Óptica', cat: 'Utilidades', min: 99, max: 149 },
+        { desc: 'Compra de Embalagens e Sacolas', cat: 'Fornecedores', min: 120, max: 280 },
+        { desc: 'Material de Escritório e Limpeza', cat: 'Administrativo', min: 80, max: 180 },
+      ];
+      
+      for (const dex of dExpensesList) {
+        const eDate = new Date(todayDate);
+        eDate.setDate(todayDate.getDate() - Math.floor(Math.random() * 25));
+        const amount = dex.min + Math.random() * (dex.max - dex.min);
+        
+        expensesToInsert.push({
+          id: generateUUID(),
+          description: dex.desc,
+          category: dex.cat,
+          amount: Number(amount.toFixed(2)),
+          date: eDate.toISOString().split('T')[0],
+          company_id: companyId
+        });
+      }
+      
+      if (salesToInsert.length > 0) {
+        const { error: sE } = await supabase.from('sales').insert(salesToInsert);
+        if (sE) throw sE;
+      }
+      
+      if (movementsToInsert.length > 0) {
+        const { error: mE } = await supabase.from('stock_movements').insert(movementsToInsert);
+        if (mE) throw mE;
+      }
+      
+      if (expensesToInsert.length > 0) {
+        const { error: eE } = await supabase.from('expenses').insert(expensesToInsert);
+        if (eE) throw eE;
+      }
+      
+      if (fetchData) {
+        await fetchData();
+      }
+      setCustomAlert({ message: 'Dados de demonstração inseridos com sucesso no banco de dados!', type: 'success' });
+    } catch (err: any) {
+      console.error('Erro ao gerar dados de teste:', err);
+      setCustomAlert({ message: `Erro ao gerar dados: ${err.message || err}`, type: 'error' });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleClearDemoData = async () => {
+    setIsClearing(true);
+    setCustomAlert({ message: 'Limpando dados de demonstração do banco de dados...', type: 'info' });
+    try {
+      const { data: salesToDelete, error: sErr } = await supabase
+        .from('sales')
+        .select('id')
+        .eq('notes', 'Venda de demonstração gerada automaticamente');
+        
+      if (sErr) throw sErr;
+      
+      if (salesToDelete && salesToDelete.length > 0) {
+        const ids = salesToDelete.map(s => s.id);
+        
+        for (const id of ids) {
+          const { error: mErr } = await supabase
+            .from('stock_movements')
+            .delete()
+            .ilike('origin', `%Venda #${id.substring(0, 8)}%`);
+          if (mErr) console.error('Movements delete err:', mErr);
+        }
+        
+        const { error: delSalesErr } = await supabase
+          .from('sales')
+          .delete()
+          .in('id', ids);
+        if (delSalesErr) throw delSalesErr;
+      }
+      
+      const expenseDescs = [
+        'Aluguel do Espaço Comercial',
+        'Energia Elétrica Copel / Coelba',
+        'Assinatura Software ERP e Licenças',
+        'Serviço de Internet Fibra Óptica',
+        'Compra de Embalagens e Sacolas',
+        'Material de Escritório e Limpeza'
+      ];
+      
+      const { error: eErr } = await supabase
+        .from('expenses')
+        .delete()
+        .in('description', expenseDescs);
+      if (eErr) throw eErr;
+      
+      if (fetchData) {
+        await fetchData();
+      }
+      setCustomAlert({ message: 'Dados de demonstração limpos com sucesso!', type: 'success' });
+    } catch (err: any) {
+      console.error('Erro ao limpar dados de teste:', err);
+      setCustomAlert({ message: `Erro ao limpar dados: ${err.message || err}`, type: 'error' });
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const today = new Date();
   const year = today.getFullYear();
@@ -1222,6 +1418,47 @@ function AdvancedPerformanceDashboard({
               </button>
             </div>
           </div>
+
+          {/* Banner de Dados Demonstrativos Realistas */}
+          {sales.length === 0 && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 md:p-8 rounded-3xl border border-blue-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 transition-all animate-fade-in my-2">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-500/20">
+                  <Activity size={20} className="animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-850 uppercase italic tracking-tight">Banco de Dados Vazio no Supabase</h4>
+                  <p className="text-[11px] font-semibold text-slate-500/90 mt-1 max-w-2xl leading-relaxed">
+                    Nenhuma venda ou despesa foi encontrada nas tabelas reais do banco de dados. Para testar e ativar as análises e gráficos reais do **Dashboard Executivo**, clique no botão para gerar 25 vendas analíticas e 6 despesas operacionais divididas nos últimos 30 dias.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleGenerateTestData}
+                disabled={isSeeding}
+                className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider transition-all shadow-lg shadow-blue-600/15 min-w-[200px] justify-center active:scale-95 cursor-pointer"
+              >
+                {isSeeding ? 'Gerando dados...' : 'Popular com Dados Reais'}
+              </button>
+            </div>
+          )}
+
+          {/* Banner para limpar dados quando populado */}
+          {sales.some(s => s.notes === 'Venda de demonstração gerada automaticamente') && (
+            <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-4 my-2">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></div>
+                <span className="text-xs font-bold text-slate-500">O banco de dados contém registros de demonstração autogerados para testes do Dashboard.</span>
+              </div>
+              <button
+                onClick={handleClearDemoData}
+                disabled={isClearing}
+                className="text-[10px] font-black uppercase italic tracking-wider text-rose-500 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-xl transition-all active:scale-95 cursor-pointer"
+              >
+                {isClearing ? 'Limpando...' : 'Remover Dados Gerados'}
+              </button>
+            </div>
+          )}
 
           {/* Premium Selector and Date Filters Card */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-md shadow-slate-100 flex flex-col lg:flex-row lg:items-center gap-6">
@@ -2076,7 +2313,43 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
       .filter(e => ['Impostos', 'Taxas'].includes(e.category))
       .reduce((acc, e) => acc + e.amount, 0);
       
-    const taxasMaquininha = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+    const taxasMaquininha = filteredSales.reduce((acc, s: any) => {
+      let saleTax = 0;
+      let paymentsArr: any[] = [];
+      
+      if (s.payments) {
+        if (Array.isArray(s.payments)) {
+          paymentsArr = s.payments;
+        } else if (typeof s.payments === 'string') {
+          try {
+            const parsed = JSON.parse(s.payments);
+            if (Array.isArray(parsed)) {
+              paymentsArr = parsed;
+            } else if (typeof parsed === 'object' && parsed !== null) {
+              paymentsArr = [parsed];
+            }
+          } catch (e) {
+            console.error('Error parsing payments json string in relatorios DRE', e);
+          }
+        } else if (typeof s.payments === 'object') {
+          paymentsArr = [s.payments];
+        }
+      }
+
+      if (paymentsArr && paymentsArr.length > 0) {
+        saleTax = paymentsArr.reduce((pAcc: number, p: any) => {
+          const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+          return pAcc + (Number(t) || 0);
+        }, 0);
+      }
+      
+      if (saleTax === 0) {
+        const t = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+        saleTax = Number(t) || 0;
+      }
+      
+      return acc + saleTax;
+    }, 0);
       
     const dOp = filteredExpenses
       .filter(e => ['Operacional', 'Fornecedores', 'Utilidades'].includes(e.category))

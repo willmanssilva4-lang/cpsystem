@@ -286,7 +286,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-4xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col my-8"
+        className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-7xl h-[92vh] md:h-[95vh] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col my-4"
       >
         
         {/* Modern Interactive Header Block */}
@@ -392,7 +392,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
         )}
 
         {/* Form Body - Dual Column Grid */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 md:p-8 max-h-[60vh] custom-scrollbar space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar space-y-6">
           {error && (
             <motion.div 
               initial={{ opacity: 0, y: -10 }}

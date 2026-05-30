@@ -258,13 +258,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         baseQuery('departamentos'),
         baseQuery('categorias'),
         baseQuery('subcategorias'),
-        baseQuery('stock_movements').order('date', { ascending: false }).limit(100),
+        baseQuery('stock_movements').order('date', { ascending: false }).limit(5000),
         baseQuery('inventories'),
         supabase.from('maquininhas').select('*').eq('ativo', true), // Maquininhas might be shared or filtered later
         baseQuery('payment_methods'),
         baseQuery('advertisements'),
         baseQuery('customers').order('name'),
-        baseQuery('sales').order('created_at', { ascending: false }).limit(50),
+        baseQuery('sales').order('created_at', { ascending: false }).limit(2000),
         baseQuery('expenses'),
         baseQuery('produto_lotes'),
         supabase.from('system_settings').select('*').single(), // Settings might be per company
@@ -409,7 +409,33 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         });
         setSales(mappedSales);
       }
-      if (Array.isArray(exps_res)) setExpenses(exps_res);
+      if (Array.isArray(exps_res)) {
+        setExpenses(exps_res.map((e: any) => ({
+          ...e,
+          // camelCase standard equivalents
+          companyId: e.companyId ?? e.company_id ?? '',
+          supplierId: e.supplierId ?? e.supplier_id ?? '',
+          paymentType: e.paymentType ?? e.payment_type ?? 'À vista',
+          issueDate: e.issueDate ?? e.issue_date ?? '',
+          dueDate: e.dueDate ?? e.due_date ?? '',
+          paymentDate: e.paymentDate ?? e.payment_date ?? '',
+          paymentMethod: e.paymentMethod ?? e.payment_method ?? '',
+          financialAccount: e.financialAccount ?? e.financial_account ?? '',
+          storeId: e.storeId ?? e.store_id ?? '',
+          isRecurring: e.isRecurring ?? e.is_recurring ?? false,
+          // snake_case standard equivalents for database queries/inserts
+          company_id: e.company_id ?? e.companyId ?? '',
+          supplier_id: e.supplier_id ?? e.supplierId ?? '',
+          payment_type: e.payment_type ?? e.paymentType ?? 'À vista',
+          issue_date: e.issue_date ?? e.issueDate ?? '',
+          due_date: e.due_date ?? e.dueDate ?? '',
+          payment_date: e.payment_date ?? e.paymentDate ?? '',
+          payment_method: e.payment_method ?? e.paymentMethod ?? '',
+          financial_account: e.financial_account ?? e.financialAccount ?? '',
+          store_id: e.store_id ?? e.storeId ?? '',
+          is_recurring: e.is_recurring ?? e.isRecurring ?? false
+        })));
+      }
       if (Array.isArray(lts_res)) setLotes(lts_res);
       if (sysSet) setSystemSettings(sysSet);
       if (Array.isArray(sysUsrs_res)) {
@@ -589,6 +615,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         delete (dbPayload as any)[key];
       }
     });
+
+    if ((dbPayload as any).id === '' || (dbPayload as any).id === null || (dbPayload as any).id === undefined) {
+      delete (dbPayload as any).id;
+    }
 
     const { error } = await supabase.from('products').insert([dbPayload]);
     if (error) {
@@ -994,12 +1024,91 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   // Expenses
   const addExpense = async (data: any) => {
-    await supabase.from('expenses').insert([data]);
+    const clean = (val: any) => {
+      if (val === undefined || val === null || val === '') return null;
+      return val;
+    };
+
+    const dbPayload = {
+      id: typeof data.id === 'string' && data.id.trim() !== '' ? data.id.trim() : undefined,
+      description: data.description,
+      category: data.category,
+      amount: Number(data.amount) || 0,
+      date: clean(data.date ?? data.issueDate ?? data.issue_date ?? null),
+      status: data.status,
+      supplier: data.supplier,
+      issue_date: clean(data.issue_date ?? data.issueDate ?? null),
+      due_date: clean(data.due_date ?? data.dueDate ?? null),
+      payment_date: clean(data.payment_date ?? data.paymentDate ?? null),
+      payment_method: clean(data.payment_method ?? data.paymentMethod ?? null),
+      financial_account: clean(data.financial_account ?? data.financialAccount ?? null),
+      observation: data.observation,
+      is_recurring: data.is_recurring ?? data.isRecurring ?? false,
+      frequency: data.frequency,
+      supplier_id: clean(data.supplier_id ?? data.supplierId ?? null),
+      company_id: clean(data.company_id ?? data.companyId ?? user?.companyId ?? null),
+      origin: data.origin,
+      type: data.type,
+      interest: Number(data.interest) || 0,
+      discount: Number(data.discount) || 0,
+      payment_type: clean(data.payment_type ?? data.paymentType ?? null),
+      store_id: clean(data.store_id ?? data.storeId ?? null)
+    };
+
+    const sanitized: any = {};
+    Object.entries(dbPayload).forEach(([key, val]) => {
+      if (val !== undefined) sanitized[key] = val;
+    });
+
+    const { error } = await supabase.from('expenses').insert([sanitized]);
+    if (error) {
+      console.error('[addExpense] Error inserting expense:', error);
+      throw error;
+    }
     await fetchData();
   };
 
   const updateExpense = async (data: any) => {
-    await supabase.from('expenses').update(data).eq('id', data.id);
+    const clean = (val: any) => {
+      if (val === undefined || val === null || val === '') return null;
+      return val;
+    };
+
+    const dbPayload = {
+      description: data.description,
+      category: data.category,
+      amount: Number(data.amount) || 0,
+      date: clean(data.date ?? data.issueDate ?? data.issue_date ?? null),
+      status: data.status,
+      supplier: data.supplier,
+      issue_date: clean(data.issue_date ?? data.issueDate ?? null),
+      due_date: clean(data.due_date ?? data.dueDate ?? null),
+      payment_date: clean(data.payment_date ?? data.paymentDate ?? null),
+      payment_method: clean(data.payment_method ?? data.paymentMethod ?? null),
+      financial_account: clean(data.financial_account ?? data.financialAccount ?? null),
+      observation: data.observation,
+      is_recurring: data.is_recurring ?? data.isRecurring ?? false,
+      frequency: data.frequency,
+      supplier_id: clean(data.supplier_id ?? data.supplierId ?? null),
+      company_id: clean(data.company_id ?? data.companyId ?? user?.companyId ?? null),
+      origin: data.origin,
+      type: data.type,
+      interest: Number(data.interest) || 0,
+      discount: Number(data.discount) || 0,
+      payment_type: clean(data.payment_type ?? data.paymentType ?? null),
+      store_id: clean(data.store_id ?? data.storeId ?? null)
+    };
+
+    const sanitized: any = {};
+    Object.entries(dbPayload).forEach(([key, val]) => {
+      if (val !== undefined) sanitized[key] = val;
+    });
+
+    const { error } = await supabase.from('expenses').update(sanitized).eq('id', data.id);
+    if (error) {
+      console.error('[updateExpense] Error updating expense:', error);
+      throw error;
+    }
     await fetchData();
   };
 
