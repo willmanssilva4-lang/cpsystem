@@ -21,7 +21,7 @@ import {
   TrendingUp,
   BarChart3
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatDateBR } from '@/lib/utils';
@@ -66,36 +66,66 @@ export default function PurchasingPage() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!user?.companyId) return;
+      // Allow fetching even if companyId is not present, falling back to null (legacy/global)
       setIsLoading(true);
+      const targetCompanyId = user?.companyId || null;
+      
       try {
         // Fetch stats
-        const { count: pendingCount } = await supabase
+        let pendingQuery = supabase
           .from('purchase_orders')
           .select('*', { count: 'exact', head: true })
-          .eq('company_id', user.companyId)
           .eq('status', 'Pendente');
+
+        if (targetCompanyId) {
+          pendingQuery = pendingQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          pendingQuery = pendingQuery.is('company_id', null);
+        }
+
+        const { count: pendingCount } = await pendingQuery;
 
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
 
-        const { data: monthOrders } = await supabase
+        let monthOrdersQuery = supabase
           .from('purchase_orders')
           .select('total_amount')
-          .eq('company_id', user.companyId)
           .eq('status', 'Recebido')
           .gte('order_date', startOfMonth.toISOString());
+
+        if (targetCompanyId) {
+          monthOrdersQuery = monthOrdersQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          monthOrdersQuery = monthOrdersQuery.is('company_id', null);
+        }
+
+        const { data: monthOrders } = await monthOrdersQuery;
         
-        const monthTotal = monthOrders?.reduce((acc, order) => acc + Number(order.total_amount), 0) || 0;
+        const monthTotal = (monthOrders || []).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
 
-        const { data: allProducts } = await supabase.from('products').select('id, name, stock, min_stock, status').eq('company_id', user.companyId);
-        const belowStockCountActual = allProducts?.filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock).length || 0;
+        let productsQuery = supabase.from('products').select('id, name, stock, min_stock, status');
+        if (targetCompanyId) {
+          productsQuery = productsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          productsQuery = productsQuery.is('company_id', null);
+        }
+        const { data: allProducts } = await productsQuery;
 
-        const { count: activeSuppliersCount } = await supabase
+        const belowStockCountActual = (allProducts || [])?.filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock).length || 0;
+
+        let suppliersCountQuery = supabase
           .from('suppliers')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_id', user.companyId);
+          .select('*', { count: 'exact', head: true });
+
+        if (targetCompanyId) {
+          suppliersCountQuery = suppliersCountQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          suppliersCountQuery = suppliersCountQuery.is('company_id', null);
+        }
+
+        const { count: activeSuppliersCount } = await suppliersCountQuery;
 
         setStats([
           { label: 'Pedidos Pendentes', value: pendingCount?.toString() || '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -105,7 +135,7 @@ export default function PurchasingPage() {
         ]);
 
         // Fetch recent orders
-        const { data: ordersData } = await supabase
+        let ordersQuery = supabase
           .from('purchase_orders')
           .select(`
             id,
@@ -115,9 +145,16 @@ export default function PurchasingPage() {
             suppliers ( name ),
             purchase_order_items ( id )
           `)
-          .eq('company_id', user?.companyId || null)
           .order('order_date', { ascending: false })
           .limit(5);
+
+        if (targetCompanyId) {
+          ordersQuery = ordersQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          ordersQuery = ordersQuery.is('company_id', null);
+        }
+
+        const { data: ordersData } = await ordersQuery;
 
         if (ordersData && ordersData.length > 0) {
           setRecentOrders(ordersData.map(order => ({
@@ -133,7 +170,7 @@ export default function PurchasingPage() {
         }
 
         // Fetch recent quotations
-        const { data: quotationsData } = await supabase
+        let quotationsQuery = supabase
           .from('quotations')
           .select(`
             id,
@@ -143,9 +180,16 @@ export default function PurchasingPage() {
             quotation_items ( id ),
             quotation_suppliers ( id )
           `)
-          .eq('company_id', user?.companyId || null)
           .order('created_at', { ascending: false })
           .limit(5);
+
+        if (targetCompanyId) {
+          quotationsQuery = quotationsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          quotationsQuery = quotationsQuery.is('company_id', null);
+        }
+
+        const { data: quotationsData } = await quotationsQuery;
 
         if (quotationsData) {
           setRecentQuotations(quotationsData.map(q => ({
@@ -175,13 +219,20 @@ export default function PurchasingPage() {
         }
 
         // Fetch top suppliers
-        const { data: topSuppliersData } = await supabase
+        let topSuppliersQuery = supabase
           .from('purchase_orders')
           .select(`
             total_amount,
             suppliers ( name )
-          `)
-          .eq('company_id', user?.companyId || null);
+          `);
+
+        if (targetCompanyId) {
+          topSuppliersQuery = topSuppliersQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          topSuppliersQuery = topSuppliersQuery.is('company_id', null);
+        }
+
+        const { data: topSuppliersData } = await topSuppliersQuery;
         
         if (topSuppliersData && topSuppliersData.length > 0) {
           const supplierStats: Record<string, { orders: number, total: number }> = {};
@@ -228,12 +279,19 @@ export default function PurchasingPage() {
         sixMonthsAgo.setDate(1);
         sixMonthsAgo.setHours(0, 0, 0, 0);
 
-        const { data: historyData } = await supabase
+        let historyQuery = supabase
           .from('purchase_orders')
           .select('order_date, total_amount')
-          .eq('company_id', user?.companyId || null)
           .eq('status', 'Recebido')
           .gte('order_date', sixMonthsAgo.toISOString());
+
+        if (targetCompanyId) {
+          historyQuery = historyQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        } else {
+          historyQuery = historyQuery.is('company_id', null);
+        }
+
+        const { data: historyData } = await historyQuery;
 
         if (historyData) {
           const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];

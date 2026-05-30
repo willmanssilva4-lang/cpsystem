@@ -40,14 +40,14 @@ export default function ReposicaoPage() {
   }, [searchTerm, activeTab]);
 
   const fetchData = useCallback(async () => {
-    if (!user?.companyId) return;
     setIsLoading(true);
+    const targetCompanyId = user?.companyId || null;
     try {
       // 1. Fetch products with low stock
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
-        .eq('company_id', user.companyId);
+        .eq('company_id', targetCompanyId);
       
       if (productsError) throw productsError;
 

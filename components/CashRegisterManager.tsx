@@ -14,7 +14,7 @@ import {
   Calculator,
   ShieldCheck
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function CashRegisterManager({ 
   initialMode,

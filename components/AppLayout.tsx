@@ -49,22 +49,22 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     const notifs: any[] = [];
     
     // Low stock notifications
-    const lowStock = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock);
+    const lowStock = Array.isArray(products) ? products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock) : [];
     lowStock.forEach(p => {
       notifs.push({
         id: `stock-${p.id}`,
         title: 'Estoque baixo',
         message: `O produto "${p.name}" está com estoque baixo (${p.stock} unidades)`,
         time: 'Sistema',
-        read: readNotificationIds.includes(`stock-${p.id}`)
+        read: (Array.isArray(readNotificationIds) ? readNotificationIds : []).includes(`stock-${p.id}`)
       });
     });
 
     // Expired batches
     const today = getLocalDateString();
-    const expiredLotes = lotes.filter(l => l.validade <= today && l.saldoAtual > 0);
+    const expiredLotes = Array.isArray(lotes) ? lotes.filter(l => l.validade <= today && l.saldoAtual > 0) : [];
     expiredLotes.forEach(l => {
-      const product = products.find(p => p.id === l.productId);
+      const product = Array.isArray(products) ? products.find(p => p.id === l.productId) : null;
       const isToday = l.validade === today;
       notifs.push({
         id: `lote-${l.id}`,
@@ -73,7 +73,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
           ? `O lote "${l.numeroLote}" do produto "${product?.name || 'Desconhecido'}" vence hoje (${l.validade})`
           : `O lote "${l.numeroLote}" do produto "${product?.name || 'Desconhecido'}" venceu em ${l.validade}`,
         time: 'Estoque',
-        read: readNotificationIds.includes(`lote-${l.id}`)
+        read: (Array.isArray(readNotificationIds) ? readNotificationIds : []).includes(`lote-${l.id}`)
       });
     });
 
@@ -457,6 +457,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {children}
             </div>
           </main>
+          <GlobalAlert />
           <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
           {/* Overdue/Upcoming Expenses Modal Alert */}
           <AnimatePresence>

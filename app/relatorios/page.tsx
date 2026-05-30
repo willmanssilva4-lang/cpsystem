@@ -324,14 +324,14 @@ function ReportsContent() {
     { id: 'fluxo_caixa', category: 'financeiro', title: 'Fluxo de Caixa', description: 'Projeção de entradas e saídas para os próximos meses.', icon: Activity },
     { id: 'contas_pagar', category: 'financeiro', title: 'Contas a Pagar', description: 'Relatório de compromissos financeiros e vencimentos.', icon: CreditCard },
     { id: 'relatorio_compras', category: 'financeiro', title: 'Relatório de Compras', description: 'Análise de compras, fornecedores e custos de reposição.', icon: ShoppingBag },
-    { id: 'estoque_geral', category: 'estoque', title: 'Relatório de Estoque Geral', description: 'Listagem completa de todos os produtos e suas quantidades em estoque.', icon: Package },
+    { id: 'estoque_geral', category: 'estoque', title: 'Estoque Geral', description: 'Listagem completa de todos os produtos e suas quantidades em estoque.', icon: Package },
     { id: 'giro_estoque', category: 'estoque', title: 'Giro de Estoque', description: 'Velocidade de saída dos produtos e necessidade de reposição.', icon: RefreshCw },
     { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
     { id: 'dre', category: 'gerencial', title: 'DRE Gerencial', description: 'Demonstrativo de resultados, impostos e lucro líquido.', icon: FileBarChart },
     { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
     { id: 'abc_produtos', category: 'gerencial', title: 'Curva ABC de Produtos', description: 'Classificação de produtos por volume de vendas e faturamento.', icon: Layers },
-    { id: 'meios_pagamento', category: 'vendas', title: 'Relatório de Meios de Pagamento (Análise Profunda)', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
+    { id: 'meios_pagamento', category: 'vendas', title: 'Meios de Pagamento', description: 'Detalhamento de vendas por forma de pagamento e taxas.', icon: CreditCard },
     { id: 'estorno_devolucao', category: 'financeiro', title: 'Relatório de Estorno e Devolução', description: 'Monitoramento de estornos e devoluções realizadas.', icon: RefreshCw },
     { id: 'relatorio_custo', category: 'financeiro', title: 'Relatório de Custo', description: 'Análise detalhada dos custos de aquisição e CMV.', icon: Calculator },
     { id: 'lucro_estoque', category: 'estoque', title: 'Lucro no Estoque', description: 'Projeção de lucro bruto baseado no saldo atual de estoque.', icon: TrendingUp },
@@ -689,12 +689,12 @@ function ReportsContent() {
                   {selectedReportView === 'Vendas por Hora' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
-                  {selectedReportView === 'Relatório de Meios de Pagamento (Análise Profunda)' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Meios de Pagamento' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Compras' && <PurchasesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Lucro no Estoque' && <StockProfitReport />}
-                  {selectedReportView === 'Relatório de Estoque Geral' && <GeneralStockReport />}
+                  {selectedReportView === 'Estoque Geral' && <GeneralStockReport />}
                   {selectedReportView === 'Relatório Cliente Clube' && <ClubCustomersReport />}
                   {selectedReportView === 'Vendas Cliente Clube' && <ClubSalesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Fluxo de Caixa' && (
@@ -704,7 +704,7 @@ function ReportsContent() {
                     <AccountsPayableReport startDate={startDate} endDate={endDate} />
                   )}
                   
-                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Relatório de Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Relatório de Meios de Pagamento (Análise Profunda)'].includes(selectedReportView) && (
+                  {!['Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -7562,7 +7562,7 @@ function GeneralStockReport() {
     <div className="space-y-6">
       <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
         <Package size={48} className="mx-auto text-brand-blue mb-4" />
-        <h4 className="text-xl font-bold text-slate-800">Relatório de Estoque Geral</h4>
+        <h4 className="text-xl font-bold text-slate-800">Estoque Geral</h4>
         <p className="text-sm text-slate-500 mt-2">Listagem completa de todos os produtos e suas quantidades em estoque.</p>
       </div>
 

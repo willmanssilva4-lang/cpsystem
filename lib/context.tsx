@@ -206,86 +206,131 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     return cashRegisters.find(r => r.status === 'open');
   }, [cashRegisters]);
 
-  const fetchData = async () => {
+  const fetchData = async (explicitCompanyId?: string) => {
     setIsLoading(true);
+    const targetCompanyId = explicitCompanyId || user?.companyId;
+
     try {
+      console.log('[ERPProvider] fetchData starting parallel fetches for company:', targetCompanyId);
+      
       const fetchAllProducts = async () => {
-        let allProducts: Product[] = [];
-        let rangeStart = 0;
-        const rangeSize = 1000;
-        while (true) {
-          const { data, error } = await supabase.from('products').select('*').order('id').range(rangeStart, rangeStart + rangeSize - 1);
-          if (error || !data || data.length === 0) break;
-          allProducts = [...allProducts, ...data];
-          if (data.length < rangeSize) break;
-          rangeStart += rangeSize;
+        try {
+          let allProducts: Product[] = [];
+          let rangeStart = 0;
+          const rangeSize = 1000;
+          while (true) {
+            let query = supabase.from('products').select('*').order('id').range(rangeStart, rangeStart + rangeSize - 1);
+            
+            if (targetCompanyId) {
+              // Allow fetch from company OR null (legacy/global)
+              query = query.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+            }
+
+            const { data, error } = await query;
+            if (error) {
+              console.error('[ERPProvider] Error fetching products:', error);
+              break;
+            }
+            if (!data || data.length === 0) break;
+            allProducts = [...allProducts, ...data];
+            if (data.length < rangeSize) break;
+            rangeStart += rangeSize;
+          }
+          return allProducts;
+        } catch (e) {
+          console.error('[ERPProvider] Exception in fetchAllProducts:', e);
+          return [];
         }
-        return allProducts;
       };
 
-      const [
-        prods,
-        supps_res,
-        depts_res,
-        cats_res,
-        subs_res,
-        movs_res,
-        invs_res,
-        maqs_res,
-        pays_res,
-        ads_res,
-        custs_res,
-        sls_res,
-        exps_res,
-        lts_res,
-        sysSet,
-        sysUsrs_res,
-        proms_res,
-        rets_res,
-        emps_res,
-        profs_res,
-        perms_res,
-        expCats_res,
-        ls_res,
-        dLogs_res,
-        audLogs_res,
-        vchs_res,
-        cRegs_res,
-        cMovs_res,
-        cClos_res
-      ] = await Promise.all([
+      const baseQuery = (table: string) => {
+        let q = supabase.from(table).select('*');
+        if (targetCompanyId) {
+          // Standard company field is company_id
+          q = q.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        }
+        return q;
+      };
+
+      const results = await Promise.allSettled([
         fetchAllProducts(),
-        supabase.from('suppliers').select('*'),
-        supabase.from('departamentos').select('*'),
-        supabase.from('categorias').select('*'),
-        supabase.from('subcategorias').select('*'),
-        supabase.from('stock_movements').select('*'),
-        supabase.from('inventories').select('*'),
-        supabase.from('maquininhas').select('*'),
-        supabase.from('payment_methods').select('*'),
-        supabase.from('advertisements').select('*'),
-        supabase.from('customers').select('*').order('name'),
-        supabase.from('sales').select('*').order('created_at', { ascending: false }),
-        supabase.from('expenses').select('*'),
-        supabase.from('lotes').select('*'),
-        supabase.from('system_settings').select('*').single(),
-        supabase.from('system_users').select('*'),
-        supabase.from('promotions').select('*'),
-        supabase.from('returns').select('*'),
-        supabase.from('employees').select('*'),
+        baseQuery('suppliers'),
+        baseQuery('departamentos'),
+        baseQuery('categorias'),
+        baseQuery('subcategorias'),
+        baseQuery('stock_movements').order('date', { ascending: false }).limit(100),
+        baseQuery('inventories'),
+        supabase.from('maquininhas').select('*').eq('ativo', true), // Maquininhas might be shared or filtered later
+        baseQuery('payment_methods'),
+        baseQuery('advertisements'),
+        baseQuery('customers').order('name'),
+        baseQuery('sales').order('created_at', { ascending: false }).limit(50),
+        baseQuery('expenses'),
+        baseQuery('produto_lotes'),
+        supabase.from('system_settings').select('*').single(), // Settings might be per company
+        supabase.from('system_users').select('*'), // Filter users by company later if needed
+        baseQuery('promotions'),
+        baseQuery('returns'),
+        baseQuery('employees'),
         supabase.from('access_profiles').select('*'),
         supabase.from('permissions').select('*'),
-        supabase.from('expense_categories').select('*'),
-        supabase.from('losses').select('*'),
-        supabase.from('discount_logs').select('*'),
-        supabase.from('audit_logs').select('*').order('created_at', { ascending: false }),
-        supabase.from('vouchers').select('*').order('created_at', { ascending: false }),
-        supabase.from('cash_registers').select('*'),
-        supabase.from('cash_movements').select('*'),
-        supabase.from('cash_closings').select('*')
+        baseQuery('expense_categories'),
+        baseQuery('losses'),
+        baseQuery('discount_logs'),
+        baseQuery('audit_logs').order('created_at', { ascending: false }).limit(100),
+        baseQuery('vouchers').order('created_at', { ascending: false }),
+        baseQuery('cash_registers'),
+        baseQuery('cash_movements'),
+        baseQuery('cash_closings')
       ]);
 
-      if (prods) {
+      console.log('[ERPProvider] Parallel fetches finished, processing results');
+
+      const getData = (index: number) => {
+        const res = results[index];
+        if (res.status === 'fulfilled') {
+          const val = res.value as any;
+          // Supabase responses have a 'data' property
+          if (val && typeof val === 'object' && 'data' in val) {
+            return val.data;
+          }
+          return val;
+        }
+        console.warn(`[ERPProvider] Fetch failed at index ${index}:`, (res as any).reason);
+        return null;
+      };
+
+      const prods = getData(0);
+      const supps_res = getData(1);
+      const depts_res = getData(2);
+      const cats_res = getData(3);
+      const subs_res = getData(4);
+      const movs_res = getData(5);
+      const invs_res = getData(6);
+      const maqs_res = getData(7);
+      const pays_res = getData(8);
+      const ads_res = getData(9);
+      const custs_res = getData(10);
+      const sls_res = getData(11);
+      const exps_res = getData(12);
+      const lts_res = getData(13);
+      const sysSet = getData(14);
+      const sysUsrs_res = getData(15);
+      const proms_res = getData(16);
+      const rets_res = getData(17);
+      const emps_res = getData(18);
+      const profs_res = getData(19);
+      const perms_res = getData(20);
+      const expCats_res = getData(21);
+      const ls_res = getData(22);
+      const dLogs_res = getData(23);
+      const audLogs_res = getData(24);
+      const vchs_res = getData(25);
+      const cRegs_res = getData(26);
+      const cMovs_res = getData(27);
+      const cClos_res = getData(28);
+
+      if (Array.isArray(prods)) {
         setProducts(prods.map((p: any) => ({
           ...p,
           costPrice: p.costPrice ?? p.cost_price,
@@ -300,12 +345,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           profitPercentage: p.profitPercentage
         })));
       }
-      if (supps_res.data) setSuppliers(supps_res.data);
-      if (depts_res.data) setDepartamentos(depts_res.data);
-      if (cats_res.data) setCategorias(cats_res.data);
-      if (subs_res.data) setSubcategorias(subs_res.data);
-      if (movs_res.data) {
-        setStockMovements(movs_res.data.map((m: any) => ({
+      if (Array.isArray(supps_res)) setSuppliers(supps_res);
+      if (Array.isArray(depts_res)) setDepartamentos(depts_res);
+      if (Array.isArray(cats_res)) setCategorias(cats_res);
+      if (Array.isArray(subs_res)) setSubcategorias(subs_res);
+      if (Array.isArray(movs_res)) {
+        setStockMovements(movs_res.map((m: any) => ({
           ...m,
           productId: m.productId ?? m.product_id ?? '',
           userId: m.userId ?? m.user_id ?? '',
@@ -314,21 +359,21 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           quantity: Number(m.quantity) || 0
         })));
       }
-      if (invs_res.data) {
-        setInventories(invs_res.data.map((i: any) => ({
+      if (Array.isArray(invs_res)) {
+        setInventories(invs_res.map((i: any) => ({
           ...i,
           itemsCounted: i.itemsCounted ?? i.items_counted ?? 0,
           divergenceValue: i.divergenceValue ?? i.divergence_value ?? 0
         })));
       }
-      if (maqs_res.data) setMaquininhas(maqs_res.data);
-      if (pays_res.data) setPaymentMethods(pays_res.data);
-      if (ads_res.data) setAdvertisements(ads_res.data);
-      if (custs_res.data) setCustomers(custs_res.data);
-      if (sls_res.data) {
-        const movements = movs_res.data || [];
-        const loadedProducts = prods || [];
-        const mappedSales = sls_res.data.map((sale: any) => {
+      if (Array.isArray(maqs_res)) setMaquininhas(maqs_res);
+      if (Array.isArray(pays_res)) setPaymentMethods(pays_res);
+      if (Array.isArray(ads_res)) setAdvertisements(ads_res);
+      if (Array.isArray(custs_res)) setCustomers(custs_res);
+      if (Array.isArray(sls_res)) {
+        const movements = Array.isArray(movs_res) ? movs_res : [];
+        const loadedProducts = Array.isArray(prods) ? prods : [];
+        const mappedSales = sls_res.map((sale: any) => {
           const saleMovements = movements.filter((m: any) => 
             m.type === 'VENDA' && 
             (m.origin === `Venda #${sale.id}` || m.origin === `Venda #${sale.id?.substring(0, 8)}`)
@@ -364,11 +409,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         });
         setSales(mappedSales);
       }
-      if (exps_res.data) setExpenses(exps_res.data);
-      if (lts_res.data) setLotes(lts_res.data);
-      if (sysSet.data) setSystemSettings(sysSet.data);
-      if (sysUsrs_res.data) {
-        setSystemUsers(sysUsrs_res.data.map((u: any) => ({
+      if (Array.isArray(exps_res)) setExpenses(exps_res);
+      if (Array.isArray(lts_res)) setLotes(lts_res);
+      if (sysSet) setSystemSettings(sysSet);
+      if (Array.isArray(sysUsrs_res)) {
+        setSystemUsers(sysUsrs_res.map((u: any) => ({
           ...u,
           fullName: u.fullName || u.full_name || '',
           employeeId: u.employeeId || u.employee_id || '',
@@ -379,24 +424,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           companyId: u.companyId || u.company_id || ''
         })));
       }
-      if (proms_res.data) setPromotions(proms_res.data);
-      if (rets_res.data) setReturns(rets_res.data);
-      if (emps_res.data) {
-        setEmployees(emps_res.data.map((e: any) => ({
+      if (Array.isArray(proms_res)) setPromotions(proms_res);
+      if (Array.isArray(rets_res)) setReturns(rets_res);
+      if (Array.isArray(emps_res)) {
+        setEmployees(emps_res.map((e: any) => ({
           ...e,
           fullName: e.fullName || e.full_name || '',
           admissionDate: e.admissionDate || e.admission_date || '',
           companyId: e.companyId || e.company_id || ''
         })));
       }
-      if (profs_res.data) setAccessProfiles(profs_res.data);
-      if (perms_res.data) setPermissions(perms_res.data);
-      if (expCats_res.data) setExpenseCategories(expCats_res.data);
-      if (ls_res.data) setLosses(ls_res.data);
-      if (dLogs_res.data) setDiscountLogs(dLogs_res.data);
-      if (audLogs_res.data) setAuditLogs(audLogs_res.data);
-      if (vchs_res.data) {
-        setVouchers(vchs_res.data.map((v: any) => ({
+      if (Array.isArray(profs_res)) setAccessProfiles(profs_res);
+      if (Array.isArray(perms_res)) setPermissions(perms_res);
+      if (Array.isArray(expCats_res)) setExpenseCategories(expCats_res);
+      if (Array.isArray(ls_res)) setLosses(ls_res);
+      if (Array.isArray(dLogs_res)) setDiscountLogs(dLogs_res);
+      if (Array.isArray(audLogs_res)) setAuditLogs(audLogs_res);
+      if (Array.isArray(vchs_res)) {
+        setVouchers(vchs_res.map((v: any) => ({
           id: v.id,
           code: v.code,
           customerId: v.customerId || v.customer_id || null,
@@ -411,8 +456,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           company_id: v.company_id || null
         })));
       }
-      if (cRegs_res.data) {
-        setCashRegisters(cRegs_res.data.map((r: any) => ({
+      if (Array.isArray(cRegs_res)) {
+        setCashRegisters(cRegs_res.map((r: any) => ({
           id: r.id,
           openingBalance: r.opening_balance !== undefined ? Number(r.opening_balance) : 0,
           opening_balance: r.opening_balance !== undefined ? Number(r.opening_balance) : 0,
@@ -426,8 +471,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           company_id: r.company_id || null
         })));
       }
-      if (cMovs_res.data) {
-        setCashMovements(cMovs_res.data.map((m: any) => ({
+      if (Array.isArray(cMovs_res)) {
+        setCashMovements(cMovs_res.map((m: any) => ({
           id: m.id,
           cashRegisterId: m.cash_register_id || '',
           cash_register_id: m.cash_register_id || '',
@@ -439,8 +484,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           company_id: m.company_id || null
         })));
       }
-      if (cClos_res.data) {
-        setCashClosings(cClos_res.data.map((c: any) => ({
+      if (Array.isArray(cClos_res)) {
+        setCashClosings(cClos_res.map((c: any) => ({
           id: c.id,
           cashRegisterId: c.cash_register_id || '',
           cash_register_id: c.cash_register_id || '',
@@ -468,18 +513,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
-          email: session.user.email || '',
-          role: session.user.user_metadata.role || 'admin',
-          companyId: session.user.user_metadata.companyId
-        });
+      console.log('[ERPProvider] initAuth started');
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('[ERPProvider] Auth session error:', error);
+        }
+        console.log('[ERPProvider] session retrieved', session?.user?.id);
+        const companyId = session?.user?.user_metadata?.companyId;
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
+            email: session.user.email || '',
+            role: session.user.user_metadata.role || 'admin',
+            companyId: companyId
+          });
+        }
+        console.log('[ERPProvider] Auth init ready, calling fetchData with:', companyId);
+        fetchData(companyId);
+      } catch (err) {
+        console.error('[ERPProvider] Critical auth init error:', err);
+      } finally {
+        console.log('[ERPProvider] Setting isAuthReady to true');
+        setIsAuthReady(true);
       }
-      setIsAuthReady(true);
-      await fetchData();
     };
 
     initAuth();

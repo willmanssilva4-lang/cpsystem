@@ -9,7 +9,7 @@ import {
   LayoutGrid,
   Users
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { CustomerModal } from '../../components/CustomerModal';
 
 import Link from 'next/link';

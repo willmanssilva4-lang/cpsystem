@@ -3,7 +3,7 @@ import { X, Search, Plus, Trash2, Tag, Calendar, Percent, Package, Settings, Spa
 import { useERP } from '@/lib/context';
 import { Promotion, Product, Categoria } from '@/lib/types';
 import { getLocalDateString } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface PromotionModalProps {
   isOpen: boolean;

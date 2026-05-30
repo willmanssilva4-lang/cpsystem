@@ -18,12 +18,12 @@ export default function TodosPedidosPage() {
 
   useEffect(() => {
     async function fetchOrders() {
-      if (!user?.companyId) return;
       setIsLoading(true);
+      const targetCompanyId = user?.companyId || null;
       const { data, error } = await supabase
         .from('purchase_orders')
         .select('id, order_date, total_amount, status, suppliers(name)')
-        .eq('company_id', user.companyId)
+        .eq('company_id', targetCompanyId)
         .order('order_date', { ascending: false });
       
       if (error) {

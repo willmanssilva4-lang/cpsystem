@@ -24,7 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
 import { useERP } from '@/lib/context';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/', color: 'text-brand-blue' },

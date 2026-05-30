@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useERP } from '@/lib/context';
 import { 
@@ -18,7 +18,7 @@ import {
   Plus,
   ArrowRight
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import { cn, getLocalDateString, formatDateBR } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -36,32 +36,63 @@ interface PurchaseItem {
 
 export default function NovaCompraPage() {
   const router = useRouter();
-  const { user, addStockMovement, addExpense, hasPermission, products, suppliers } = useERP();
+  const { 
+    user, 
+    isAuthReady, 
+    addStockMovement, 
+    addExpense, 
+    hasPermission, 
+    products, 
+    suppliers, 
+    isLoading: isLoadingContext, 
+    setCustomAlert,
+    paymentMethods,
+    maquininhas
+  } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !hasPermission('Compras', 'create')) {
-      alert('Você não tem permissão para realizar compras.');
+    if (!isLoadingContext && !hasPermission('Compras', 'create')) {
+      setCustomAlert({
+        message: 'Você não tem permissão para realizar compras.',
+        type: 'error'
+      });
       router.push('/compras');
     }
-  }, [isLoading, hasPermission, router]);
+  }, [isLoadingContext, hasPermission, router]);
 
-  // Data lists
-  const [suppliersList, setSuppliersList] = useState<any[]>([]);
-  const [productsList, setProductsList] = useState<any[]>([]);
+  // Data lists as memos for better reactivity
+  const suppliersList = useMemo(() => Array.isArray(suppliers) ? suppliers : [], [suppliers]);
+  const productsList = useMemo(() => {
+    if (!Array.isArray(products)) return [];
+    return products.map(p => {
+      const baseP = p.base_product_id ? products.find(b => b.id === p.base_product_id) : null;
+      return {
+        ...p,
+        base_product_name: baseP ? baseP.name : null
+      };
+    });
+  }, [products]);
   const [financialAccounts, setFinancialAccounts] = useState<any[]>([
-    { id: '1', name: 'Caixa' },
-    { id: '2', name: 'Conta Bancária' },
-    { id: '3', name: 'Conta PIX' },
-    { id: '4', name: 'Mercado Pago' }
+    { id: '1', name: 'Caixa Geral' },
+    { id: '2', name: 'Banco Principal' },
+    { id: '3', name: 'PIX' }
   ]);
   const [paymentConditions, setPaymentConditions] = useState<any[]>([
     { id: '1', name: 'À Vista' },
-    { id: '2', name: 'A Prazo' }
+    { id: '2', name: 'A Prazo / Parcelado' }
   ]);
+
+  // Combine with dynamic data if available
+  useEffect(() => {
+    if (paymentMethods && paymentMethods.length > 0) {
+      const pm = paymentMethods.map((p: any) => ({ id: p.id, name: p.name }));
+      // We keep the defaults or merge
+    }
+  }, [paymentMethods]);
 
   // Tab 1: Fornecedor Data
   const [supplierId, setSupplierId] = useState('');
@@ -71,6 +102,18 @@ export default function NovaCompraPage() {
   const [paymentCondition, setPaymentCondition] = useState('');
   const [financialAccount, setFinancialAccount] = useState('');
   const [observations, setObservations] = useState('');
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
+  const [showSupplierResults, setShowSupplierResults] = useState(false);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearchTerm) return suppliersList;
+    const term = supplierSearchTerm.toLowerCase();
+    return suppliersList.filter(s => 
+      s.name.toLowerCase().includes(term) || 
+      (s.document && s.document.toLowerCase().includes(term)) ||
+      (s.cnpj && s.cnpj.toLowerCase().includes(term))
+    );
+  }, [suppliersList, supplierSearchTerm]);
 
   // Tab 3: Finalizar Data
   const [installments, setInstallments] = useState<{ dueDate: string, amount: number }[]>([]);
@@ -99,93 +142,79 @@ export default function NovaCompraPage() {
   const expirationInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      try {
-        // Set suppliers from context
-        setSuppliersList(suppliers || []);
-
-        // Set products from context
-        if (products) {
-          const enrichedProducts = products
-            .filter(p => !p.base_product_id) // Exclude products that are linked to a Base Product
-            .map(p => {
-            const baseP = products.find(b => b.id === p.base_product_id);
-            return {
-              ...p,
-              base_product_name: baseP ? baseP.name : null
-            };
-          });
-          setProductsList(enrichedProducts);
-          
-          // Load draft PERSISTENCY first
-          if (!hasLoadedDraft) {
-            const savedDraft = localStorage.getItem('purchase_draft');
-            if (savedDraft) {
-              try {
-                const draft = JSON.parse(savedDraft);
-                if (draft.supplierId) setSupplierId(draft.supplierId);
-                if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber);
-                if (draft.issueDate) setIssueDate(draft.issueDate);
-                if (draft.entryDate) setEntryDate(draft.entryDate);
-                if (draft.paymentCondition) setPaymentCondition(draft.paymentCondition);
-                if (draft.financialAccount) setFinancialAccount(draft.financialAccount);
-                if (draft.observations) setObservations(draft.observations);
-                if (draft.items) setItems(draft.items);
-                if (draft.activeTab) setActiveTab(draft.activeTab);
-                setHasLoadedDraft(true);
-              } catch (e) {
-                console.error('Error loading purchase draft:', e);
-              }
-            }
+    // Only proceed if auth session is checked
+    if (!isAuthReady) return;
+    
+    // Load draft PERSISTENCY once
+    if (!hasLoadedDraft) {
+      const savedDraft = localStorage.getItem('purchase_draft');
+      if (savedDraft) {
+        try {
+          const draft = JSON.parse(savedDraft);
+          if (draft.supplierId) {
+            setSupplierId(draft.supplierId);
+            const supp = suppliersList.find(s => s.id === draft.supplierId);
+            if (supp) setSupplierSearchTerm(supp.name);
           }
-          
-          // Check for replenishment items (These have priority over draft if they exist)
-          const savedItems = localStorage.getItem('replenishment_items');
-          const savedSupplierId = localStorage.getItem('quotation_supplier_id');
-          
-          if (savedSupplierId) {
-            setSupplierId(savedSupplierId);
-            localStorage.removeItem('quotation_supplier_id');
-          }
-
-          if (savedItems) {
-            const parsedItems = JSON.parse(savedItems);
-            const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
-              const product = products.find((prod: any) => prod.id === p.id);
-              const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.minStock || 0) - ((product as any)?.stock || 0));
-              const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.costPrice) || 0);
-              return {
-                id: Math.random().toString(36).substr(2, 9),
-                productId: p.id,
-                productName: p.name,
-                qty: qty,
-                cost: cost,
-                salePrice: Number((product as any)?.salePrice) || 0,
-                expirationDate: getLocalDateString(),
-                total: qty * cost
-              };
-            });
-            setItems(newItems);
-            setActiveTab(2);
-            localStorage.removeItem('replenishment_items');
-          }
+          if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber);
+          if (draft.issueDate) setIssueDate(draft.issueDate);
+          if (draft.entryDate) setEntryDate(draft.entryDate);
+          if (draft.paymentCondition) setPaymentCondition(draft.paymentCondition);
+          if (draft.financialAccount) setFinancialAccount(draft.financialAccount);
+          if (draft.observations) setObservations(draft.observations);
+          if (draft.items && draft.items.length > 0) setItems(draft.items);
+          if (draft.activeTab) setActiveTab(draft.activeTab);
+        } catch (e) {
+          console.error('Error loading purchase draft:', e);
         }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
+      }
+      setHasLoadedDraft(true);
+      setIsLoading(false);
+    }
+
+    // Check for replenishment items
+    const savedItems = localStorage.getItem('replenishment_items');
+    const savedReplenishmentSupplierId = localStorage.getItem('quotation_supplier_id');
+
+    if (savedReplenishmentSupplierId) {
+      setSupplierId(savedReplenishmentSupplierId);
+      const supp = suppliersList.find(s => s.id === savedReplenishmentSupplierId);
+      if (supp) setSupplierSearchTerm(supp.name);
+      localStorage.removeItem('quotation_supplier_id');
+    }
+
+    if (savedItems && Array.isArray(products) && products.length > 0) {
+      try {
+        const parsedItems = JSON.parse(savedItems);
+        const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
+          const product = products.find((prod: any) => prod.id === p.id);
+          const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.minStock || 0) - ((product as any)?.stock || 0));
+          const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.costPrice) || 0);
+          return {
+            id: Math.random().toString(36).substr(2, 9),
+            productId: p.id,
+            productName: p.name,
+            qty: qty,
+            cost: cost,
+            salePrice: Number((product as any)?.salePrice) || 0,
+            expirationDate: getLocalDateString(),
+            total: qty * cost
+          };
+        });
+        if (newItems.length > 0) {
+          setItems(newItems);
+          setActiveTab(2);
+        }
+        localStorage.removeItem('replenishment_items');
+      } catch (e) {
+        console.error('Error loading replenishment items:', e);
       }
     }
-
-    if (products.length > 0) {
-      fetchData();
-    }
-  }, [user?.companyId, products, suppliers, hasLoadedDraft]);
+  }, [isAuthReady, products, hasLoadedDraft]);
 
   // Save draft to localStorage
   useEffect(() => {
-    if (isLoading || !user?.companyId) return;
+    if (isLoading || !isAuthReady) return;
     
     const draft = {
       supplierId,
@@ -209,6 +238,7 @@ export default function NovaCompraPage() {
     if (window.confirm('Deseja limpar todo o formulário e começar do zero?')) {
       localStorage.removeItem('purchase_draft');
       setSupplierId('');
+      setSupplierSearchTerm('');
       setInvoiceNumber('');
       setIssueDate(getLocalDateString());
       setEntryDate(getLocalDateString());
@@ -293,18 +323,59 @@ export default function NovaCompraPage() {
     setInstallments(newInstallments);
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
     
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
     if (value.length >= 2) {
+      // 1. Local Search First
       const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
-      const filtered = productsList.filter(p => {
-        const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.codigo_mercadologico || ''} ${p.base_product_name || ''}`.toLowerCase();
+      const localFiltered = productsList.filter(p => {
+        const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.codigo_mercadologico || ''}`.toLowerCase();
         return searchTerms.every(term => searchableText.includes(term));
       }).slice(0, 50);
-      setSearchResults(filtered);
-      setSelectedIndex(filtered.length > 0 ? 0 : -1);
+      
+      setSearchResults(localFiltered);
+      setSelectedIndex(localFiltered.length > 0 ? 0 : -1);
+
+      // 2. Debounced Remote Search for "Real Results"
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          console.log('[NovaCompra] Performing remote search for:', value);
+          // Pre-filter by company if available
+          let baseQuery = supabase.from('products').select('*');
+          
+          if (user?.companyId) {
+            baseQuery = baseQuery.or(`company_id.eq.${user.companyId},company_id.is.null`);
+          }
+
+          // Then apply name/sku/barcode filter
+          const { data, error } = await baseQuery
+            .or(`name.ilike.%${value}%,sku.ilike.%${value}%,barcode.ilike.%${value}%,codigo_mercadologico.ilike.%${value}%`)
+            .limit(50);
+          
+          if (!error && data) {
+            // Merge results, avoiding duplicates
+            setSearchResults(prev => {
+              const existingIds = new Set(prev.map(p => p.id));
+              const newResults = data.filter(p => !existingIds.has(p.id)).map(p => ({
+                ...p,
+                costPrice: p.costPrice ?? p.cost_price,
+                salePrice: p.salePrice ?? p.sale_price
+              }));
+              const combined = [...prev, ...newResults].slice(0, 50);
+              if (combined.length > 0 && selectedIndex === -1) setSelectedIndex(0);
+              return combined;
+            });
+          }
+        } catch (err) {
+          console.error('Remote search error:', err);
+        }
+      }, 500);
     } else {
       setSearchResults([]);
       setSelectedIndex(-1);
@@ -344,7 +415,10 @@ export default function NovaCompraPage() {
 
   const handleNextToProducts = () => {
     if (!supplierId) {
-      alert('Por favor, selecione um fornecedor para continuar.');
+      setCustomAlert({
+        message: 'Por favor, selecione um fornecedor para continuar.',
+        type: 'warning'
+      });
       return;
     }
     setActiveTab(2);
@@ -352,7 +426,10 @@ export default function NovaCompraPage() {
 
   const handleAddProduct = () => {
     if (!selectedProduct || itemQty <= 0 || itemCost < 0) {
-      alert('Preencha os campos obrigatórios: Produto, Quantidade e Custo.');
+      setCustomAlert({
+        message: 'Preencha os campos obrigatórios: Produto, Quantidade e Custo.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -403,7 +480,10 @@ export default function NovaCompraPage() {
 
   const handleNextToFinish = () => {
     if (items.length === 0) {
-      alert('Adicione pelo menos um produto à compra.');
+      setCustomAlert({
+        message: 'Adicione pelo menos um produto à compra.',
+        type: 'warning'
+      });
       return;
     }
     setActiveTab(3);
@@ -411,13 +491,19 @@ export default function NovaCompraPage() {
 
   const handleConfirmPurchase = async () => {
     if (items.length === 0) {
-      alert('Adicione pelo menos um produto à compra.');
+      setCustomAlert({
+        message: 'Adicione pelo menos um produto à compra.',
+        type: 'warning'
+      });
       return;
     }
     
     const totalCompra = items.reduce((acc, item) => acc + item.total, 0);
     if (totalCompra <= 0) {
-      alert('O valor total da compra deve ser maior que zero.');
+      setCustomAlert({
+        message: 'O valor total da compra deve ser maior que zero.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -478,7 +564,7 @@ export default function NovaCompraPage() {
         }
 
         // 3. Update Stock and Sale Price
-        const product = productsList.find(p => p.id === item.productId);
+        const product = Array.isArray(productsList) ? productsList.find(p => p.id === item.productId) : null;
         if (product) {
           // Fetch current stock first
           const { data: currentProduct } = await supabase.from('products').select('stock').eq('id', item.productId).eq('company_id', user?.companyId || null).single();
@@ -567,13 +653,19 @@ export default function NovaCompraPage() {
         }
       }
 
-      alert('Compra finalizada com sucesso! Estoque e financeiro atualizados.');
+      setCustomAlert({
+        message: 'Compra finalizada com sucesso! Estoque e financeiro atualizados.',
+        type: 'success'
+      });
       localStorage.removeItem('purchase_draft');
       router.push('/compras');
 
     } catch (error) {
       console.error('Error confirming purchase:', error);
-      alert('Erro ao finalizar compra. Verifique o console para mais detalhes.');
+      setCustomAlert({
+        message: 'Erro ao finalizar compra. Verifique o console para mais detalhes.',
+        type: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -638,7 +730,7 @@ export default function NovaCompraPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white">
+      <div className="bg-white rounded-[40px] shadow-sm border border-brand-border/50 p-6 md:p-8 relative z-10">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div>
@@ -648,115 +740,144 @@ export default function NovaCompraPage() {
             {/* TAB 1: FORNECEDOR */}
             {activeTab === 1 && (
               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-8 max-w-4xl"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-8"
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Fornecedor *</label>
-                    <div className="relative">
-                      <Truck className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
-                      <select 
-                        className="w-full pl-12 pr-4 py-3 md:py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover appearance-none text-sm md:text-base"
-                        value={supplierId}
-                        onChange={(e) => setSupplierId(e.target.value)}
-                      >
-                        <option value="">Selecione um fornecedor...</option>
-                        {suppliersList.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                <div className="flex items-center gap-4 border-b border-brand-border/50 pb-6">
+                  <div className="w-12 h-12 bg-brand-blue/10 rounded-full flex items-center justify-center text-brand-blue">
+                    <Truck size={24} />
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Nº Nota Fiscal</label>
+                  <h3 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Dados do Fornecedor</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 md:col-span-2 relative">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Fornecedor *</label>
                     <div className="relative">
-                      <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-brand-blue/40">
+                        <Truck size={20} />
+                      </div>
                       <input 
                         type="text" 
-                        placeholder="Ex: 123456"
-                        value={invoiceNumber}
-                        onChange={(e) => setInvoiceNumber(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 md:py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover text-sm md:text-base"
+                        placeholder={isLoadingContext ? "Carregando fornecedores..." : "Buscar fornecedor por nome ou documento..."}
+                        value={supplierSearchTerm}
+                        onChange={(e) => {
+                          setSupplierSearchTerm(e.target.value);
+                          setShowSupplierResults(true);
+                        }}
+                        onFocus={() => setShowSupplierResults(true)}
+                        className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-sm md:text-base transition-all outline-none"
                       />
+                      
+                      <AnimatePresence>
+                        {showSupplierResults && supplierSearchTerm.length >= 0 && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-[60] left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-2xl max-h-64 overflow-y-auto"
+                          >
+                            {filteredSuppliers.length === 0 ? (
+                              <div className="p-4 text-center text-sm text-slate-400 italic">Nenhum fornecedor encontrado</div>
+                            ) : (
+                              filteredSuppliers.map((s) => (
+                                <button
+                                  key={s.id}
+                                  onClick={() => {
+                                    setSupplierId(s.id);
+                                    setSupplierSearchTerm(s.name);
+                                    setShowSupplierResults(false);
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center justify-between px-5 py-4 text-left transition-all border-b border-brand-border last:border-0 hover:bg-brand-blue/5",
+                                    supplierId === s.id ? "bg-brand-blue/5 border-l-4 border-l-brand-blue" : ""
+                                  )}
+                                >
+                                  <div>
+                                    <div className="font-black text-brand-text-main text-sm uppercase italic tracking-tight">{s.name}</div>
+                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{s.document || s.cnpj || 'Sem Documento'}</div>
+                                  </div>
+                                  {supplierId === s.id && <CheckCircle2 className="text-brand-blue" size={20} />}
+                                </button>
+                              ))
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Data de Emissão</label>
-                    <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
-                      <input 
-                        type="date" 
-                        value={issueDate}
-                        onChange={(e) => setIssueDate(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
-                      />
-                    </div>
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Nº Nota Fiscal</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: 123456"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-sm md:text-base transition-all"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Data de Entrada</label>
-                    <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
-                      <input 
-                        type="date" 
-                        value={entryDate}
-                        onChange={(e) => setEntryDate(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
-                      />
-                    </div>
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Data de Emissão</label>
+                    <input 
+                      type="date" 
+                      value={issueDate}
+                      onChange={(e) => setIssueDate(e.target.value)}
+                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Condição de Pagamento</label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
-                      <select 
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover appearance-none"
-                        value={paymentCondition}
-                        onChange={(e) => setPaymentCondition(e.target.value)}
-                      >
-                        <option value="">Selecione...</option>
-                        {paymentConditions.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Data de Entrada</label>
+                    <input 
+                      type="date" 
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Conta Financeira</label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue" size={20} />
-                      <select 
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover appearance-none"
-                        value={financialAccount}
-                        onChange={(e) => setFinancialAccount(e.target.value)}
-                      >
-                        <option value="">Selecione...</option>
-                        {financialAccounts.map(f => (
-                          <option key={f.id} value={f.name}>{f.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Condição de Pagamento</label>
+                    <select 
+                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
+                      value={paymentCondition}
+                      onChange={(e) => setPaymentCondition(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentConditions.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Conta Financeira</label>
+                    <select 
+                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
+                      value={financialAccount}
+                      onChange={(e) => setFinancialAccount(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {financialAccounts.map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Observações</label>
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Observações</label>
                     <textarea 
-                      rows={3}
                       value={observations}
                       onChange={(e) => setObservations(e.target.value)}
-                      className="w-full p-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover resize-none"
-                      placeholder="Observações adicionais sobre a compra..."
+                      placeholder="Alguma observação importante sobre esta compra..."
+                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all min-h-[100px]"
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end pt-6 border-t border-brand-border/50">
                   <button 
                     onClick={handleNextToProducts}
                     className="flex items-center gap-2 px-8 py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
@@ -771,29 +892,32 @@ export default function NovaCompraPage() {
             {/* TAB 2: PRODUTOS */}
             {activeTab === 2 && (
               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
                 className="space-y-8"
               >
-                {/* Add Product Form */}
-                <div className="bg-slate-50 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border border-brand-border space-y-4">
-                  <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Adicionar Produto</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
-                    <div className="sm:col-span-2 lg:col-span-4 space-y-2 relative">
-                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Produto (Nome ou SKU)</label>
-                      <div className="relative">
-                        <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-blue" size={18} />
-                        <input 
-                          ref={searchInputRef}
-                          type="text"
-                          placeholder="Buscar produto..."
-                          value={searchTerm}
-                          onChange={handleSearchChange}
-                          onKeyDown={handleSearchKeyDown}
-                          className="w-full pl-10 pr-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
-                        />
-                      </div>
+                <div className="flex items-center gap-4 border-b border-brand-border/50 pb-6">
+                  <div className="w-12 h-12 bg-brand-green/10 rounded-full flex items-center justify-center text-brand-green">
+                    <Package size={24} />
+                  </div>
+                  <h3 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Adicionar Produtos</h3>
+                </div>
 
+                {/* Add Product Form - Stylized */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 bg-slate-50 p-6 rounded-3xl border border-brand-border items-end">
+                  <div className="lg:col-span-4 space-y-2 relative">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Produto</label>
+                    <div className="relative">
+                      <input 
+                        ref={searchInputRef} 
+                        type="text" 
+                        placeholder="Buscar produto..." 
+                        value={searchTerm} 
+                        onChange={handleSearchChange} 
+                        onKeyDown={handleSearchKeyDown} 
+                        className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm focus:ring-2 focus:ring-brand-green/20 outline-none transition-all" 
+                      />
+                      
                       {/* Search Results Dropdown */}
                       <AnimatePresence>
                         {searchResults.length > 0 && (
@@ -801,32 +925,37 @@ export default function NovaCompraPage() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="absolute z-50 left-0 right-0 mt-1 bg-white border border-brand-border rounded-xl shadow-xl max-h-60 overflow-y-auto"
+                            className="absolute z-[60] left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-2xl max-h-80 overflow-y-auto"
                           >
                             {searchResults.map((product, index) => (
                               <button
                                 key={product.id}
                                 onClick={() => selectProduct(product)}
                                 className={cn(
-                                  "w-full flex items-center justify-between px-4 py-3 text-left transition-colors border-b border-brand-border last:border-0",
-                                  selectedIndex === index ? "bg-brand-blue/5 border-l-4 border-l-brand-blue" : "hover:bg-slate-50"
+                                  "w-full flex items-center justify-between px-5 py-4 text-left transition-all border-b border-brand-border last:border-0",
+                                  selectedIndex === index ? "bg-brand-blue/5 border-l-4 border-l-brand-blue shadow-inner" : "hover:bg-slate-50"
                                 )}
                               >
-                                <div>
-                                  <div className="font-bold text-brand-text-main text-sm flex items-center">
-                                    {product.name}
-                                    {product.product_type === 'BASE' && (
-                                      <span className="ml-2 text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Base</span>
-                                    )}
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-brand-blue shrink-0">
+                                    <Package size={20} />
                                   </div>
-                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                    {product.sku || 'Sem SKU'}
-                                    {product.base_product_name && ` • Base: ${product.base_product_name}`}
+                                  <div>
+                                    <div className="font-black text-brand-text-main text-sm flex items-center uppercase italic tracking-tight">
+                                      {product.name}
+                                      {product.product_type === 'BASE' && (
+                                        <span className="ml-2 text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold not-italic">Base</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
+                                      {product.sku || 'Sem SKU'}
+                                      {product.barcode && ` • ${product.barcode}`}
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-xs font-black text-brand-blue">R$ {Number(product.salePrice || 0).toFixed(2)}</div>
-                                  <div className="text-[10px] text-slate-400 font-bold">Estoque: {product.stock || 0}</div>
+                                  <div className="text-sm font-black text-brand-blue italic leading-none">R$ {Number(product.salePrice || 0).toFixed(2)}</div>
+                                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Estoque: <span className={cn(product.stock <= 0 ? 'text-rose-500' : 'text-emerald-500')}>{product.stock || 0}</span></div>
                                 </div>
                               </button>
                             ))}
@@ -834,253 +963,67 @@ export default function NovaCompraPage() {
                         )}
                       </AnimatePresence>
                     </div>
-                    <div className="col-span-1 lg:col-span-1 space-y-2">
-                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Qtd</label>
-                      <input 
-                        ref={qtyInputRef}
-                        type="number" 
-                        min="1"
-                        value={itemQty}
-                        onChange={(e) => setItemQty(Number(e.target.value))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            costInputRef.current?.focus();
-                            costInputRef.current?.select();
-                          }
-                        }}
-                        className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover text-center"
-                      />
-                    </div>
-                    <div className="col-span-1 lg:col-span-2 space-y-2">
-                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Custo Unitário</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
-                        <input 
-                          ref={costInputRef}
-                          type="number" 
-                          min="0"
-                          step="0.01"
-                          value={itemCost}
-                          onChange={(e) => setItemCost(Number(e.target.value))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              salePriceInputRef.current?.focus();
-                              salePriceInputRef.current?.select();
-                            }
-                          }}
-                          className="w-full pl-9 pr-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover text-right"
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-1 lg:col-span-2 space-y-2">
-                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Preço Venda</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
-                        <input 
-                          ref={salePriceInputRef}
-                          type="number" 
-                          min="0"
-                          step="0.01"
-                          value={itemSalePrice}
-                          onChange={(e) => setItemSalePrice(Number(e.target.value))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              expirationInputRef.current?.focus();
-                            }
-                          }}
-                          className="w-full pl-9 pr-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover text-right"
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-1 lg:col-span-2 space-y-2">
-                      <label className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest ml-1">Validade (Opcional)</label>
-                      <input 
-                        ref={expirationInputRef}
-                        type="date" 
-                        value={itemExpiration}
-                        onChange={(e) => setItemExpiration(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddProduct();
-                          }
-                        }}
-                        className="w-full px-4 py-3 bg-white border border-brand-border rounded-xl text-sm text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue-hover"
-                      />
-                    </div>
-                    <div className="col-span-1 lg:col-span-1">
-                      <button 
-                        onClick={handleAddProduct}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-blue text-white rounded-xl text-sm font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all active:scale-95"
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
+                  </div>
+                  <div className="lg:col-span-2 space-y-2">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Qtd</label>
+                    <input type="number" min="1" value={itemQty} onChange={(e) => setItemQty(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-center" />
+                  </div>
+                  <div className="lg:col-span-2 space-y-2">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Custo (R$)</label>
+                    <input type="number" min="0" step="0.01" value={itemCost} onChange={(e) => setItemCost(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-right" />
+                  </div>
+                  <div className="lg:col-span-2 space-y-2">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Venda Sugerida (R$)</label>
+                    <input type="number" min="0" step="0.01" value={itemSalePrice} onChange={(e) => setItemSalePrice(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-right" />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <button onClick={handleAddProduct} className="w-full px-4 py-3 bg-brand-green text-white rounded-xl font-black uppercase italic shadow-sm hover:bg-brand-green-hover transition-all active:scale-95">Adicionar</button>
                   </div>
                 </div>
 
-                {/* Products Table */}
-                <div className="bg-white rounded-[24px] md:rounded-[32px] border border-brand-border overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
-                    <thead className="bg-slate-50">
+                {itemCost > 0 && itemSalePrice > 0 && (
+                  <div className="text-right text-xs font-bold text-brand-green italic">
+                    Margem estimada: {(((itemSalePrice - itemCost) / itemSalePrice) * 100).toFixed(1)}%
+                  </div>
+                )}
+
+                {/* Products Table - Fixed */}
+                <div className="bg-white rounded-3xl border border-brand-border overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 text-[10px] uppercase font-black text-brand-text-main/40">
                       <tr>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Produto</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-center">Quantidade</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-right">Custo Unitário</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-center">Validade</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-right">Total</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-center">Ação</th>
+                        <th className="px-6 py-4">Produto</th>
+                        <th className="px-6 py-4 text-center">Qtd</th>
+                        <th className="px-6 py-4 text-right">Custo</th>
+                        <th className="px-6 py-4 text-right">Total</th>
+                        <th className="px-6 py-4 text-center">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border/50">
-                      {(() => {
-                        const totalPages = Math.ceil(items.length / itemsPerPage);
-                        const currentItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-                        
-                        if (items.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                                Nenhum produto adicionado à compra ainda.
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return currentItems.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="font-bold text-brand-text-main">{item.productName}</div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <input 
-                                type="number"
-                                min="1"
-                                value={item.qty}
-                                onChange={(e) => handleUpdateItem(item.id, { qty: Number(e.target.value) })}
-                                className="w-20 px-2 py-1 bg-white border border-brand-border rounded-lg text-sm text-center font-bold text-slate-700 focus:ring-2 focus:ring-brand-blue-hover"
-                              />
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="text-xs text-slate-400 font-bold">R$</span>
-                                <input 
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.cost}
-                                  onChange={(e) => handleUpdateItem(item.id, { cost: Number(e.target.value) })}
-                                  className="w-24 px-2 py-1 bg-white border border-brand-border rounded-lg text-sm text-right font-bold text-slate-700 focus:ring-2 focus:ring-brand-blue-hover"
-                                />
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <input 
-                                type="date"
-                                value={item.expirationDate}
-                                onChange={(e) => handleUpdateItem(item.id, { expirationDate: e.target.value })}
-                                className="px-2 py-1 bg-white border border-brand-border rounded-lg text-xs font-medium text-slate-600 focus:ring-2 focus:ring-brand-blue-hover"
-                              />
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span className="font-black text-brand-blue">R$ {item.total.toFixed(2)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <button 
-                                onClick={() => handleRemoveItem(item.id)}
-                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </td>
-                          </tr>
-                        ));
-                      })()}
+                      {items.map(item => (
+                        <tr key={item.id} className="text-sm font-bold text-brand-text-main">
+                          <td className="px-6 py-4">{item.productName}</td>
+                          <td className="px-6 py-4 text-center">{item.qty}</td>
+                          <td className="px-6 py-4 text-right">R$ {item.cost.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-brand-blue">R$ {item.total.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-center">
+                            <button onClick={() => handleRemoveItem(item.id)} className="text-rose-500 hover:text-rose-700"><Trash2 size={18} /></button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
-                
-                {items.length > 0 && (
-                  <div className="p-4 bg-slate-50/50 border-t border-brand-border flex items-center justify-between">
-                    <p className="text-sm text-brand-text-main/60 font-medium">
-                      Mostrando {Math.min(items.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(items.length, currentPage * itemsPerPage)} de {items.length} registros
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={currentPage === 1}
-                          className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ArrowLeft size={18} className="text-brand-text-main/40 hover:text-brand-text-main/60" />
-                        </button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.ceil(items.length / itemsPerPage) }, (_, i) => i + 1)
-                            .filter(page => page === 1 || page === Math.ceil(items.length / itemsPerPage) || Math.abs(page - currentPage) <= 1)
-                            .map((page, index, array) => (
-                              <React.Fragment key={page}>
-                                {index > 0 && array[index - 1] !== page - 1 && (
-                                  <span className="text-brand-text-main/40 px-1">...</span>
-                                )}
-                                <button 
-                                  onClick={() => setCurrentPage(page)}
-                                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
-                                    page === currentPage ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20" : "text-brand-text-main/60 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  {page}
-                                </button>
-                              </React.Fragment>
-                            ))}
-                        </div>
-                        <button 
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(items.length / itemsPerPage)))}
-                          disabled={currentPage === Math.ceil(items.length / itemsPerPage) || Math.ceil(items.length / itemsPerPage) === 0}
-                          className="p-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ArrowRight size={18} className="text-brand-text-main/40 hover:text-brand-text-main/60" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Summary & Actions */}
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-4">
-                  <div className="flex items-center gap-4 md:gap-8 min-w-0">
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Itens</div>
-                      <div className="text-lg md:text-xl font-black text-slate-700 truncate leading-tight">{totalItems}</div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Subtotal</div>
-                      <div className="text-lg md:text-xl lg:text-2xl font-black text-brand-blue tracking-tight truncate leading-tight">R$ {subtotal.toFixed(2)}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 w-full md:w-auto">
-                    <button 
-                      onClick={() => setActiveTab(1)}
-                      className="flex-1 md:flex-none px-6 py-4 bg-white border border-brand-border text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight hover:bg-slate-50 transition-all active:scale-95"
-                    >
-                      Voltar
-                    </button>
-                    <button 
-                      onClick={handleNextToFinish}
-                      className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-8 py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
-                    >
-                      Continuar
-                      <ChevronRight size={20} />
-                    </button>
-                  </div>
+                <div className="flex justify-end pt-6 border-t border-brand-border/50">
+                  <button onClick={handleNextToFinish} className="flex items-center gap-2 px-8 py-4 bg-brand-blue text-white rounded-2xl font-black uppercase shadow-lg shadow-brand-blue/20">
+                    Finalizar
+                    <ChevronRight size={20} />
+                  </button>
                 </div>
               </motion.div>
             )}
+
 
             {/* TAB 3: FINALIZAR */}
             {activeTab === 3 && (
@@ -1105,7 +1048,7 @@ export default function NovaCompraPage() {
                       
                       <div>
                         <div className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Nome</div>
-                        <div className="font-bold text-slate-700">{suppliersList.find(s => s.id === supplierId)?.name || '-'}</div>
+                        <div className="font-bold text-brand-text-main">{suppliersList.find(s => s.id === supplierId)?.name || 'Fornecedor não encontrado'}</div>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">
