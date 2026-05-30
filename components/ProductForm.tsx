@@ -359,7 +359,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     // Check if it's a text-like input to apply uppercase
     let finalValue = value;
     const target = e.target as any;
-    if (target.type === 'text' || target.tagName === 'TEXTAREA' || !target.type) {
+    const isTextLikeInput = (target.tagName === 'INPUT' && (target.type === 'text' || !target.type)) || target.tagName === 'TEXTAREA';
+    const shouldAvoidUppercase = ['status', 'id', 'subcategoria_id', 'image', 'base_product_id', 'product_type', 'unit'].includes(name);
+
+    if (isTextLikeInput && !shouldAvoidUppercase) {
       finalValue = value.toUpperCase();
     }
 

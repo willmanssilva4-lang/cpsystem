@@ -68,7 +68,7 @@ interface ERPContextType {
 
   // Products
   addProduct: (data: Partial<Product>) => Promise<boolean>;
-  updateProduct: (data: Product) => Promise<boolean>;
+  updateProduct: (data: Product) => Promise<boolean | string>;
   deleteProduct: (id: string) => Promise<void>;
 
   // Payment Methods
@@ -611,8 +611,15 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     ];
 
     Object.keys(dbPayload).forEach(key => {
+      const payload = dbPayload as any;
+      if (['subcategoria_id', 'base_product_id', 'company_id'].includes(key) && (!payload[key] || payload[key] === '')) {
+        payload[key] = null;
+      }
+      if (['validade'].includes(key) && (!payload[key] || payload[key] === '')) {
+        payload[key] = null;
+      }
       if (!validColumns.includes(key)) {
-        delete (dbPayload as any)[key];
+        delete payload[key];
       }
     });
 
@@ -653,15 +660,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     ];
 
     Object.keys(dbPayload).forEach(key => {
+      const payload = dbPayload as any;
+      if (['subcategoria_id', 'base_product_id', 'company_id'].includes(key) && (!payload[key] || payload[key] === '')) {
+        payload[key] = null;
+      }
+      if (['validade'].includes(key) && (!payload[key] || payload[key] === '')) {
+        payload[key] = null;
+      }
       if (!validColumns.includes(key)) {
-        delete (dbPayload as any)[key];
+        delete payload[key];
       }
     });
+
+    delete (dbPayload as any).id;
 
     const { error } = await supabase.from('products').update(dbPayload).eq('id', data.id);
     if (error) {
       console.error('Error updating product:', error);
-      return false;
+      console.error('dbPayload:', dbPayload);
+      console.error('data.id:', data.id);
+      return error.message;
     }
     await fetchData();
     return true;

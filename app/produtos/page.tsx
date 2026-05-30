@@ -436,7 +436,7 @@ export default function ProductsPage() {
   }, [products, stockMovements]);
 
   const handleSaveProduct = async (formData: any) => {
-    let success = false;
+    let success: boolean | string = false;
     
     // Preparar os dados numéricos
     const numericData = {
@@ -452,11 +452,12 @@ export default function ProductsPage() {
     };
 
     if (editingProduct) {
-      success = await updateProduct({
+      const payloadToUpdate = {
         ...editingProduct,
         ...formData,
         ...numericData
-      });
+      };
+      success = await updateProduct(payloadToUpdate);
     } else {
       success = await addProduct({
         ...formData,
@@ -467,9 +468,28 @@ export default function ProductsPage() {
       } as any);
     }
 
-    if (success) {
+    if (success === true) {
       setShowModal(false);
       setEditingProduct(null);
+
+      if (formData.status === 'Inativo') {
+        setCustomAlert({
+          type: 'success',
+          message: 'Produto colocado como INATIVO / SUSPENSO e salvo com sucesso! Para visualizá-lo na lista, altere o filtro de status para "Inativos" ou "Todos".'
+        });
+      } else {
+        setCustomAlert({
+          type: 'success',
+          message: editingProduct 
+            ? 'Alterações do produto salvas com sucesso!' 
+            : 'Produto cadastrado com sucesso!'
+        });
+      }
+    } else {
+      setCustomAlert({
+        type: 'error',
+        message: 'ERRO AO SALVAR: ' + JSON.stringify(success)
+      });
     }
   };
 
