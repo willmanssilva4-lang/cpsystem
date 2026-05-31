@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useERP } from '@/lib/context';
 import { 
@@ -24,7 +24,7 @@ import {
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatDateBR } from '@/lib/utils';
+import { formatDateBR, cn } from '@/lib/utils';
 import { 
   AreaChart, 
   Area, 
@@ -48,19 +48,45 @@ const QUICK_ACTIONS = [
 
 export default function PurchasingPage() {
   const router = useRouter();
-  const { hasPermission, user, suppliers } = useERP();
+  const { hasPermission, user, suppliers, products: contextProducts } = useERP();
   const [isSuppliersModalOpen, setIsSuppliersModalOpen] = useState(false);
+  const [isBelowStockModalOpen, setIsBelowStockModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   const handleOpenSuppliersModal = () => {
     setIsSuppliersModalOpen(true);
   };
-  const [stats, setStats] = useState<any[]>([
-    { label: 'Pedidos Pendentes', value: '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'Entradas (Mês)', value: 'R$ 0,00', icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
-    { label: 'Abaixo do Estoque', value: '0', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
-    { label: 'Fornecedores Ativos', value: '0', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
-  ]);
+
+  const handleOpenBelowStockModal = () => {
+    setIsBelowStockModalOpen(true);
+  };
+  const [pendingCount, setPendingCount] = useState(0);
+  const [monthTotal, setMonthTotal] = useState(0);
+  const [belowStockCount, setBelowStockCount] = useState(0);
+
+  // Stats calculation using useMemo to ensure sync with context and local state
+  const stats = useMemo(() => {
+    // Basic stats derived from fetched data and context
+    const activeSuppliersCount = suppliers.filter(s => {
+      if (!s.status) return true;
+      const status = s.status.toString().toUpperCase().trim();
+      return status === 'ATIVO' || status === 'ACTIVE';
+    }).length;
+
+    console.log('[DEBUG] PurchasingPage Stats:', {
+      totalSuppliers: suppliers.length,
+      activeSuppliers: activeSuppliersCount,
+      suppliersSample: suppliers.slice(0, 2).map(s => ({ name: s.name, status: s.status }))
+    });
+
+    return [
+      { label: 'Pedidos Pendentes', value: pendingCount.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+      { label: 'Entradas (Mês)', value: `R$ ${monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
+      { label: 'Abaixo do Estoque', value: belowStockCount.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
+      { label: 'Fornecedores Ativos', value: activeSuppliersCount.toString(), icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
+    ];
+  }, [pendingCount, monthTotal, belowStockCount, suppliers]);
+
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [recentQuotations, setRecentQuotations] = useState<any[]>([]);
   const [stockAlerts, setStockAlerts] = useState<any[]>([]);
@@ -71,6 +97,7 @@ export default function PurchasingPage() {
 
   useEffect(() => {
     async function fetchData() {
+      console.log('[DEBUG] PurchasingPage: fetchData running. Context suppliers count:', suppliers.length);
       // Allow fetching even if companyId is not present, falling back to null (legacy/global)
       setIsLoading(true);
       const targetCompanyId = user?.companyId || null;
@@ -88,7 +115,8 @@ export default function PurchasingPage() {
           pendingQuery = pendingQuery.is('company_id', null);
         }
 
-        const { count: pendingCount } = await pendingQuery;
+        const { count: resPendingCount } = await pendingQuery;
+        setPendingCount(resPendingCount || 0);
 
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
@@ -108,40 +136,28 @@ export default function PurchasingPage() {
 
         const { data: monthOrders } = await monthOrdersQuery;
         
-        const monthTotal = (monthOrders || []).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
+        const currentMonthTotal = (monthOrders || []).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
+        setMonthTotal(currentMonthTotal);
 
-        let productsQuery = supabase.from('products').select('id, name, stock, min_stock, status');
+        let productsQuery = supabase.from('products').select('id, name, stock, min_stock, status, company_id');
         if (targetCompanyId) {
           productsQuery = productsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
-        } else {
-          productsQuery = productsQuery.is('company_id', null);
         }
-        const { data: allProducts } = await productsQuery;
-
-        const belowStockCountActual = (allProducts || [])?.filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock).length || 0;
-
-        let suppliersCountQuery = supabase
-          .from('suppliers')
-          .select('*', { count: 'exact', head: true });
-
-        if (targetCompanyId) {
-          suppliersCountQuery = suppliersCountQuery
-            .in('company_id', [targetCompanyId, null]);
-        } else {
-          suppliersCountQuery = suppliersCountQuery
-            .is('company_id', null);
-        }
-
-        const activeSuppliersCount = suppliers.filter(s => s.status === 'Ativo').length;
+        // If no targetCompanyId, we fetch all (superadmin/global view)
         
-        console.log('[DEBUG] activeSuppliersCount (context-based):', activeSuppliersCount);
+        const { data: allProducts, error: prodError } = await productsQuery;
 
-        setStats([
-          { label: 'Pedidos Pendentes', value: pendingCount?.toString() || '0', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Entradas (Mês)', value: `R$ ${monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
-          { label: 'Abaixo do Estoque', value: belowStockCountActual.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
-          { label: 'Fornecedores Ativos', value: activeSuppliersCount.toString(), icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
-        ]);
+        if (prodError) {
+          console.error('[DEBUG] PurchasingPage: products fetch error:', prodError);
+        }
+
+        const belowStockProducts = (allProducts || [])?.filter(p => p.status !== 'Inativo' && Number(p.stock) <= Number(p.min_stock));
+        const belowStockCountActual = belowStockProducts.length;
+        
+        console.log('[DEBUG] PurchasingPage: allProducts count:', allProducts?.length || 0);
+        console.log('[DEBUG] PurchasingPage: belowStockCountActual:', belowStockCountActual);
+        
+        setBelowStockCount(belowStockCountActual);
 
         // Fetch recent orders
         let ordersQuery = supabase
@@ -339,7 +355,7 @@ export default function PurchasingPage() {
     }
 
     fetchData();
-  }, [user?.companyId]);
+  }, [user?.companyId, suppliers]);
 
   if (!hasPermission('Compras', 'view')) {
     return (
@@ -366,17 +382,28 @@ export default function PurchasingPage() {
         {stats.map((stat, index) => (
           <motion.div
             key={stat.label}
-            onClick={stat.label === 'Fornecedores Ativos' ? handleOpenSuppliersModal : undefined}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`p-4 md:p-6 rounded-[32px] border border-brand-border bg-white hover:border-brand-border transition-all min-w-0 ${stat.label === 'Fornecedores Ativos' ? 'cursor-pointer hover:shadow-lg' : ''}`}
+            onClick={() => {
+              if (stat.label === 'Fornecedores Ativos') handleOpenSuppliersModal();
+              if (stat.label === 'Abaixo do Estoque') handleOpenBelowStockModal();
+              if (stat.label === 'Pedidos Pendentes') router.push('/compras/pedidos');
+            }}
+            className={cn(
+              "p-4 md:p-6 rounded-[32px] border border-brand-border bg-white transition-all min-w-0 shadow-sm",
+              (stat.label === 'Fornecedores Ativos' || stat.label === 'Abaixo do Estoque' || stat.label === 'Pedidos Pendentes') ? "cursor-pointer hover:border-brand-blue/50 hover:shadow-md active:scale-[0.98]" : ""
+            )}
           >
             <div className={`${stat.bg} ${stat.color} w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center mb-4 shrink-0`}>
               <stat.icon size={20} />
             </div>
-            <div className="text-base md:text-lg xl:text-xl font-black text-brand-text-main italic tracking-tight truncate leading-tight">{stat.value}</div>
-            <div className="text-[10px] text-brand-text-main/40 font-bold uppercase italic tracking-wider truncate">{stat.label}</div>
+            <div className="text-base md:text-lg xl:text-xl font-black text-brand-text-main italic tracking-tight truncate leading-tight">
+              {stat.value}
+            </div>
+            <div className="text-[10px] text-brand-text-main/40 font-bold uppercase italic tracking-wider truncate">
+              {stat.label}
+            </div>
           </motion.div>
         ))}
       </div>
@@ -699,22 +726,108 @@ export default function PurchasingPage() {
       {isSuppliersModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsSuppliersModalOpen(false)}>
           <div className="bg-white rounded-[32px] p-8 w-full max-w-2xl border border-brand-border" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight mb-4">Fornecedores Ativos</h2>
-            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
-              {suppliers.length === 0 && <p className="text-center italic">Nenhum fornecedor encontrado.</p>}
-              {suppliers.filter(s => s.status === 'Ativo').map(s => (
-                <div key={s.id} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center border border-slate-100">
-                  <span className="font-bold text-brand-text-main">{s.name}</span>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-black uppercase italic">ATIVO</span>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Lista de Fornecedores</h2>
+              <div className="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black uppercase italic text-brand-text-main/40">
+                Total: {suppliers.length}
+              </div>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+              {suppliers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                  <Truck size={48} className="opacity-20" />
+                  <p className="italic font-medium">Nenhum fornecedor encontrado no sistema.</p>
                 </div>
-              ))}
+              ) : (
+                suppliers.map(s => {
+                  const isActive = !s.status || s.status.toString().toUpperCase().trim() === 'ATIVO' || s.status.toString().toUpperCase().trim() === 'ACTIVE';
+                  return (
+                    <div key={s.id} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center border border-slate-100 group hover:border-brand-blue/30 transition-all shadow-sm">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-brand-text-main group-hover:text-brand-blue transition-colors">{s.name}</span>
+                        {s.document && <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest">{s.document}</span>}
+                      </div>
+                      <span className={cn(
+                        "text-[10px] px-3 py-1 rounded-full font-black uppercase italic tracking-tight shrink-0",
+                        isActive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                      )}>
+                        {isActive ? 'ATIVO' : 'INATIVO'}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
             </div>
             <button 
               onClick={() => setIsSuppliersModalOpen(false)}
-              className="mt-6 w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-brand-blue-hover transition-all"
+              className="mt-6 w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20"
             >
               Fechar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Below Stock Modal */}
+      {isBelowStockModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsBelowStockModalOpen(false)}>
+          <div className="bg-white rounded-[32px] p-8 w-full max-w-2xl border border-brand-border" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Produtos Abaixo do Estoque</h2>
+              <div className="px-3 py-1 bg-rose-100 rounded-full text-[10px] font-black uppercase italic text-rose-700">
+                Alerta Crítico: {stockAlerts.length}
+              </div>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+              {stockAlerts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                  <PackageCheck size={48} className="opacity-20" />
+                  <p className="italic font-medium">Todos os produtos estão com estoque em dia.</p>
+                </div>
+              ) : (
+                stockAlerts.map(item => (
+                  <div key={item.id} className="p-4 bg-rose-50/50 rounded-2xl flex justify-between items-center border border-rose-100 group hover:border-rose-400 transition-all shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-brand-text-main group-hover:text-rose-700 transition-colors">{item.name}</span>
+                      <div className="flex gap-4 mt-1">
+                        <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest">Estoque: {item.stock}</span>
+                        <span className="text-[10px] text-rose-500 font-bold uppercase tracking-widest italic">Mínimo: {item.min}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        localStorage.setItem('replenishment_items', JSON.stringify([item]));
+                        router.push('/compras/novo-pedido');
+                      }}
+                      className="p-3 bg-white text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-4 mt-8">
+              <button 
+                onClick={() => setIsBelowStockModalOpen(false)}
+                className="flex-1 py-4 bg-slate-100 text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-slate-200 transition-all"
+              >
+                Fechar
+              </button>
+              {stockAlerts.length > 0 && (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('replenishment_items', JSON.stringify(stockAlerts));
+                    router.push('/compras/novo-pedido');
+                  }}
+                  className="flex-[2] py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-200"
+                >
+                  Reposição Geral
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

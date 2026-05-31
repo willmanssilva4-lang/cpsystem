@@ -252,6 +252,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         return q;
       };
 
+      console.log(`[ERPProvider] fetchData: Starting fetches for company ${targetCompanyId || 'ALL'}`);
+
       const results = await Promise.allSettled([
         fetchAllProducts(),
         baseQuery('suppliers'),
@@ -301,7 +303,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       };
 
       const prods = getData(0);
-      const supps_res = getData(1);
+      let supps_res = getData(1);
+      
+      // Fallback check if suppliers is empty - maybe table name is different?
+      if (!supps_res || (Array.isArray(supps_res) && supps_res.length === 0)) {
+        console.log('[ERPProvider] suppliers table empty, trying erp_suppliers fallback...');
+        const { data: fallbackSups } = await baseQuery('erp_suppliers');
+        if (fallbackSups && fallbackSups.length > 0) {
+          console.log(`[ERPProvider] Found ${fallbackSups.length} suppliers in erp_suppliers`);
+          supps_res = fallbackSups;
+        }
+      }
+
+      console.log('[DEBUG] [ERPProvider] Final supps_res:', supps_res?.length || 0, 'suppliers found');
       const depts_res = getData(2);
       const cats_res = getData(3);
       const subs_res = getData(4);
@@ -345,7 +359,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           profitPercentage: p.profitPercentage
         })));
       }
-      if (Array.isArray(supps_res)) setSuppliers(supps_res);
+      if (Array.isArray(supps_res)) {
+        setSuppliers(supps_res.map(s => ({
+          ...s,
+          status: s.status || 'Ativo'
+        })));
+      }
       if (Array.isArray(depts_res)) setDepartamentos(depts_res);
       if (Array.isArray(cats_res)) setCategorias(cats_res);
       if (Array.isArray(subs_res)) setSubcategorias(subs_res);
@@ -383,10 +402,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             const prodId = move.product_id || move.productId;
             const product = loadedProducts.find((p: any) => p.id === prodId);
             const price = product ? ((product as any).sale_price ?? (product as any).salePrice ?? 0) : 0;
+            const cost = move.cost !== undefined ? move.cost : (product ? (product.costPrice ?? product.cost_price ?? 0) : 0);
             return {
               productId: prodId,
               quantity: move.quantity || 0,
               price: price,
+              costPrice: cost,
               originalPrice: price,
               discount: 0,
               promotionId: null
@@ -692,7 +713,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   // Suppliers
   const addSupplier = async (data: any) => {
-    await supabase.from('suppliers').insert([data]);
+    const payload = {
+      ...data,
+      status: data.status || 'Ativo',
+      company_id: data.company_id || user?.companyId || null
+    };
+    await supabase.from('suppliers').insert([payload]);
     await fetchData();
   };
 

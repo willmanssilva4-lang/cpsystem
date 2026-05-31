@@ -1057,19 +1057,25 @@ function AdvancedPerformanceDashboard({
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
   const totalTax = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
   const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  const netRevenue = totalSales - totalTax;
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
     sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
+      const cost = item.costPrice !== undefined ? item.costPrice : (product ? product.costPrice : 0);
       totalCost += cost * item.quantity;
     });
   });
 
-  const totalProfit = totalSales - totalCost - totalTax - totalExpenses;
+  const grossProfit = netRevenue - totalCost;
+  const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+  const netProfit = grossProfit - totalExpenses;
+  const totalProfit = netProfit; // Maintain naming for compatibility
+  
   const ticketMedio = totalSales / (filteredSales.length || 1);
-  const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+  const netMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
+  const profitMargin = grossMargin; // We will use Gross Margin for the "Margem Bruta" card
 
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
@@ -1107,19 +1113,24 @@ function AdvancedPerformanceDashboard({
   const prevTotalSales = prevFilteredSales.reduce((acc, s) => acc + s.total, 0);
   const prevTotalTax = prevFilteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
   const prevTotalExpenses = prevFilteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  const prevNetRevenue = prevTotalSales - prevTotalTax;
   
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
     sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
+      const cost = item.costPrice !== undefined ? item.costPrice : (product ? product.costPrice : 0);
       prevTotalCost += cost * item.quantity;
     });
   });
 
-  const prevTotalProfit = prevTotalSales - prevTotalCost - prevTotalTax - prevTotalExpenses;
+  const prevGrossProfit = prevNetRevenue - prevTotalCost;
+  const prevGrossMargin = prevNetRevenue > 0 ? (prevGrossProfit / prevNetRevenue) * 100 : 0;
+  const prevNetProfit = prevGrossProfit - prevTotalExpenses;
+  const prevTotalProfit = prevNetProfit; // Compatibility
+  
   const prevTicketMedio = prevFilteredSales.length > 0 ? prevTotalSales / prevFilteredSales.length : 0;
-  const prevProfitMargin = prevTotalSales > 0 ? (prevTotalProfit / prevTotalSales) * 100 : 0;
+  const prevProfitMargin = prevGrossMargin; 
 
   const profitTrend = prevTotalProfit !== 0 
     ? ((totalProfit - prevTotalProfit) / Math.abs(prevTotalProfit)) * 100 
@@ -1622,14 +1633,19 @@ function AdvancedPerformanceDashboard({
                 <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
                   {profitMargin.toFixed(1)}%
                 </h3>
-                <div className="flex items-center gap-1.5 mt-2.5">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
-                    marginTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                  }`}>
-                    {marginTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {Math.abs(marginTrend).toFixed(1)}%
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
+                <div className="flex flex-col gap-1.5 mt-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                      marginTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    }`}>
+                      {marginTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                      {Math.abs(marginTrend).toFixed(1)}%
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
+                  </div>
+                  <div className="text-[9px] font-bold text-slate-400 uppercase italic">
+                    Margem Líquida: {netMargin.toFixed(1)}%
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -7446,45 +7462,114 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
 }
 
 function CostReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products } = useERP();
-  
-  const filteredSales = React.useMemo(() => {
-    return sales.filter(s => {
-      if (!s.date) return false;
-      const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
-    });
-  }, [sales, startDate, endDate]);
+  const { user } = useERP();
+  const [costData, setCostData] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
 
-  const costData = React.useMemo(() => {
-    const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
-    filteredSales.forEach(sale => {
-      sale.items.forEach((item: any) => {
-        const product = products.find(p => p.id === item.productId);
-        const cost = Number(item.costPrice || 0) || (product ? Number(product.costPrice || 0) : 0);
-        if (!stats[item.productId]) {
-          stats[item.productId] = { name: product?.name || 'Produto Desconhecido', qty: 0, totalCost: 0 };
+  const fetchCostData = React.useCallback(async (refreshing = false) => {
+    if (refreshing) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const targetCompanyId = user?.companyId || null;
+      
+      // 1. Fetch products map for names and costs
+      let prodQuery = supabase.from('products').select('id, name, cost_price');
+      if (targetCompanyId) {
+        prodQuery = prodQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+      }
+      const { data: productsData } = await prodQuery;
+      const productsMap = new Map((productsData || []).map(p => [p.id, p]));
+
+      // 2. Fetch VENDA movements in range
+      let movQuery = supabase
+        .from('stock_movements')
+        .select('*')
+        .eq('type', 'VENDA')
+        .gte('date', startDate + 'T00:00:00Z')
+        .lte('date', endDate + 'T23:59:59Z');
+
+      if (targetCompanyId) {
+        movQuery = movQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+      }
+
+      const { data: movements, error } = await movQuery;
+      if (error) throw error;
+
+      // 3. Process data
+      const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
+      (movements || []).forEach(move => {
+        const prodId = move.product_id;
+        const product = productsMap.get(prodId);
+        const cost = Number(move.cost) || Number(product?.cost_price || 0);
+        if (!stats[prodId]) {
+          stats[prodId] = { name: product?.name || 'Produto Desconhecido', qty: 0, totalCost: 0 };
         }
-        stats[item.productId].qty += Number(item.quantity || 0);
-        stats[item.productId].totalCost += cost * Number(item.quantity || 0);
+        stats[prodId].qty += Number(move.quantity || 0);
+        stats[prodId].totalCost += cost * Number(move.quantity || 0);
       });
-    });
-    return Object.values(stats)
-      .filter(item => item.qty > 0)
-      .sort((a, b) => b.totalCost - a.totalCost);
-  }, [filteredSales, products]);
+
+      setCostData(Object.values(stats)
+        .filter(item => item.qty > 0)
+        .sort((a, b) => b.totalCost - a.totalCost));
+      
+      setLastUpdated(new Date());
+    } catch (err) {
+      console.error('Error fetching cost report data:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [user?.companyId, startDate, endDate]);
+
+  React.useEffect(() => {
+    fetchCostData();
+  }, [fetchCostData]);
 
   const totalCost = costData.reduce((acc, item) => acc + item.totalCost, 0);
-
   const totalQtySold = costData.reduce((acc, item) => acc + item.qty, 0);
   const avgItemCost = totalQtySold > 0 ? (totalCost / totalQtySold) : 0;
 
+  if (isLoading && !isRefreshing) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <RefreshCw size={32} className="text-brand-blue animate-spin" />
+        <p className="text-sm font-bold text-slate-400 uppercase italic">Carregando dados de custo...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 text-center">
-        <Calculator size={48} className="mx-auto text-slate-400 mb-4" />
-        <h4 className="text-xl font-bold text-slate-800">Relatório de Custo (CMV)</h4>
-        <p className="text-sm text-slate-500 mt-2">Análise detalhada dos custos de aquisição dos produtos vendidos no período.</p>
+      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 relative group overflow-hidden">
+        <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 opacity-[0.03] group-hover:scale-110 transition-transform duration-500 pointer-events-none">
+          <Calculator size={180} className="text-slate-900" />
+        </div>
+        <div className="relative flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-slate-200/50 flex items-center justify-center text-slate-400 mb-4 transition-transform group-hover:scale-105 duration-300">
+            <Calculator size={32} />
+          </div>
+          <h4 className="text-xl font-bold text-slate-800">Relatório de Custo (CMV)</h4>
+          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto italic font-medium">Análise detalhada do Custo de Mercadoria Vendida (CMV) e eficiência de aquisição.</p>
+          
+          <div className="flex items-center gap-4 mt-6">
+            <button 
+              onClick={() => fetchCostData(true)}
+              disabled={isRefreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase italic text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shadow-xs disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={cn("text-brand-blue", isRefreshing && "animate-spin")} />
+              {isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+            </button>
+            {lastUpdated && (
+              <span className="text-[10px] font-bold text-slate-400 uppercase italic">
+                Última atualização: {lastUpdated.toLocaleTimeString('pt-BR')}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -7595,37 +7680,49 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
   const [purchases, setPurchases] = React.useState<any[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 15;
 
-  React.useEffect(() => {
-    async function fetchPurchases() {
-      if (!user?.companyId) return;
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('purchase_orders')
-          .select(`
-            *,
-            purchase_order_items (
-              id, product_id, quantity, unit_price, total_price
-            )
-          `)
-          .eq('company_id', user.companyId)
-          .gte('order_date', startDate + 'T00:00:00Z')
-          .lte('order_date', endDate + 'T23:59:59Z')
-          .order('order_date', { ascending: false });
+  const fetchPurchases = React.useCallback(async (refreshing = false) => {
+    if (refreshing) setIsRefreshing(true);
+    else setIsLoading(true);
+    
+    try {
+      const targetCompanyId = user?.companyId || null;
+      let query = supabase
+        .from('purchase_orders')
+        .select(`
+          *,
+          purchase_order_items (
+            id, product_id, quantity, unit_price, total_price
+          )
+        `)
+        .gte('order_date', startDate + 'T00:00:00Z')
+        .lte('order_date', endDate + 'T23:59:59Z')
+        .order('order_date', { ascending: false });
 
-        if (error) throw error;
-        setPurchases(data || []);
-      } catch (error: any) {
-        console.error('Error fetching purchases:', error.message || error);
-      } finally {
-        setIsLoading(false);
+      if (targetCompanyId) {
+        query = query.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
       }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setPurchases(data || []);
+      setLastUpdated(new Date());
+    } catch (error: any) {
+      console.error('Error fetching purchases:', error.message || error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-    fetchPurchases();
   }, [user?.companyId, startDate, endDate]);
+
+  React.useEffect(() => {
+    fetchPurchases();
+  }, [fetchPurchases]);
 
   const totalPurchases = purchases.reduce((acc, p) => acc + Number(p.total_amount), 0);
   const pendingPurchases = purchases.filter(p => p.status === 'Pendente').reduce((acc, p) => acc + Number(p.total_amount), 0);
@@ -7646,10 +7743,33 @@ function PurchasesReport({ startDate, endDate }: { startDate: string, endDate: s
 
   return (
     <div className="space-y-6">
-      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 text-center">
-        <ShoppingBag size={48} className="mx-auto text-slate-400 mb-4" />
-        <h4 className="text-xl font-bold text-slate-800">Relatório de Compras</h4>
-        <p className="text-sm text-slate-500 mt-2">Análise de pedidos de compra, fornecedores e custos de reposição.</p>
+      <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 relative group overflow-hidden">
+        <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 opacity-[0.03] group-hover:scale-110 transition-transform duration-500 pointer-events-none">
+          <ShoppingBag size={180} className="text-slate-900" />
+        </div>
+        <div className="relative flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-slate-200/50 flex items-center justify-center text-slate-400 mb-4 transition-transform group-hover:scale-105 duration-300">
+            <ShoppingBag size={32} />
+          </div>
+          <h4 className="text-xl font-bold text-slate-800">Relatório de Compras</h4>
+          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto italic font-medium">Análise estratégica de suprimentos, comportamento de fornecedores e custos operacionais de aquisição.</p>
+          
+          <div className="flex items-center gap-4 mt-6">
+            <button 
+              onClick={() => fetchPurchases(true)}
+              disabled={isRefreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase italic text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shadow-xs disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={cn("text-brand-blue", isRefreshing && "animate-spin")} />
+              {isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+            </button>
+            {lastUpdated && (
+              <span className="text-[10px] font-bold text-slate-400 uppercase italic">
+                Última atualização: {lastUpdated.toLocaleTimeString('pt-BR')}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -104,6 +104,7 @@ export default function NovaCompraPage() {
   const [observations, setObservations] = useState('');
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [showSupplierResults, setShowSupplierResults] = useState(false);
+  const [orderStatus, setOrderStatus] = useState<'Recebido' | 'Pendente'>('Recebido');
 
   const filteredSuppliers = useMemo(() => {
     if (!supplierSearchTerm) return suppliersList;
@@ -164,6 +165,7 @@ export default function NovaCompraPage() {
           if (draft.observations) setObservations(draft.observations);
           if (draft.items && draft.items.length > 0) setItems(draft.items);
           if (draft.activeTab) setActiveTab(draft.activeTab);
+          if (draft.orderStatus) setOrderStatus(draft.orderStatus);
         } catch (e) {
           console.error('Error loading purchase draft:', e);
         }
@@ -224,6 +226,7 @@ export default function NovaCompraPage() {
       paymentCondition,
       financialAccount,
       observations,
+      orderStatus,
       items,
       activeTab
     };
@@ -232,7 +235,7 @@ export default function NovaCompraPage() {
     if (supplierId || items.length > 0 || invoiceNumber || observations) {
       localStorage.setItem('purchase_draft', JSON.stringify(draft));
     }
-  }, [supplierId, invoiceNumber, issueDate, entryDate, paymentCondition, financialAccount, observations, items, activeTab, isLoading, user?.companyId]);
+  }, [supplierId, invoiceNumber, issueDate, entryDate, paymentCondition, financialAccount, observations, orderStatus, items, activeTab, isLoading, user?.companyId]);
 
   const handleClearDraft = () => {
     if (window.confirm('Deseja limpar todo o formulário e começar do zero?')) {
@@ -245,6 +248,7 @@ export default function NovaCompraPage() {
       setPaymentCondition('');
       setFinancialAccount('');
       setObservations('');
+      setOrderStatus('Recebido');
       setItems([]);
       setActiveTab(1);
     }
@@ -523,138 +527,142 @@ export default function NovaCompraPage() {
         supplier_id: supplierId,
         order_date: new Date().toISOString(),
         total_amount: totalCompra,
-        status: 'Recebido'
+        status: orderStatus
       }).select('id').single();
 
       if (orderError) throw orderError;
       const orderId = orderData.id;
 
-      // For each product
-      for (const item of items) {
-        // 1. Insert Item (purchase_order_items)
-        await supabase.from('purchase_order_items').insert({
-          company_id: user?.companyId || null,
-          purchase_order_id: orderId,
-          product_id: item.productId,
-          quantity: item.qty,
-          unit_price: item.cost,
-          total_price: item.total
-        });
+      // Only update stock and lots if it is marked as 'Recebido'
+      if (orderStatus === 'Recebido') {
+        // For each product
+        for (const item of items) {
+          // 1. Insert Item (purchase_order_items)
+          await supabase.from('purchase_order_items').insert({
+            company_id: user?.companyId || null,
+            purchase_order_id: orderId,
+            product_id: item.productId,
+            quantity: item.qty,
+            unit_price: item.cost,
+            total_price: item.total
+          });
 
-        const numeroLote = `LT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-        
-        // 2. Create Lote
-        const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
-          company_id: user?.companyId || null,
-          produto_id: item.productId,
-          numero_lote: numeroLote,
-          data_entrada: `${entryDate}T12:00:00Z`,
-          validade: item.expirationDate || null,
-          custo_unit: item.cost,
-          quantidade_inicial: item.qty,
-          saldo_atual: item.qty,
-          fornecedor_id: supplierId
-        }).select('id').single();
-
-        let loteId = undefined;
-        if (loteError) {
-          console.error('Error creating lote:', loteError);
-        } else if (loteData) {
-          loteId = loteData.id;
-        }
-
-        // 3. Update Stock and Sale Price
-        const product = Array.isArray(productsList) ? productsList.find(p => p.id === item.productId) : null;
-        if (product) {
-          // Fetch current stock first
-          const { data: currentProduct } = await supabase.from('products').select('stock').eq('id', item.productId).eq('company_id', user?.companyId || null).single();
-          const currentStock = currentProduct?.stock || 0;
+          const numeroLote = `LT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
           
-          const updateData: any = { 
-            cost_price: item.cost,
-            supplier: supplierName,
-            has_had_stock: true
-          };
+          // 2. Create Lote
+          const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
+            company_id: user?.companyId || null,
+            produto_id: item.productId,
+            numero_lote: numeroLote,
+            data_entrada: `${entryDate}T12:00:00Z`,
+            validade: item.expirationDate || null,
+            custo_unit: item.cost,
+            quantidade_inicial: item.qty,
+            saldo_atual: item.qty,
+            fornecedor_id: supplierId
+          }).select('id').single();
 
-          // Update sale price if it was changed/provided in the purchase
-          if (item.salePrice > 0) {
-            updateData.sale_price = item.salePrice;
+          let loteId = undefined;
+          if (loteError) {
+            console.error('Error creating lote:', loteError);
+          } else if (loteData) {
+            loteId = loteData.id;
           }
 
-          if (item.expirationDate) {
-            updateData.validade = item.expirationDate;
-          }
-          
-          const { error: updateError } = await supabase.from('products')
-            .update(updateData)
-            .eq('id', item.productId)
-            .eq('company_id', user?.companyId || null);
+          // 3. Update Stock and Sale Price
+          const product = Array.isArray(productsList) ? productsList.find(p => p.id === item.productId) : null;
+          if (product) {
+            const updateData: any = { 
+              cost_price: item.cost,
+              supplier: supplierName,
+              has_had_stock: true
+            };
+
+            if (item.salePrice > 0) {
+              updateData.sale_price = item.salePrice;
+            }
+
+            if (item.expirationDate) {
+              updateData.validade = item.expirationDate;
+            }
             
-          if (updateError && updateError.message.includes('validade')) {
-            delete updateData.validade;
-            await supabase.from('products')
+            const { error: updateError } = await supabase.from('products')
               .update(updateData)
               .eq('id', item.productId)
               .eq('company_id', user?.companyId || null);
           }
-        }
 
-        // 4. Register Movement
-        await addStockMovement({
-          productId: item.productId,
-          loteId: loteId,
-          type: 'COMPRA',
-          quantity: item.qty,
-          cost: item.cost,
-          origin: `Compra NF: ${invoiceNumber || 'S/N'} - Fornecedor: ${supplierName}`,
-          date: new Date().toISOString(),
-          userId: user?.email || 'system',
-          userName: user?.name || 'Sistema',
-          companyId: user?.companyId || ''
-        });
-      }
-
-      // 5. Generate Conta a Pagar (Expense) - Installments
-      if (paymentCondition === '1') {
-        // À Vista: One single expense, paid immediately
-        const total = items.reduce((acc, item) => acc + item.total, 0);
-        await addExpense({
-          description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName}`,
-          category: 'Compra de Mercadoria',
-          amount: total,
-          supplier: supplierName,
-          supplierId: supplierId,
-          dueDate: new Date().toISOString(), // Paid today
-          date: new Date().toISOString(),
-          issueDate: new Date().toISOString(),
-          status: 'Pago',
-          paymentDate: new Date().toISOString(),
-          paymentMethod: 'Dinheiro',
-          financialAccount: financialAccount || 'Caixa',
-          companyId: user?.companyId || ''
-        });
-      } else {
-        // A Prazo: Multiple installments
-        for (let i = 0; i < installments.length; i++) {
-          const inst = installments[i];
-          await addExpense({
-            description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName} (${i + 1}/${installments.length})`,
-            category: 'Compra de Mercadoria',
-            amount: inst.amount,
-            supplier: supplierName,
-            supplierId: supplierId,
-            dueDate: `${inst.dueDate}T12:00:00Z`,
-            date: `${inst.dueDate}T12:00:00Z`,
-            issueDate: new Date().toISOString(),
-            status: 'Pendente',
-            financialAccount: financialAccount || 'Caixa',
+          // 4. Register Movement
+          await addStockMovement({
+            productId: item.productId,
+            loteId: loteId,
+            type: 'COMPRA',
+            quantity: item.qty,
+            cost: item.cost,
+            origin: `Compra NF: ${invoiceNumber || 'S/N'} - Fornecedor: ${supplierName}`,
+            date: new Date().toISOString(),
+            userId: user?.email || 'system',
+            userName: user?.name || 'Sistema',
             companyId: user?.companyId || ''
+          });
+        }
+      } else {
+        // If 'Pendente', just insert order items
+        for (const item of items) {
+          await supabase.from('purchase_order_items').insert({
+            company_id: user?.companyId || null,
+            purchase_order_id: orderId,
+            product_id: item.productId,
+            quantity: item.qty,
+            unit_price: item.cost,
+            total_price: item.total
           });
         }
       }
 
+      // 5. Generate Conta a Pagar (Expense) - Installments
+      if (orderStatus === 'Recebido') {
+        if (paymentCondition === '1') {
+          // À Vista: One single expense, paid immediately
+          const total = items.reduce((acc, item) => acc + item.total, 0);
+          await addExpense({
+            description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName}`,
+            category: 'Compra de Mercadoria',
+            amount: total,
+            supplier: supplierName,
+            supplierId: supplierId,
+            dueDate: new Date().toISOString(), // Paid today
+            date: new Date().toISOString(),
+            issueDate: new Date().toISOString(),
+            status: 'Pago',
+            paymentDate: new Date().toISOString(),
+            paymentMethod: 'Dinheiro',
+            financialAccount: financialAccount || 'Caixa',
+            companyId: user?.companyId || ''
+          });
+        } else {
+          // A Prazo: Multiple installments
+          for (let i = 0; i < installments.length; i++) {
+            const inst = installments[i];
+            await addExpense({
+              description: `Compra NF: ${invoiceNumber || 'S/N'} - ${supplierName} (${i + 1}/${installments.length})`,
+              category: 'Compra de Mercadoria',
+              amount: inst.amount,
+              supplier: supplierName,
+              supplierId: supplierId,
+              dueDate: `${inst.dueDate}T12:00:00Z`,
+              date: `${inst.dueDate}T12:00:00Z`,
+              issueDate: new Date().toISOString(),
+              status: 'Pendente',
+              financialAccount: financialAccount || 'Caixa',
+              companyId: user?.companyId || ''
+            });
+          }
+        }
+      }
+
       setCustomAlert({
-        message: 'Compra finalizada com sucesso! Estoque e financeiro atualizados.',
+        message: orderStatus === 'Recebido' ? 'Compra finalizada com sucesso!' : 'Pedido pendente registrado com sucesso!',
         type: 'success'
       });
       localStorage.removeItem('purchase_draft');
@@ -1114,21 +1122,55 @@ export default function NovaCompraPage() {
                   </div>
 
                   {/* Products Summary */}
-                  <div className="md:col-span-2 p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
-                    <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight border-b border-brand-border pb-2">Produtos ({items.length})</h3>
-                    
-                    <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
-                      {items.map(item => (
-                        <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-brand-border/50">
-                          <div>
-                            <div className="font-bold text-brand-text-main text-sm">{item.productName}</div>
-                            <div className="text-xs text-slate-500">{item.qty} un × R$ {item.cost.toFixed(2)}</div>
+                  <div className="md:col-span-2 space-y-6">
+                    <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
+                      <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight border-b border-brand-border pb-2">Status do Pedido</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          onClick={() => setOrderStatus('Recebido')}
+                          className={cn(
+                            "py-3 rounded-xl border font-black uppercase italic text-xs transition-all",
+                            orderStatus === 'Recebido' 
+                              ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
+                              : "bg-white border-brand-border text-slate-400 opacity-60 hover:opacity-100"
+                          )}
+                        >
+                          Recebido (Dar Entrada)
+                        </button>
+                        <button
+                          onClick={() => setOrderStatus('Pendente')}
+                          className={cn(
+                            "py-3 rounded-xl border font-black uppercase italic text-xs transition-all",
+                            orderStatus === 'Pendente' 
+                              ? "bg-amber-50 border-amber-500 text-amber-700 shadow-sm"
+                              : "bg-white border-brand-border text-slate-400 opacity-60 hover:opacity-100"
+                          )}
+                        >
+                          Pendente (Só Pedido)
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 italic">
+                        {orderStatus === 'Recebido' 
+                          ? "* Ao confirmar, o estoque será atualizado e o financeiro gerado imediatamente."
+                          : "* Ao confirmar, apenas o registro do pedido será salvo. Sem alteração de estoque."}
+                      </p>
+                    </div>
+
+                    <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
+                      <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight border-b border-brand-border pb-2">Produtos ({items.length})</h3>
+                      <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
+                        {items.map(item => (
+                          <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-brand-border/50">
+                            <div>
+                              <div className="font-bold text-brand-text-main text-sm">{item.productName}</div>
+                              <div className="text-xs text-slate-500">{item.qty} un × R$ {item.cost.toFixed(2)}</div>
+                            </div>
+                            <div className="font-black text-brand-blue">
+                              R$ {item.total.toFixed(2)}
+                            </div>
                           </div>
-                          <div className="font-black text-brand-blue">
-                            R$ {item.total.toFixed(2)}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -548,7 +548,7 @@ function SystemSettings() {
         products: 'erp_products',
         sales: 'erp_sales',
         customers: 'erp_customers',
-        suppliers: 'erp_suppliers',
+        suppliers: 'suppliers',
         expenses: 'erp_expenses',
         paymentMethods: 'payment_methods',
         maquininhas: 'maquininhas',
