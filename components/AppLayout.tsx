@@ -376,10 +376,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ? expenses.filter(e => {
         if (!e) return false;
         const isPaid = e.status === 'Pago' || !!e.paymentDate;
-        const dueDate = new Date(e.dueDate || e.date);
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
-        return !isPaid && dueDate < todayDate;
+        const dueDateStr = getLocalDateString(e.dueDate || e.date);
+        const todayStr = getLocalDateString();
+        return !isPaid && dueDateStr < todayStr;
       })
     : [];
 
@@ -398,11 +397,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const getDaysDiffValue = (dateInput: string | Date) => {
     try {
-      const date = new Date(dateInput);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      date.setHours(0, 0, 0, 0);
-      const diffTime = date.getTime() - today.getTime();
+      const dateStr = typeof dateInput === 'string' ? dateInput.split('T')[0] : getLocalDateString(dateInput);
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const targetDate = new Date(y, m - 1, d);
+      
+      const now = new Date();
+      const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const diffTime = targetDate.getTime() - todayDate.getTime();
       return Math.round(diffTime / (1000 * 60 * 60 * 24));
     } catch {
       return 0;

@@ -28,8 +28,14 @@ export function formatTimeBR(dateInput?: string | Date | null) {
 
 export function toLocalDateString(dateInput?: string | Date | null) {
   if (!dateInput) return '';
+  
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return dateInput;
+  }
+  
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return '';
+  
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -37,7 +43,26 @@ export function toLocalDateString(dateInput?: string | Date | null) {
 }
 
 export function getLocalDateString(dateInput?: string | Date) {
-  if (!dateInput) return new Date().toISOString().split('T')[0];
+  if (!dateInput) {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return dateInput;
+  }
+  
   const date = new Date(dateInput);
-  return date.toISOString().split('T')[0];
+  if (isNaN(date.getTime())) {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
