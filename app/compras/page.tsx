@@ -48,17 +48,17 @@ const QUICK_ACTIONS = [
 
 export default function PurchasingPage() {
   const router = useRouter();
-  const { hasPermission, user, suppliers, products: contextProducts } = useERP();
+  const { hasPermission, user, suppliers, products } = useERP();
   const [isSuppliersModalOpen, setIsSuppliersModalOpen] = useState(false);
-  const [isBelowStockModalOpen, setIsBelowStockModalOpen] = useState(false);
+  const [isReplenishmentModalOpen, setIsReplenishmentModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   const handleOpenSuppliersModal = () => {
     setIsSuppliersModalOpen(true);
   };
 
-  const handleOpenBelowStockModal = () => {
-    setIsBelowStockModalOpen(true);
+  const handleOpenReplenishmentModal = () => {
+    setIsReplenishmentModalOpen(true);
   };
   const [pendingCount, setPendingCount] = useState(0);
   const [monthTotal, setMonthTotal] = useState(0);
@@ -82,7 +82,7 @@ export default function PurchasingPage() {
     return [
       { label: 'Pedidos Pendentes', value: pendingCount.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
       { label: 'Entradas (Mês)', value: `R$ ${monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownRight, color: 'text-brand-blue', bg: 'bg-slate-50' },
-      { label: 'Abaixo do Estoque', value: belowStockCount.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
+      { label: 'Sugestão de Reposição', value: belowStockCount.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
       { label: 'Fornecedores Ativos', value: activeSuppliersCount.toString(), icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
     ];
   }, [pendingCount, monthTotal, belowStockCount, suppliers]);
@@ -139,25 +139,111 @@ export default function PurchasingPage() {
         const currentMonthTotal = (monthOrders || []).reduce((acc, order) => acc + Number(order.total_amount || 0), 0);
         setMonthTotal(currentMonthTotal);
 
-        let productsQuery = supabase.from('products').select('id, name, stock, min_stock, status, company_id');
-        if (targetCompanyId) {
-          productsQuery = productsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
-        }
-        // If no targetCompanyId, we fetch all (superadmin/global view)
-        
-        const { data: allProducts, error: prodError } = await productsQuery;
+        // Use products from context which are already filtered by company
+        const activeProducts = (products || [])?.filter(p => p.status !== 'Inativo') || [];
+        const productIds = activeProducts.map(p => p.id);
 
-        if (prodError) {
-          console.error('[DEBUG] PurchasingPage: products fetch error:', prodError);
+        let calculatedAlerts: any[] = [];
+        let actualBelowCount = 0;
+
+        if (activeProducts.length > 0) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+          // Fetch all sales movements for active products in bulk (without .in filter to prevent 400 Bad Request)
+          let salesQuery = supabase
+            .from('stock_movements')
+            .select('product_id, quantity')
+            .eq('type', 'VENDA')
+            .gte('date', thirtyDaysAgo.toISOString());
+
+          if (targetCompanyId) {
+            salesQuery = salesQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+          }
+
+          const { data: salesData, error: salesErr } = await salesQuery;
+          if (salesErr) {
+            console.error('[DEBUG] salesQuery error:', salesErr);
+          }
+
+          const salesByProduct: Record<string, number> = {};
+          if (salesData) {
+            for (const s of salesData) {
+              salesByProduct[s.product_id] = (salesByProduct[s.product_id] || 0) + (Number(s.quantity) || 0);
+            }
+          }
+
+          // Fetch purchase order items with nested purchase order suppliers in bulk (without .in filter to prevent 400 Bad Request)
+          let purchaseItemsQuery = supabase
+            .from('purchase_order_items')
+            .select(`
+              product_id,
+              created_at,
+              purchase_orders (
+                suppliers ( name )
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .limit(2000);
+
+          if (targetCompanyId) {
+            purchaseItemsQuery = purchaseItemsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+          }
+
+          const { data: purchaseItemsData, error: purchaseErr } = await purchaseItemsQuery;
+          if (purchaseErr) {
+            console.error('[DEBUG] purchaseItemsQuery error:', purchaseErr);
+          }
+
+          const supplierByProduct: Record<string, string> = {};
+          if (purchaseItemsData) {
+            for (const item of purchaseItemsData) {
+              if (!supplierByProduct[item.product_id]) {
+                const name = (item.purchase_orders as any)?.suppliers?.name || 'Não definido';
+                supplierByProduct[item.product_id] = name;
+              }
+            }
+          }
+
+          // Compute replenishment suggestions or critical stock levels
+          calculatedAlerts = activeProducts.map((p) => {
+            const supplierName = supplierByProduct[p.id] || 'Não definido';
+            const totalSold30d = salesByProduct[p.id] || 0;
+            const avgWeeklySales = Math.round(totalSold30d / 4);
+            
+            const currentStock = Number(p.stock || 0);
+            const minStock = Number(p.minStock || 0);
+            const suggestedQty = Math.max(0, (minStock + avgWeeklySales * 2) - currentStock);
+
+            // Only recommend replenishment if current stock list is at/below min_stock or needs replacement and minStock is > 0
+            if (minStock > 0 && (currentStock <= minStock || suggestedQty > 0)) {
+              const finalSuggestedQty = suggestedQty > 0 ? suggestedQty : Math.max(1, minStock - currentStock);
+              
+              if (currentStock <= minStock) {
+                actualBelowCount++;
+              }
+
+              return {
+                id: p.id,
+                name: p.name,
+                stock: `${currentStock} un.`,
+                min: `${minStock} un.`,
+                currentStock: currentStock,
+                minStock: minStock,
+                avgSales: avgWeeklySales,
+                totalSold30d: totalSold30d,
+                suggestedQty: finalSuggestedQty,
+                lastCost: `R$ ${Number(p.costPrice || 0).toFixed(2).replace('.', ',')}`,
+                supplier: supplierName,
+                costValue: Number(p.costPrice || 0)
+              };
+            }
+            return null;
+          }).filter(i => i !== null) as any[];
         }
 
-        const belowStockProducts = (allProducts || [])?.filter(p => p.status !== 'Inativo' && Number(p.stock) <= Number(p.min_stock));
-        const belowStockCountActual = belowStockProducts.length;
-        
-        console.log('[DEBUG] PurchasingPage: allProducts count:', allProducts?.length || 0);
-        console.log('[DEBUG] PurchasingPage: belowStockCountActual:', belowStockCountActual);
-        
-        setBelowStockCount(belowStockCountActual);
+        setBelowStockCount(actualBelowCount);
+        setStockAlerts(calculatedAlerts);
 
         // Fetch recent orders
         let ordersQuery = supabase
@@ -227,21 +313,6 @@ export default function PurchasingPage() {
           })));
         }
 
-        // Fetch stock alerts
-        if (allProducts && allProducts.length > 0) {
-          const alerts = allProducts
-            .filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock)
-            .slice(0, 5)
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              stock: `${p.stock} un.`,
-              min: `${p.min_stock} un.`
-            }));
-          setStockAlerts(alerts);
-        } else {
-          setStockAlerts([]);
-        }
 
         // Fetch top suppliers
         let topSuppliersQuery = supabase
@@ -355,7 +426,7 @@ export default function PurchasingPage() {
     }
 
     fetchData();
-  }, [user?.companyId, suppliers]);
+  }, [user?.companyId, suppliers, products]);
 
   if (!hasPermission('Compras', 'view')) {
     return (
@@ -387,7 +458,7 @@ export default function PurchasingPage() {
             transition={{ delay: index * 0.1 }}
             onClick={() => {
               if (stat.label === 'Fornecedores Ativos') handleOpenSuppliersModal();
-              if (stat.label === 'Abaixo do Estoque') handleOpenBelowStockModal();
+              if (stat.label === 'Sugestão de Reposição') handleOpenReplenishmentModal();
               if (stat.label === 'Pedidos Pendentes') router.push('/compras/pedidos');
             }}
             className={cn(
@@ -683,7 +754,13 @@ export default function PurchasingPage() {
                     <div className="text-sm font-bold text-brand-text-main truncate">{item.name}</div>
                     <div className="text-[10px] font-black text-rose-500 uppercase italic">Estoque: {item.stock} / Mín: {item.min}</div>
                   </div>
-                  <button className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shrink-0">
+                  <button 
+                    onClick={() => {
+                      localStorage.setItem('replenishment_items', JSON.stringify([item]));
+                      router.push('/compras/novo-pedido');
+                    }}
+                    className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shrink-0"
+                  >
                     <Plus size={16} />
                   </button>
                 </div>
@@ -769,50 +846,88 @@ export default function PurchasingPage() {
         </div>
       )}
 
-      {/* Below Stock Modal */}
-      {isBelowStockModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsBelowStockModalOpen(false)}>
-          <div className="bg-white rounded-[32px] p-8 w-full max-w-2xl border border-brand-border" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Produtos Abaixo do Estoque</h2>
+      {/* Replenishment Modal */}
+      {isReplenishmentModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsReplenishmentModalOpen(false)}>
+          <div className="bg-white rounded-[32px] p-8 w-full max-w-3xl border border-brand-border flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6 shrink-0">
+              <div className="flex flex-col">
+                <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Sugestão de Reposição</h2>
+                <p className="text-[11px] text-brand-text-main/50 font-bold uppercase tracking-tight mt-0.5">Sugestões inteligentes baseadas em histórico real de vendas e parâmetros</p>
+              </div>
               <div className="px-3 py-1 bg-rose-100 rounded-full text-[10px] font-black uppercase italic text-rose-700">
-                Alerta Crítico: {stockAlerts.length}
+                Itens Recomendados: {stockAlerts.length}
               </div>
             </div>
             
-            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar my-2">
               {stockAlerts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
                   <PackageCheck size={48} className="opacity-20" />
-                  <p className="italic font-medium">Todos os produtos estão com estoque em dia.</p>
+                  <p className="italic font-medium text-center px-8">Nenhuma sugestão de reposição para os critérios atuais.</p>
                 </div>
               ) : (
                 stockAlerts.map(item => (
-                  <div key={item.id} className="p-4 bg-rose-50/50 rounded-2xl flex justify-between items-center border border-rose-100 group hover:border-rose-400 transition-all shadow-sm">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-brand-text-main group-hover:text-rose-700 transition-colors">{item.name}</span>
-                      <div className="flex gap-4 mt-1">
-                        <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest">Estoque: {item.stock}</span>
-                        <span className="text-[10px] text-rose-500 font-bold uppercase tracking-widest italic">Mínimo: {item.min}</span>
+                  <div key={item.id} className="p-5 bg-rose-50/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-rose-100/60 group hover:border-rose-300 transition-all shadow-sm">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-bold text-brand-text-main group-hover:text-rose-700 transition-colors uppercase italic text-sm block truncate">{item.name}</span>
+                      
+                      {/* Mini bento-grid info */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 bg-white/80 p-2.5 rounded-xl border border-rose-100/40">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-brand-text-main/40 font-black uppercase tracking-wider">Estoque Atual</span>
+                          <span className="text-xs font-bold text-slate-700 mt-0.5">{item.stock}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-brand-text-main/40 font-black uppercase tracking-wider">Estoque Mín.</span>
+                          <span className="text-xs font-bold text-slate-700 mt-0.5">{item.min}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-brand-text-main/40 font-black uppercase tracking-wider">Giro Semanal</span>
+                          <span className="text-xs font-bold text-slate-700 mt-0.5 flex items-center gap-1">
+                            {item.avgSales || 0} un.
+                            {(item.avgSales || 0) > 0 && <TrendingUp size={12} className="text-emerald-500 shrink-0" />}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-rose-500 font-black uppercase tracking-wider">Sugestão</span>
+                          <span className="text-xs font-extrabold text-emerald-600 mt-0.5 bg-emerald-50 px-1.5 py-0.5 rounded w-max border border-emerald-100">{item.suggestedQty || 0} un.</span>
+                        </div>
+                      </div>
+
+                      {/* Supplier and sales context */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 px-1">
+                        <div className="flex items-center gap-1.5 text-[10px] font-black text-brand-text-main/50 uppercase tracking-wide">
+                          <Truck size={12} className="text-slate-400" />
+                          <span>Fornecedor Recente:</span>
+                          <span className="text-brand-blue normal-case italic font-bold">{item.supplier || 'Não definido'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-black text-brand-text-main/40 uppercase tracking-wide border-l border-slate-200 pl-4 hidden sm:flex">
+                          <span>Total Vendido 30d:</span>
+                          <span className="text-slate-600 font-bold">{item.totalSold30d || 0} un.</span>
+                        </div>
                       </div>
                     </div>
+                    
                     <button 
                       onClick={() => {
                         localStorage.setItem('replenishment_items', JSON.stringify([item]));
                         router.push('/compras/novo-pedido');
                       }}
-                      className="p-3 bg-white text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                      className="p-3 bg-white text-rose-600 rounded-xl border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm active:scale-90 flex md:flex-col items-center justify-center gap-2 font-black uppercase italic tracking-wider text-[10px] py-3.5 px-4 md:w-32 self-end md:self-center shrink-0"
                     >
-                      <Plus size={18} />
+                      <Plus size={16} />
+                      <span>Adicionar</span>
                     </button>
                   </div>
                 ))
               )}
             </div>
-            <div className="flex gap-4 mt-8">
+            
+            <div className="flex gap-4 mt-6 shrink-0 pt-4 border-t border-slate-100">
               <button 
-                onClick={() => setIsBelowStockModalOpen(false)}
-                className="flex-1 py-4 bg-slate-100 text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-slate-200 transition-all"
+                onClick={() => setIsReplenishmentModalOpen(false)}
+                className="flex-1 py-4 bg-slate-100 text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-slate-200 transition-all active:scale-95"
               >
                 Fechar
               </button>
@@ -822,9 +937,9 @@ export default function PurchasingPage() {
                     localStorage.setItem('replenishment_items', JSON.stringify(stockAlerts));
                     router.push('/compras/novo-pedido');
                   }}
-                  className="flex-[2] py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-200"
+                  className="flex-[2] py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 active:scale-95"
                 >
-                  Reposição Geral
+                  Reposição Geral ({stockAlerts.length} itens)
                 </button>
               )}
             </div>

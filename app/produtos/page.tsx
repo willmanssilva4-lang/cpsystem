@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { useERP } from '@/lib/context';
+import { supabase } from '@/lib/supabase';
 import { 
   Search, 
   Plus, 
@@ -68,6 +69,163 @@ export default function ProductsPage() {
   
   const [currentMovPage, setCurrentMovPage] = useState(1);
   const movItemsPerPage = 10;
+
+  // Bulk pricing states
+  const [bulkPriceTarget, setBulkPriceTarget] = useState<'salePrice' | 'costPrice' | 'wholesalePrice'>('salePrice');
+  const [bulkPriceOp, setBulkPriceOp] = useState<'pct_inc' | 'pct_dec' | 'val_inc' | 'val_dec' | 'fixed'>('pct_inc');
+  const [bulkPriceValue, setBulkPriceValue] = useState<number>(0);
+  const [bulkPriceRound, setBulkPriceRound] = useState<'none' | '0.05' | '0.10' | '0.50' | '0.90' | '0.99'>('none');
+  const [bulkSelectedProducts, setBulkSelectedProducts] = useState<Record<string, boolean>>({});
+  const [bulkCustomPrices, setBulkCustomPrices] = useState<Record<string, number>>({});
+  const [bulkIsSubmitting, setBulkIsSubmitting] = useState(false);
+  const [bulkPriceSearch, setBulkPriceSearch] = useState('');
+  const [bulkPriceCat, setBulkPriceCat] = useState<string | null>(null);
+  const [bulkPriceDep, setBulkPriceDep] = useState<string | null>(null);
+  const [bulkPriceSubcat, setBulkPriceSubcat] = useState<string | null>(null);
+
+  const calculateAdjustedPrice = (
+    currentPrice: number,
+    operation: 'pct_inc' | 'pct_dec' | 'val_inc' | 'val_dec' | 'fixed',
+    val: number,
+    rounding: 'none' | '0.05' | '0.10' | '0.50' | '0.90' | '0.99'
+  ): number => {
+    let newPrice = currentPrice;
+    if (operation === 'pct_inc') {
+      newPrice = currentPrice * (1 + val / 100);
+    } else if (operation === 'pct_dec') {
+      newPrice = currentPrice * (1 - val / 100);
+    } else if (operation === 'val_inc') {
+      newPrice = currentPrice + val;
+    } else if (operation === 'val_dec') {
+      newPrice = currentPrice - val;
+    } else if (operation === 'fixed') {
+      newPrice = val;
+    }
+
+    newPrice = Math.max(0, newPrice);
+
+    if (rounding === '0.05') {
+      newPrice = Math.round(newPrice * 20) / 20;
+    } else if (rounding === '0.10') {
+      newPrice = Math.round(newPrice * 10) / 10;
+    } else if (rounding === '0.50') {
+      newPrice = Math.round(newPrice * 2) / 2;
+    } else if (rounding === '0.90') {
+      const integerPart = Math.floor(newPrice);
+      newPrice = integerPart + 0.90;
+    } else if (rounding === '0.99') {
+      const integerPart = Math.floor(newPrice);
+      newPrice = integerPart + 0.99;
+    } else {
+      newPrice = Math.round(newPrice * 100) / 100;
+    }
+
+    return newPrice;
+  };
+
+  const handleApplyBulkPriceUpdate = async () => {
+    const productsToUpdate = filteredBulkProducts.filter(p => bulkSelectedProducts[p.id]);
+    
+    if (productsToUpdate.length === 0) {
+      setCustomAlert({ message: 'Nenhum produto selecionado para reajuste.', type: 'warning' });
+      return;
+    }
+
+    const hasCustomOverrides = productsToUpdate.some(p => bulkCustomPrices[p.id] !== undefined);
+
+    if (bulkPriceValue === 0 && bulkPriceOp !== 'fixed' && !hasCustomOverrides) {
+      setCustomAlert({ message: 'Por favor, insira um valor diferente de zero para reajustar ou altere diretamente nos inputs de cada produto.', type: 'warning' });
+      return;
+    }
+
+    setBulkIsSubmitting(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const product of productsToUpdate) {
+        const currentVal = bulkPriceTarget === 'salePrice' 
+          ? product.salePrice 
+          : (bulkPriceTarget === 'costPrice' ? product.costPrice : (product.wholesalePrice || 0));
+        
+        const isCustom = bulkCustomPrices[product.id] !== undefined;
+        const newVal = isCustom 
+          ? bulkCustomPrices[product.id]
+          : calculateAdjustedPrice(currentVal, bulkPriceOp, bulkPriceValue, bulkPriceRound);
+
+        const updateData: any = {};
+        if (bulkPriceTarget === 'salePrice') {
+          updateData.sale_price = newVal;
+        } else if (bulkPriceTarget === 'costPrice') {
+          updateData.cost_price = newVal;
+        } else if (bulkPriceTarget === 'wholesalePrice') {
+          updateData.wholesale_price = newVal;
+        }
+
+        const { error } = await supabase
+          .from('products')
+          .update(updateData)
+          .eq('id', product.id);
+
+        if (error) {
+          console.error(`Error updating price for ${product.name}:`, error);
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      await fetchData();
+      
+      if (errorCount === 0) {
+        setCustomAlert({ 
+          message: `Sucesso! Preços de ${successCount} produtos foram reajustados.`, 
+          type: 'success' 
+        });
+        setBulkPriceValue(0);
+        setBulkSelectedProducts({});
+        setBulkCustomPrices({});
+      } else {
+        setCustomAlert({ 
+          message: `Reajuste concluído com avisos: ${successCount} atualizados, ${errorCount} falhas.`, 
+          type: 'warning' 
+        });
+      }
+    } catch (err: any) {
+      console.error('Error in bulk price reajuste:', err);
+      setCustomAlert({ message: 'Ocorreu um erro ao aplicar o reajuste.', type: 'error' });
+    } finally {
+      setBulkIsSubmitting(false);
+    }
+  };
+
+  const filteredBulkProducts = products.filter(product => {
+    const matchesSearch = !bulkPriceSearch || 
+      product.name.toLowerCase().includes(bulkPriceSearch.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(bulkPriceSearch.toLowerCase()) ||
+      (product.codigo_mercadologico || '').toLowerCase().includes(bulkPriceSearch.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (bulkPriceSubcat) {
+      if (product.subcategoria_id !== bulkPriceSubcat) return false;
+    } else if (bulkPriceCat) {
+      const allowedSubcatIds = subcategorias
+        .filter(s => s.categoria_id === bulkPriceCat)
+        .map(s => s.id);
+      if (!product.subcategoria_id || !allowedSubcatIds.includes(product.subcategoria_id)) return false;
+    } else if (bulkPriceDep) {
+      const allowedCatIds = categorias
+        .filter(c => c.departamento_id === bulkPriceDep)
+        .map(c => c.id);
+      const allowedSubcatIds = subcategorias
+        .filter(s => allowedCatIds.includes(s.categoria_id))
+        .map(s => s.id);
+      if (!product.subcategoria_id || !allowedSubcatIds.includes(product.subcategoria_id)) return false;
+    }
+
+    return product.status === 'Ativo';
+  });
 
   React.useEffect(() => {
     setCurrentPage(1);
@@ -639,6 +797,7 @@ export default function ProductsPage() {
           { id: 'movimentacoes', label: 'Movimentações', icon: History },
           { id: 'ajustes', label: 'Ajustes', icon: ArrowLeftRight },
           { id: 'inventario', label: 'Inventário', icon: ClipboardList },
+          { id: 'alterar-precos', label: 'Reajuste de Preços', icon: Coins },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1817,6 +1976,420 @@ export default function ProductsPage() {
               >
                 Excluir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'alterar-precos' && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in duration-300">
+          <div className="p-8 space-y-8">
+            {/* Header */}
+            <div className="flex flex-col gap-1.5 border-b border-slate-100 pb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-brand-blue">
+                  <Coins size={16} className="stroke-[2.5]" />
+                </div>
+                <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Alteração de Preço em Massa</h3>
+              </div>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                Filtre os produtos desejados e aplique alterações de preço rápidas e arredondamentos inteligentes de centavos.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Sidebar - Filtros & Parâmetros */}
+              <div className="space-y-6">
+                {/* 1. SELEÇÃO DE PRODUTOS */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-4">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-50 pb-2">
+                    1. Filtros de Seleção
+                  </h4>
+                  
+                  {/* Busca textual */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Buscar por Texto</label>
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                      <input 
+                        type="text"
+                        value={bulkPriceSearch}
+                        onChange={(e) => setBulkPriceSearch(e.target.value)}
+                        placeholder="Nome, SKU ou Cód. Mercadológico..."
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-xs font-bold text-slate-700 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Departamento */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Departamento</label>
+                    <select
+                      value={bulkPriceDep || ''}
+                      onChange={(e) => {
+                        setBulkPriceDep(e.target.value || null);
+                        setBulkPriceCat(null);
+                        setBulkPriceSubcat(null);
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold text-xs focus:ring-2 focus:ring-brand-blue/10 focus:border-brand-blue outline-none transition-all"
+                    >
+                      <option value="">Todos Departamentos</option>
+                      {departamentos.map(d => (
+                        <option key={d.id} value={d.id}>{d.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Categoria */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Categoria</label>
+                    <select
+                      value={bulkPriceCat || ''}
+                      onChange={(e) => {
+                        setBulkPriceCat(e.target.value || null);
+                        setBulkPriceSubcat(null);
+                      }}
+                      disabled={!bulkPriceDep}
+                      className="w-full px-3 py-2 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold text-xs focus:ring-2 focus:ring-brand-blue/10 focus:border-brand-blue outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="">Todas Categorias</option>
+                      {categorias.filter(c => c.departamento_id === bulkPriceDep).map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Subcategoria */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Subcategoria</label>
+                    <select
+                      value={bulkPriceSubcat || ''}
+                      onChange={(e) => setBulkPriceSubcat(e.target.value || null)}
+                      disabled={!bulkPriceCat}
+                      className="w-full px-3 py-2 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold text-xs focus:ring-2 focus:ring-brand-blue/10 focus:border-brand-blue outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="">Todas Subcategorias</option>
+                      {subcategorias.filter(s => s.categoria_id === bulkPriceCat).map(s => (
+                        <option key={s.id} value={s.id}>{s.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Limpar Filtros */}
+                  {(bulkPriceSearch || bulkPriceDep || bulkPriceCat || bulkPriceSubcat) && (
+                    <button
+                      onClick={() => {
+                        setBulkPriceSearch('');
+                        setBulkPriceDep(null);
+                        setBulkPriceCat(null);
+                        setBulkPriceSubcat(null);
+                      }}
+                      className="w-full text-center text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors pt-1"
+                    >
+                      Limpar Filtros
+                    </button>
+                  )}
+                </div>
+
+                {/* 2. REGRA DE REAJUSTE */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-4">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-50 pb-2">
+                    2. Parâmetros do Reajuste
+                  </h4>
+
+                  {/* Qual Preço Ajustar */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Tipo de Preço</label>
+                    <select
+                      value={bulkPriceTarget}
+                      onChange={(e) => setBulkPriceTarget(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg text-slate-700 font-bold text-xs focus:ring-2 focus:ring-brand-blue/10 outline-none"
+                    >
+                      <option value="salePrice">Preço de Venda</option>
+                      <option value="costPrice">Preço de Custo</option>
+                      <option value="wholesalePrice">Preço de Atacado</option>
+                    </select>
+                  </div>
+
+                  {/* Operação */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Operação</label>
+                    <select
+                      value={bulkPriceOp}
+                      onChange={(e) => setBulkPriceOp(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg text-slate-700 font-bold text-xs focus:ring-2 focus:ring-brand-blue/10 outline-none"
+                    >
+                      <option value="pct_inc">Acréscimo Percentual (%)</option>
+                      <option value="pct_dec">Desconto Percentual (%)</option>
+                      <option value="val_inc">Acréscimo Fixo (R$)</option>
+                      <option value="val_dec">Desconto Fixo (R$)</option>
+                      <option value="fixed">Definir Preço Estático (R$)</option>
+                    </select>
+                  </div>
+
+                  {/* Valor */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Valor do Reajuste</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                        {['pct_inc', 'pct_dec'].includes(bulkPriceOp) ? '%' : 'R$'}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={bulkPriceValue || ''}
+                        onChange={(e) => setBulkPriceValue(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="Determine o valor..."
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-slate-50/50 focus:bg-white text-xs font-bold text-slate-700 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Arredondamento */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Arredondamento Inteligente</label>
+                    <select
+                      value={bulkPriceRound}
+                      onChange={(e) => setBulkPriceRound(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg text-slate-700 font-bold text-xs focus:ring-2 focus:ring-brand-blue/10 outline-none"
+                    >
+                      <option value="none">Sem arredondamento</option>
+                      <option value="0.05">Múltiplos de R$ 0,05</option>
+                      <option value="0.10">Múltiplos de R$ 0,10</option>
+                      <option value="0.50">Múltiplos de R$ 0,50</option>
+                      <option value="0.90">Terminar em .90 (Apelo de centavos)</option>
+                      <option value="0.99">Terminar em .99 (Apelo de centavos)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Area - Tabela de Simulação */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white rounded-2xl border border-slate-150 shadow-sm overflow-hidden flex flex-col h-full">
+                  <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-50/50">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest leading-none mb-1">
+                        Preview dos Valores Reajustados
+                      </h4>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                        {filteredBulkProducts.length} produtos encontrados com os filtros atuais.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          const selection: Record<string, boolean> = {};
+                          filteredBulkProducts.forEach(p => {
+                            selection[p.id] = true;
+                          });
+                          setBulkSelectedProducts(selection);
+                        }}
+                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold rounded-lg text-[10px] uppercase tracking-wider transition-all"
+                      >
+                        Selecionar Todos
+                      </button>
+                      <button
+                        onClick={() => {
+                          setBulkSelectedProducts({});
+                        }}
+                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold rounded-lg text-[10px] uppercase tracking-wider transition-all"
+                      >
+                        Limpar Seleção
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Simulated Products List */}
+                  <div className="overflow-y-auto max-h-[480px] divide-y divide-slate-100 divide-dashed">
+                    {filteredBulkProducts.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 space-y-2">
+                        <AlertCircle className="mx-auto text-slate-300" size={32} />
+                        <p className="text-xs font-black uppercase tracking-widest">Nenhum produto correspondente</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide">Ajuste os filtros de seleção ao lado.</p>
+                      </div>
+                    ) : (
+                      filteredBulkProducts.map((p) => {
+                        const isSelected = !!bulkSelectedProducts[p.id];
+                        const currentVal = bulkPriceTarget === 'salePrice' ? p.salePrice : (bulkPriceTarget === 'costPrice' ? p.costPrice : (p.wholesalePrice || 0));
+                        
+                        const isCustom = bulkCustomPrices[p.id] !== undefined;
+                        const formulaVal = calculateAdjustedPrice(currentVal, bulkPriceOp, bulkPriceValue, bulkPriceRound);
+                        const newVal = isCustom ? bulkCustomPrices[p.id] : formulaVal;
+                        
+                        const diffVal = newVal - currentVal;
+                        const diffPct = currentVal > 0 ? (diffVal / currentVal) * 100 : 0;
+
+                        return (
+                          <div 
+                            key={p.id}
+                            className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors cursor-pointer hover:bg-slate-50/50 ${isSelected ? 'bg-blue-50/10' : ''}`}
+                            onClick={() => {
+                              setBulkSelectedProducts(prev => ({
+                                ...prev,
+                                [p.id]: !prev[p.id]
+                              }));
+                            }}
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div 
+                                className="shrink-0"
+                                onClick={(e) => e.stopPropagation()} // Prevent double trigger
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setBulkSelectedProducts(prev => ({
+                                      ...prev,
+                                      [p.id]: !prev[p.id]
+                                    }));
+                                  }}
+                                  className="w-4.5 h-4.5 rounded border-slate-300 text-brand-blue focus:ring-brand-blue/10 cursor-pointer"
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <h5 className="text-xs font-black text-slate-700 truncate leading-tight uppercase italic">{p.name}</h5>
+                                <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap">
+                                  <span className="text-[9px] font-bold text-slate-400 font-mono">SKU: {p.sku || 'Sem SKU'}</span>
+                                  <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                  <span className="text-[9px] font-bold text-slate-400">{getCategoryName(p)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0 flex items-center justify-between sm:justify-end gap-6 sm:gap-8">
+                              {/* Price Transition Info */}
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Atual</p>
+                                  <p className="text-xs font-bold text-slate-500">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentVal)}
+                                  </p>
+                                </div>
+                                <ArrowRight size={14} className="text-slate-300 shrink-0" />
+                                <div className="text-right flex items-center gap-2">
+                                  <div>
+                                    <p className={`text-[9px] font-black uppercase tracking-widest leading-none mb-1 text-right ${isCustom ? 'text-blue-600' : 'text-brand-blue'}`}>
+                                      {isCustom ? 'Personalizado R$' : 'Novo R$'}
+                                    </p>
+                                    <div className="relative flex items-center">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={isCustom ? (bulkCustomPrices[p.id] !== undefined ? bulkCustomPrices[p.id] : '') : newVal.toFixed(2)}
+                                        onChange={(e) => {
+                                          const valStr = e.target.value;
+                                          if (valStr === '') {
+                                            setBulkCustomPrices(prev => {
+                                              const next = { ...prev };
+                                              delete next[p.id];
+                                              return next;
+                                            });
+                                          } else {
+                                            const val = parseFloat(valStr);
+                                            setBulkCustomPrices(prev => ({
+                                              ...prev,
+                                              [p.id]: isNaN(val) ? 0 : val
+                                            }));
+                                            // Actively select/select this product when modified manually
+                                            setBulkSelectedProducts(prev => ({
+                                              ...prev,
+                                              [p.id]: true
+                                            }));
+                                          }
+                                        }}
+                                        onClick={(e) => e.stopPropagation()} // Prevent double trigger
+                                        className={`w-28 px-2 py-1 border rounded text-xs font-bold text-slate-800 text-right outline-none transition-all shadow-sm ${
+                                          isCustom 
+                                            ? 'border-blue-500 bg-blue-50/30 focus:bg-white focus:ring-2 focus:ring-blue-200' 
+                                            : 'border-slate-200 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:ring-2 focus:ring-brand-blue/15'
+                                        }`}
+                                      />
+                                      {isCustom && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setBulkCustomPrices(prev => {
+                                              const next = { ...prev };
+                                              delete next[p.id];
+                                              return next;
+                                            });
+                                          }}
+                                          className="absolute -right-5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                          title="Limpar valor customizado e reverter para fórmula"
+                                        >
+                                          <X size={10} className="stroke-[3]" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Difference Badge */}
+                              <div className="w-24 text-right">
+                                {diffVal === 0 ? (
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-1 rounded">
+                                    Sem alteração
+                                  </span>
+                                ) : (
+                                  <span className={`text-[10px] font-mono font-black px-2 py-1 rounded-lg border block ${
+                                    diffVal > 0 
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                                      : 'bg-rose-50 text-rose-700 border-rose-100'
+                                  }`}>
+                                    {diffVal > 0 ? '+' : ''}
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(diffVal)} 
+                                    <span className="block text-[8px] font-bold mt-0.5 opacity-80">
+                                      {diffPct > 0 ? '+' : ''}{diffPct.toFixed(1)}%
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Summary / Apply Bar */}
+                  <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
+                    <div className="text-center sm:text-left">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
+                        Total Selecionado
+                      </p>
+                      <p className="text-xs font-black text-slate-700">
+                        {Object.values(bulkSelectedProducts).filter(Boolean).length} de {filteredBulkProducts.length} produtos
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleApplyBulkPriceUpdate}
+                      disabled={bulkIsSubmitting || Object.values(bulkSelectedProducts).filter(Boolean).length === 0}
+                      className="w-full sm:w-auto px-6 py-3 bg-brand-blue hover:bg-brand-blue-hover disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black uppercase italic tracking-wider shadow-md shadow-brand-blue/15 transition-all flex items-center justify-center gap-2"
+                    >
+                      {bulkIsSubmitting ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>Gravando Preços...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Coins size={14} className="stroke-[2.5]" />
+                          <span>Gravar Reajuste</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

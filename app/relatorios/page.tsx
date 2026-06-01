@@ -7462,77 +7462,54 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
 }
 
 function CostReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { user } = useERP();
+  const { sales, products } = useERP();
   const [costData, setCostData] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
 
-  const fetchCostData = React.useCallback(async (refreshing = false) => {
-    if (refreshing) setIsRefreshing(true);
-    else setIsLoading(true);
-
+  const processCostData = React.useCallback(() => {
+    setIsLoading(true);
     try {
-      const targetCompanyId = user?.companyId || null;
-      
-      // 1. Fetch products map for names and costs
-      let prodQuery = supabase.from('products').select('id, name, cost_price');
-      if (targetCompanyId) {
-        prodQuery = prodQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
-      }
-      const { data: productsData } = await prodQuery;
-      const productsMap = new Map((productsData || []).map(p => [p.id, p]));
+      const filteredSales = sales.filter(s => {
+        if (s.status === 'Cancelada') return false;
+        const d = s.date.split('T')[0];
+        return d >= startDate && d <= endDate;
+      });
 
-      // 2. Fetch VENDA movements in range
-      let movQuery = supabase
-        .from('stock_movements')
-        .select('*')
-        .eq('type', 'VENDA')
-        .gte('date', startDate + 'T00:00:00Z')
-        .lte('date', endDate + 'T23:59:59Z');
-
-      if (targetCompanyId) {
-        movQuery = movQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
-      }
-
-      const { data: movements, error } = await movQuery;
-      if (error) throw error;
-
-      // 3. Process data
       const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
-      (movements || []).forEach(move => {
-        const prodId = move.product_id;
-        const product = productsMap.get(prodId);
-        const cost = Number(move.cost) || Number(product?.cost_price || 0);
-        if (!stats[prodId]) {
-          stats[prodId] = { name: product?.name || 'Produto Desconhecido', qty: 0, totalCost: 0 };
-        }
-        stats[prodId].qty += Number(move.quantity || 0);
-        stats[prodId].totalCost += cost * Number(move.quantity || 0);
+      
+      filteredSales.forEach(sale => {
+        sale.items?.forEach((item: any) => {
+          const prodId = item.productId;
+          const product = products.find(p => p.id === prodId);
+          const cost = Number(product?.costPrice || 0);
+          
+          if (!stats[prodId]) {
+            stats[prodId] = { name: product?.name || 'Produto Desconhecido', qty: 0, totalCost: 0 };
+          }
+          stats[prodId].qty += Number(item.quantity || 0);
+          stats[prodId].totalCost += cost * Number(item.quantity || 0);
+        });
       });
 
       setCostData(Object.values(stats)
         .filter(item => item.qty > 0)
         .sort((a, b) => b.totalCost - a.totalCost));
-      
-      setLastUpdated(new Date());
     } catch (err) {
-      console.error('Error fetching cost report data:', err);
+      console.error('Error processing cost report data:', err);
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
-  }, [user?.companyId, startDate, endDate]);
+  }, [sales, products, startDate, endDate]);
 
   React.useEffect(() => {
-    fetchCostData();
-  }, [fetchCostData]);
+    processCostData();
+  }, [processCostData]);
 
   const totalCost = costData.reduce((acc, item) => acc + item.totalCost, 0);
   const totalQtySold = costData.reduce((acc, item) => acc + item.qty, 0);
   const avgItemCost = totalQtySold > 0 ? (totalCost / totalQtySold) : 0;
 
-  if (isLoading && !isRefreshing) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <RefreshCw size={32} className="text-brand-blue animate-spin" />
@@ -7556,18 +7533,12 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
           
           <div className="flex items-center gap-4 mt-6">
             <button 
-              onClick={() => fetchCostData(true)}
-              disabled={isRefreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase italic text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shadow-xs disabled:opacity-50"
+              onClick={() => processCostData()}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase italic text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shadow-xs"
             >
-              <RefreshCw size={12} className={cn("text-brand-blue", isRefreshing && "animate-spin")} />
-              {isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+              <RefreshCw size={12} className="text-brand-blue" />
+              Atualizar Dados
             </button>
-            {lastUpdated && (
-              <span className="text-[10px] font-bold text-slate-400 uppercase italic">
-                Última atualização: {lastUpdated.toLocaleTimeString('pt-BR')}
-              </span>
-            )}
           </div>
         </div>
       </div>

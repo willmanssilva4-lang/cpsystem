@@ -190,15 +190,20 @@ export default function NovaCompraPage() {
         const parsedItems = JSON.parse(savedItems);
         const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
           const product = products.find((prod: any) => prod.id === p.id);
-          const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, ((product as any)?.minStock || 0) - ((product as any)?.stock || 0));
-          const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.costPrice) || 0);
+          const pMinStock = Number(p.minStock ?? p.min_stock ?? 0);
+          const prodMinStock = Number((product as any)?.minStock ?? (product as any)?.min_stock ?? 0);
+          const pStock = Number(p.stock ?? (product as any)?.stock ?? 0);
+
+          const qty = p.suggestedQty !== undefined ? p.suggestedQty : Math.max(0, prodMinStock - pStock);
+          const cost = p.costValue !== undefined ? p.costValue : (Number((product as any)?.costPrice ?? (product as any)?.cost_price) || 0);
+          
           return {
             id: Math.random().toString(36).substr(2, 9),
             productId: p.id,
             productName: p.name,
             qty: qty,
             cost: cost,
-            salePrice: Number((product as any)?.salePrice) || 0,
+            salePrice: Number((product as any)?.salePrice ?? (product as any)?.sale_price) || 0,
             expirationDate: getLocalDateString(),
             total: qty * cost
           };

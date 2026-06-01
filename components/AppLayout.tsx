@@ -326,7 +326,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [showOverdueModal, setShowOverdueModal] = useState(false);
-  const [modalTab, setModalTab] = useState<'overdue' | 'upcoming' | 'sales'>('overdue');
+  const [modalTab, setModalTab] = useState<'overdue' | 'upcoming'>('overdue');
   
   const today = getLocalDateString();
 
@@ -405,7 +405,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
       const diffTime = targetDate.getTime() - todayDate.getTime();
-      return Math.round(diffTime / (1000 * 60 * 60 * 24));
+      return Math.floor(diffTime / (1000 * 60 * 60 * 24));
     } catch {
       return 0;
     }
@@ -476,29 +476,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <div className="flex items-start gap-4">
                       <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 transition-colors ${
                         modalTab === 'overdue' ? 'bg-rose-50 border-rose-100 text-rose-500' : 
-                        modalTab === 'upcoming' ? 'bg-amber-50 border-amber-100 text-amber-500' :
-                        'bg-brand-blue/10 border-brand-blue/20 text-brand-blue'
+                        'bg-amber-50 border-amber-100 text-amber-500'
                       }`}>
                         {modalTab === 'overdue' && <AlertTriangle size={26} className="animate-pulse" />}
                         {modalTab === 'upcoming' && <Calendar size={26} />}
-                        {modalTab === 'sales' && <TrendingUp size={26} />}
                       </div>
                       <div className="flex-1">
                         <span className={`text-[10px] font-black uppercase tracking-widest italic transition-colors ${
-                          modalTab === 'overdue' ? 'text-rose-500' : 
-                          modalTab === 'upcoming' ? 'text-amber-500' : 'text-brand-blue'
+                          modalTab === 'overdue' ? 'text-rose-500' : 'text-amber-500'
                         }`}>
-                          {modalTab === 'overdue' ? 'ALERTA RELEVANTE' : 
-                           modalTab === 'upcoming' ? 'PLANEJAMENTO FINANCEIRO' : 'RESUMO DE CAIXA'}
+                          {modalTab === 'overdue' ? 'ALERTA RELEVANTE' : 'PLANEJAMENTO FINANCEIRO'}
                         </span>
                         <h3 className="text-2xl font-black text-slate-850 tracking-tight mt-0.5">
-                          {modalTab === 'overdue' ? 'Duplicatas Vencidas' : 
-                           modalTab === 'upcoming' ? 'Duplicatas A Vencer' : 'Vendas Recentes'}
+                          {modalTab === 'overdue' ? 'Duplicatas Vencidas' : 'Duplicatas A Vencer'}
                         </h3>
                         <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">
                           {modalTab === 'overdue' ? 'Identificamos contas com data de vencimento expirada. Regularize seus débitos.' :
-                           modalTab === 'upcoming' ? 'Fique atento às contas com vencimento futuro.' :
-                           'Acompanhe as últimas vendas realizadas no sistema.'}
+                           'Fique atento às contas com vencimento futuro.'}
                         </p>
                       </div>
                     </div>
@@ -520,14 +514,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         }`}
                       >
                         A Vencer
-                      </button>
-                      <button
-                        onClick={() => setModalTab('sales')}
-                        className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 ${
-                          modalTab === 'sales' ? 'bg-white text-brand-blue shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        Receitas
                       </button>
                     </div>
 
@@ -610,51 +596,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           )}
                         </div>
                       )}
-
-                      {modalTab === 'sales' && (
-                        <div className="space-y-1">
-                          {sales.length === 0 ? (
-                            <div className="py-8 text-center text-slate-400 text-xs font-semibold">
-                              Nenhuma venda registrada
-                            </div>
-                          ) : (
-                            [...sales].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((item, idx) => {
-                              const dt = new Date(item.date);
-                              const displayDate = `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
-                              return (
-                                <div key={item?.id || idx} className="py-2.5 flex items-center justify-between text-slate-700">
-                                  <div className="min-w-0 pr-4">
-                                    <p className="text-xs font-bold text-slate-800 truncate">{item?.productName || item?.description || 'Venda Sem Descrição'}</p>
-                                    <span className="text-[10px] font-black uppercase text-brand-blue tracking-wider flex items-center gap-1 mt-0.5">
-                                      Vendido em: {displayDate}
-                                    </span>
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <p className="text-sm font-black text-emerald-600 font-mono">
-                                      + R$ {(item?.total || item?.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     {/* Footer Summary & Actions */}
                     <div className="mt-4 flex flex-col gap-4">
                        <div className="flex bg-slate-50 p-3 rounded-xl justify-between items-center">
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                            {modalTab === 'overdue' ? 'T. Vencido' : modalTab === 'upcoming' ? 'T. A Vencer' : 'T. Receitas' }
+                            {modalTab === 'overdue' ? 'T. Vencido' : 'T. A Vencer' }
                           </p>
                           <p className={`text-base font-black font-mono ${
-                            modalTab === 'overdue' ? 'text-rose-600' : modalTab === 'upcoming' ? 'text-amber-600' : 'text-emerald-600'
+                            modalTab === 'overdue' ? 'text-rose-600' : 'text-amber-600'
                           }`}>
                             R$ {
-                              modalTab === 'overdue' ? overdueExpenses.reduce((s,e) => s + (e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2}) :
-                              modalTab === 'upcoming' ? upcomingExpenses.reduce((s,e) => s + (e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2}) :
-                              sales.reduce((s,e) => s + (e.total || e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})
+                              modalTab === 'overdue' 
+                                ? overdueExpenses.reduce((s,e) => s + (e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2}) 
+                                : upcomingExpenses.reduce((s,e) => s + (e.amount || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})
                             }
                           </p>
                        </div>
@@ -672,7 +628,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                            Fechar
                          </button>
                          <Link
-                           href={modalTab === 'sales' ? "/vendas" : "/financeiro?tab=pagar"}
+                           href="/financeiro?tab=pagar"
                            onClick={() => {
                              if (typeof window !== 'undefined') {
                                sessionStorage.setItem('erp_overdue_alert_shown', 'true');

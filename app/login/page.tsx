@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 
 function LoginLogo({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
   const textColor = theme === 'dark' ? 'text-white' : 'text-brand-blue';
-  const dotColor = theme === 'dark' ? '#00E676' : '#1E5EFF';
+  const dotColor = theme === 'dark' ? '#ffffff' : '#1e40af';
   const checkColor = '#00E676';
 
   return (

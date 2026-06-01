@@ -44,63 +44,119 @@ export default function ReposicaoPage() {
     const targetCompanyId = user?.companyId || null;
     try {
       // 1. Fetch products with low stock
-      const { data: productsData, error: productsError } = await supabase
+      let productsQuery = supabase
         .from('products')
-        .select('*')
-        .eq('company_id', targetCompanyId);
+        .select('*');
+      
+      if (targetCompanyId) {
+        productsQuery = productsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+      }
+
+      const { data: productsData, error: productsError } = await productsQuery;
       
       if (productsError) throw productsError;
 
-      // Filter products that need attention (stock <= min_stock)
-      const lowStockProducts = productsData.filter(p => p.status !== 'Inativo' && p.stock <= p.min_stock);
+      const activeProducts = (productsData || []).filter(p => p.status !== 'Inativo');
+      const productIds = activeProducts.map(p => p.id);
 
-      // 2. For each product, fetch the last supplier and real average sales
+      if (activeProducts.length === 0) {
+        setReplenishmentData([]);
+        setIsLoading(false);
+        return;
+      }
+
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const items = await Promise.all(lowStockProducts.map(async (p) => {
-        // Fetch last supplier from purchase_order_items
-        const { data: lastPurchase } = await supabase
-          .from('purchase_order_items')
-          .select(`
-            purchase_orders (
-              suppliers ( name )
-            )
-          `)
-          .eq('company_id', user?.companyId || null)
-          .eq('product_id', p.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        const supplierName = (lastPurchase?.purchase_orders as any)?.suppliers?.name || 'Não definido';
-        
-        // Fetch real sales data for the last 30 days to calculate weekly average
-        const { data: salesData } = await supabase
-          .from('sale_items')
-          .select('quantity')
-          .eq('company_id', user?.companyId || null)
-          .eq('product_id', p.id)
-          .gte('created_at', thirtyDaysAgo.toISOString());
-        
-        const totalSold = salesData?.reduce((acc, s) => acc + s.quantity, 0) || 0;
+      // 2. Fetch all sales movements for active products in bulk (without .in filter to prevent 400 Bad Request)
+      let salesQuery = supabase
+        .from('stock_movements')
+        .select('product_id, quantity')
+        .eq('type', 'VENDA')
+        .gte('date', thirtyDaysAgo.toISOString());
+
+      if (targetCompanyId) {
+        salesQuery = salesQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+      }
+
+      const { data: salesData, error: salesError } = await salesQuery;
+      if (salesError) {
+        console.error('Error fetching sales database in bulk:', salesError);
+      }
+
+      const salesByProduct: Record<string, number> = {};
+      if (salesData) {
+        for (const s of salesData) {
+          salesByProduct[s.product_id] = (salesByProduct[s.product_id] || 0) + (Number(s.quantity) || 0);
+        }
+      }
+
+      // 3. Fetch purchase order items with nested purchase order suppliers in bulk (without .in filter to prevent 400 Bad Request)
+      let purchaseItemsQuery = supabase
+        .from('purchase_order_items')
+        .select(`
+          product_id,
+          created_at,
+          purchase_orders (
+            suppliers ( name )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+
+      if (targetCompanyId) {
+        purchaseItemsQuery = purchaseItemsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+      }
+
+      const { data: purchaseItemsData, error: purchaseItemsError } = await purchaseItemsQuery;
+      if (purchaseItemsError) {
+        console.error('Error fetching purchase items in bulk:', purchaseItemsError);
+      }
+
+      const supplierByProduct: Record<string, string> = {};
+      if (purchaseItemsData) {
+        for (const item of purchaseItemsData) {
+          if (!supplierByProduct[item.product_id]) {
+            const name = (item.purchase_orders as any)?.suppliers?.name || 'Não definido';
+            supplierByProduct[item.product_id] = name;
+          }
+        }
+      }
+
+      // 4. Compute replenishment suggestions
+      const items = activeProducts.map((p) => {
+        const supplierName = supplierByProduct[p.id] || 'Não definido';
+        const totalSold = salesByProduct[p.id] || 0;
         const avgWeeklySales = Math.round(totalSold / 4);
         
-        return {
-          id: p.id,
-          name: p.name,
-          category: p.category,
-          currentStock: p.stock,
-          minStock: p.min_stock,
-          avgSales: avgWeeklySales, 
-          suggestedQty: Math.max(0, (p.min_stock + avgWeeklySales * 2) - p.stock),
-          lastCost: `R$ ${p.cost_price.toFixed(2).replace('.', ',')}`,
-          supplier: supplierName,
-          costValue: p.cost_price
-        };
-      }));
+        const currentStock = Number(p.stock || 0);
+        const minStock = Number(p.min_stock || 0);
+        const suggestedQty = Math.max(0, (minStock + avgWeeklySales * 2) - currentStock);
 
-      setReplenishmentData(items);
+        // Include product if stock is less than or equal to min stock and min_stock is defined > 0,
+        // or if suggestedQty is significant even if sales average is zero but stock is low.
+        // Also fix the filter so products needing replenishment are actually outputted correctly.
+        if (minStock > 0 && (currentStock <= minStock || suggestedQty > 0)) {
+          // If suggested qty is 0 but we are below min, we recommend reaching the minimum plus a defaulted unit.
+          const finalSuggestedQty = suggestedQty > 0 ? suggestedQty : Math.max(1, minStock - currentStock);
+
+          return {
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            currentStock: currentStock,
+            minStock: minStock,
+            avgSales: avgWeeklySales, 
+            suggestedQty: finalSuggestedQty,
+            lastCost: `R$ ${Number(p.cost_price || 0).toFixed(2).replace('.', ',')}`,
+            supplier: supplierName,
+            costValue: Number(p.cost_price || 0)
+          };
+        }
+        return null;
+      }).filter(i => i !== null);
+
+      setReplenishmentData(items as any[]);
     } catch (error) {
       console.error('Error fetching replenishment data:', error);
     } finally {
