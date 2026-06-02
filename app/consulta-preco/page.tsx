@@ -5,7 +5,7 @@ import { Search, Tag, Package, ArrowLeft, Maximize, Minimize } from 'lucide-reac
 import { motion, AnimatePresence } from 'motion/react';
 import { useERP } from '@/lib/context';
 import { Product } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { Advertisement } from '@/lib/types';
 
@@ -90,13 +90,81 @@ function AdvertisementSystem({ ads, isFullScreen }: { ads: Advertisement[], isFu
 
 export default function PriceCheckPage() {
   const router = useRouter();
-  const { products, companySettings, setCustomAlert, advertisements } = useERP();
+  const { products, companySettings, setCustomAlert, advertisements, promotions, subcategorias } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [result, setResult] = useState<Product | null>(null);
   const [error, setError] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getProductPromoInfo = React.useCallback((product: Product) => {
+    if (!promotions) return null;
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+    
+    // Find active promotions that might apply to this product
+    const activePromos = promotions.filter(p => {
+      const startStr = getLocalDateString(p.startDate);
+      const endStr = getLocalDateString(p.endDate);
+      return (
+        p.status === 'ACTIVE' && 
+        p.applyAutomatically &&
+        startStr <= todayStr && 
+        todayStr <= endStr &&
+        (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay()))
+      );
+    });
+
+    const productSubcategory = subcategorias?.find(s => s.id === product.subcategoria_id);
+    
+    const applicablePromo = activePromos.find(p => 
+      (p.targetType === 'PRODUCT' && (Array.isArray(p.targetId) ? p.targetId.includes(product.id) : p.targetId === product.id)) ||
+      (p.targetType === 'CATEGORY' && p.targetId === productSubcategory?.categoria_id) ||
+      p.targetType === 'ALL'
+    );
+
+    if (!applicablePromo) return null;
+
+    let promoPrice = product.salePrice;
+    let promoDiscount = 0;
+
+    let basePrice = product.salePrice;
+
+    if (applicablePromo.type === 'PRICE') {
+      if (applicablePromo.productPrices && applicablePromo.productPrices[product.id]) {
+        promoPrice = applicablePromo.productPrices[product.id];
+        promoDiscount = basePrice - promoPrice;
+      } else if (applicablePromo.discountValue) {
+        promoPrice = basePrice - applicablePromo.discountValue;
+        promoDiscount = applicablePromo.discountValue;
+      }
+    } else if (applicablePromo.type === 'PERCENTAGE' && applicablePromo.discountValue) {
+      promoDiscount = basePrice * (applicablePromo.discountValue / 100);
+      promoPrice = basePrice - promoDiscount;
+    } else if (applicablePromo.type === 'BUY_X_GET_Y') {
+      return {
+        promo: applicablePromo,
+        badge: `Leve ${applicablePromo.buyQuantity} Pague ${applicablePromo.payQuantity}`,
+        promoPrice: null,
+        promoDiscount: null
+      };
+    } else if (applicablePromo.type === 'COMBO') {
+      return {
+        promo: applicablePromo,
+        badge: `Combo Especial`,
+        promoPrice: null,
+        promoDiscount: null
+      };
+    }
+
+    return {
+      promo: applicablePromo,
+      badge: applicablePromo.type === 'PERCENTAGE' ? `-${applicablePromo.discountValue}%` : `OFERTA`,
+      promoPrice: Math.max(0, promoPrice),
+      promoDiscount
+    };
+  }, [promotions, subcategorias]);
 
   // Inactivity timer to return to ads after 5 seconds
   useEffect(() => {
@@ -278,12 +346,50 @@ export default function PriceCheckPage() {
                   </p>
                 </div>
 
-                <div className="bg-brand-blue/5 p-6 rounded-3xl border-2 border-brand-blue/10">
-                  <p className="text-brand-blue font-black uppercase text-xs tracking-widest mb-1">Preço de Venda</p>
-                  <div className="text-5xl md:text-7xl font-black text-brand-blue leading-none tracking-tighter">
-                    {formatCurrency(result.salePrice || 0)}
-                  </div>
-                </div>
+                {(() => {
+                  const promoInfo = getProductPromoInfo(result);
+                  if (promoInfo) {
+                    if (promoInfo.promoPrice !== null) {
+                      return (
+                        <div className="bg-rose-50 dark:bg-rose-950/20 p-6 rounded-3xl border-2 border-rose-100 dark:border-rose-900/50 flex flex-col items-center md:items-start group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-rose-600 dark:text-rose-400 font-black uppercase text-xs tracking-widest">
+                              De {formatCurrency(result.salePrice || 0)} por apenas:
+                            </p>
+                            <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full tracking-wider uppercase">
+                              {promoInfo.badge}
+                            </span>
+                          </div>
+                          <div className="text-5xl md:text-7xl font-black text-rose-600 dark:text-rose-400 leading-none tracking-tighter">
+                            {formatCurrency(promoInfo.promoPrice)}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="bg-brand-blue/5 p-6 rounded-3xl border-2 border-brand-blue/10 flex flex-col items-center md:items-start animate-in fade-in duration-300">
+                          <div className="mb-2">
+                            <span className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full tracking-wider uppercase">
+                              {promoInfo.badge}
+                            </span>
+                          </div>
+                          <p className="text-brand-blue font-black uppercase text-xs tracking-widest mb-1">Preço de Venda</p>
+                          <div className="text-5xl md:text-7xl font-black text-brand-blue leading-none tracking-tighter">
+                            {formatCurrency(result.salePrice || 0)}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                  return (
+                    <div className="bg-brand-blue/5 p-6 rounded-3xl border-2 border-brand-blue/10">
+                      <p className="text-brand-blue font-black uppercase text-xs tracking-widest mb-1">Preço de Venda</p>
+                      <div className="text-5xl md:text-7xl font-black text-brand-blue leading-none tracking-tighter">
+                        {formatCurrency(result.salePrice || 0)}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {result.stock <= 0 && (
                   <div className="inline-flex items-center gap-2 px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase italic tracking-wider text-xs">

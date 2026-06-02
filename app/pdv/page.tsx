@@ -214,15 +214,21 @@ export default function PDVPage() {
   const comboDiscount = useMemo(() => {
     if (!currentTime) return 0;
     const now = currentTime;
-    const activeCombos = promotions.filter(p => 
-      p.status === 'ACTIVE' && 
-      p.type === 'COMBO' &&
-      p.applyAutomatically &&
-      new Date(p.startDate) <= now && 
-      new Date(p.endDate) >= now &&
-      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
-      (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
-    );
+    const todayStr = getLocalDateString(now);
+    
+    const activeCombos = promotions.filter(p => {
+      const startStr = getLocalDateString(p.startDate);
+      const endStr = getLocalDateString(p.endDate);
+      return (
+        p.status === 'ACTIVE' && 
+        p.type === 'COMBO' &&
+        p.applyAutomatically &&
+        startStr <= todayStr && 
+        todayStr <= endStr &&
+        (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
+        (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
+      );
+    });
 
     let totalComboDiscount = 0;
 
@@ -261,6 +267,77 @@ export default function PDVPage() {
 
     return totalComboDiscount;
   }, [cart, promotions, products, currentTime, selectedCustomer]);
+
+  const getProductPromoInfo = useCallback((product: Product) => {
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+    
+    // Find active promotions that might apply to this product
+    const activePromos = promotions.filter(p => {
+      const startStr = getLocalDateString(p.startDate);
+      const endStr = getLocalDateString(p.endDate);
+      return (
+        p.status === 'ACTIVE' && 
+        p.applyAutomatically &&
+        startStr <= todayStr && 
+        todayStr <= endStr &&
+        (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
+        (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
+      );
+    });
+
+    const productSubcategory = subcategorias.find(s => s.id === product.subcategoria_id);
+    
+    const applicablePromo = activePromos.find(p => 
+      (p.targetType === 'PRODUCT' && (Array.isArray(p.targetId) ? p.targetId.includes(product.id) : p.targetId === product.id)) ||
+      (p.targetType === 'CATEGORY' && p.targetId === productSubcategory?.categoria_id) ||
+      p.targetType === 'ALL'
+    );
+
+    if (!applicablePromo) return null;
+
+    let promoPrice = product.salePrice;
+    let promoDiscount = 0;
+
+    let basePrice = product.wholesalePrice && pricingMode === 'wholesale' ? product.wholesalePrice : product.salePrice;
+    if (selectedCustomer?.isClubMember && product.clubPrice) {
+      basePrice = product.clubPrice;
+    }
+
+    if (applicablePromo.type === 'PRICE') {
+      if (applicablePromo.productPrices && applicablePromo.productPrices[product.id]) {
+        promoPrice = applicablePromo.productPrices[product.id];
+        promoDiscount = basePrice - promoPrice;
+      } else if (applicablePromo.discountValue) {
+        promoPrice = basePrice - applicablePromo.discountValue;
+        promoDiscount = applicablePromo.discountValue;
+      }
+    } else if (applicablePromo.type === 'PERCENTAGE' && applicablePromo.discountValue) {
+      promoDiscount = basePrice * (applicablePromo.discountValue / 100);
+      promoPrice = basePrice - promoDiscount;
+    } else if (applicablePromo.type === 'BUY_X_GET_Y') {
+      return {
+        promo: applicablePromo,
+        badge: `Leve ${applicablePromo.buyQuantity} Pague ${applicablePromo.payQuantity}`,
+        promoPrice: null,
+        promoDiscount: null
+      };
+    } else if (applicablePromo.type === 'COMBO') {
+      return {
+        promo: applicablePromo,
+        badge: `Combo Especial`,
+        promoPrice: null,
+        promoDiscount: null
+      };
+    }
+
+    return {
+      promo: applicablePromo,
+      badge: applicablePromo.type === 'PERCENTAGE' ? `-${applicablePromo.discountValue}%` : `OFERTA`,
+      promoPrice: Math.max(0, promoPrice),
+      promoDiscount
+    };
+  }, [promotions, subcategorias, selectedCustomer, pricingMode]);
 
   const validateCartStock = useCallback((proposedCart: typeof cart) => {
     // 1. Calculate aggregated physical demand of products
@@ -1227,14 +1304,20 @@ export default function PDVPage() {
     }
 
     const now = new Date();
-    const activePromos = promotions.filter(p => 
-      p.status === 'ACTIVE' && 
-      p.applyAutomatically &&
-      new Date(p.startDate) <= now && 
-      new Date(p.endDate) >= now &&
-      (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
-      (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
-    );
+    const todayStr = getLocalDateString(now);
+    
+    const activePromos = promotions.filter(p => {
+      const startStr = getLocalDateString(p.startDate);
+      const endStr = getLocalDateString(p.endDate);
+      return (
+        p.status === 'ACTIVE' && 
+        p.applyAutomatically &&
+        startStr <= todayStr && 
+        todayStr <= endStr &&
+        (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay())) &&
+        (!p.onlyForClubMembers || selectedCustomer?.isClubMember)
+      );
+    });
 
     let promoDiscount = 0;
     let promoType = '';
@@ -1310,6 +1393,8 @@ export default function PDVPage() {
       }]);
     }
   };
+  
+  const currentProductPromo = currentProduct ? getProductPromoInfo(currentProduct) : null;
 
   if (!hasPermission('Vendas', 'view')) {
     return (
@@ -1434,23 +1519,48 @@ export default function PDVPage() {
             {/* Search Results Dropdown */}
             {searchResults.length > 0 && (
               <div className="absolute top-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mt-2 shadow-2xl z-[100] overflow-y-auto">
-                {searchResults.map((product, index) => (
-                  <div 
-                    key={product.id}
-                    id={`search-result-${index}`}
-                    onClick={() => selectProduct(product)}
-                    className={cn(
-                      "px-4 py-2 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors",
-                      index === selectedIndex ? "bg-brand-blue text-white" : "hover:bg-slate-50 text-brand-text-main"
-                    )}
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold uppercase">{product.name}</span>
-                      <span className="text-[10px] opacity-60">SKU: {product.sku}</span>
-                    </div>
-                    <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
-                  </div>
-                ))}
+                 {searchResults.map((product, index) => {
+                    const promoInfo = getProductPromoInfo(product);
+                    const isPromoActive = promoInfo && promoInfo.promoPrice !== null;
+                    return (
+                      <div 
+                        key={product.id}
+                        id={`search-result-${index}`}
+                        onClick={() => selectProduct(product)}
+                        className={cn(
+                          "px-4 py-2 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors",
+                          index === selectedIndex ? "bg-brand-blue text-white" : "hover:bg-slate-50 text-brand-text-main"
+                        )}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold uppercase">{product.name}</span>
+                          <span className="text-[10px] opacity-60">SKU: {product.sku}</span>
+                        </div>
+                        {isPromoActive ? (
+                          <div className="text-right flex flex-col items-end">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] line-through opacity-65">R$ {formatCurrency(product.salePrice)}</span>
+                              <span className="bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase">
+                                {promoInfo.badge}
+                              </span>
+                            </div>
+                            <span className={cn("font-black text-sm", index === selectedIndex ? "text-white" : "text-rose-600 dark:text-rose-450")}>
+                              R$ {formatCurrency(promoInfo.promoPrice)}
+                            </span>
+                          </div>
+                        ) : promoInfo?.badge ? (
+                          <div className="text-right flex flex-col items-end">
+                            <span className="bg-amber-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase mb-0.5">
+                              {promoInfo.badge}
+                            </span>
+                            <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
+                          </div>
+                        ) : (
+                          <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -1471,16 +1581,42 @@ export default function PDVPage() {
 
             <div className="space-y-1">
               <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Valor Unitário</label>
-              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
-                <span className="text-xl md:text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right flex flex-col justify-center min-h-[52px]">
+                {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
+                  <div className="flex flex-col items-end leading-none">
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className="text-[10px] line-through opacity-60">R$ {formatCurrency(currentProduct.salePrice)}</span>
+                      <span className="bg-rose-600 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase">
+                        {currentProductPromo.badge}
+                      </span>
+                    </div>
+                    <span className="text-xl md:text-3xl font-black text-rose-600 leading-tight">R$ {formatCurrency(currentProductPromo.promoPrice)}</span>
+                  </div>
+                ) : currentProduct && currentProductPromo?.badge ? (
+                  <div className="flex flex-col items-end leading-none">
+                    <span className="bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase mb-0.5">
+                      {currentProductPromo.badge}
+                    </span>
+                    <span className="text-xl md:text-3xl font-black text-brand-text-main leading-tight">R$ {formatCurrency(currentProduct.salePrice)}</span>
+                  </div>
+                ) : (
+                  <span className="text-xl md:text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Valor Total</label>
-            <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right">
-              <span className="text-2xl md:text-4xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
+            <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right flex flex-col justify-center min-h-[58px]">
+              {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
+                <div className="flex flex-col items-end leading-none">
+                  <span className="text-[10px] opacity-65 leading-none mb-0.5">Sem Promoção: R$ {formatCurrency(currentProduct.salePrice * quantity)}</span>
+                  <span className="text-2xl md:text-4xl font-black text-rose-600">R$ {formatCurrency(currentProductPromo.promoPrice * quantity)}</span>
+                </div>
+              ) : (
+                <span className="text-2xl md:text-4xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
+              )}
             </div>
           </div>
         </div>

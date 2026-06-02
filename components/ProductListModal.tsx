@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Search, Package, ShoppingCart } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { Product } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 
 interface ProductListModalProps {
   onClose: () => void;
@@ -10,11 +10,79 @@ interface ProductListModalProps {
 }
 
 export function ProductListModal({ onClose, onSelectProduct }: ProductListModalProps) {
-  const { products } = useERP();
+  const { products, promotions, subcategorias } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const getProductPromoInfo = React.useCallback((product: Product) => {
+    if (!promotions) return null;
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+    
+    // Find active promotions that might apply to this product
+    const activePromos = promotions.filter(p => {
+      const startStr = getLocalDateString(p.startDate);
+      const endStr = getLocalDateString(p.endDate);
+      return (
+        p.status === 'ACTIVE' && 
+        p.applyAutomatically &&
+        startStr <= todayStr && 
+        todayStr <= endStr &&
+        (!p.daysOfWeek || p.daysOfWeek.includes(now.getDay()))
+      );
+    });
+
+    const productSubcategory = subcategorias?.find(s => s.id === product.subcategoria_id);
+    
+    const applicablePromo = activePromos.find(p => 
+      (p.targetType === 'PRODUCT' && (Array.isArray(p.targetId) ? p.targetId.includes(product.id) : p.targetId === product.id)) ||
+      (p.targetType === 'CATEGORY' && p.targetId === productSubcategory?.categoria_id) ||
+      p.targetType === 'ALL'
+    );
+
+    if (!applicablePromo) return null;
+
+    let promoPrice = product.salePrice;
+    let promoDiscount = 0;
+
+    let basePrice = product.salePrice;
+
+    if (applicablePromo.type === 'PRICE') {
+      if (applicablePromo.productPrices && applicablePromo.productPrices[product.id]) {
+        promoPrice = applicablePromo.productPrices[product.id];
+        promoDiscount = basePrice - promoPrice;
+      } else if (applicablePromo.discountValue) {
+        promoPrice = basePrice - applicablePromo.discountValue;
+        promoDiscount = applicablePromo.discountValue;
+      }
+    } else if (applicablePromo.type === 'PERCENTAGE' && applicablePromo.discountValue) {
+      promoDiscount = basePrice * (applicablePromo.discountValue / 100);
+      promoPrice = basePrice - promoDiscount;
+    } else if (applicablePromo.type === 'BUY_X_GET_Y') {
+      return {
+        promo: applicablePromo,
+        badge: `Leve ${applicablePromo.buyQuantity} Pague ${applicablePromo.payQuantity}`,
+        promoPrice: null,
+        promoDiscount: null
+      };
+    } else if (applicablePromo.type === 'COMBO') {
+      return {
+        promo: applicablePromo,
+        badge: `Combo Especial`,
+        promoPrice: null,
+        promoDiscount: null
+      };
+    }
+
+    return {
+      promo: applicablePromo,
+      badge: applicablePromo.type === 'PERCENTAGE' ? `-${applicablePromo.discountValue}%` : `OFERTA`,
+      promoPrice: Math.max(0, promoPrice),
+      promoDiscount
+    };
+  }, [promotions, subcategorias]);
 
   const filteredProducts = React.useMemo(() => {
     const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
@@ -141,15 +209,49 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">
-                      {formatCurrency(product.salePrice)}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs font-medium text-slate-400 mt-1 justify-end">
-                      <ShoppingCart size={12} />
-                      <span>Selecionar</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    const promoInfo = getProductPromoInfo(product);
+                    return (
+                      <div className="text-right flex flex-col items-end">
+                        {promoInfo ? (
+                          promoInfo.promoPrice !== null ? (
+                            <>
+                              <div className="flex items-center gap-1.5 justify-end mb-0.5">
+                                <span className="text-xs line-through text-slate-400 dark:text-slate-500">
+                                  {formatCurrency(product.salePrice)}
+                                </span>
+                                <span className="bg-rose-600 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase">
+                                  {promoInfo.badge}
+                                </span>
+                              </div>
+                              <div className="text-xl font-black text-rose-500 dark:text-rose-400 leading-none">
+                                {formatCurrency(promoInfo.promoPrice)}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="mb-1 leading-none">
+                                <span className="bg-amber-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase">
+                                  {promoInfo.badge}
+                                </span>
+                              </div>
+                              <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 leading-none">
+                                {formatCurrency(product.salePrice)}
+                              </div>
+                            </>
+                          )
+                        ) : (
+                          <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">
+                            {formatCurrency(product.salePrice)}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 text-xs font-medium text-slate-400 mt-1 justify-end">
+                          <ShoppingCart size={12} />
+                          <span>Selecionar</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

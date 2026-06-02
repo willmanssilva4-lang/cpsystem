@@ -92,7 +92,7 @@ export default function PromocoesPage() {
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Campanhas & Ofertas</h1>
           <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Gestão de Promoções e Descontos do PDV</p>
         </div>
-        {user?.role === 'Administrador' && (
+        {(user?.role?.trim().toLowerCase() === 'administrador' || user?.role?.trim().toLowerCase() === 'admin' || user?.role?.trim().toLowerCase() === 'gerente') && (
           <button
             onClick={() => {
               setEditingPromotion(undefined);
@@ -212,7 +212,7 @@ export default function PromocoesPage() {
                     </span>
                   </td>
                   <td className="py-5 px-6 text-right">
-                    {user?.role === 'Administrador' && (
+                    {(user?.role?.trim().toLowerCase() === 'administrador' || user?.role?.trim().toLowerCase() === 'admin' || user?.role?.trim().toLowerCase() === 'gerente') && (
                       <div className="flex justify-end gap-1">
                         <button
                           onClick={() => handleEdit(promo)}

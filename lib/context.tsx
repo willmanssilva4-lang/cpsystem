@@ -471,7 +471,30 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           companyId: u.companyId || u.company_id || ''
         })));
       }
-      if (Array.isArray(proms_res)) setPromotions(proms_res);
+      if (Array.isArray(proms_res)) {
+        setPromotions(proms_res.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          status: p.status,
+          startDate: p.start_date || p.startDate || '',
+          endDate: p.end_date || p.endDate || '',
+          targetType: p.target_type || p.targetType || 'PRODUCT',
+          targetId: p.target_id || p.targetId || '',
+          productPrices: p.product_prices || p.productPrices || {},
+          discountValue: p.discount_value !== undefined ? p.discount_value : p.discountValue,
+          buyQuantity: p.buy_quantity !== undefined ? p.buy_quantity : p.buyQuantity,
+          payQuantity: p.pay_quantity !== undefined ? p.pay_quantity : p.payQuantity,
+          comboItems: p.combo_items || p.comboItems || [],
+          comboPrice: p.combo_price !== undefined ? p.combo_price : p.comboPrice,
+          applyAutomatically: p.apply_automatically !== undefined ? p.apply_automatically : p.applyAutomatically,
+          onlyForClubMembers: p.only_for_club_members !== undefined ? p.only_for_club_members : p.onlyForClubMembers,
+          limitPerCustomer: p.limit_per_customer !== undefined ? p.limit_per_customer : p.limitPerCustomer,
+          quantityLimit: p.quantity_limit !== undefined ? p.quantity_limit : p.quantityLimit,
+          daysOfWeek: p.days_of_week || p.daysOfWeek || [0, 1, 2, 3, 4, 5, 6],
+          companyId: p.company_id || p.companyId
+        })));
+      }
       if (Array.isArray(rets_res)) setReturns(rets_res);
       if (Array.isArray(emps_res)) {
         setEmployees(emps_res.map((e: any) => ({
@@ -941,11 +964,60 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addPromotion = async (data: any) => {
-    await supabase.from('promotions').insert([data]);
+    const dbPromo: any = {
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      status: data.status,
+      start_date: data.startDate,
+      end_date: data.endDate,
+      target_type: data.targetType,
+      target_id: data.targetId,
+      product_prices: data.productPrices || {},
+      discount_value: data.discountValue,
+      buy_quantity: data.buyQuantity,
+      pay_quantity: data.payQuantity,
+      combo_items: data.comboItems,
+      combo_price: data.comboPrice,
+      apply_automatically: data.applyAutomatically ?? true,
+      only_for_club_members: data.onlyForClubMembers ?? false,
+      limit_per_customer: data.limitPerCustomer,
+      quantity_limit: data.quantityLimit,
+      days_of_week: data.daysOfWeek || [0, 1, 2, 3, 4, 5, 6],
+      company_id: data.companyId || data.company_id || user?.companyId
+    };
+    Object.keys(dbPromo).forEach(key => {
+      if (dbPromo[key] === undefined) delete dbPromo[key];
+    });
+    await supabase.from('promotions').insert([dbPromo]);
     await fetchData();
   };
   const updatePromotion = async (data: any) => {
-    await supabase.from('promotions').update(data).eq('id', data.id);
+    const dbPromo: any = {
+      name: data.name,
+      type: data.type,
+      status: data.status,
+      start_date: data.startDate,
+      end_date: data.endDate,
+      target_type: data.targetType,
+      target_id: data.targetId,
+      product_prices: data.productPrices || {},
+      discount_value: data.discountValue,
+      buy_quantity: data.buyQuantity,
+      pay_quantity: data.payQuantity,
+      combo_items: data.comboItems,
+      combo_price: data.comboPrice,
+      apply_automatically: data.applyAutomatically ?? true,
+      only_for_club_members: data.onlyForClubMembers ?? false,
+      limit_per_customer: data.limitPerCustomer,
+      quantity_limit: data.quantityLimit,
+      days_of_week: data.daysOfWeek || [0, 1, 2, 3, 4, 5, 6],
+      company_id: data.companyId || data.company_id || user?.companyId
+    };
+    Object.keys(dbPromo).forEach(key => {
+      if (dbPromo[key] === undefined) delete dbPromo[key];
+    });
+    await supabase.from('promotions').update(dbPromo).eq('id', data.id);
     await fetchData();
   };
   const deletePromotion = async (id: string) => {
