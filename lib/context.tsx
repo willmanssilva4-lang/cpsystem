@@ -69,7 +69,7 @@ interface ERPContextType {
   changePassword: (password: string) => Promise<{error: any}>;
 
   // Products
-  addProduct: (data: Partial<Product>) => Promise<boolean>;
+  addProduct: (data: Partial<Product>) => Promise<boolean | string>;
   updateProduct: (data: Product) => Promise<boolean | string>;
   deleteProduct: (id: string) => Promise<void>;
 
@@ -658,7 +658,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     Object.keys(dbPayload).forEach(key => {
       const payload = dbPayload as any;
-      if (['subcategoria_id', 'base_product_id', 'company_id'].includes(key) && (!payload[key] || payload[key] === '')) {
+      if (['sku', 'barcode', 'subcategoria_id', 'base_product_id', 'company_id'].includes(key) && (!payload[key] || payload[key] === '')) {
         payload[key] = null;
       }
       if (['validade'].includes(key) && (!payload[key] || payload[key] === '')) {
@@ -669,14 +669,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    if ((dbPayload as any).id === '' || (dbPayload as any).id === null || (dbPayload as any).id === undefined) {
-      delete (dbPayload as any).id;
-    }
+    const isUUID = (str: any) => {
+      if (typeof str !== 'string') return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    };
+
+    const uuidFields = ['id', 'subcategoria_id', 'base_product_id', 'company_id'];
+    uuidFields.forEach(field => {
+      const val = (dbPayload as any)[field];
+      if (val !== undefined && val !== null) {
+        if (!isUUID(val)) {
+          if (field === 'id') {
+            delete (dbPayload as any)[field];
+          } else {
+            (dbPayload as any)[field] = null;
+          }
+        }
+      }
+    });
 
     const { error } = await supabase.from('products').insert([dbPayload]);
     if (error) {
       console.error('Error adding product:', error);
-      return false;
+      return error.message;
     }
     await fetchData();
     return true;
@@ -707,7 +722,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     Object.keys(dbPayload).forEach(key => {
       const payload = dbPayload as any;
-      if (['subcategoria_id', 'base_product_id', 'company_id'].includes(key) && (!payload[key] || payload[key] === '')) {
+      if (['sku', 'barcode', 'subcategoria_id', 'base_product_id', 'company_id'].includes(key) && (!payload[key] || payload[key] === '')) {
         payload[key] = null;
       }
       if (['validade'].includes(key) && (!payload[key] || payload[key] === '')) {
@@ -715,6 +730,21 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       if (!validColumns.includes(key)) {
         delete payload[key];
+      }
+    });
+
+    const isUUID = (str: any) => {
+      if (typeof str !== 'string') return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    };
+
+    const uuidFields = ['subcategoria_id', 'base_product_id', 'company_id'];
+    uuidFields.forEach(field => {
+      const val = (dbPayload as any)[field];
+      if (val !== undefined && val !== null) {
+        if (!isUUID(val)) {
+          (dbPayload as any)[field] = null;
+        }
       }
     });
 

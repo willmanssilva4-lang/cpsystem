@@ -2194,10 +2194,14 @@ export default function PDVPage() {
           onSave={async (data) => {
             const success = await addProduct({
               ...data,
-              id: Math.random().toString(36).substr(2, 9),
             });
-            if (success) {
+            if (success === true) {
               setShowProductModal(false);
+            } else {
+              setCustomAlert({
+                type: 'error',
+                message: 'Erro ao cadastrar produto: ' + (typeof success === 'string' ? success : 'Código SKU/Barras em conflito.')
+              });
             }
           }}
         />

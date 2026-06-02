@@ -445,7 +445,6 @@ export default function ProductsPage() {
           }
 
           const success = await addProduct({
-            id: Math.random().toString(36).substr(2, 9),
             name: item.Nome || item['Nome:'] || item.nome,
             sku: (item.SKU || item['SKU:'] || item.sku) ? String(item.SKU || item['SKU:'] || item.sku) : '',
             unit: item['Unidade de Medida'] || item['Unidade de Medida:'] || item.unidade || 'UN',
@@ -467,9 +466,9 @@ export default function ProductsPage() {
             section: (item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) ? String(item['Seção'] || item['Seção:'] || item.Secao || item.section || item.Departamento || item['Departamento:'] || item.departamento) : '',
             supplier: (item.Fornecedor || item['Fornecedor:'] || item['Fornecedor'] || item.fornecedor || item.supplier || item.Supplier) ? String(item.Fornecedor || item['Fornecedor:'] || item['Fornecedor'] || item.fornecedor || item.supplier || item.Supplier).trim() : '',
             image: 'https://i.imgur.com/jGU5BUa.png'
-          } as Product); 
+          } as any); 
 
-          if (success) {
+          if (success === true) {
             importedCount++;
           } else {
             duplicateCount++;
@@ -620,7 +619,6 @@ export default function ProductsPage() {
       success = await addProduct({
         ...formData,
         ...numericData,
-        id: Math.random().toString(36).substr(2, 9),
         companyId: user?.companyId || '',
         image: formData.image || 'https://i.imgur.com/jGU5BUa.png'
       } as any);
@@ -646,7 +644,7 @@ export default function ProductsPage() {
     } else {
       setCustomAlert({
         type: 'error',
-        message: 'ERRO AO SALVAR: ' + JSON.stringify(success)
+        message: 'ERRO AO SALVAR: ' + (typeof success === 'string' ? success : 'Verifique se o Código SKU ou de Barras já está cadastrado em outro produto.')
       });
     }
   };
