@@ -16,10 +16,11 @@ type InventoryStep = 'setup' | 'counting' | 'summary';
 type InventoryType = 'Geral' | 'Rotativo' | 'Departamento';
 
 export function InventorySessionModal({ onClose, onComplete }: InventorySessionModalProps) {
-  const { products, addInventory, addStockMovement, user, subcategorias, categorias, fetchData, hasPermission, departamentos } = useERP();
+  const { products, addInventory, addStockMovement, updateProduct, user, subcategorias, categorias, fetchData, hasPermission, departamentos } = useERP();
   const [step, setStep] = useState<InventoryStep>('setup');
   const [search, setSearch] = useState('');
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [expirations, setExpirations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   
   // Setup state
@@ -52,10 +53,13 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     setSessionProducts(filtered);
     
     const initialCounts: Record<string, number> = {};
+    const initialExpirations: Record<string, string> = {};
     filtered.forEach(p => {
       initialCounts[p.id] = p.stock;
+      initialExpirations[p.id] = p.validade || '';
     });
     setCounts(initialCounts);
+    setExpirations(initialExpirations);
     setStep('counting');
   };
 
@@ -80,6 +84,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     }
     const numValue = parseInt(value) || 0;
     setCounts(prev => ({ ...prev, [productId]: numValue }));
+  };
+
+  const handleExpirationChange = (productId: string, value: string) => {
+    if (!hasPermission('Gestão de Produtos', 'edit')) {
+      alert('Você não tem permissão para editar inventário.');
+      return;
+    }
+    setExpirations(prev => ({ ...prev, [productId]: value }));
   };
 
   const calculateTotals = () => {
@@ -126,21 +138,35 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         notes: `Inventário ${config.type} finalizado.`
       }, true); // skipFetch = true
 
-      // 2. Create Stock Movements for divergences
+      // 2. Create Stock Movements for divergences and update validades
       for (const p of sessionProducts) {
         const physical = counts[p.id] ?? p.stock;
-        if (physical !== p.stock) {
-          const diff = physical - p.stock;
-          await addStockMovement({
-            companyId: user?.companyId || '',
-            productId: p.id,
-            type: 'AJUSTE',
-            quantity: diff,
-            origin: `Ajuste de Inventário ${config.type}`,
-            date: new Date().toISOString(),
-            userId: user?.email || 'system',
-            userName: user?.name || 'Sistema'
-          }, true); // skipFetch = true
+        const currentValidade = expirations[p.id] || '';
+        
+        const stockChanged = physical !== p.stock;
+        const validadeChanged = currentValidade !== (p.validade || '');
+
+        if (stockChanged || validadeChanged) {
+          if (validadeChanged) {
+            await updateProduct({
+              ...p,
+              validade: currentValidade || undefined
+            });
+          }
+
+          if (stockChanged) {
+            const diff = physical - p.stock;
+            await addStockMovement({
+              companyId: user?.companyId || '',
+              productId: p.id,
+              type: 'AJUSTE',
+              quantity: diff,
+              origin: `Ajuste de Inventário ${config.type}`,
+              date: new Date().toISOString(),
+              userId: user?.email || 'system',
+              userName: user?.name || 'Sistema'
+            }, true); // skipFetch = true
+          }
         }
       }
 
@@ -389,6 +415,16 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                         <div className="text-center">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sistema</p>
                           <p className="text-sm font-black text-slate-600">{product.stock} {product.unit || 'un'}</p>
+                        </div>
+
+                        <div className="w-36">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Validade</p>
+                          <input 
+                            type="date"
+                            value={expirations[product.id] || ''}
+                            onChange={(e) => handleExpirationChange(product.id, e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center text-xs font-bold text-slate-700 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all"
+                          />
                         </div>
 
                         <div className="w-32">
