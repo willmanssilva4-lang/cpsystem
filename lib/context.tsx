@@ -1358,44 +1358,92 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addSystemUser = async (data: any, password?: string) => {
-    const dbPayload = {
-      username: data.username,
-      email: data.email,
-      full_name: data.fullName || data.full_name || data.username,
-      employee_id: data.employeeId || data.employee_id || null,
-      profile_id: data.profileId || data.profile_id || null,
-      store_id: data.storeId || data.store_id || 'Todas as Lojas',
-      active: data.status !== undefined ? (data.status === 'Ativo') : (data.active !== undefined ? data.active : true),
-      supervisor_code: data.supervisorCode || data.supervisor_code || null,
-      company_id: data.companyId || data.company_id || user?.companyId || null
-    };
-    await supabase.from('system_users').insert([dbPayload]);
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          password: password || '123456',
+          companyId: data.companyId || data.company_id || user?.companyId || null
+        }),
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to create user');
+      }
+    } catch (apiErr: any) {
+      console.warn('API signup failed, falling back to direct db insert:', apiErr);
+      const dbPayload = {
+        username: data.username,
+        email: data.email,
+        full_name: data.fullName || data.full_name || data.username,
+        employee_id: data.employeeId || data.employee_id || null,
+        profile_id: data.profileId || data.profile_id || null,
+        store_id: data.storeId || data.store_id || 'Todas as Lojas',
+        active: data.status !== undefined ? (data.status === 'Ativo') : (data.active !== undefined ? data.active : true),
+        supervisor_code: data.supervisorCode !== undefined ? data.supervisorCode : (data.supervisor_code !== undefined ? data.supervisor_code : null),
+        company_id: data.companyId || data.company_id || user?.companyId || null
+      };
+      await supabase.from('system_users').insert([dbPayload]);
+    }
     await fetchData();
   };
 
   const updateSystemUser = async (data: any, password?: string) => {
-    const dbPayload = {
-      username: data.username,
-      email: data.email,
-      full_name: data.fullName || data.full_name,
-      employee_id: data.employeeId || data.employee_id,
-      profile_id: data.profileId || data.profile_id,
-      store_id: data.storeId || data.store_id,
-      active: data.status !== undefined ? (data.status === 'Ativo') : data.active,
-      supervisor_code: data.supervisorCode || data.supervisor_code,
-      company_id: data.companyId || data.company_id
-    };
-    Object.keys(dbPayload).forEach(key => {
-      if ((dbPayload as any)[key] === undefined) {
-        delete (dbPayload as any)[key];
+    try {
+      const response = await fetch(`/api/admin/users/${data.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          password
+        }),
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to update user');
       }
-    });
-    await supabase.from('system_users').update(dbPayload).eq('id', data.id);
+    } catch (apiErr: any) {
+      console.warn('API update failed, falling back to direct db update:', apiErr);
+      const dbPayload = {
+        username: data.username,
+        email: data.email,
+        full_name: data.fullName || data.full_name,
+        employee_id: data.employeeId || data.employee_id,
+        profile_id: data.profileId || data.profile_id,
+        store_id: data.storeId || data.store_id,
+        active: data.status !== undefined ? (data.status === 'Ativo') : data.active,
+        supervisor_code: data.supervisorCode !== undefined ? data.supervisorCode : data.supervisor_code,
+        company_id: data.companyId || data.company_id
+      };
+      Object.keys(dbPayload).forEach(key => {
+        if ((dbPayload as any)[key] === undefined) {
+          delete (dbPayload as any)[key];
+        }
+      });
+      await supabase.from('system_users').update(dbPayload).eq('id', data.id);
+    }
     await fetchData();
   };
 
   const deleteSystemUser = async (id: string) => {
-    await supabase.from('system_users').delete().eq('id', id);
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to delete user');
+      }
+    } catch (apiErr: any) {
+      console.warn('API delete failed, falling back to direct db delete:', apiErr);
+      await supabase.from('system_users').delete().eq('id', id);
+    }
     await fetchData();
   };
 

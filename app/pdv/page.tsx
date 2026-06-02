@@ -670,7 +670,10 @@ export default function PDVPage() {
       }
       setShowAuthModal(false);
     } else {
-      alert('Código de autorização inválido ou usuário sem permissão!');
+      setCustomAlert({
+        message: 'Código de autorização inválido ou usuário sem permissão!',
+        type: 'error'
+      });
     }
   };
 

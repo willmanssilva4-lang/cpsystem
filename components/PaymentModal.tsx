@@ -450,7 +450,14 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                   )}
                 >
                   <span>{method.name}</span>
-                  <span className={cn("text-[10px] opacity-50", activeMethod === method.name ? "text-white" : "text-slate-400")}>F{index + 1}</span>
+                  <span className={cn(
+                    "text-[11px] px-2 py-0.5 rounded-md font-extrabold transition-colors font-mono",
+                    activeMethod === method.name 
+                      ? "bg-white/25 text-white border border-white/40" 
+                      : "bg-slate-200 text-slate-900 border border-slate-300 shadow-sm"
+                  )}>
+                    F{index + 1}
+                  </span>
                 </button>
               ))}
             </div>

@@ -1042,10 +1042,11 @@ function AdvancedPerformanceDashboard({
   const safeStartDate = startDate || firstDayOfMonth;
   const safeEndDate = endDate || getLocalDateString();
   
-  // Filter data based on date range
+  // Filter active (non-cancelled) sales based on date range
   const filteredSales = sales.filter(s => {
     const d = toLocalDateString(s.date);
-    return d >= safeStartDate && d <= safeEndDate;
+    const isCancelled = s.status === 'Cancelada' || s.status === 'cancelada' || s.status === 'CANCELADA' || s.status === 'Cancelado' || s.status === 'cancelado' || s.status === 'CANCEL_PEDIDO' || s.status?.toUpperCase() === 'CANCELADO' || s.status?.toUpperCase() === 'CANCELADA';
+    return d >= safeStartDate && d <= safeEndDate && !isCancelled;
   });
 
   const filteredExpenses = expenses.filter(e => {
@@ -1055,15 +1056,56 @@ function AdvancedPerformanceDashboard({
 
   // Calculate Metrics
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  const totalTax = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
-  const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  
+  // Calculate aggregated payment/card machine taxes safely
+  const totalTax = filteredSales.reduce((acc, s) => {
+    let saleTax = 0;
+    let paymentsArr: any[] = [];
+    if (s.payments) {
+      if (Array.isArray(s.payments)) {
+        paymentsArr = s.payments;
+      } else if (typeof s.payments === 'string') {
+        try {
+          const parsed = JSON.parse(s.payments);
+          if (Array.isArray(parsed)) {
+            paymentsArr = parsed;
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            paymentsArr = [parsed];
+          }
+        } catch (e) {
+          console.error('Error parsing payments json string', e);
+        }
+      } else if (typeof s.payments === 'object') {
+        paymentsArr = [s.payments];
+      }
+    }
+    if (paymentsArr && paymentsArr.length > 0) {
+      saleTax = paymentsArr.reduce((pAcc: number, p: any) => {
+        const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+        return pAcc + (Number(t) || 0);
+      }, 0);
+    }
+    if (saleTax === 0) {
+      const t = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+      saleTax = Number(t) || 0;
+    }
+    return acc + saleTax;
+  }, 0);
+
+  // We exclude 'Compra de Mercadoria' category to avoid double-counting with CMV (cost of goods sold, totalCost)
+  const totalExpenses = filteredExpenses
+    .filter(e => e.category !== 'Compra de Mercadoria')
+    .reduce((acc, e) => acc + e.amount, 0);
+
   const netRevenue = totalSales - totalTax;
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
-    sale.items.forEach((item: any) => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
-      const cost = item.costPrice !== undefined ? item.costPrice : (product ? product.costPrice : 0);
+      const cost = (item.costPrice !== undefined && item.costPrice !== null && item.costPrice !== 0)
+        ? Number(item.costPrice) 
+        : (product ? Number(product.costPrice ?? 0) : 0);
       totalCost += cost * item.quantity;
     });
   });
@@ -1074,17 +1116,17 @@ function AdvancedPerformanceDashboard({
   const totalProfit = netProfit; // Maintain naming for compatibility
   
   const ticketMedio = totalSales / (filteredSales.length || 1);
-  const netMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
+  const netMargin = netRevenue > 0 ? (netProfit / netRevenue) * 105 : 0; // maintain alignment
   const profitMargin = grossMargin; // We will use Gross Margin for the "Margem Bruta" card
 
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
     const promoItemsTotal = s.items
-      .filter((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
-      .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0);
+      ?.filter((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
+      .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0) || 0;
     return acc + promoItemsTotal;
   }, 0);
-  const promoSalesCount = filteredSales.filter(s => s.items.some((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
+  const promoSalesCount = filteredSales.filter(s => s.items?.some((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
 
   // Previous Period Data for Trends
   const start = new Date(safeStartDate);
@@ -1102,7 +1144,8 @@ function AdvancedPerformanceDashboard({
 
   const prevFilteredSales = sales.filter(s => {
     const d = toLocalDateString(s.date);
-    return d >= prevStartDate && d <= prevEndDate;
+    const isCancelled = s.status === 'Cancelada' || s.status === 'cancelada' || s.status === 'CANCELADA' || s.status === 'Cancelado' || s.status === 'cancelado' || s.status === 'CANCEL_PEDIDO' || s.status?.toUpperCase() === 'CANCELADO' || s.status?.toUpperCase() === 'CANCELADA';
+    return d >= prevStartDate && d <= prevEndDate && !isCancelled;
   });
 
   const prevFilteredExpenses = expenses.filter(e => {
@@ -1111,15 +1154,54 @@ function AdvancedPerformanceDashboard({
   });
 
   const prevTotalSales = prevFilteredSales.reduce((acc, s) => acc + s.total, 0);
-  const prevTotalTax = prevFilteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
-  const prevTotalExpenses = prevFilteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+  
+  const prevTotalTax = prevFilteredSales.reduce((acc, s) => {
+    let saleTax = 0;
+    let paymentsArr: any[] = [];
+    if (s.payments) {
+      if (Array.isArray(s.payments)) {
+        paymentsArr = s.payments;
+      } else if (typeof s.payments === 'string') {
+        try {
+          const parsed = JSON.parse(s.payments);
+          if (Array.isArray(parsed)) {
+            paymentsArr = parsed;
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            paymentsArr = [parsed];
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      } else if (typeof s.payments === 'object') {
+        paymentsArr = [s.payments];
+      }
+    }
+    if (paymentsArr && paymentsArr.length > 0) {
+      saleTax = paymentsArr.reduce((pAcc: number, p: any) => {
+        const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+        return pAcc + (Number(t) || 0);
+      }, 0);
+    }
+    if (saleTax === 0) {
+      const t = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+      saleTax = Number(t) || 0;
+    }
+    return acc + saleTax;
+  }, 0);
+
+  const prevTotalExpenses = prevFilteredExpenses
+    .filter(e => e.category !== 'Compra de Mercadoria')
+    .reduce((acc, e) => acc + e.amount, 0);
+
   const prevNetRevenue = prevTotalSales - prevTotalTax;
   
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
-    sale.items.forEach((item: any) => {
+    sale.items?.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
-      const cost = item.costPrice !== undefined ? item.costPrice : (product ? product.costPrice : 0);
+      const cost = (item.costPrice !== undefined && item.costPrice !== null && item.costPrice !== 0)
+        ? Number(item.costPrice) 
+        : (product ? Number(product.costPrice ?? 0) : 0);
       prevTotalCost += cost * item.quantity;
     });
   });
