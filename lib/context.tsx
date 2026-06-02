@@ -19,6 +19,8 @@ import {
   Maquininha,
   Advertisement
 } from './types';
+import { normalizeArray } from './utils';
+
 
 interface ERPContextType {
   user: User | null;
@@ -480,12 +482,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           startDate: p.start_date || p.startDate || '',
           endDate: p.end_date || p.endDate || '',
           targetType: p.target_type || p.targetType || 'PRODUCT',
-          targetId: p.target_id || p.targetId || '',
+          targetId: p.target_type === 'PRODUCT' ? normalizeArray(p.target_id || p.targetId) : (p.target_id || p.targetId || ''),
           productPrices: p.product_prices || p.productPrices || {},
           discountValue: p.discount_value !== undefined ? p.discount_value : p.discountValue,
           buyQuantity: p.buy_quantity !== undefined ? p.buy_quantity : p.buyQuantity,
           payQuantity: p.pay_quantity !== undefined ? p.pay_quantity : p.payQuantity,
-          comboItems: p.combo_items || p.comboItems || [],
+          comboItems: normalizeArray(p.combo_items || p.comboItems),
           comboPrice: p.combo_price !== undefined ? p.combo_price : p.comboPrice,
           applyAutomatically: p.apply_automatically !== undefined ? p.apply_automatically : p.applyAutomatically,
           onlyForClubMembers: p.only_for_club_members !== undefined ? p.only_for_club_members : p.onlyForClubMembers,

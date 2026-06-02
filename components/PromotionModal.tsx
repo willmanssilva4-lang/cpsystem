@@ -30,6 +30,52 @@ interface PromotionModalProps {
 export default function PromotionModal({ isOpen, onClose, promotion }: PromotionModalProps) {
   const { addPromotion, updatePromotion, products, categorias, setCustomAlert } = useERP();
   
+  // Helper to normalize array-like fields that might have been saved as stringified JSON or comma-separated lists
+  const normalizeArray = (val: any): string[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.filter(Boolean).map(String);
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(Boolean).map(String);
+          }
+        } catch (e) {
+          console.error("Error parsing stringified promotion array", e);
+        }
+      }
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      if (trimmed) return [trimmed];
+    }
+    return [];
+  };
+
+  const getInitialTargetId = () => {
+    if (!promotion) return '';
+    if (promotion.targetType === 'PRODUCT') {
+      return normalizeArray(promotion.targetId);
+    }
+    if (Array.isArray(promotion.targetId)) {
+      return promotion.targetId[0] || '';
+    }
+    if (typeof promotion.targetId === 'string') {
+      const trimmed = promotion.targetId.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed[0] || '';
+          }
+        } catch (e) {}
+      }
+    }
+    return promotion.targetId || '';
+  };
+
   const [formData, setFormData] = useState<Partial<Promotion>>(
     promotion ? {
       ...promotion,
@@ -38,6 +84,8 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
       onlyForClubMembers: promotion.onlyForClubMembers || false,
       applyAutomatically: promotion.applyAutomatically ?? true,
       productPrices: promotion.productPrices || {},
+      targetId: getInitialTargetId(),
+      comboItems: normalizeArray(promotion.comboItems),
     } : {
       name: '',
       type: 'PRICE',
@@ -63,14 +111,12 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<Product[]>(() => {
     if (promotion) {
-      if (promotion.targetType === 'PRODUCT' && promotion.targetId) {
-        if (Array.isArray(promotion.targetId)) {
-          return promotion.targetId.map(id => products.find(p => p.id === id)).filter(Boolean) as Product[];
-        }
-        const product = products.find(p => p.id === promotion.targetId);
-        return product ? [product] : [];
-      } else if (promotion.type === 'COMBO' && promotion.comboItems) {
-        return promotion.comboItems.map(id => products.find(p => p.id === id)).filter(Boolean) as Product[];
+      if (promotion.targetType === 'PRODUCT') {
+        const ids = normalizeArray(promotion.targetId);
+        return ids.map(id => products.find(p => p.id === id)).filter(Boolean) as Product[];
+      } else if (promotion.type === 'COMBO') {
+        const ids = normalizeArray(promotion.comboItems);
+        return ids.map(id => products.find(p => p.id === id)).filter(Boolean) as Product[];
       }
     }
     return [];
@@ -213,7 +259,7 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
             </div>
             <div>
               <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-                {promotion ? 'EDITAR OBERTA ESPECIAL' : 'NOVA PROMOÇÃO'}
+                {promotion ? 'EDITAR OFERTA ESPECIAL' : 'NOVA PROMOÇÃO'}
                 <span className="text-xs bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider scale-95">PDV</span>
               </h2>
               <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-0.5">
