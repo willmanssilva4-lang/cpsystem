@@ -490,7 +490,11 @@ export default function PDVPage() {
       setIsNavigatingCart(false);
       setShowPaymentModal(false);
       setCompletedSaleSelection('new_sale');
-      setCompletedSale(success);
+      setCompletedSale({
+        ...success,
+        change: paymentData.change,
+        cashReceived: paymentData.cashReceived
+      });
       setSelectedCustomer(null);
     }
   };
@@ -2387,6 +2391,34 @@ export default function PDVPage() {
             <p className="text-brand-text-sec font-medium mb-6">
               Cupom: <span className="font-black text-brand-blue">#{completedSale.id.substring(0, 8).toUpperCase()}</span>
             </p>
+
+            {(() => {
+              const hasDinheiro = completedSale.payments?.some((p: any) => p.method?.toLowerCase().includes('dinheiro')) || completedSale.paymentMethod?.toLowerCase().includes('dinheiro');
+              const change = completedSale.change || 0;
+              const totalCash = completedSale.payments?.filter((p: any) => p.method?.toLowerCase().includes('dinheiro')).reduce((acc: number, p: any) => acc + (p.amount || 0), 0) || 0;
+              const cashReceived = completedSale.cashReceived || (totalCash > 0 ? (totalCash + change) : 0);
+
+              if (hasDinheiro && change > 0) {
+                return (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 space-y-2 text-left animate-in slide-in-from-bottom duration-300">
+                    <div className="flex justify-between items-center text-sm font-medium text-slate-500">
+                      <span>Total da Venda</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {completedSale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm font-medium text-slate-500">
+                      <span>Valor Pago (Dinheiro)</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {cashReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="h-px bg-slate-200 my-2" />
+                    <div className="flex justify-between items-center text-base font-black uppercase tracking-wider text-brand-green">
+                      <span>Troco</span>
+                      <span>R$ {change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             
             <div className="grid grid-cols-1 gap-3">
               <button 

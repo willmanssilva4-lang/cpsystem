@@ -41,6 +41,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const totalPaid = Math.round(payments.reduce((acc, p) => acc + p.amount, 0) * 100) / 100;
   const remainingAmount = Math.max(0, Math.round((totalToPay - totalPaid) * 100) / 100);
   const change = Math.max(0, Math.round((receivedAmount - remainingAmount) * 100) / 100);
+  const dynamicRemaining = Math.max(0, Math.round((remainingAmount - (receivedAmount || 0)) * 100) / 100);
 
   const selectedMethodObj = activeMethods.find(m => m.name === activeMethod);
   const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito' || selectedMethodObj?.type === 'Pix';
@@ -246,6 +247,14 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     // Actually, it's better to update it on finalize
   }, [voucherCode, getVoucherByCode, remainingAmount, activeMethod]);
 
+  const isDinheiroMethod = useCallback((methodName: string) => {
+    if (!methodName) return false;
+    const nameLower = methodName.toLowerCase();
+    if (nameLower === 'dinheiro' || nameLower === 'dinheiro em espécie' || nameLower === 'espécie' || nameLower === 'especie') return true;
+    const methodObj = activeMethods.find(m => m.name === methodName);
+    return methodObj?.type === 'Dinheiro';
+  }, [activeMethods]);
+
   const handleFinalize = useCallback(async () => {
     const current = stateRef.current;
     if (current.remainingAmount > 0) {
@@ -272,15 +281,19 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       }
     }
 
+    const totalCashPaid = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
+    const changeAmount = current.change || lastChange;
+
     onFinalize({
       payments: current.payments,
       discount: current.discount,
       subtotal: current.subtotal,
       total: current.totalToPay,
       totalPaid: current.totalPaid,
-      change: current.change
+      change: changeAmount,
+      cashReceived: totalCashPaid > 0 ? (totalCashPaid + changeAmount) : 0
     });
-  }, [onFinalize, getVoucherByCode, updateVoucher]);
+  }, [onFinalize, getVoucherByCode, updateVoucher, lastChange, isDinheiroMethod]);
 
   const confirmAndFinalize = useCallback(() => {
     const current = stateRef.current;
@@ -290,11 +303,12 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       return;
     }
 
-    if (current.isCard && !current.selectedMaquininhaId && current.filteredMaquininhas.length > 0) {
+    // Auto-select card machine if it's card payment and none is selected
+    let maquininhaId = current.selectedMaquininhaId;
+    if (current.isCard && !maquininhaId && current.filteredMaquininhas.length > 0) {
       const targetMaquininha = current.filteredMaquininhas[current.highlightedMaquininhaIndex] || current.filteredMaquininhas[0];
       if (targetMaquininha) {
-        selectMaquininha(targetMaquininha);
-        return;
+        maquininhaId = targetMaquininha.id;
       }
     }
 
@@ -306,31 +320,48 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     const amountToApply = Math.round((inputValue || current.receivedAmount || current.remainingAmount) * 100) / 100;
 
     if (amountToApply >= current.remainingAmount) {
-      const partTaxPercentage = current.currentTaxPercentage;
+      // Recalculate tax for this payment part
+      let partTaxPercentage = 0;
+      if (current.isCard && maquininhaId) {
+        const maq = activeMaquininhas.find(m => m.id === maquininhaId);
+        if (maq) {
+          if (selectedMethodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
+          else if (selectedMethodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
+          else if (selectedMethodObj?.type === 'Pix' || current.activeMethod === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
+        }
+      } else if (selectedMethodObj) {
+        partTaxPercentage = Number(selectedMethodObj.taxPercentage || 0);
+      }
+
       const partTaxAmount = Math.round(((current.remainingAmount * partTaxPercentage) / 100) * 100) / 100;
       const partNetAmount = Math.round((current.remainingAmount - partTaxAmount) * 100) / 100;
 
       const finalPayment = {
         method: current.activeMethod,
         amount: current.remainingAmount,
-        maquininhaId: current.isCard ? current.selectedMaquininhaId : null,
+        maquininhaId: current.isCard ? maquininhaId : null,
         taxAmount: partTaxAmount,
         netAmount: partNetAmount,
         taxPercentage: partTaxPercentage
       };
       
+      const finalChange = Math.max(0, Math.round((amountToApply - current.remainingAmount) * 100) / 100);
+      const prevCash = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
+      const cashReceived = isDinheiroMethod(current.activeMethod) ? (prevCash + amountToApply) : prevCash;
+
       onFinalize({
         payments: [...current.payments, finalPayment],
         discount: current.discount,
         subtotal: current.subtotal,
         total: current.totalToPay,
         totalPaid: current.totalPaid + current.remainingAmount,
-        change: Math.round((amountToApply - current.remainingAmount) * 100) / 100
+        change: finalChange,
+        cashReceived: cashReceived > 0 ? cashReceived : 0
       });
     } else {
       addPayment();
     }
-  }, [handleFinalize, selectMaquininha, addPayment, onFinalize]);
+  }, [handleFinalize, addPayment, onFinalize, activeMaquininhas, selectedMethodObj, isDinheiroMethod]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -379,11 +410,12 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           <div>
             <h2 className="text-sm font-black uppercase italic text-slate-400">Total da Venda</h2>
             <p className="text-4xl font-black italic">R$ {totalToPay.toFixed(2)}</p>
-            {remainingAmount > 0 && (
-              <p className="text-sm font-bold text-brand-blue mt-1 uppercase italic">Faltando: R$ {remainingAmount.toFixed(2)}</p>
-            )}
-            {remainingAmount === 0 && (
-              <p className="text-sm font-bold text-brand-green mt-1 uppercase italic">Total Pago</p>
+            {dynamicRemaining > 0 ? (
+              <p className="text-sm font-bold text-brand-blue mt-1 uppercase italic">Faltando: R$ {dynamicRemaining.toFixed(2)}</p>
+            ) : (
+              <p className="text-sm font-bold text-brand-green mt-1 uppercase italic">
+                {remainingAmount === 0 ? "Total Pago" : "Total Coberto"}
+              </p>
             )}
           </div>
           <div className="text-right">
@@ -601,8 +633,12 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         <div className="p-6 bg-slate-50 flex justify-between items-center">
           <button onClick={onClose} className="px-8 py-4 bg-slate-200 rounded-xl font-black italic uppercase">Cancelar (ESC)</button>
           <div className="flex items-center gap-4">
-            {remainingAmount > 0 && (
-              <span className="text-sm font-black italic uppercase text-slate-400">Faltam R$ {remainingAmount.toFixed(2)}</span>
+            {dynamicRemaining > 0 ? (
+              <span className="text-sm font-black italic uppercase text-slate-400">Faltam R$ {dynamicRemaining.toFixed(2)}</span>
+            ) : (
+              <span className="text-sm font-black italic uppercase text-brand-green">
+                {remainingAmount === 0 ? "Total Pago" : "Total Coberto"}
+              </span>
             )}
             <button 
               onClick={confirmAndFinalize} 
