@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus } from 'lucide-react';
 import { Product } from '@/lib/types';
@@ -34,6 +34,17 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [sessionProducts, setSessionProducts] = useState<Product[]>([]);
   const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
   const [rotativoSearch, setRotativoSearch] = useState('');
+  const [showRotativoWarning, setShowRotativoWarning] = useState(false);
+
+  const rotativoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (config.type === 'Rotativo') {
+      setTimeout(() => {
+        rotativoInputRef.current?.focus();
+      }, 150);
+    }
+  }, [config.type]);
 
   const handleStartSession = () => {
     let filtered = [...products];
@@ -44,7 +55,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       filtered = filtered.filter(p => p.subcategoria_id && subIds.includes(p.subcategoria_id));
     } else if (config.type === 'Rotativo') {
       if (selectedRotativoProducts.length === 0) {
-        alert('Selecione pelo menos um produto para o inventário rotativo.');
+        setShowRotativoWarning(true);
         return;
       }
       filtered = [...selectedRotativoProducts];
@@ -281,21 +292,114 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                 {config.type === 'Rotativo' && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Adicionar Produtos</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                        Adicionar Produtos
+                        <span className="text-[9px] lowercase font-semibold text-brand-blue">(bipar código ou pesquisar)</span>
+                      </label>
                       <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input 
+                          ref={rotativoInputRef}
                           type="text"
-                          placeholder="Buscar por nome ou SKU..."
+                          placeholder="Bipe o código ou busque por nome/SKU..."
                           value={rotativoSearch}
-                          onChange={(e) => setRotativoSearch(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRotativoSearch(val);
+                            const query = val.trim().toLowerCase();
+                            if (query.length >= 6) {
+                              const match = products.find(p => 
+                                (p.barcode && p.barcode.toLowerCase() === query) ||
+                                (p.sku && p.sku.toLowerCase() === query)
+                              );
+                              if (match) {
+                                setSelectedRotativoProducts(prev => {
+                                  if (!prev.some(sp => sp.id === match.id)) {
+                                    return [...prev, match];
+                                  }
+                                  return prev;
+                                });
+                                setRotativoSearch('');
+                                setTimeout(() => {
+                                  rotativoInputRef.current?.focus();
+                                }, 30);
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const query = rotativoSearch.trim().toLowerCase();
+                              if (!query) return;
+
+                              // 1. Try exact barcode or SKU match
+                              const exactMatch = products.find(p => 
+                                (p.barcode && p.barcode.toLowerCase() === query) ||
+                                (p.sku && p.sku.toLowerCase() === query)
+                              );
+                              if (exactMatch) {
+                                setSelectedRotativoProducts(prev => {
+                                  if (!prev.some(sp => sp.id === exactMatch.id)) {
+                                    return [...prev, exactMatch];
+                                  }
+                                  return prev;
+                                });
+                                setRotativoSearch('');
+                                setTimeout(() => {
+                                  rotativoInputRef.current?.focus();
+                                }, 30);
+                                return;
+                              }
+
+                              // 2. Try exact name match
+                              const nameMatch = products.find(p => p.name.toLowerCase() === query);
+                              if (nameMatch) {
+                                setSelectedRotativoProducts(prev => {
+                                  if (!prev.some(sp => sp.id === nameMatch.id)) {
+                                    return [...prev, nameMatch];
+                                  }
+                                  return prev;
+                                });
+                                setRotativoSearch('');
+                                setTimeout(() => {
+                                  rotativoInputRef.current?.focus();
+                                }, 30);
+                                return;
+                              }
+
+                              // 3. Match the first filtered item
+                              const filtered = products
+                                .filter(p => !selectedRotativoProducts.find(sp => sp.id === p.id))
+                                .filter(p => 
+                                  p.name.toLowerCase().includes(query) || 
+                                  p.sku.toLowerCase().includes(query) ||
+                                  (p.barcode && p.barcode.toLowerCase().includes(query))
+                                );
+                              if (filtered.length > 0) {
+                                setSelectedRotativoProducts(prev => {
+                                  if (!prev.some(sp => sp.id === filtered[0].id)) {
+                                    return [...prev, filtered[0]];
+                                  }
+                                  return prev;
+                                });
+                                setRotativoSearch('');
+                                setTimeout(() => {
+                                  rotativoInputRef.current?.focus();
+                                }, 30);
+                              }
+                            }
+                          }}
                           className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
                         />
                         {rotativoSearch && (
                           <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-10 max-h-48 overflow-y-auto">
                             {products
                               .filter(p => !selectedRotativoProducts.find(sp => sp.id === p.id))
-                              .filter(p => p.name.toLowerCase().includes(rotativoSearch.toLowerCase()) || p.sku.toLowerCase().includes(rotativoSearch.toLowerCase()))
+                              .filter(p => 
+                                p.name.toLowerCase().includes(rotativoSearch.toLowerCase()) || 
+                                p.sku.toLowerCase().includes(rotativoSearch.toLowerCase()) ||
+                                (p.barcode && p.barcode.toLowerCase().includes(rotativoSearch.toLowerCase()))
+                              )
                               .slice(0, 10)
                               .map(p => (
                                 <button
@@ -304,12 +408,18 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                                   onClick={() => {
                                     setSelectedRotativoProducts(prev => [...prev, p]);
                                     setRotativoSearch('');
+                                    setTimeout(() => {
+                                      rotativoInputRef.current?.focus();
+                                    }, 30);
                                   }}
                                   className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
                                 >
                                   <div>
                                     <div className="text-sm font-bold text-slate-700">{p.name}</div>
-                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">SKU: {p.sku}</div>
+                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex gap-2">
+                                      <span>SKU: {p.sku}</span>
+                                      {p.barcode && <span>• EAN: {p.barcode}</span>}
+                                    </div>
                                   </div>
                                   <div className="text-brand-blue">
                                     <Plus size={16} />
@@ -327,7 +437,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
                             <div className="truncate pr-4">
                               <div className="text-xs font-bold text-slate-700 truncate">{p.name}</div>
-                              <div className="text-[9px] text-slate-400 font-black uppercase tracking-widest">SKU: {p.sku}</div>
+                              <div className="text-[9px] text-slate-400 font-black uppercase tracking-widest flex gap-2">
+                                <span>SKU: {p.sku}</span>
+                                {p.barcode && <span>• EAN: {p.barcode}</span>}
+                              </div>
                             </div>
                             <button
                               type="button"
@@ -566,6 +679,28 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           </div>
         )}
       </div>
+
+      {showRotativoWarning && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] p-8 max-w-sm w-full border border-slate-200 shadow-2xl space-y-6 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+              <AlertCircle size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Aviso de Configuração</h3>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed">
+                Selecione pelo menos um produto para o inventário rotativo.
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowRotativoWarning(false)}
+              className="w-full bg-brand-blue hover:bg-brand-blue/95 text-white py-3 rounded-2xl font-black uppercase italic text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
