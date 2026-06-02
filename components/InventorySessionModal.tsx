@@ -182,9 +182,36 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   const { totalDivergenceValue, itemsCounted, itemsWithDivergence } = calculateTotals();
 
+  const handleKeyDownMove = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter') {
+      const activeEl = document.activeElement;
+      if (activeEl instanceof HTMLInputElement) {
+        const container = e.currentTarget;
+        const inputs = Array.from(
+          container.querySelectorAll('input:not([type="hidden"]):not([disabled])')
+        ) as HTMLInputElement[];
+        
+        const currentIndex = inputs.indexOf(activeEl);
+        if (currentIndex !== -1) {
+          e.preventDefault();
+          const nextInput = inputs[currentIndex + 1];
+          if (nextInput) {
+            nextInput.focus();
+            nextInput.select?.();
+          } else {
+            activeEl.blur();
+          }
+        }
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-5xl h-[90vh] rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+      <div 
+        onKeyDown={handleKeyDownMove}
+        className="bg-white w-full max-w-5xl h-[90vh] rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+      >
         
         {/* Header */}
         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
