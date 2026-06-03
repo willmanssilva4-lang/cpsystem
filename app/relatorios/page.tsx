@@ -8373,17 +8373,19 @@ function StockProfitReport() {
 
   return (
     <div className="space-y-6">
-      <div className="p-8 rounded-3xl bg-emerald-50 border border-emerald-100 text-center">
-        <TrendingUp size={48} className="mx-auto text-emerald-600 mb-4" />
-        <h4 className="text-xl font-bold text-slate-800">Lucro no Estoque</h4>
-        <p className="text-sm text-slate-500 mt-2">Projeção de lucro bruto baseado no saldo atual de estoque e preços de venda.</p>
+      <div className="p-10 rounded-3xl bg-emerald-50 border border-emerald-100/50 text-center shadow-inner">
+        <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+          <TrendingUp size={32} className="text-emerald-600" />
+        </div>
+        <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Lucro no Estoque</h4>
+        <p className="text-sm text-emerald-800/70 mt-2 font-medium max-w-lg mx-auto">Projeção detalhada de lucro bruto baseada no seu saldo atual de estoque.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Card 1: Custo Total em Estoque */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+          className="bg-white p-7 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[150px] relative overflow-hidden transition-all hover:shadow-md"
         >
           <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
             <DollarSign size={140} className="text-slate-900" />
@@ -8407,7 +8409,7 @@ function StockProfitReport() {
         {/* Card 2: Venda Total Prevista */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+          className="bg-white p-7 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[150px] relative overflow-hidden transition-all hover:shadow-md"
         >
           <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
             <TrendingUp size={140} className="text-slate-900" />
@@ -8431,7 +8433,7 @@ function StockProfitReport() {
         {/* Card 3: Lucro Bruto Potencial */}
         <motion.div 
           whileHover={{ y: -4 }}
-          className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-all"
+          className="bg-white p-7 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[150px] relative overflow-hidden transition-all hover:shadow-md"
         >
           <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
             <Percent size={140} className="text-slate-900" />
@@ -8523,15 +8525,15 @@ function StockProfitReport() {
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50">
+        <table className="w-full text-left border-collapse border border-slate-100">
+          <thead className="bg-slate-50/50">
             <tr>
-              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Produto</th>
-              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Estoque</th>
-              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Custo Total</th>
-              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Venda Total</th>
-              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-right">Lucro Prev.</th>
-              <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest text-center">Margem</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100">Produto</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-center">Estoque</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-right">Custo Total</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-right">Venda Total</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-right">Lucro Prev.</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-center">Margem</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
