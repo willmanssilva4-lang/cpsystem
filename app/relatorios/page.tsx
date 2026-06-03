@@ -6971,10 +6971,13 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
     .map(l => {
       const product = products.find(p => p.id === l.productId);
       const expiryDate = new Date(l.validade);
-      const expiryUTC = Date.UTC(expiryDate.getUTCFullYear(), expiryDate.getUTCMonth(), expiryDate.getUTCDate());
+      const isInvalidDate = isNaN(expiryDate.getTime());
+      const expiryUTC = isInvalidDate ? 0 : Date.UTC(expiryDate.getUTCFullYear(), expiryDate.getUTCMonth(), expiryDate.getUTCDate());
       const now = new Date();
       const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-      const daysToExpiry = Math.floor((expiryUTC - todayUTC) / (1000 * 60 * 60 * 24));
+      const daysToExpiry = isInvalidDate ? 999 : Math.floor((expiryUTC - todayUTC) / (1000 * 60 * 60 * 24));
+      
+      console.log(`[ExpiryReport] product: ${product?.name}, validade: ${l.validade}, daysToExpiry: ${daysToExpiry}`);
       
       return {
         ...l,

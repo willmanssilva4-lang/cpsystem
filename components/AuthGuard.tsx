@@ -16,6 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const effectiveUser = user;
 
   useEffect(() => {
+    console.log('[AuthGuard] useEffect running. isAuthReady:', isAuthReady, 'user:', effectiveUser, 'pathname:', pathname);
     // Wait for auth to be ready before making decisions
     if (!isAuthReady) {
       return;
@@ -35,6 +36,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (target) {
       // If we are already on the target or navigating to it, don't trigger again
       if (pathname === target || redirectingToRef.current === target) {
+        console.log('[AuthGuard] Already on or redirecting to target:', target);
         return;
       }
 
@@ -46,15 +48,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       // This forces a full page load which is more robust for auth state transitions.
       window.location.replace(target);
     } else {
+      console.log('[AuthGuard] No redirect target needed.');
       redirectingToRef.current = null;
     }
   }, [user, router, pathname, isAuthReady, effectiveUser]);
 
   // Show loading state while auth is initializing or when explicitly loading
-  // Also show it when we are about to redirect (to avoid white screen or stuck state)
-  const isRedirecting = isAuthReady && ((!effectiveUser && pathname !== '/login') || (effectiveUser && pathname === '/login'));
-
-  if (!isAuthReady || isRedirecting) {
+  // No longer showing it for redirecting state to prevent stuck UI
+  if (!isAuthReady) {
     return (
       <div 
         id="auth-loading-screen" 
@@ -68,7 +69,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col items-center gap-4">
             <div id="loading-spinner" data-id="loading-spinner" className="w-12 h-12 border-4 border-white/20 border-t-brand-green rounded-full animate-spin" />
             <span id="loading-text" data-id="loading-text" className="text-white font-bold uppercase italic tracking-widest">
-              {!isAuthReady ? 'Carregando Sistema...' : 'Redirecionando...'}
+              Carregando Sistema...
             </span>
           </div>
         </div>
