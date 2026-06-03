@@ -4853,11 +4853,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
   
   filteredSales.forEach(sale => {
     const dateObj = new Date(sale.date);
-    const hour = parseInt(new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      hour12: false,
-      timeZone: 'America/Sao_Paulo'
-    }).format(dateObj), 10);
+    const hour = dateObj.getHours();
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     hourRevenues[hour] = (hourRevenues[hour] || 0) + (sale.total || 0);
     totalSales++;
@@ -6974,7 +6970,11 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
     .filter(l => l.saldoAtual > 0 && l.validade)
     .map(l => {
       const product = products.find(p => p.id === l.productId);
-      const daysToExpiry = l.validade ? Math.ceil((new Date(l.validade).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 999;
+      const expiryDate = new Date(l.validade);
+      const expiryUTC = Date.UTC(expiryDate.getUTCFullYear(), expiryDate.getUTCMonth(), expiryDate.getUTCDate());
+      const now = new Date();
+      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const daysToExpiry = Math.floor((expiryUTC - todayUTC) / (1000 * 60 * 60 * 24));
       
       return {
         ...l,

@@ -583,6 +583,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
+    let timeout: NodeJS.Timeout;
     const initAuth = async () => {
       console.log('[ERPProvider] initAuth started');
       try {
@@ -611,6 +612,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Force auth readiness after 5 seconds to prevent stuck loading screen
+    timeout = setTimeout(() => {
+      console.warn('[ERPProvider] initAuth timed out, forcing isAuthReady to true');
+      setIsAuthReady(true);
+    }, 5000);
+
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -627,7 +634,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+    };
   }, []);
 
   // Products
