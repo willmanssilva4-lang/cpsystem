@@ -467,6 +467,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!formData.sku || formData.sku.trim() === '') {
+      if (setCustomAlert) {
+        setCustomAlert({
+          type: 'error',
+          message: 'Aviso do Sistema: Produto não pode ser salvo: preencha o código de barra!'
+        });
+      }
+      return;
+    }
+    
     let finalCodigoMercadologico = formData.codigo_mercadologico;
     if (!finalCodigoMercadologico && formData.subcategoria_id) {
       const sub = subcategorias.find(s => s.id === formData.subcategoria_id);

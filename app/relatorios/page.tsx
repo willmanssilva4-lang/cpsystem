@@ -4483,7 +4483,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
         const sub = subcategorias.find(s => s.id === product.subcategoria_id);
         if (sub) {
           const cat = categorias.find(c => c.id === sub.categoria_id);
-          if (cat) category = cat.nome;
+          if (cat) category = cat.nome.trim(); // Trim category name
         }
       }
       const itemTotal = item.price * item.quantity;

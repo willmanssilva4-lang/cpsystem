@@ -34,7 +34,7 @@ import { cn, toLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function SalesByProductReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, customers, employees, systemUsers } = useERP();
+  const { sales, products, customers, employees, systemUsers, categorias, subcategorias } = useERP();
   
   // States for interactive filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,23 +80,26 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
 
     filteredSales.forEach(sale => {
       const saleTax = sale.taxAmount || 0;
-      const itemsSum = sale.items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0) || 1;
+      const itemsSum = (sale.items || []).reduce((acc: number, item: any) => acc + ((item.price || 0) * (item.quantity || 0)), 0) || 1;
 
-      sale.items.forEach((item: any) => {
-        if (!stats[item.productId]) {
-          stats[item.productId] = { qty: 0, total: 0, totalCost: 0, totalTax: 0 };
+      (sale.items || []).forEach((item: any) => {
+        const prodId = item.productId || item.product_id;
+        if (!prodId) return;
+
+        if (!stats[prodId]) {
+          stats[prodId] = { qty: 0, total: 0, totalCost: 0, totalTax: 0 };
         }
-        const product = products.find(p => p.id === item.productId);
+        const product = products.find(p => p.id === prodId);
         const cost = product ? (product.costPrice || 0) : 0;
-        const itemTotal = item.price * item.quantity;
+        const itemTotal = (item.price || 0) * (item.quantity || 0);
         
         // Distribution of tax corresponding to items value ratio
         const itemTax = (itemTotal / itemsSum) * saleTax;
 
-        stats[item.productId].qty += item.quantity;
-        stats[item.productId].total += itemTotal;
-        stats[item.productId].totalCost += cost * item.quantity;
-        stats[item.productId].totalTax += itemTax;
+        stats[prodId].qty += (item.quantity || 0);
+        stats[prodId].total += itemTotal;
+        stats[prodId].totalCost += cost * (item.quantity || 0);
+        stats[prodId].totalTax += (itemTax || 0);
       });
     });
 
@@ -111,7 +114,19 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         const name = product ? product.name : 'Produto Desconhecido';
         const brand = product ? product.brand || '' : '';
         const sku = product ? product.sku || '' : '';
-        const category = product ? product.category || 'Geral' : 'Geral';
+        const category = product ? (() => {
+          if (product.category && product.category !== 'Geral' && product.category !== 'PADRAO' && product.category !== 'PADRÃO') {
+            return product.category.trim();
+          }
+          if (product.subcategoria_id) {
+            const sub = subcategorias.find(s => String(s.id) === String(product.subcategoria_id));
+            if (sub && sub.categoria_id) {
+              const cat = categorias.find(c => String(c.id) === String(sub.categoria_id));
+              if (cat) return cat.nome.trim();
+            }
+          }
+          return 'Geral';
+        })() : 'Geral';
         const profit = stats.total - stats.totalCost - stats.totalTax;
         
         // Average actual markup / margin
@@ -211,12 +226,13 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
       const isWithinDate = d >= startDate && d <= endDate;
-      const hasItem = s.items.some((item: any) => item.productId === expandedProductId);
+      const hasItem = (s.items || []).some((item: any) => (item.productId || item.product_id) === expandedProductId);
       return isWithinDate && hasItem;
     });
 
     return matches.map(sale => {
-      const item = sale.items.find((it: any) => it.productId === expandedProductId)!;
+      const item = (sale.items || []).find((it: any) => (it.productId || it.product_id) === expandedProductId);
+      if (!item) return null;
       
       // Resolve operator/seller
       const user = systemUsers.find(u => u.id === sale.userId);
@@ -230,14 +246,16 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
       return {
         saleId: sale.id,
         date: sale.date,
-        quantity: item.quantity,
-        price: item.price,
-        itemTotal: item.price * item.quantity,
+        quantity: item.quantity || 0,
+        price: item.price || 0,
+        itemTotal: (item.price || 0) * (item.quantity || 0),
         sellerName,
         customerName,
         isClub: customer?.isClubMember || false
       };
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expandedProductId, sales, startDate, endDate, filteredAndSortedData, customers, employees, systemUsers]);
 
   // Pagination calculations
@@ -429,9 +447,9 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
             </div>
           </div>
 
-          <div className="h-68 w-full mt-2">
+          <div className="h-[270px] w-full mt-2">
             {topProductsChart.length > 0 ? (
-              <ResponsiveContainer id="rel-product-vendas-chart" width="100%" height="100%" debounce={1}>
+              <ResponsiveContainer id="rel-product-vendas-chart" width="100%" height={260} minHeight={250} debounce={1}>
                 <BarChart data={topProductsChart} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis 
@@ -502,40 +520,26 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         <div className="p-6 rounded-[2.2rem] border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
           <div>
             <h5 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight flex items-center gap-1.5">
-              <Layers size={14} className="text-brand-blue" />
-              Relevância de Categoria
+              <Package size={14} className="text-brand-blue" />
+              Top Produtos por Receita
             </h5>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Share comercial de cada grupo de produtos</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Top produtos com maior faturamento no período</p>
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-76 pr-1 mt-5 space-y-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
-            {useMemo(() => {
-              const catMap: Record<string, { total: number, qty: number }> = {};
-              filteredAndSortedData.forEach(item => {
-                const cat = item.category || 'Geral';
-                if (!catMap[cat]) {
-                  catMap[cat] = { total: 0, qty: 0 };
-                }
-                catMap[cat].total += item.total;
-                catMap[cat].qty += item.qty;
-              });
-
-              return Object.entries(catMap)
-                .map(([name, data]) => ({ name, ...data }))
-                .sort((a, b) => b.total - a.total);
-            }, [filteredAndSortedData]).map((cat, idx) => {
-              const percent = totals.revenue > 0 ? (cat.total / totals.revenue) * 100 : 0;
+            {filteredAndSortedData.slice(0, 10).map((prod, idx) => {
+              const percent = totals.revenue > 0 ? (prod.total / totals.revenue) * 100 : 0;
               const barColors = ['bg-brand-blue', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500', 'bg-rose-500', 'bg-teal-500'];
               const chosenBarColor = barColors[idx % barColors.length];
 
               return (
-                <div key={idx} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
+                <div key={prod.id} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-slate-700 truncate max-w-[150px] uppercase italic">
-                      {cat.name}
+                      {prod.name}
                     </span>
                     <span className="font-black text-slate-800 font-mono">
-                      {formatCurrency(cat.total)} <span className="text-[10px] text-slate-400">({Math.round(percent)}%)</span>
+                      {formatCurrency(prod.total)}
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -549,7 +553,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
             })}
 
             {filteredAndSortedData.length === 0 && (
-              <div className="py-20 text-center text-xs text-slate-300 uppercase italic">Nenhuma categoria encontrada</div>
+              <div className="py-20 text-center text-xs text-slate-300 uppercase italic">Nenhum produto encontrado</div>
             )}
           </div>
         </div>

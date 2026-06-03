@@ -642,9 +642,17 @@ export default function ProductsPage() {
         });
       }
     } else {
+      let errorMessage = 'Verifique se o Código SKU ou de Barras já está cadastrado em outro produto.';
+      if (typeof success === 'string') {
+        if (success.includes('null value in column "sku"') || success.includes('null_value_column_sku') || success.toLowerCase().includes('violates not-null constraint')) {
+          errorMessage = 'Produto não pode ser salvo: preencha o código de barra!';
+        } else {
+          errorMessage = success;
+        }
+      }
       setCustomAlert({
         type: 'error',
-        message: 'ERRO AO SALVAR: ' + (typeof success === 'string' ? success : 'Verifique se o Código SKU ou de Barras já está cadastrado em outro produto.')
+        message: 'Aviso do Sistema: ' + errorMessage
       });
     }
   };
