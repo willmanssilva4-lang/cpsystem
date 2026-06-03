@@ -317,7 +317,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      console.log('[DEBUG] [ERPProvider] Final supps_res:', supps_res?.length || 0, 'suppliers found');
       const depts_res = getData(2);
       const cats_res = getData(3);
       const subs_res = getData(4);

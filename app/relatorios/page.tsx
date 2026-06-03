@@ -4853,7 +4853,11 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
   
   filteredSales.forEach(sale => {
     const dateObj = new Date(sale.date);
-    const hour = dateObj.getHours();
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: 'America/Sao_Paulo'
+    }).format(dateObj), 10);
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     hourRevenues[hour] = (hourRevenues[hour] || 0) + (sale.total || 0);
     totalSales++;
@@ -5962,6 +5966,9 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       });
     });
 
+    // Normalize helper
+    const normalize = (str?: string) => (str || '').toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
     // Group sales and add to stats
     filteredSales.forEach(sale => {
       const pmId = sale.paymentMethod;
@@ -5969,8 +5976,9 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
 
       // If it doesn't match an active paymentMethod ID, maybe it matches by name or is historic
       if (!existing && pmId) {
-        // Try searching by name
-        const matchByName = safePaymentMethods.find(m => m.name.toLowerCase() === pmId.toLowerCase());
+        // Try searching by name (robustly)
+        const nPmId = normalize(pmId);
+        const matchByName = safePaymentMethods.find(m => normalize(m.name) === nPmId);
         if (matchByName) {
           existing = statsMap.get(matchByName.id);
         }
@@ -5980,7 +5988,11 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
 
       if (existing) {
         // Calculate fees for this transaction based on paymentMethod rules
-        const saleFee = (total * (existing.taxPercentage / 100)) + existing.taxFixed;
+        let saleFee = (total * (existing.taxPercentage / 100)) + existing.taxFixed;
+        if (sale.payments && Array.isArray(sale.payments)) {
+            const payment = sale.payments.find((p: any) => p.method === pmId || p.paymentMethodId === pmId);
+            if (payment && payment.taxAmount !== undefined) saleFee = payment.taxAmount;
+        }
         existing.count += 1;
         existing.grossAmount += total;
         existing.fees += saleFee;
@@ -5988,6 +6000,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
       } else {
         // Create an ad-hoc "Historic/Other" method grouping
         const name = pmId || 'Outros';
+        console.debug(`DEBUG: Adding ad-hoc payment method: "${name}" (ID: "${pmId}")`);
         const color = colors[statsMap.size % colors.length];
         
         // Let's check if we already created an ad-hoc grouping
