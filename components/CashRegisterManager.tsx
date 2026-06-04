@@ -53,6 +53,7 @@ export function CashRegisterManager({
   const [justifications, setJustifications] = useState<Record<string, string>>({});
   const [supervisorCode, setSupervisorCode] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Transaction state (Sangria/Suprimento)
   const [transType, setTransType] = useState<'Sangria' | 'Suprimento'>(
@@ -206,6 +207,7 @@ export function CashRegisterManager({
 
   const handleClose = async () => {
     if (!activeRegister) return;
+    setErrorMsg(null);
 
     const informedTotals = Object.entries(informedValues).map(([method, informed]) => ({
       method,
@@ -213,17 +215,21 @@ export function CashRegisterManager({
       system: systemTotals[method] || 0
     }));
 
-    await closeCashRegister(informedTotals, Object.values(justifications).join(' | '));
-    setIsClosing(false);
-    setIsAuthorized(false);
-    setSupervisorCode('');
-    setShowSuccessMessage(true);
-    
-    // Wait for 3 seconds before closing and redirecting
-    setTimeout(() => {
-      onSuccess?.();
-      onClose?.();
-    }, 3000);
+    const result = await closeCashRegister(informedTotals, Object.values(justifications).join(' | '));
+    if (result) {
+      setIsClosing(false);
+      setIsAuthorized(false);
+      setSupervisorCode('');
+      setShowSuccessMessage(true);
+      
+      // Wait for 3 seconds before closing and redirecting
+      setTimeout(() => {
+        onSuccess?.();
+        onClose?.();
+      }, 3000);
+    } else {
+      setErrorMsg('Erro ao salvar o fechamento do caixa no banco de dados. Verifique a conexão com o servidor ou tente fechar novamente.');
+    }
   };
 
   const checkAuthorization = () => {
@@ -642,6 +648,13 @@ export function CashRegisterManager({
                     <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20 flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                       <ShieldCheck className="w-4 h-4" />
                       <span className="text-xs font-bold">Autorizado por Supervisor</span>
+                    </div>
+                  )}
+
+                  {errorMsg && (
+                    <div className="p-3 bg-rose-500/10 rounded-lg border border-rose-500/20 flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span className="text-xs font-bold">{errorMsg}</span>
                     </div>
                   )}
 

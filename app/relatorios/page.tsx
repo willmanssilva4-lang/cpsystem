@@ -952,6 +952,64 @@ function AdvancedPerformanceDashboard({
           company_id: companyId
         });
       }
+
+      // Generate some mock cash register sessions over the last 30 days
+      const registersToInsert = [];
+      const closingsToInsert = [];
+      const cashMovementsToInsert = [];
+      
+      const registerCount = 5;
+      const randomUserSeeder = userIds.length > 0 ? userIds[Math.floor(Math.random() * userIds.length)] : null;
+      
+      for (let i = 0; i < registerCount; i++) {
+        const regId = generateUUID();
+        const regOpenedAt = new Date(todayDate);
+        regOpenedAt.setDate(todayDate.getDate() - (i * 6 + 2)); // spaced every 6 days
+        regOpenedAt.setHours(8, 0, 0, 0);
+        
+        const isClosed = i < 4; // 4 closed, 1 open
+        const opBal = 100 + i * 50;
+        
+        registersToInsert.push({
+          id: regId,
+          opening_balance: opBal,
+          status: isClosed ? 'closed' : 'open',
+          opened_at: regOpenedAt.toISOString(),
+          closed_at: isClosed ? new Date(regOpenedAt.getTime() + 10 * 60 * 60 * 1000).toISOString() : null, // closed 10 hrs later
+          operator_id: randomUserSeeder || null,
+          company_id: companyId
+        });
+        
+        if (isClosed) {
+          // Generate a closing for this register
+          const randomDiff = Math.random() < 0.3 ? (Math.random() < 0.5 ? -10 : 15) : 0; // 30% chance of a difference
+          const systemTot = opBal + 350 + i * 100;
+          const infTot = systemTot + randomDiff;
+          
+          closingsToInsert.push({
+            id: generateUUID(),
+            cash_register_id: regId,
+            total_system: systemTot,
+            total_informed: infTot,
+            total_difference: randomDiff,
+            justification: randomDiff !== 0 ? 'Diferença de troco' : 'Tudo ok',
+            closed_at: new Date(regOpenedAt.getTime() + 10 * 60 * 60 * 1000).toISOString(),
+            company_id: companyId,
+            approved_by: 'Gerente'
+          });
+          
+          // Also generate a suprimento/sangria for active register movements
+          cashMovementsToInsert.push({
+            id: generateUUID(),
+            cash_register_id: regId,
+            type: 'suprimento',
+            amount: 50,
+            reason: 'Reforço de troco',
+            created_at: new Date(regOpenedAt.getTime() + 30 * 60 * 1000).toISOString(), // 30 mins later
+            company_id: companyId
+          });
+        }
+      }
       
       if (salesToInsert.length > 0) {
         const { error: sE } = await supabase.from('sales').insert(salesToInsert);
@@ -966,6 +1024,21 @@ function AdvancedPerformanceDashboard({
       if (expensesToInsert.length > 0) {
         const { error: eE } = await supabase.from('expenses').insert(expensesToInsert);
         if (eE) throw eE;
+      }
+
+      if (registersToInsert.length > 0) {
+        const { error: rE } = await supabase.from('cash_registers').insert(registersToInsert);
+        if (rE) console.warn('Erro ao inserir cash_registers:', rE);
+      }
+      
+      if (closingsToInsert.length > 0) {
+        const { error: cE } = await supabase.from('cash_closings').insert(closingsToInsert);
+        if (cE) console.warn('Erro ao inserir cash_closings:', cE);
+      }
+      
+      if (cashMovementsToInsert.length > 0) {
+        const { error: cmE } = await supabase.from('cash_movements').insert(cashMovementsToInsert);
+        if (cmE) console.warn('Erro ao inserir cash_movements:', cmE);
       }
       
       if (fetchData) {
@@ -2318,7 +2391,7 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-6 rounded-3xl bg-slate-50 border border-brand-border min-w-0">
           <p className="text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest truncate">Caixas Abertos</p>
-          <h4 className="text-xl xl:text-2xl font-black text-brand-blue break-words leading-tight">{filteredRegisters.length}</h4>
+          <h4 className="text-xl xl:text-2xl font-black text-brand-blue break-words leading-tight">{filteredRegisters.filter(r => r.status === 'open').length}</h4>
         </div>
         <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 min-w-0">
           <p className="text-[10px] font-black text-rose-900/40 uppercase italic tracking-widest truncate">Caixas Fechados</p>
@@ -2351,7 +2424,7 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
                   {new Date(r.openedAt).toLocaleString('pt-BR')}
                 </td>
                 <td className="py-4 text-sm font-bold text-brand-text-main uppercase italic">
-                  {r.operatorId?.slice(0, 8) || 'SISTEMA'}
+                  {r.userId?.slice(0, 8) || 'SISTEMA'}
                 </td>
                 <td className="py-4">
                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic ${

@@ -949,7 +949,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       .update({
         status: 'closed',
         closed_at: new Date().toISOString(),
-        closed_by: user?.name || user?.id || 'Sistema'
+        closed_by: user?.id || null
       })
       .eq('id', activeRegister.id);
 
@@ -979,7 +979,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchData();
-    return !closingError;
+    return !registerError && !closingError;
   };
 
   const addCashMovement = async (movement: any) => {
