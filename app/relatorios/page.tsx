@@ -4548,7 +4548,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
           </div>
           <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Vendas por Categoria</h4>
           <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
-            Consolidação de faturamento por grupos de produtos e análise de market share do inventário ativo.
+            Consolidação de faturamento por grupos de produtos e análise de participação de mercado do inventário ativo.
           </p>
         </div>
       </div>
@@ -4660,7 +4660,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
             <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Market Share Categorias</h4>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Participação de Mercado das Categorias</h4>
                   <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão percentual do faturamento total</p>
                 </div>
                 <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
@@ -6477,7 +6477,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                       <th className="py-4 text-center text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Transações</th>
                       <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Bruto</th>
                       <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tarifário do Meio</th>
-                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Custos de Gateway</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Custos da Operadora</th>
                       <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Líquido</th>
                       <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Ticket Médio</th>
                       <th className="py-4 w-12"></th>
@@ -6658,7 +6658,8 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                       <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Meio</th>
                       <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Cliente</th>
                       <th className="py-4 text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Vendedor / Caixa</th>
-                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tarifa Gateway</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tarifário do Meio</th>
+                      <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Tarifa da Operadora</th>
                       <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Líquido</th>
                       <th className="py-4 text-right text-[10px] font-black text-brand-text-main/40 uppercase italic tracking-widest">Faturamento Bruto</th>
                       <th className="py-4 w-12 text-center"></th>
@@ -6671,15 +6672,22 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                       
                       // Look up current or fallback method mapping
                       const salePMId = sale.paymentMethod;
+                      const normalizeStr = (str?: string) => (str || '').toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                      const normSalePM = normalizeStr(salePMId);
                       const currentMethod = safePaymentMethods.find(m => m.id === salePMId) || 
-                                           safePaymentMethods.find(m => m.name.toLowerCase() === salePMId?.toLowerCase());
+                                           safePaymentMethods.find(m => normalizeStr(m.name) === normSalePM);
                       
                       const isExpanded = expandedSaleId === sale.id;
                       
-                      // Calculate dynamic transaction gateway fees
+                      // Use the actual stored tax amount if present, otherwise calculate it dynamically
+                      const storedFee = sale.taxAmount !== undefined ? sale.taxAmount : 0;
+                      
+                      // Calculate dynamic transaction gateway fees as fallback
                       const taxPct = currentMethod?.taxPercentage || 0;
                       const taxFix = currentMethod?.taxFixed || 0;
-                      const calculatedFee = (sale.total * (taxPct / 100)) + taxFix;
+                      const fallbackFee = (sale.total * (taxPct / 100)) + taxFix;
+                      
+                      const calculatedFee = (storedFee > 0) ? storedFee : fallbackFee;
                       const calculatedNet = sale.total - calculatedFee;
 
                       const pmName = currentMethod ? currentMethod.name : (sale.paymentMethod || 'Outros');
@@ -6722,6 +6730,18 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                               {seller ? (seller.full_name || seller.username) : 'Sistema'}
                             </td>
 
+                            {/* Tarifário do Meio (percentage/fixed) */}
+                            <td className="py-4 text-right text-[10px] font-bold text-slate-500 uppercase italic">
+                              {taxPct > 0 || taxFix > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="font-mono text-[10px] font-bold text-slate-600">{taxPct}%</span>
+                                  {taxFix > 0 ? <span className="text-[8px] text-slate-400">+ R$ {taxFix.toFixed(2)}</span> : null}
+                                </div>
+                              ) : (
+                                <span className="text-slate-300">Isento</span>
+                              )}
+                            </td>
+
                             {/* Calculated Fee for transaction */}
                             <td className="py-4 text-right">
                               <span className="text-xs font-bold text-rose-600 font-mono">
@@ -6752,7 +6772,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                           {/* Expanded Order Items Row */}
                           {isExpanded && (
                             <tr className="bg-slate-50/40">
-                              <td colSpan={9} className="py-4 px-6 md:px-10 border-t border-b border-slate-100">
+                              <td colSpan={10} className="py-4 px-6 md:px-10 border-t border-b border-slate-100">
                                 <div className="space-y-3">
                                   <div className="flex items-center gap-2">
                                     <ShoppingCart size={13} className="text-brand-blue" />
@@ -6787,7 +6807,7 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                       );
                     }) : (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-slate-400 text-xs font-black uppercase italic">
+                        <td colSpan={10} className="py-12 text-center text-slate-400 text-xs font-black uppercase italic">
                           Nenhuma transação financeira corresponde aos filtros selecionados.
                         </td>
                       </tr>

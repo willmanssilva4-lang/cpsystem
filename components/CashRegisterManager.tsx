@@ -32,7 +32,8 @@ export function CashRegisterManager({
     addCashMovement,
     sales,
     cashMovements,
-    user
+    user,
+    paymentMethods
   } = useERP();
 
   const [isOpening, setIsOpening] = useState(false);
@@ -86,7 +87,56 @@ export function CashRegisterManager({
   const systemTotals = useMemo(() => {
     if (!activeRegister) return {};
     
-    const registerSales = sales.filter(s => s.cashRegisterId === activeRegister.id);
+    // Normalization helper for accurate string matching
+    const normalizeStr = (str?: string) => {
+      return (str || '')
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    };
+
+    const getClosureCategory = (methodName?: string, methodType?: string): string => {
+      const normName = normalizeStr(methodName);
+      const normType = normalizeStr(methodType);
+
+      // Direct match on normalized name first
+      if (normName === 'dinheiro' || normName === 'especie' || normName === 'dinheiro em especie' || normName === 'cash' || normName === 'money') return 'Dinheiro';
+      if (normName === 'pix') return 'Pix';
+      if (normName === 'credito' || normName === 'cartao de credito' || normName === 'credit' || normName === 'card' || normName === 'cartao') return 'Crédito';
+      if (normName === 'debito' || normName === 'cartao de debito' || normName === 'debit') return 'Débito';
+      if (normName === 'voucher' || normName === 'vale' || normName === 'vale credito' || normName === 'vale-credito' || normName === 'cupom') return 'Voucher';
+      if (normName === 'fiado' || normName === 'prazo' || normName === 'conta assinada' || normName === 'caderneta') return 'Fiado';
+
+      // Fallback check on normalized type
+      if (normType === 'dinheiro') return 'Dinheiro';
+      if (normType === 'pix') return 'Pix';
+      if (normType === 'credito') return 'Crédito';
+      if (normType === 'debito') return 'Débito';
+      if (normType === 'voucher' || normType === 'vale_credito' || normType === 'vale-credito') return 'Voucher';
+      if (normType === 'fiado' || normType === 'prazo') return 'Fiado';
+
+      // Substring searches
+      if (normName.includes('dinheiro') || normName.includes('especie') || normName.includes('money') || normName.includes('cash')) return 'Dinheiro';
+      if (normName.includes('pix')) return 'Pix';
+      if (normName.includes('credito') || normName.includes('credit')) return 'Crédito';
+      if (normName.includes('debito') || normName.includes('debit')) return 'Débito';
+      if (normName.includes('voucher') || normName.includes('vale') || normName.includes('cupom')) return 'Voucher';
+      if (normName.includes('fiado') || normName.includes('prazo') || normName.includes('conta ass') || normName.includes('caderneta') || normName.includes('assina')) return 'Fiado';
+
+      return 'Dinheiro'; // Standard fallback
+    };
+
+    const isCancelledSale = (status?: string): boolean => {
+      if (!status) return false;
+      const s = status.toUpperCase();
+      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
+    };
+
+    // Filter active (non-cancelled) sales linked to the current cash session
+    const registerSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s.status));
+    
     const totals: Record<string, number> = {
       'Dinheiro': 0,
       'Pix': 0,
@@ -96,27 +146,43 @@ export function CashRegisterManager({
       'Fiado': 0
     };
 
+    const safePaymentMethods = paymentMethods || [];
+
     registerSales.forEach(sale => {
-      if (totals[sale.paymentMethod] !== undefined) {
-        totals[sale.paymentMethod] += sale.total;
+      // Check if the sale has a detailed payments array split
+      if (sale.payments && Array.isArray(sale.payments) && sale.payments.length > 0) {
+        sale.payments.forEach((payment: any) => {
+          const pmObj = safePaymentMethods.find(m => m.id === payment.method || normalizeStr(m.name) === normalizeStr(payment.method));
+          const category = getClosureCategory(payment.method, pmObj?.type);
+          if (totals[category] !== undefined) {
+            totals[category] += payment.amount || 0;
+          }
+        });
+      } else {
+        // Single payment or simple/legacy sale fallback
+        const pmObj = safePaymentMethods.find(m => m.id === sale.paymentMethod || normalizeStr(m.name) === normalizeStr(sale.paymentMethod));
+        const category = getClosureCategory(sale.paymentMethod, pmObj?.type);
+        if (totals[category] !== undefined) {
+          totals[category] += sale.total || 0;
+        }
       }
     });
 
     // Add opening balance to Cash (Dinheiro)
-    totals['Dinheiro'] += activeRegister.openingBalance;
+    totals['Dinheiro'] += activeRegister.openingBalance || 0;
 
     // Add movements (Sangria/Suprimento)
     const registerMovements = cashMovements.filter(m => m.cashRegisterId === activeRegister.id);
     registerMovements.forEach(m => {
       if (m.type === 'suprimento') {
-        totals['Dinheiro'] += m.amount;
+        totals['Dinheiro'] += m.amount || 0;
       } else if (m.type === 'sangria') {
-        totals['Dinheiro'] -= m.amount;
+        totals['Dinheiro'] -= m.amount || 0;
       }
     });
 
     return totals;
-  }, [activeRegister, sales, cashMovements]);
+  }, [activeRegister, sales, cashMovements, paymentMethods]);
 
   const handleOpen = async () => {
     await openCashRegister(openingBalance);

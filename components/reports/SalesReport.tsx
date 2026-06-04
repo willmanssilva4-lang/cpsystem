@@ -38,7 +38,7 @@ import { cn, toLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias } = useERP();
+  const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias, pricingSettings } = useERP();
   
   // Accordion unique state
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
@@ -230,14 +230,18 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     const chartDataMap = new Map<string, { date: string, rawDate: string, total: number, orders: number }>();
     
     processedSales.forEach(sale => {
-      const date = new Date(sale.date);
-      const dateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
       const isoYMD = toLocalDateString(sale.date);
+      if (!isoYMD) return;
       
-      if (!chartDataMap.has(dateStr)) {
-        chartDataMap.set(dateStr, { date: dateStr, rawDate: isoYMD, total: 0, orders: 0 });
+      const parts = isoYMD.split('-');
+      if (parts.length !== 3) return;
+      const [year, month, day] = parts;
+      const dateStr = `${day}/${month}`;
+      
+      if (!chartDataMap.has(isoYMD)) {
+        chartDataMap.set(isoYMD, { date: dateStr, rawDate: isoYMD, total: 0, orders: 0 });
       }
-      const existing = chartDataMap.get(dateStr)!;
+      const existing = chartDataMap.get(isoYMD)!;
       existing.total += sale.total;
       existing.orders += 1;
     });
@@ -597,7 +601,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
             </div>
           </div>
 
-          <div className="h-68 w-full mt-2">
+          <div className="h-80 w-full mt-2">
             {chartData.length > 0 ? (
               <ResponsiveContainer id="rel-sales-evolution-chart-metrics" width="100%" height="100%" debounce={1}>
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1097,11 +1101,18 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                                         <span className="text-xs font-black text-brand-blue font-mono block">
                                           {formatCurrency(itemSubtotal)}
                                         </span>
-                                        {itemMarkup > 0 && (
-                                          <span className="text-[9px] text-emerald-600 font-black block mt-0.5 italic">
-                                            +{Math.round((itemMarkup / item.price) * 100)}% markup
-                                          </span>
-                                        )}
+                                        {itemMarkup > 0 && (() => {
+                                          const isMarkup = pricingSettings?.defaultMethod === 'markup';
+                                          const percentage = isMarkup
+                                            ? (productCost > 0 ? Math.round((itemMarkup / productCost) * 100) : 100)
+                                            : Math.round((itemMarkup / item.price) * 100);
+                                          const label = isMarkup ? 'markup' : 'margem';
+                                          return (
+                                            <span className="text-[9px] text-emerald-600 font-black block mt-0.5 italic">
+                                              +{percentage}% {label}
+                                            </span>
+                                          );
+                                        })()}
                                       </div>
                                     </div>
                                   );
