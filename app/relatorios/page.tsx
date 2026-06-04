@@ -337,6 +337,7 @@ function ReportsContent() {
     { id: 'lucro_estoque', category: 'estoque', title: 'Lucro no Estoque', description: 'Projeção de lucro bruto baseado no saldo atual de estoque.', icon: TrendingUp },
     { id: 'clube_clientes', category: 'gerencial', title: 'Relatório Cliente Clube', description: 'Análise de adesão, economia gerada e frequência de membros do clube.', icon: UserCheck },
     { id: 'clube_vendas', category: 'vendas', title: 'Vendas Cliente Clube', description: 'Comparativo de vendas entre membros do clube e clientes comuns.', icon: ShoppingCart },
+    { id: 'fechamento_caixa', category: 'financeiro', title: 'Fechamento de Caixa', description: 'Relatório e histórico de fechamentos de caixas, valores declarados e diferenças apuradas.', icon: CreditCard },
   ];
 
   const filteredReports = allReports.filter(r => 
@@ -674,6 +675,7 @@ function ReportsContent() {
               ) : (
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-[#f8fafc]">
                   {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Fechamento de Caixa' && <CashClosingReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Curva ABC de Clientes' && <AbcCustomersReport startDate={startDate} endDate={endDate} />}
@@ -707,7 +709,7 @@ function ReportsContent() {
                     />
                   )}
                   
-                  {!['Dashboard Executivo', 'Vendas por Período', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
+                  {!['Dashboard Executivo', 'Vendas por Período', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />

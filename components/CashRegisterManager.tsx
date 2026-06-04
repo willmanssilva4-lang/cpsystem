@@ -430,31 +430,35 @@ export function CashRegisterManager({
         {isClosing && (
           <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-8 w-full max-w-4xl border border-slate-200 dark:border-slate-800 shadow-2xl my-8"
+               initial={{ opacity: 0, y: 15 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: 15 }}
+               className="bg-white dark:bg-slate-900 rounded-2xl p-5 md:p-6 w-full max-w-3xl border border-slate-200 dark:border-slate-800 shadow-2xl my-4"
             >
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex justify-between items-center mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Fechamento de Caixa</h2>
-                  <p className="text-slate-500 dark:text-slate-400">Conferência física obrigatória (Sem TEF)</p>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Fechamento de Caixa</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
+                    <Lock className="w-3 h-3 text-brand-blue" />
+                    <span>Conferência Física Às Cegas • Valores do sistema ocultos</span>
+                  </p>
                 </div>
-                <button onClick={() => { setIsClosing(false); onClose?.(); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
-                  <X className="w-6 h-6" />
+                <button onClick={() => { setIsClosing(false); onClose?.(); }} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-800/50">
-                          <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Forma</th>
-                          <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Sistema</th>
-                          <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Informado</th>
-                          <th className="p-4 text-xs font-bold uppercase tracking-wider text-slate-500">Diferença</th>
+                          <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">Forma</th>
+                          <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">Informado</th>
+                          {isAuthorized && (
+                            <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Diferença</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -465,9 +469,8 @@ export function CashRegisterManager({
                           
                           return (
                             <tr key={method} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                              <td className="p-4 font-medium text-slate-900 dark:text-white">{method}</td>
-                              <td className="p-4 text-slate-600 dark:text-slate-400">R$ {system.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                               <td className="p-4">
+                              <td className="p-2.5 text-sm font-medium text-slate-900 dark:text-white">{method}</td>
+                               <td className="p-2.5">
                                 <input 
                                   ref={(el) => { informedInputsRef.current[idx] = el; }}
                                   type="number"
@@ -496,12 +499,14 @@ export function CashRegisterManager({
                                       }
                                     }
                                   }}
-                                  className="w-32 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-blue outline-none text-right"
+                                  className="w-28 p-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-blue outline-none text-right text-sm"
                                 />
                               </td>
-                              <td className={`p-4 font-bold text-right ${diff === 0 ? 'text-emerald-500' : diff > 0 ? 'text-blue-500' : 'text-rose-500'}`}>
-                                {diff > 0 ? '+' : ''}{diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
+                              {isAuthorized && (
+                                <td className={`p-2.5 text-sm font-bold text-right ${diff === 0 ? 'text-emerald-500' : diff > 0 ? 'text-blue-500' : 'text-rose-500'}`}>
+                                  {diff > 0 ? '+' : ''}{diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -509,12 +514,27 @@ export function CashRegisterManager({
                     </table>
                   </div>
 
-                  {/* Justifications Section */}
-                  {(hasSmallDifference || hasLargeDifference) && (
-                    <div className="p-6 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-900/30">
-                      <div className="flex items-center gap-2 mb-4 text-amber-700 dark:text-amber-400">
+                  {/* Operator Observations (Always available during blind period) */}
+                  {!isAuthorized && (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                        Observações / Justificativas do Operador
+                      </label>
+                      <textarea 
+                        value={justifications['Geral'] || ''}
+                        onChange={(e) => setJustifications(prev => ({ ...prev, 'Geral': e.target.value }))}
+                        className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-blue outline-none h-16 resize-none text-xs"
+                        placeholder="Insira observações gerais sobre a conferência física se desejar..."
+                      />
+                    </div>
+                  )}
+
+                  {/* Justifications Section (Detailed breakdown revealed only after supervisor authorization) */}
+                  {isAuthorized && (hasSmallDifference || hasLargeDifference) && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/30">
+                      <div className="flex items-center gap-2 mb-3 text-amber-700 dark:text-amber-400">
                         <AlertCircle className="w-5 h-5" />
-                        <h4 className="font-bold">Divergências Detectadas</h4>
+                        <h4 className="font-bold">Divergências Detectadas (Modo Auditoria)</h4>
                       </div>
                       <div className="space-y-4">
                         {Object.entries(informedValues).filter(([m, v]) => v !== (systemTotals[m] || 0)).map(([method, informed], jIdx) => {
@@ -552,44 +572,48 @@ export function CashRegisterManager({
                   )}
                 </div>
 
-                <div className="space-y-6">
-                  <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">Resumo do Fechamento</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600 dark:text-slate-400">Total Sistema:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          R$ {Object.values(systemTotals).reduce((acc, val) => acc + val, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Resumo do Fechamento</h4>
+                    <div className="space-y-2">
+                      {isAuthorized && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-600 dark:text-slate-400">Total Sistema:</span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            R$ {Object.values(systemTotals).reduce((acc, val) => acc + val, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-xs">
                         <span className="text-slate-600 dark:text-slate-400">Total Informado:</span>
                         <span className="font-bold text-slate-900 dark:text-white">
                           R$ {Object.values(informedValues).reduce((acc, val) => acc + val, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="pt-3 border-top border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                        <span className="font-bold text-slate-900 dark:text-white">Diferença Total:</span>
-                        <span className={`text-lg font-black ${
-                          Object.values(informedValues).reduce((acc, val) => acc + val, 0) - Object.values(systemTotals).reduce((acc, val) => acc + val, 0) === 0 
-                          ? 'text-emerald-500' 
-                          : 'text-rose-500'
-                        }`}>
-                          R$ {(Object.values(informedValues).reduce((acc, val) => acc + val, 0) - Object.values(systemTotals).reduce((acc, val) => acc + val, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
+                      {isAuthorized && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center animate-pulse-subtle">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">Diferença Total:</span>
+                          <span className={`text-md font-black ${
+                            Object.values(informedValues).reduce((acc, val) => acc + val, 0) - Object.values(systemTotals).reduce((acc, val) => acc + val, 0) === 0 
+                            ? 'text-emerald-500' 
+                            : 'text-rose-500'
+                          }`}>
+                            R$ {(Object.values(informedValues).reduce((acc, val) => acc + val, 0) - Object.values(systemTotals).reduce((acc, val) => acc + val, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Supervisor Approval */}
                   {hasLargeDifference && !isAuthorized && (
-                    <div className="p-6 bg-rose-50 dark:bg-rose-900/10 rounded-2xl border border-rose-200 dark:border-rose-900/30">
-                      <div className="flex items-center gap-2 mb-4 text-rose-700 dark:text-rose-400">
-                        <ShieldCheck className="w-5 h-5" />
-                        <h4 className="font-bold">Autorização Necessária</h4>
+                    <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-200 dark:border-rose-900/30">
+                      <div className="flex items-center gap-2 mb-2 text-rose-700 dark:text-rose-400">
+                        <ShieldCheck className="w-4 h-4" />
+                        <h4 className="font-bold text-xs">Autorização Necessária</h4>
                       </div>
-                      <p className="text-xs text-rose-600 dark:text-rose-500 mb-4">Diferença acima do limite permitido. Solicite a senha do supervisor.</p>
-                      <div className="space-y-3">
+                      <p className="text-[11px] text-rose-600 dark:text-rose-500 mb-3">Diferença acima do limite permitido. Solicite a senha do supervisor.</p>
+                      <div className="space-y-2">
                         <input 
                           ref={supervisorRef}
                           type="password"
@@ -601,12 +625,12 @@ export function CashRegisterManager({
                               checkAuthorization();
                             }
                           }}
-                          className="w-full p-3 rounded-xl border border-rose-200 dark:border-rose-900/30 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-rose-500 outline-none text-center tracking-widest"
+                          className="w-full p-2 text-sm rounded-lg border border-rose-200 dark:border-rose-900/30 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-rose-500 outline-none text-center tracking-widest"
                           placeholder="CÓDIGO"
                         />
                         <button 
                           onClick={checkAuthorization}
-                          className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-colors"
+                          className="w-full py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700 transition-colors"
                         >
                           Autorizar
                         </button>
@@ -615,9 +639,9 @@ export function CashRegisterManager({
                   )}
 
                   {hasLargeDifference && isAuthorized && (
-                    <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
-                      <ShieldCheck className="w-5 h-5" />
-                      <span className="text-sm font-bold">Autorizado por Supervisor</span>
+                    <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20 flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span className="text-xs font-bold">Autorizado por Supervisor</span>
                     </div>
                   )}
 
@@ -625,11 +649,11 @@ export function CashRegisterManager({
                     ref={confirmCloseButtonRef}
                     onClick={handleClose}
                     disabled={hasLargeDifference && !isAuthorized}
-                    className="w-full py-4 bg-brand-blue text-white rounded-2xl font-bold text-lg shadow-lg shadow-brand-blue/20 hover:bg-brand-blue-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="w-full py-3 bg-brand-blue text-white rounded-xl font-bold text-md shadow-md shadow-brand-blue/10 hover:bg-brand-blue-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     Confirmar Fechamento
                   </button>
-                  <p className="text-[10px] text-center text-slate-400 uppercase tracking-tighter">
+                  <p className="text-[9px] text-center text-slate-400 uppercase tracking-tighter">
                     Ao confirmar, o caixa será bloqueado e os dados enviados para auditoria.
                   </p>
                 </div>
