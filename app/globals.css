@@ -31,6 +31,11 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.recharts-tooltip-wrapper {
+  z-index: 999999 !important;
+  pointer-events: none !important;
+}
+
 .glass-blue {
   background: rgba(30, 64, 175, 0.05);
   backdrop-filter: blur(10px);

@@ -1928,34 +1928,37 @@ function AdvancedPerformanceDashboard({
               </div>
 
               <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-6">
-                <div className="h-44 w-44 shrink-0 relative flex items-center justify-center">
-                  <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={75}
-                        paddingAngle={3}
-                        dataKey="value"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                        formatter={(value: any) => `${Number(value).toFixed(1)}%`}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="h-44 w-44 shrink-0 relative flex items-center justify-center isolate">
                   {/* Center metrics readout */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
                     <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest italic">Categorias</span>
                     <span className="text-lg font-black text-slate-700">{categoryData.length}</span>
+                  </div>
+                  <div className="relative z-20 w-full h-full">
+                    <ResponsiveContainer id="rel-cat-pie-resp" width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={75}
+                          paddingAngle={3}
+                          dataKey="value"
+                          stroke="#fff"
+                          strokeWidth={2}
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          wrapperStyle={{ zIndex: 999999 }}
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                          formatter={(value: any) => `${Number(value).toFixed(1)}%`}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
@@ -2190,33 +2193,36 @@ function AdvancedPerformanceDashboard({
               </div>
 
               <div className="flex-1 flex flex-col items-center justify-center gap-6">
-                <div className="h-44 w-1/2 relative flex items-center justify-center">
-                  <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={paymentData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={75}
-                        dataKey="value"
-                        stroke="#fff"
-                        strokeWidth={2.5}
-                      >
-                        {paymentData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                        formatter={(value: any) => `${Number(value).toFixed(1)}%`}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="h-44 w-1/2 relative flex items-center justify-center isolate">
                   {/* Center metrics reading */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
                     <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest italic">Canais</span>
                     <span className="text-lg font-black text-slate-700">{paymentData.length}</span>
+                  </div>
+                  <div className="relative z-20 w-full h-full">
+                    <ResponsiveContainer id="rel-pay-pie-resp" width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={paymentData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={75}
+                          dataKey="value"
+                          stroke="#fff"
+                          strokeWidth={2.5}
+                        >
+                          {paymentData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          wrapperStyle={{ zIndex: 999999 }}
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                          formatter={(value: any) => `${Number(value).toFixed(1)}%`}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
@@ -3639,10 +3645,15 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                   <p className="text-[10px] font-semibold text-slate-400 mt-1 uppercase">Proporção da receita liquida entre o clube e avulsos</p>
                 </div>
 
-                <div className="h-60 w-full relative my-4 flex items-center justify-center">
+                <div className="h-60 w-full relative my-4 flex items-center justify-center isolate">
                   {totalOverallRevenue > 0 ? (
                     <>
-                      <ResponsiveContainer id="rel-club-donut-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Geral</span>
+                        <span className="text-base font-black text-slate-800 font-mono mt-1">{formatCurrency(totalOverallRevenue)}</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{totalSalesCount} Pedidos</span>
+                      </div>
+                      <ResponsiveContainer id="rel-club-donut-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1} className="relative z-20">
                         <PieChart>
                           <Pie
                             data={chartPieData}
@@ -3657,18 +3668,16 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                               <Cell key={`cell-club-p-${idx}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: any, name: any, props: any) => [
-                            formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
-                            name
-                          ]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} />
+                          <Tooltip 
+                            wrapperStyle={{ zIndex: 999999 }}
+                            formatter={(value: any, name: any, props: any) => [
+                              formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
+                              name
+                            ]} 
+                            contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} 
+                          />
                         </PieChart>
                       </ResponsiveContainer>
-
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Geral</span>
-                        <span className="text-base font-black text-slate-800 font-mono mt-1">{formatCurrency(totalOverallRevenue)}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{totalSalesCount} Pedidos</span>
-                      </div>
                     </>
                   ) : (
                     <div className="text-slate-400 font-semibold text-xs text-center">Nenhum lançamento no período ativo.</div>
@@ -4777,33 +4786,36 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
               </div>
 
               {/* Graphic Stage */}
-              <div className="h-64 relative flex items-center justify-center">
-                <ResponsiveContainer id="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
-                  <PieChart>
-                    <Pie
-                      data={data}
-                      innerRadius={70}
-                      outerRadius={95}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} stroke="#fff" strokeWidth={2} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                      formatter={(value: any) => [`${formatCurrency(Number(value))}`, 'Faturamento']}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-
+              <div className="h-64 relative flex items-center justify-center isolate">
                 {/* Donut Center Label */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Faturado</span>
                   <span className="text-lg font-black text-slate-800 font-mono tracking-tight mt-1">
                     {new Intl.NumberFormat('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL' }).format(totalRevenue)}
                   </span>
+                </div>
+
+                <div className="relative z-20 w-full h-full">
+                  <ResponsiveContainer id="rel-pay-pie-2-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                    <PieChart>
+                      <Pie
+                        data={data}
+                        innerRadius={70}
+                        outerRadius={95}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {data.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#fff" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        wrapperStyle={{ zIndex: 999999 }}
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                        formatter={(value: any) => [`${formatCurrency(Number(value))}`, 'Faturamento']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
@@ -6478,10 +6490,16 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                   <p className="text-[10px] font-semibold text-slate-400 mt-1 uppercase">Participação de faturamento por meio de pagamento</p>
                 </div>
                 
-                <div className="h-60 w-full relative my-4 flex items-center justify-center">
+                <div className="h-60 w-full relative my-4 flex items-center justify-center isolate">
                   {chartPieData.length > 0 ? (
                     <>
-                      <ResponsiveContainer id="rel-payment-donut-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                      {/* Center Text inside the Donut */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lançados</span>
+                        <span className="text-lg font-black text-slate-800 font-mono mt-0.5">{formatCurrency(totalGrossAmount)}</span>
+                      </div>
+
+                      <ResponsiveContainer id="rel-payment-donut-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1} className="relative z-20">
                         <PieChart>
                           <Pie
                             data={chartPieData}
@@ -6496,18 +6514,16 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
                               <Cell key={`cell-${idx}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: any, name: any, props: any) => [
-                            formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
-                            name
-                          ]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} />
+                          <Tooltip 
+                            wrapperStyle={{ zIndex: 999999 }}
+                            formatter={(value: any, name: any, props: any) => [
+                              formatCurrency(Number(value) || 0) + ` (${props.payload.percentage}%)`,
+                              name
+                            ]} 
+                            contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: 11, fontWeight: 700 }} 
+                          />
                         </PieChart>
                       </ResponsiveContainer>
-                      
-                      {/* Center Text inside the Donut */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lançados</span>
-                        <span className="text-lg font-black text-slate-800 font-mono mt-0.5">{formatCurrency(totalGrossAmount)}</span>
-                      </div>
                     </>
                   ) : (
                     <div className="text-slate-400 font-semibold text-xs text-center">Nenhum dado financeiro para o período.</div>
