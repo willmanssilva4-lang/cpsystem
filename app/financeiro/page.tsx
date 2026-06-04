@@ -110,8 +110,9 @@ export default function FinancePage() {
 
   useEffect(() => {
     const todayStr = getLocalDateString();
+    const firstDayOfMonthStr = todayStr.substring(0, 8) + '01';
     const timer = setTimeout(() => {
-      setStartDate(todayStr);
+      setStartDate(firstDayOfMonthStr);
       setEndDate(todayStr);
     }, 0);
     return () => clearTimeout(timer);
