@@ -2377,12 +2377,45 @@ function AdvancedPerformanceDashboard({
 
 // Componentes de Relatórios Reais
 function CashClosingReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { cashRegisters, cashClosings } = useERP();
+  const { cashRegisters, cashClosings, sales, cashMovements } = useERP();
   
   const filteredRegisters = cashRegisters.filter(r => {
     const d = toLocalDateString(r.openedAt);
     return d >= startDate && d <= endDate;
   });
+
+  const getRegisterCurrentBalance = (r: any) => {
+    const isCancelledSale = (status?: string): boolean => {
+      if (!status) return false;
+      const s = status.toUpperCase();
+      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
+    };
+
+    const registerSales = (sales || []).filter(s => s.cashRegisterId === r.id && !isCancelledSale(s.status));
+    
+    let total = r.openingBalance || 0;
+
+    registerSales.forEach(sale => {
+      if (sale.payments && Array.isArray(sale.payments) && sale.payments.length > 0) {
+        sale.payments.forEach((payment: any) => {
+          total += payment.amount || 0;
+        });
+      } else if (sale.total) {
+        total += sale.total || 0;
+      }
+    });
+
+    const registerMovements = (cashMovements || []).filter(m => m.cashRegisterId === r.id);
+    registerMovements.forEach(m => {
+      if (m.type === 'suprimento') {
+        total += m.amount || 0;
+      } else if (m.type === 'sangria') {
+        total -= m.amount || 0;
+      }
+    });
+
+    return total;
+  };
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -2400,7 +2433,7 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
         <div className="p-6 rounded-3xl bg-brand-text-main text-white shadow-xl shadow-brand-text-main/20 min-w-0">
           <p className="text-[10px] font-black text-brand-text-sec/60 uppercase italic tracking-widest truncate">Total em Caixa (Abertos)</p>
           <h4 className="text-xl xl:text-2xl font-black text-brand-text-sec break-words leading-tight">
-            {formatCurrency(filteredRegisters.filter(r => r.status === 'open').reduce((acc, r) => acc + r.openingBalance, 0))}
+            {formatCurrency(filteredRegisters.filter(r => r.status === 'open').reduce((acc, r) => acc + getRegisterCurrentBalance(r), 0))}
           </h4>
         </div>
       </div>
