@@ -147,11 +147,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       profit: initialProfit,
       profitPercentage: initialProfitPercentage,
       image: initialData?.image || DEFAULT_IMAGE,
-      barcode: '',
+      barcode: initialData?.barcode || '',
       status: initialData?.status || 'Ativo',
       store: 'Loja Principal',
       codigo_mercadologico: initialData?.codigo_mercadologico || '',
-      category: 'PADRAO',
+      category: initialData?.category || '',
       subgroup: 'PADRAO',
       departamento_id: '',
       validade: initialData?.validade || (() => {
@@ -726,7 +726,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                               ...prev, 
                               subcategoria_id: '',
                               codigo_mercadologico: '',
-                              category: 'PADRAO'
+                              category: ''
                             }));
                           }}
                           className="w-full bg-slate-50/50 border border-slate-200/80 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm cursor-pointer"
@@ -866,26 +866,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         />
                       </div>
 
-                      {/* Segmento */}
-                      <div>
-                        <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Segmento:</label>
-                        <input 
-                          list="segmentos-list"
-                          name="segmento"
-                          value={formData.segmento || ''}
-                          onChange={handleChange}
-                          placeholder="Ex: Automotivo"
-                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
-                        />
-                        <datalist id="segmentos-list">
-                          {uniqueSegmentos.map(seg => (
-                            <option key={seg} value={seg} />
-                          ))}
-                        </datalist>
-                      </div>
-
                       {/* Seção */}
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="block text-[10px] font-black mb-1.5 uppercase text-slate-400 tracking-widest">Seção / Corredor:</label>
                         <input 
                           list="secoes-list"
@@ -893,7 +875,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           value={formData.section || ''}
                           onChange={handleChange}
                           placeholder="Ex: Frios"
-                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm" 
+                          className="w-full bg-slate-50/50 border border-slate-200/80 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all duration-200 shadow-sm transition-all" 
                         />
                         <datalist id="secoes-list">
                           {uniqueSecoes.map(sec => (
@@ -2553,7 +2535,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             ...prev, 
                             subcategoria_id: '',
                             codigo_mercadologico: '',
-                            category: 'PADRAO'
+                            category: ''
                           }));
                         }}
                         className="w-full bg-white border border-brand-border px-4 py-3 rounded-2xl text-sm font-bold text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all appearance-none"

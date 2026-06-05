@@ -856,7 +856,7 @@ export default function ProductsPage() {
             <SummaryCard title="Estoque Valorizado" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalStockValue)} icon={TrendingUp} color="orange" />
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
             <div className="p-4 border-b border-slate-100 flex flex-col gap-4 bg-white">
               {/* Top row: Search and Actions */}
               <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -1019,7 +1019,7 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-visible">
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50/80 border-b border-slate-200">
                   <tr>
@@ -1131,7 +1131,7 @@ export default function ProductsPage() {
                         </button>
 
                         {activeMenuId === product.id && (
-                          <div className="absolute right-8 top-10 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                          <div className="absolute right-full top-0 mr-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-right-2">
                             <div className="p-2">
                               <button
                                 onClick={(e) => {

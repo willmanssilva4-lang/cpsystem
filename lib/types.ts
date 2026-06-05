@@ -13,6 +13,7 @@ export interface Product {
   stock: number;
   minStock: number;
   category: string;
+  category_id?: string;
   active: boolean;
   image?: string;
   description?: string;

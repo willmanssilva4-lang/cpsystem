@@ -357,7 +357,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           minStock: p.minStock ?? p.min_stock,
           controlStock: p.controlStock ?? p.control_stock,
           profit: p.profit,
-          profitPercentage: p.profitPercentage
+          profitPercentage: p.profitPercentage,
+          brand: p.brand ?? p.marca
         })));
       }
       if (Array.isArray(supps_res)) {
@@ -593,12 +594,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           setTimeout(() => reject(new Error('getSession timed out')), 5000)
         );
         
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const response = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const session = response?.data?.session;
+        const error = response?.error;
         
         if (error) {
           console.error('[ERPProvider] Auth session error:', error);
         }
-        console.log('[ERPProvider] session retrieved', session?.user?.id);
+        
+        console.log('[ERPProvider] session status:', session ? 'User present' : 'No session');
+        
         const companyId = session?.user?.user_metadata?.companyId;
         if (session?.user) {
           setUser({
@@ -609,7 +614,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             companyId: companyId
           });
         }
-        console.log('[ERPProvider] Auth init ready, calling fetchData with:', companyId);
+        
+        console.log('[ERPProvider] Auth init ready, calling fetchData with:', companyId || 'Global');
+        // We don't await fetchData to allow the UI to load faster, but it will start loading data
         fetchData(companyId);
       } catch (err) {
         console.error('[ERPProvider] Critical auth init error:', err);
@@ -619,15 +626,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Force auth readiness after 5 seconds to prevent stuck loading screen
+    // Force auth readiness after 3 seconds to prevent stuck loading screen
     timeout = setTimeout(() => {
       console.warn('[ERPProvider] initAuth timed out, forcing isAuthReady to true');
       setIsAuthReady(true);
-    }, 5000);
+    }, 3000);
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const authResponse = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[ERPProvider] Auth state change:', _event);
       if (session?.user) {
         setUser({
           id: session.user.id,
@@ -639,11 +647,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null);
       }
+      setIsAuthReady(true); // Ensure it's ready when auth state changes
     });
+
+    const subscription = authResponse?.data?.subscription;
 
     return () => {
         clearTimeout(timeout);
-        subscription.unsubscribe();
+        subscription?.unsubscribe();
     };
   }, []);
 
@@ -669,7 +680,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       'group', 'subgroup', 'subcategoria_id', 'validade', 'company_id', 'codigo_mercadologico', 
       'has_had_stock', 'wholesale_price', 'control_stock', 'club_price', 'product_type', 
       'base_product_id', 'conversion_factor', 'wholesale_min_qty', 'term_price', 'linha', 
-      'sabor', 'gramatura', 'tipo_embalagem', 'segmento', 'supplier', 'section', 'unit'
+      'sabor', 'gramatura', 'tipo_embalagem', 'segmento', 'supplier', 'section', 'unit', 'barcode', 'brand'
     ];
 
     Object.keys(dbPayload).forEach(key => {
@@ -733,7 +744,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       'group', 'subgroup', 'subcategoria_id', 'validade', 'company_id', 'codigo_mercadologico', 
       'has_had_stock', 'wholesale_price', 'control_stock', 'club_price', 'product_type', 
       'base_product_id', 'conversion_factor', 'wholesale_min_qty', 'term_price', 'linha', 
-      'sabor', 'gramatura', 'tipo_embalagem', 'segmento', 'supplier', 'section', 'unit'
+      'sabor', 'gramatura', 'tipo_embalagem', 'segmento', 'supplier', 'section', 'unit', 'barcode', 'brand'
     ];
 
     Object.keys(dbPayload).forEach(key => {

@@ -408,7 +408,7 @@ function ReportsContent() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.96, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative w-full bg-[#f8fafc] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 max-w-[98vw] h-[95vh] md:max-w-[96vw] md:h-[94vh] border border-slate-200/60"
+            className="relative w-full bg-slate-50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 max-w-[98vw] h-[95vh] md:max-w-[96vw] md:h-[94vh] border border-slate-200/60"
           >
             {/* Modal Header */}
             <div className="px-6 md:px-10 py-5 md:py-6 bg-white border-b border-slate-200/60 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between shrink-0 shadow-sm">
@@ -500,7 +500,7 @@ function ReportsContent() {
               {selectedReportView === 'Catálogo' ? (
                 <>
                   {/* Sidebar Categories */}
-                  <div className="hidden md:block w-72 border-r border-slate-200/60 bg-white p-6 space-y-2 overflow-y-auto shrink-0 select-none [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                  <div className="hidden md:block w-72 h-full border-r border-slate-200/60 bg-white p-6 space-y-2 overflow-y-auto overscroll-contain shrink-0 select-none [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Categorias de Análise</p>
                     {reportCategories.map((cat) => {
                       const isActive = selectedCategory === cat.id;
@@ -547,7 +547,7 @@ function ReportsContent() {
                   </div>
 
                   {/* Reports Grid */}
-                  <div className="flex-1 p-6 md:p-8 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                  <div className="flex-1 h-full p-6 md:p-8 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
                     {/* Mobile Category Select field */}
                     <div className="md:hidden mb-6">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Selecionar Categoria</label>
@@ -673,7 +673,10 @@ function ReportsContent() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-[#f8fafc]">
+                <div className={cn(
+                  "flex-1 h-full overflow-y-auto overscroll-contain",
+                  selectedReportView === 'Dashboard Executivo' ? "p-0 bg-slate-50/50" : "p-6 md:p-10 bg-slate-50/40"
+                )}>
                   {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Fechamento de Caixa' && <CashClosingReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
@@ -1550,7 +1553,7 @@ function AdvancedPerformanceDashboard({
   const lowStockProductsCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
 
   return (
-    <div className="space-y-8 bg-slate-50/50 -m-8 p-8 min-h-full font-sans">
+    <div className="space-y-8 bg-slate-50/50 p-6 md:p-10 pb-20 md:pb-32 min-h-full font-sans">
       <div className="flex flex-col gap-8">
         
         {/* Header Section */}
@@ -2620,6 +2623,8 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
   const { sales, products } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [isExplanationOpen, setIsExplanationOpen] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   // Filter sales that are within the period and not cancelled
   const filteredSales = sales.filter(s => {
@@ -2674,6 +2679,13 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // Computations for overall indicators
   const totalItemsSold = rawData.reduce((acc, curr) => acc + curr.qty, 0);
@@ -2860,7 +2872,7 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
 
       {/* Bento Grid layout of products analyzed with micro-visualizers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredData.length > 0 ? filteredData.map((item, i) => {
+        {currentData.length > 0 ? currentData.map((item, i) => {
           // Progress speed calculated with limits from 0% to 100% for visual layout
           const progressPercentage = Math.min(100, Math.max(5, item.turnoverVal * 40));
           
@@ -2915,6 +2927,58 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-between bg-white dark:bg-slate-900 border border-brand-border p-4 rounded-2xl shadow-sm">
+          <div className="flex flex-col">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic leading-tight">
+              Análise de Giro
+            </p>
+            <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+              Mostrando {currentData.length} de {filteredData.length} itens
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200"
+            >
+              <ChevronLeft size={16} className="text-slate-600" />
+            </button>
+            <div className="flex items-center gap-1.5 px-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                .map((page, index, array) => (
+                  <React.Fragment key={page}>
+                    {index > 0 && array[index - 1] !== page - 1 && (
+                      <span className="text-slate-400 font-black text-[10px]">...</span>
+                    )}
+                    <button 
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        "w-8 h-8 rounded-xl text-[10px] font-black transition-all uppercase italic",
+                        page === currentPage 
+                          ? "bg-brand-blue text-white shadow-lg shadow-brand-blue/20" 
+                          : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      )}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                ))}
+            </div>
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200"
+            >
+              <ChevronRight size={16} className="text-slate-600" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

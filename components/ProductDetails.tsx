@@ -42,7 +42,7 @@ interface ProductDetailsProps {
 }
 
 export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
-  const { products, stockMovements } = useERP();
+  const { products, stockMovements, categorias, pricingSettings } = useERP();
   
   // Page logs pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -172,9 +172,13 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
                   <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
                     <Briefcase size={12} className="text-slate-400" />
-                    <span>Categoria: <strong className="text-slate-650">{product.category || 'Geral'}</strong></span>
+                    <span>Categoria: <strong className="text-slate-650">{(() => {
+                      const cat = categorias.find(c => c.id === product.category_id) || categorias.find(c => c.nome === product.category);
+                      if (cat) return cat.nome;
+                      return product.category;
+                    })()}</strong></span>
                   </div>
-                  {product.brand && (
+                  {product.brand && product.brand !== 'PADRAO' && (
                     <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
                       <Tag size={12} className="text-slate-400" />
                       <span>Marca: <strong className="text-slate-650">{product.brand}</strong></span>
@@ -289,10 +293,10 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                   </div>
                 </div>
                 
-                {product.barcode ? (
+                {product.barcode || product.sku ? (
                   <div className="flex items-center justify-between gap-1 mt-1">
-                    <p className="text-base font-black text-slate-800 font-mono tracking-wider truncate" title={product.barcode}>
-                      {product.barcode}
+                    <p className="text-base font-black text-slate-800 font-mono tracking-wider truncate" title={product.barcode || product.sku}>
+                      {product.barcode || product.sku}
                     </p>
                     <button 
                       onClick={handleCopyBarcode}
@@ -409,7 +413,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                       <h3 className="text-xs font-black uppercase text-slate-705 tracking-widest italic animate-pulse">Lucratividade de Venda</h3>
                     </div>
                     <span className="text-[8px] font-black tracking-widest uppercase bg-emerald-500 text-white px-2 py-0.5 rounded-md shadow-sm">
-                      MARKUP SAUDÁVEL
+                      {pricingSettings.defaultMethod === 'margin' ? 'MARGEM SAUDÁVEL' : 'MARKUP SAUDÁVEL'}: {pricingSettings.defaultMethod === 'margin' ? (pricingSettings.defaultMargin || 0) : (pricingSettings.defaultMarkup || 0)}%
                     </span>
                   </div>
 
@@ -502,14 +506,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                     <div>
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">Marca Comercial</span>
                       <span className="text-xs font-black text-slate-650 uppercase italic mt-1.5 block">
-                        {product.brand || '—'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">Segmento / Linha</span>
-                      <span className="text-xs font-black text-slate-650 uppercase italic mt-1.5 block">
-                        {product.segmento || '—'}
+                        {(product.brand && product.brand !== 'PADRAO') ? product.brand : '—'}
                       </span>
                     </div>
 

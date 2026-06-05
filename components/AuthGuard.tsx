@@ -24,19 +24,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const isSuperAdminManagement = effectiveUser?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
     const isCaixaCheck = effectiveUser?.role?.trim().toLowerCase() === 'caixa';
-    let target = !effectiveUser ? '/login' : (pathname === '/login' ? '/' : null);
     
-    // Specific redirect for the management superadmin and Caixa role
-    if (effectiveUser && isSuperAdminManagement && pathname === '/') {
-      target = '/admin/companies';
-    } else if (effectiveUser && isCaixaCheck && (pathname === '/' || pathname === '/login')) {
-      target = '/pdv';
+    let target: string | null = null;
+    
+    if (!effectiveUser) {
+      if (pathname !== '/login' && pathname !== '/consulta-preco') {
+        target = '/login';
+      }
+    } else {
+      if (pathname === '/login') {
+        target = isCaixaCheck ? '/pdv' : (isSuperAdminManagement ? '/admin/companies' : '/');
+      } else if (pathname === '/' && isSuperAdminManagement) {
+        target = '/admin/companies';
+      } else if (pathname === '/' && isCaixaCheck) {
+        target = '/pdv';
+      }
     }
     
-    if (target) {
+    if (target && target !== pathname) {
       // If we are already on the target or navigating to it, don't trigger again
-      if (pathname === target || redirectingToRef.current === target) {
-        console.log('[AuthGuard] Already on or redirecting to target:', target);
+      if (redirectingToRef.current === target) {
+        console.log('[AuthGuard] Already redirecting to target:', target);
         return;
       }
 
@@ -53,9 +61,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, router, pathname, isAuthReady, effectiveUser]);
 
+  // If we are on a public page, don't show the loading screen if auth is not ready
+  // This prevents stuck loading screens on login/price check pages
+  const isPublicPage = pathname === '/login' || pathname === '/consulta-preco';
+
   // Show loading state while auth is initializing or when explicitly loading
   // No longer showing it for redirecting state to prevent stuck UI
-  if (!isAuthReady) {
+  if (!isAuthReady && !isPublicPage) {
     return (
       <div 
         id="auth-loading-screen" 
