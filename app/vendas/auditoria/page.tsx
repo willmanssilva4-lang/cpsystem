@@ -18,17 +18,32 @@ export default function SalesAuditPage() {
 }
 
 function SalesAuditContent() {
-  const { discountLogs, returns, auditLogs, systemUsers, hasPermission, products } = useERP();
+  const { discountLogs, returns, auditLogs, systemUsers, hasPermission, products, sales } = useERP();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('query') || '';
   
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [startDate, setStartDate] = useState(getLocalDateString(new Date(new Date().setDate(new Date().getDate() - 30)))); // Default to last 30 days
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    return getLocalDateString(new Date(d.getFullYear(), d.getMonth(), 1));
+  }); // Default to the first day of the current month
   const [endDate, setEndDate] = useState(getLocalDateString());
   const [filterType, setFilterType] = useState<'all' | 'discount' | 'return' | 'venda' | 'cancelamento'>('all');
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const parseIfNeeded = (data: any) => {
+    if (!data) return null;
+    if (typeof data === 'string') {
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        return null;
+      }
+    }
+    return data;
+  };
 
   // Reset page when filters change
   useEffect(() => {
@@ -38,48 +53,148 @@ function SalesAuditContent() {
   const auditEvents = useMemo(() => {
     const events: any[] = [];
 
-    // Add discount logs
+    // Add discount logs with snake_case and camelCase fallback
     discountLogs.forEach(log => {
+      const logId = log.id;
+      const logDate = log.date || log.created_at || new Date().toISOString();
+      const logAppliedBy = log.appliedBy || log.applied_by || 'Sistema';
+      const logMethod = log.method;
+      const logValue = Number(log.value) || 0;
+      const logSaleId = log.saleId || log.sale_id;
+      const logReason = log.reason || 'Desconto no PDV';
+      const logPercentage = log.percentage;
+
       events.push({
-        id: `discount-${log.id}`,
+        id: `discount-${logId}`,
         type: 'discount',
-        date: log.date,
-        user: log.appliedBy,
-        details: `${log.method === 'percentage' ? log.value + '%' : 'R$ ' + log.value.toFixed(2)} de desconto em ${log.saleId ? 'Venda #' + log.saleId.substring(0, 8).toUpperCase() : 'Item'}`,
-        reason: log.reason || 'Desconto no PDV',
-        severity: log.value > 20 || (log.method === 'value' && log.value > 100) ? 'high' : 'medium',
+        date: logDate,
+        user: logAppliedBy,
+        details: `${logMethod === 'percentage' ? (logPercentage || logValue) + '%' : 'R$ ' + logValue.toFixed(2)} de desconto em ${logSaleId && logSaleId !== 'PENDING' ? 'Venda #' + logSaleId.substring(0, 8).toUpperCase() : 'Item'}`,
+        reason: logReason,
+        severity: logValue > 20 || (logMethod === 'value' && logValue > 100) ? 'high' : 'medium',
         rawData: log
       });
     });
 
-    // Add returns
+    // Add returns with snake_case and camelCase fallback
     returns.forEach(ret => {
+      const retId = ret.id;
+      const retDate = ret.date || ret.created_at || new Date().toISOString();
+      const retUserId = ret.userId || ret.user_id || 'Sistema';
+      const retType = ret.type || 'TOTAL';
+      const retTotal = Number(ret.total) || 0;
+      const retSaleId = ret.saleId || ret.sale_id;
+      const retReason = (ret.items && ret.items[0]?.reason) || ret.reason || 'Não informado';
+
       events.push({
-        id: `return-${ret.id}`,
+        id: `return-${retId}`,
         type: 'return',
-        date: ret.date,
-        user: ret.userId,
-        details: `Devolução ${ret.type} de R$ ${ret.total.toFixed(2)}${ret.saleId ? ` na Venda #${ret.saleId.substring(0, 8).toUpperCase()}` : ''}`,
-        reason: ret.items[0]?.reason || 'Não informado',
-        severity: ret.type === 'TOTAL' ? 'high' : 'medium',
+        date: retDate,
+        user: retUserId,
+        details: `Devolução ${retType} de R$ ${retTotal.toFixed(2)}${retSaleId ? ` na Venda #${retSaleId.substring(0, 8).toUpperCase()}` : ''}`,
+        reason: retReason,
+        severity: retType === 'TOTAL' ? 'high' : 'medium',
         rawData: ret
       });
     });
 
-    // Add general audit logs related to sales
-    auditLogs.filter(log => log.module === 'vendas').forEach(log => {
-      // Avoid duplication if possible, but audit logs are more granular
+    // Add general audit logs related to sales with full robustness
+    auditLogs.filter(log => log.module === 'vendas' || log.module === 'sales' || log.module_name === 'vendas').forEach(log => {
+      const logId = log.id;
+      const logAction = log.action || log.action_name || '';
+      const logCreatedAt = log.createdAt || log.created_at || new Date().toISOString();
+      const logUserId = log.userId || log.user_id || 'Sistema';
+      const logModule = log.module || log.module_name || 'vendas';
+      const logEntityId = log.entityId || log.entity_id;
+
+      let sev = 'low';
+      if (logAction === 'cancelamento' || logAction === 'exclusão' || logAction === 'delete' || logAction === 'cancel') {
+        sev = 'high';
+      } else if (logAction === 'edit' || logAction === 'edição' || logAction === 'update') {
+        sev = 'medium';
+      }
+
       events.push({
-        id: `audit-${log.id}`,
-        type: log.action === 'venda' ? 'venda' : log.action === 'devolução' ? 'return' : 'cancelamento',
-        date: log.createdAt,
-        user: log.userId,
-        details: `${log.action.toUpperCase()}: ${log.module.toUpperCase()} #${log.entityId?.substring(0, 8).toUpperCase() || 'N/A'}`,
-        reason: log.action === 'venda' ? 'Operação Normal' : 'Ação de Auditoria',
-        severity: log.action === 'cancelamento' ? 'high' : 'low',
+        id: `audit-${logId}`,
+        type: logAction === 'venda' || logAction === 'sale' ? 'venda' : logAction.includes('devol') || logAction.includes('ret') ? 'return' : 'cancelamento',
+        date: logCreatedAt,
+        user: logUserId,
+        details: `${logAction.toUpperCase()}: ${logModule.toUpperCase()} #${logEntityId?.substring(0, 8).toUpperCase() || 'N/A'}`,
+        reason: logAction === 'venda' || logAction === 'sale' ? 'Operação Normal' : 'Ação de Auditoria',
+        severity: sev,
         rawData: log,
         isAuditLog: true
       });
+    });
+
+    // Add sales as native audit events so the auditor can inspect all actual commercial operations
+    sales.forEach(sale => {
+      const saleId = sale.id;
+      const saleDate = sale.date || sale.created_at || new Date().toISOString();
+      const saleUserId = sale.userId || sale.user_id || 'Sistema';
+      const total = Number(sale.total) || 0;
+      const discount = Number(sale.discount) || 0;
+      const subtotal = Number(sale.subtotal) || total;
+      const isCancelled = sale.status === 'Cancelada' || sale.status === 'cancelada';
+
+      // Avoid duplicate if an auditLog of 'cancelamento' or similar exists for the same sale
+      const hasDetailedAudit = auditLogs.some(log => 
+        (log.entityId === saleId || log.entity_id === saleId) && 
+        (log.action === 'cancelamento' || log.action_name === 'cancelamento' || log.action === 'cancel' || log.action_name === 'cancel')
+      );
+
+      if (isCancelled && hasDetailedAudit) {
+        // Skip adding the simplified sale cancelled event since a detailed audit log represents it
+        return;
+      }
+
+      // Add a clean venda or cancelamento event
+      events.push({
+        id: `sale-${saleId}`,
+        type: isCancelled ? 'cancelamento' : 'venda',
+        date: saleDate,
+        user: saleUserId,
+        details: isCancelled 
+          ? `Venda Cancelada #${saleId.substring(0, 8).toUpperCase()} no valor de R$ ${total.toFixed(2)}`
+          : `Nova Venda #${saleId.substring(0, 8).toUpperCase()} concluída no valor de R$ ${total.toFixed(2)}`,
+        reason: isCancelled ? 'Venda Cancelada' : 'Operação de Venda Standard',
+        severity: isCancelled ? 'high' : 'low',
+        rawData: {
+          id: saleId,
+          total: total,
+          discount: discount,
+          subtotal: subtotal,
+          items: sale.items || [],
+          payments: sale.payments || [],
+          paymentMethod: sale.paymentMethod || sale.payment_method || 'DINHEIRO',
+          status: sale.status || 'completed',
+          userId: saleUserId,
+          saleId: saleId,
+        },
+        isSaleEvent: true
+      });
+
+      // If the sale has discounts, virtualize a discount log to populate search & details
+      if (discount > 0 && !discountLogs.some(log => log.saleId === saleId || log.sale_id === saleId)) {
+        events.push({
+          id: `discount-sale-${saleId}`,
+          type: 'discount',
+          date: saleDate,
+          user: saleUserId,
+          details: `Desconto de R$ ${discount.toFixed(2)} concedido na Venda #${saleId.substring(0, 8).toUpperCase()}`,
+          reason: 'Item com desconto de Checkout',
+          severity: discount > 20 ? 'high' : 'medium',
+          rawData: {
+            id: `virtual-disc-${saleId}`,
+            saleId: saleId,
+            appliedBy: saleUserId,
+            value: discount,
+            method: 'value',
+            reason: 'Consolidado na Venda',
+            date: saleDate
+          }
+        });
+      }
     });
 
     return events
@@ -87,19 +202,41 @@ function SalesAuditContent() {
         const eventDate = getLocalDateString(new Date(event.date));
         const matchesDate = eventDate >= startDate && eventDate <= endDate;
         const matchesType = filterType === 'all' || event.type === filterType;
-        const matchesSearch = 
-          event.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (event.reason && event.reason.toLowerCase().includes(searchQuery.toLowerCase()));
+        
+        let matchesSearch = false;
+        if (!searchQuery) {
+          matchesSearch = true;
+        } else {
+          const query = searchQuery.toLowerCase();
+          const detailsMatch = event.details.toLowerCase().includes(query);
+          const reasonMatch = event.reason && event.reason.toLowerCase().includes(query);
+          
+          const rawId = event.rawData?.saleId || event.rawData?.sale_id || event.rawData?.entityId || event.rawData?.entity_id || '';
+          const rawIdMatch = rawId && typeof rawId === 'string' && (rawId.toLowerCase().includes(query) || query.includes(rawId.toLowerCase()));
+          
+          // Fallback check if searching with a full UUID against truncated #XXXXXXXX pattern
+          const truncatedQueryMatch = query.length > 8 && event.details.toLowerCase().includes(query.substring(0, 8).toLowerCase());
+
+          matchesSearch = !!(detailsMatch || reasonMatch || rawIdMatch || truncatedQueryMatch);
+        }
+        
         return matchesDate && matchesType && matchesSearch;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [discountLogs, returns, auditLogs, startDate, endDate, filterType, searchQuery]);
+  }, [discountLogs, returns, auditLogs, sales, startDate, endDate, filterType, searchQuery]);
 
   const totalPages = Math.ceil(auditEvents.length / itemsPerPage);
   const paginatedEvents = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return auditEvents.slice(start, start + itemsPerPage);
   }, [auditEvents, currentPage]);
+
+  const relatedSale = useMemo(() => {
+    if (!selectedEvent) return null;
+    const saleId = selectedEvent.rawData?.saleId || selectedEvent.rawData?.sale_id || selectedEvent.rawData?.entityId || selectedEvent.rawData?.entity_id;
+    if (!saleId || saleId === 'PENDING') return null;
+    return sales?.find(s => s.id === saleId);
+  }, [selectedEvent, sales]);
 
   const renderFriendlyData = (data: any) => {
     if (!data) return null;
@@ -110,17 +247,18 @@ function SalesAuditContent() {
         <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-brand-border shadow-inner">
           <div className="flex justify-between items-center border-b border-brand-border pb-4">
             <h4 className="text-xs font-black text-brand-text-main uppercase tracking-widest">Resumo da Operação</h4>
-            <span className="text-sm font-black text-brand-blue">TOTAL: R$ {data.total.toFixed(2)}</span>
+            <span className="text-sm font-black text-brand-blue">TOTAL: R$ {Number(data.total).toFixed(2)}</span>
           </div>
           
           <div className="space-y-3">
             <p className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Itens</p>
             {data.items.map((item: any, idx: number) => {
-              const product = products.find(p => p.id === item.productId);
+              const product = products.find(p => p.id === item.productId || p.id === item.product_id);
+              const price = Number(item.price || item.unit_price || 0);
               return (
                 <div key={idx} className="flex justify-between text-xs font-bold text-brand-text-main">
-                  <span className="flex-1 truncate mr-4">{item.quantity}x {product?.name || 'Produto não encontrado'}</span>
-                  <span className="whitespace-nowrap">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                  <span className="flex-1 truncate mr-4">{item.quantity}x {product?.name || item.name || 'Produto não encontrado'}</span>
+                  <span className="whitespace-nowrap">R$ {(price * item.quantity).toFixed(2)}</span>
                 </div>
               );
             })}
@@ -132,7 +270,7 @@ function SalesAuditContent() {
               {data.payments.map((pay: any, idx: number) => (
                 <div key={idx} className="flex justify-between text-xs font-bold text-brand-text-main">
                   <span className="uppercase">{pay.method}</span>
-                  <span>R$ {pay.amount.toFixed(2)}</span>
+                  <span>R$ {Number(pay.amount || 0).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -141,17 +279,17 @@ function SalesAuditContent() {
           <div className="pt-4 border-t border-brand-border flex flex-col gap-1">
             <div className="flex justify-between text-[10px] font-bold text-brand-text-sec uppercase tracking-widest">
               <span>Subtotal</span>
-              <span>R$ {data.subtotal?.toFixed(2) || data.total.toFixed(2)}</span>
+              <span>R$ {Number(data.subtotal || data.total).toFixed(2)}</span>
             </div>
-            {data.discount > 0 && (
+            {Number(data.discount || 0) > 0 && (
               <div className="flex justify-between text-[10px] font-bold text-rose-500 uppercase tracking-widest">
                 <span>Desconto</span>
-                <span>- R$ {data.discount.toFixed(2)}</span>
+                <span>- R$ {Number(data.discount).toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-xs font-black text-brand-text-main uppercase tracking-widest pt-1">
               <span>Líquido</span>
-              <span>R$ {data.total.toFixed(2)}</span>
+              <span>R$ {Number(data.total).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -466,7 +604,7 @@ function SalesAuditContent() {
                   </div>
                 )}
 
-                {selectedEvent.isAuditLog && (selectedEvent.rawData?.oldData || selectedEvent.rawData?.newData) && (
+                {(selectedEvent.isAuditLog || selectedEvent.rawData?.oldData || selectedEvent.rawData?.old_data || selectedEvent.rawData?.newData || selectedEvent.rawData?.new_data) && (
                   <div className="space-y-6">
                     <div className="flex items-center gap-2">
                       <div className="h-px flex-1 bg-brand-border" />
@@ -475,39 +613,184 @@ function SalesAuditContent() {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-6">
-                      {selectedEvent.rawData.oldData && (
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-2">
-                            <RotateCcw size={12} /> Estado Anterior
-                          </p>
-                          {renderFriendlyData(selectedEvent.rawData.oldData)}
-                          <details className="group">
-                            <summary className="text-[10px] font-bold text-brand-text-sec uppercase tracking-widest cursor-pointer hover:text-brand-blue transition-colors list-none flex items-center gap-1">
-                              <span>Ver JSON Bruto</span>
-                            </summary>
-                            <pre className="mt-2 p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
-                              {JSON.stringify(selectedEvent.rawData.oldData, null, 2)}
-                            </pre>
-                          </details>
-                        </div>
+                      {(selectedEvent.rawData?.oldData || selectedEvent.rawData?.old_data) && (
+                        (() => {
+                          const parsedOld = parseIfNeeded(selectedEvent.rawData.oldData || selectedEvent.rawData.old_data);
+                          return parsedOld ? (
+                            <div className="space-y-3">
+                              <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                                <RotateCcw size={12} /> Estado Anterior
+                              </p>
+                              {renderFriendlyData(parsedOld)}
+                              <details className="group">
+                                <summary className="text-[10px] font-bold text-brand-text-sec uppercase tracking-widest cursor-pointer hover:text-brand-blue transition-colors list-none flex items-center gap-1">
+                                  <span>Ver JSON Bruto</span>
+                                </summary>
+                                <pre className="mt-2 p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
+                                  {JSON.stringify(parsedOld, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+                          ) : null;
+                        })()
                       )}
-                      {selectedEvent.rawData.newData && (
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2">
-                            <CheckCircle2 size={12} /> Novo Estado / Dados Enviados
-                          </p>
-                          {renderFriendlyData(selectedEvent.rawData.newData)}
-                          <details className="group">
-                            <summary className="text-[10px] font-bold text-brand-text-sec uppercase tracking-widest cursor-pointer hover:text-brand-blue transition-colors list-none flex items-center gap-1">
-                              <span>Ver JSON Bruto</span>
-                            </summary>
-                            <pre className="mt-2 p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
-                              {JSON.stringify(selectedEvent.rawData.newData, null, 2)}
-                            </pre>
-                          </details>
+                      {(selectedEvent.rawData?.newData || selectedEvent.rawData?.new_data) && (
+                        (() => {
+                          const parsedNew = parseIfNeeded(selectedEvent.rawData.newData || selectedEvent.rawData.new_data);
+                          return parsedNew ? (
+                            <div className="space-y-3">
+                              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                                <CheckCircle2 size={12} /> Novo Estado / Dados Enviados
+                              </p>
+                              {renderFriendlyData(parsedNew)}
+                              <details className="group">
+                                <summary className="text-[10px] font-bold text-brand-text-sec uppercase tracking-widest cursor-pointer hover:text-brand-blue transition-colors list-none flex items-center gap-1">
+                                  <span>Ver JSON Bruto</span>
+                                </summary>
+                                <pre className="mt-2 p-4 bg-slate-900 text-slate-300 rounded-2xl text-[10px] overflow-x-auto font-mono">
+                                  {JSON.stringify(parsedNew, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+                          ) : null;
+                        })()
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedEvent.type === 'discount' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-brand-border" />
+                      <label className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Dados do Desconto</label>
+                      <div className="h-px flex-1 bg-brand-border" />
+                    </div>
+                    
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-brand-border space-y-4">
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Método</span>
+                          <span className="font-bold text-brand-text-main uppercase">
+                            {(selectedEvent.rawData?.method || '').toLowerCase() === 'percentage' ? 'Percentual' : 'Valor'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Valor do Desconto</span>
+                          <span className="font-black text-rose-500 font-mono text-sm">
+                            {(selectedEvent.rawData?.method || '').toLowerCase() === 'percentage' 
+                              ? `${selectedEvent.rawData?.percentage || selectedEvent.rawData?.value || 0}%` 
+                              : `R$ ${Number(selectedEvent.rawData?.value || 0).toFixed(2)}`}
+                          </span>
+                        </div>
+                        {selectedEvent.rawData?.saleId && selectedEvent.rawData?.saleId !== 'PENDING' && (
+                          <div>
+                            <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Código da Venda</span>
+                            <span className="font-mono font-bold text-brand-text-main uppercase">
+                              #{selectedEvent.rawData?.saleId?.substring(0, 8).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        {(selectedEvent.rawData?.authorizedBy || selectedEvent.rawData?.authorized_by) && (
+                          <div>
+                            <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Autorizado por</span>
+                            <span className="font-bold text-brand-text-main uppercase">
+                              {selectedEvent.rawData?.authorizedBy || selectedEvent.rawData?.authorized_by}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedEvent.rawData?.productId && (
+                        <div className="pt-4 border-t border-brand-border space-y-1">
+                          <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Produto Afetado</span>
+                          <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-brand-border">
+                            <Tag size={14} className="text-amber-500" />
+                            <span className="font-bold text-xs text-brand-text-main uppercase">
+                              {products.find(p => p.id === selectedEvent.rawData?.productId)?.name || 'Produto não identificado'}
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {selectedEvent.type === 'return' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-brand-border" />
+                      <label className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Dados da Devolução</label>
+                      <div className="h-px flex-1 bg-brand-border" />
+                    </div>
+                    
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-brand-border space-y-4">
+                      <div className="grid grid-cols-2 gap-4 text-xs mb-4">
+                        <div>
+                          <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Tipo da Devolução</span>
+                          <span className="font-black text-brand-text-main uppercase text-[11px]">{selectedEvent.rawData?.type || 'ESTORNO'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Total Devolvido</span>
+                          <span className="font-black text-brand-blue font-mono">
+                            R$ {Number(selectedEvent.rawData?.total || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        {(selectedEvent.rawData?.saleId || selectedEvent.rawData?.sale_id) && (
+                          <div>
+                            <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Venda De Origem</span>
+                            <span className="font-mono font-bold text-brand-text-main uppercase">
+                              #{(selectedEvent.rawData?.saleId || selectedEvent.rawData?.sale_id)?.substring(0, 8).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        {(selectedEvent.rawData?.refundMethod || selectedEvent.rawData?.refund_method) && (
+                          <div>
+                            <span className="text-[10px] text-brand-text-sec font-black uppercase tracking-widest block leading-none mb-1">Método de Reembolso</span>
+                            <span className="font-bold text-brand-text-main uppercase">
+                              {selectedEvent.rawData?.refundMethod || selectedEvent.rawData?.refund_method}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedEvent.rawData?.items && Array.isArray(selectedEvent.rawData?.items) && selectedEvent.rawData.items.length > 0 && (
+                        <div className="pt-4 border-t border-brand-border space-y-3">
+                          <p className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Produtos Devolvidos</p>
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {selectedEvent.rawData.items.map((item: any, idx: number) => {
+                              const product = products.find(p => p.id === item.productId || p.id === item.product_id);
+                              return (
+                                <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-brand-border text-xs">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-brand-text-main uppercase">
+                                      {product?.name || item.name || 'Produto não encontrado'}
+                                    </span>
+                                    <span className="text-[10px] text-brand-text-sec font-mono mt-0.5">
+                                      {item.quantity} un x R$ {Number(item.price || item.unit_price || 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <span className="font-black font-mono text-brand-text-main whitespace-nowrap">
+                                    R$ {(Number(item.price || item.unit_price || 0) * item.quantity).toFixed(2)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {relatedSale && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-brand-border" />
+                      <label className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Cupom de Venda Relacionada</label>
+                      <div className="h-px flex-1 bg-brand-border" />
+                    </div>
+                    {renderFriendlyData(relatedSale)}
                   </div>
                 )}
               </div>

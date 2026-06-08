@@ -88,6 +88,8 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
     const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
     return products.filter(p => {
       if (p.status === 'Inativo') return false;
+      const stock = parseFloat(String(p.stock));
+      if (isNaN(stock) || stock <= 0) return false;
       const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
       return searchTerms.length === 0 || searchTerms.every(term => searchableText.includes(term));
     }).slice(0, 100);

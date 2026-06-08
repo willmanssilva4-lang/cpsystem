@@ -497,7 +497,27 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           companyId: p.company_id || p.companyId
         })));
       }
-      if (Array.isArray(rets_res)) setReturns(rets_res);
+      if (Array.isArray(rets_res)) {
+        setReturns(rets_res.map((r: any) => ({
+          ...r,
+          id: r.id,
+          saleId: r.saleId || r.sale_id || '',
+          sale_id: r.sale_id || r.saleId || '',
+          date: r.date || r.created_at || '',
+          items: r.items || [],
+          total: r.total !== undefined ? Number(r.total) : 0,
+          type: r.type || 'TOTAL',
+          refundMethod: r.refundMethod || r.refund_method || '',
+          refund_method: r.refund_method || r.refundMethod || '',
+          userId: r.userId || r.user_id || '',
+          user_id: r.user_id || r.userId || '',
+          status: r.status || 'CONCLUIDO',
+          voucherCode: r.voucherCode || r.voucher_code || '',
+          voucher_code: r.voucher_code || r.voucherCode || '',
+          companyId: r.companyId || r.company_id || '',
+          company_id: r.company_id || r.companyId || ''
+        })));
+      }
       if (Array.isArray(emps_res)) {
         setEmployees(emps_res.map((e: any) => ({
           ...e,
@@ -509,9 +529,53 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(profs_res)) setAccessProfiles(profs_res);
       if (Array.isArray(perms_res)) setPermissions(perms_res);
       if (Array.isArray(expCats_res)) setExpenseCategories(expCats_res);
-      if (Array.isArray(ls_res)) setLosses(ls_res);
-      if (Array.isArray(dLogs_res)) setDiscountLogs(dLogs_res);
-      if (Array.isArray(audLogs_res)) setAuditLogs(audLogs_res);
+      if (Array.isArray(ls_res)) {
+        setLosses(ls_res.map((l: any) => ({
+          ...l,
+          id: l.id,
+          productId: l.productId || l.product_id,
+          product_id: l.product_id || l.productId,
+          loteId: l.loteId || l.lote_id,
+          lote_id: l.lote_id || l.loteId,
+          totalValue: l.totalValue !== undefined ? Number(l.totalValue) : (l.total_value !== undefined ? Number(l.total_value) : 0),
+          total_value: l.total_value !== undefined ? Number(l.total_value) : (l.totalValue !== undefined ? Number(l.totalValue) : 0),
+          quantity: l.quantity !== undefined ? Number(l.quantity) : 0,
+          reason: l.reason,
+          date: l.date || l.created_at
+        })));
+      }
+      if (Array.isArray(dLogs_res)) {
+        setDiscountLogs(dLogs_res.map((d: any) => ({
+          ...d,
+          id: d.id,
+          saleId: d.saleId || d.sale_id,
+          sale_id: d.sale_id || d.saleId,
+          appliedBy: d.appliedBy || d.applied_by,
+          applied_by: d.applied_by || d.appliedBy,
+          value: d.value !== undefined ? Number(d.value) : 0,
+          percentage: d.percentage !== undefined ? Number(d.percentage) : 0,
+          method: d.method,
+          reason: d.reason,
+          date: d.date || d.created_at
+        })));
+      }
+      if (Array.isArray(audLogs_res)) {
+        setAuditLogs(audLogs_res.map((log: any) => ({
+          ...log,
+          createdAt: log.createdAt || log.created_at,
+          created_at: log.created_at || log.createdAt,
+          userId: log.userId || log.user_id,
+          user_id: log.user_id || log.userId,
+          entityId: log.entityId || log.entity_id,
+          entity_id: log.entity_id || log.entityId,
+          oldData: log.oldData || log.old_data,
+          old_data: log.old_data || log.oldData,
+          newData: log.newData || log.new_data,
+          new_data: log.new_data || log.newData,
+          actionName: log.action || log.action_name,
+          moduleName: log.module || log.module_name,
+        })));
+      }
       if (Array.isArray(vchs_res)) {
         setVouchers(vchs_res.map((v: any) => ({
           id: v.id,
@@ -572,6 +636,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           informedTotals: c.informed_totals || [],
           informed_totals: c.informed_totals || [],
           justification: c.justification,
+          approvedBy: c.approved_by || null,
+          approved_by: c.approved_by || null,
           company_id: c.company_id || null
         })));
       }
@@ -973,15 +1039,21 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const totalInformed = informedTotals.reduce((acc, t) => acc + (Number(t.informed) || 0), 0);
     const totalDifference = totalInformed - totalSystem;
 
+    // Encapsulate both text justification and dynamic payment method totals breakdown in the justification field
+    const justificationPayload = JSON.stringify({
+      text: justification,
+      informedTotals: informedTotals
+    });
+
     const closingPayload = {
       cash_register_id: activeRegister.id,
       total_system: totalSystem,
       total_informed: totalInformed,
       total_difference: totalDifference,
-      justification: justification,
+      justification: justificationPayload,
       closed_at: new Date().toISOString(),
       company_id: user?.companyId || null,
-      approved_by: user?.name || null
+      approved_by: user?.id || null
     };
 
     const { error: closingError } = await supabase.from('cash_closings').insert([closingPayload]);

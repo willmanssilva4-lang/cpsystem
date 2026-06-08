@@ -83,7 +83,8 @@ export default function NovaCompraPage() {
   ]);
   const [paymentConditions, setPaymentConditions] = useState<any[]>([
     { id: '1', name: 'À Vista' },
-    { id: '2', name: 'A Prazo / Parcelado' }
+    { id: '2', name: 'A Prazo / Parcelado' },
+    { id: '3', name: 'Sem Pagamento (Bonificação / Brinde)' }
   ]);
 
   // Combine with dynamic data if available
@@ -105,6 +106,7 @@ export default function NovaCompraPage() {
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [showSupplierResults, setShowSupplierResults] = useState(false);
   const [orderStatus, setOrderStatus] = useState<'Recebido' | 'Pendente'>('Recebido');
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
 
   const filteredSuppliers = useMemo(() => {
     if (!supplierSearchTerm) return suppliersList;
@@ -243,20 +245,22 @@ export default function NovaCompraPage() {
   }, [supplierId, invoiceNumber, issueDate, entryDate, paymentCondition, financialAccount, observations, orderStatus, items, activeTab, isLoading, user?.companyId]);
 
   const handleClearDraft = () => {
-    if (window.confirm('Deseja limpar todo o formulário e começar do zero?')) {
-      localStorage.removeItem('purchase_draft');
-      setSupplierId('');
-      setSupplierSearchTerm('');
-      setInvoiceNumber('');
-      setIssueDate(getLocalDateString());
-      setEntryDate(getLocalDateString());
-      setPaymentCondition('');
-      setFinancialAccount('');
-      setObservations('');
-      setOrderStatus('Recebido');
-      setItems([]);
-      setActiveTab(1);
-    }
+    setShowClearConfirmModal(true);
+  };
+
+  const executeClearForm = () => {
+    localStorage.removeItem('purchase_draft');
+    setSupplierId('');
+    setSupplierSearchTerm('');
+    setInvoiceNumber('');
+    setIssueDate(getLocalDateString());
+    setEntryDate(getLocalDateString());
+    setPaymentCondition('');
+    setFinancialAccount('');
+    setObservations('');
+    setOrderStatus('Recebido');
+    setItems([]);
+    setActiveTab(1);
   };
 
   // Initialize installments when moving to Tab 3 or when payment condition changes
@@ -269,6 +273,8 @@ export default function NovaCompraPage() {
         let intervals: number[] = [0]; // Default À Vista
         if (paymentCondition === '2') {
           intervals = [30]; // Default A Prazo
+        } else if (paymentCondition === '3') {
+          intervals = []; // Sem pagamento / Bonificação
         }
 
         const newInstallments = intervals.map((days) => {
@@ -346,7 +352,11 @@ export default function NovaCompraPage() {
       const localFiltered = productsList.filter(p => {
         const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.codigo_mercadologico || ''}`.toLowerCase();
         return searchTerms.every(term => searchableText.includes(term));
-      }).slice(0, 50);
+      }).slice(0, 50).map(p => ({
+        ...p,
+        costPrice: p.costPrice ?? (p as any).cost_price,
+        salePrice: p.salePrice ?? (p as any).sale_price
+      }));
       
       setSearchResults(localFiltered);
       setSelectedIndex(localFiltered.length > 0 ? 0 : -1);
@@ -410,8 +420,8 @@ export default function NovaCompraPage() {
   const selectProduct = (product: any) => {
     setSelectedProduct(product);
     setSearchTerm(product.name);
-    setItemCost(Number(product.costPrice) || 0);
-    setItemSalePrice(Number(product.salePrice) || 0);
+    setItemCost(Number(product.costPrice ?? product.cost_price) || 0);
+    setItemSalePrice(Number(product.salePrice ?? product.sale_price) || 0);
     setSearchResults([]);
     setSelectedIndex(-1);
     
@@ -645,7 +655,7 @@ export default function NovaCompraPage() {
             financialAccount: financialAccount || 'Caixa',
             companyId: user?.companyId || ''
           });
-        } else {
+        } else if (paymentCondition === '2') {
           // A Prazo: Multiple installments
           for (let i = 0; i < installments.length; i++) {
             const inst = installments[i];
@@ -663,6 +673,9 @@ export default function NovaCompraPage() {
               companyId: user?.companyId || ''
             });
           }
+        } else if (paymentCondition === '3') {
+          // Bonificação: Sem despesas financeiras
+          console.log('[NovaCompra] Entrada bonificada - ignora geração de Contas a Pagar');
         }
       }
 
@@ -783,7 +796,7 @@ export default function NovaCompraPage() {
                       />
                       
                       <AnimatePresence>
-                        {showSupplierResults && supplierSearchTerm.length >= 0 && (
+                        {showSupplierResults && supplierSearchTerm.length >= 3 && (
                           <motion.div 
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -967,7 +980,7 @@ export default function NovaCompraPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-sm font-black text-brand-blue italic leading-none">R$ {Number(product.salePrice || 0).toFixed(2)}</div>
+                                  <div className="text-sm font-black text-brand-blue italic leading-none">R$ {Number(product.salePrice ?? product.sale_price ?? 0).toFixed(2)}</div>
                                   <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Estoque: <span className={cn(product.stock <= 0 ? 'text-rose-500' : 'text-emerald-500')}>{product.stock || 0}</span></div>
                                 </div>
                               </button>
@@ -1008,6 +1021,7 @@ export default function NovaCompraPage() {
                         <th className="px-6 py-4">Produto</th>
                         <th className="px-6 py-4 text-center">Qtd</th>
                         <th className="px-6 py-4 text-right">Custo</th>
+                        <th className="px-6 py-4 text-right">Venda Sugerida</th>
                         <th className="px-6 py-4 text-right">Total</th>
                         <th className="px-6 py-4 text-center">Ação</th>
                       </tr>
@@ -1017,7 +1031,8 @@ export default function NovaCompraPage() {
                         <tr key={item.id} className="text-sm font-bold text-brand-text-main">
                           <td className="px-6 py-4">{item.productName}</td>
                           <td className="px-6 py-4 text-center">{item.qty}</td>
-                          <td className="px-6 py-4 text-right">R$ {item.cost.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-slate-600">R$ {item.cost.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-emerald-600 font-extrabold italic">R$ {(item.salePrice || 0).toFixed(2)}</td>
                           <td className="px-6 py-4 text-right text-brand-blue">R$ {item.total.toFixed(2)}</td>
                           <td className="px-6 py-4 text-center">
                             <button onClick={() => handleRemoveItem(item.id)} className="text-rose-500 hover:text-rose-700"><Trash2 size={18} /></button>
@@ -1077,7 +1092,7 @@ export default function NovaCompraPage() {
                     </div>
 
                     {/* Installments Summary */}
-                    {paymentCondition !== '1' && (
+                    {paymentCondition === '2' && (
                       <div className="p-6 bg-slate-50 rounded-[32px] border border-brand-border space-y-4">
                         <div className="flex items-center justify-between border-b border-brand-border pb-2">
                           <h3 className="text-sm font-black text-brand-text-main uppercase italic tracking-tight">Financeiro / Parcelas</h3>
@@ -1124,6 +1139,15 @@ export default function NovaCompraPage() {
                         </div>
                       </div>
                     )}
+
+                    {paymentCondition === '3' && (
+                      <div className="p-6 bg-emerald-50/50 rounded-[32px] border border-emerald-200/50 flex flex-col items-center text-center space-y-2">
+                        <span className="text-emerald-600 font-extrabold uppercase italic tracking-wider text-xs">Entrada de Bonificação</span>
+                        <p className="text-sm font-medium text-slate-600 max-w-sm leading-relaxed">
+                          Esta compra está marcada como <strong className="font-extrabold italic uppercase text-brand-blue">Sem Pagamento (Bonificação / Brinde)</strong>. O estoque dos produtos será abastecido, mas nenhum lançamento de Conta a Pagar será gerado no financeiro.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Products Summary */}
@@ -1168,7 +1192,10 @@ export default function NovaCompraPage() {
                           <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-brand-border/50">
                             <div>
                               <div className="font-bold text-brand-text-main text-sm">{item.productName}</div>
-                              <div className="text-xs text-slate-500">{item.qty} un × R$ {item.cost.toFixed(2)}</div>
+                              <div className="flex gap-4 text-xs text-slate-500 mt-1">
+                                <span>{item.qty} un × R$ {item.cost.toFixed(2)} (Custo)</span>
+                                <span className="text-emerald-600 font-semibold uppercase tracking-tight text-[10px]">Venda: R$ {(item.salePrice || 0).toFixed(2)}</span>
+                              </div>
                             </div>
                             <div className="font-black text-brand-blue">
                               R$ {item.total.toFixed(2)}
@@ -1222,6 +1249,43 @@ export default function NovaCompraPage() {
           </>
         )}
       </div>
+
+      {showClearConfirmModal && (
+        <div id="clear-confirm-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 p-8 flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/10 rounded-full flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <Trash2 size={32} className="animate-pulse" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase italic tracking-tight">Confirmar Limpeza</h3>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
+                Deseja limpar todo o formulário e começar do zero?
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full pt-2">
+              <button
+                id="cancel-clear-btn"
+                onClick={() => setShowClearConfirmModal(false)}
+                className="flex-1 px-6 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl text-xs font-black uppercase italic tracking-tight transition-all active:scale-95"
+              >
+                Não, cancelar
+              </button>
+              <button
+                id="confirm-clear-btn"
+                onClick={() => {
+                  setShowClearConfirmModal(false);
+                  executeClearForm();
+                }}
+                className="flex-1 px-6 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black uppercase italic tracking-tight transition-all shadow-lg shadow-rose-600/15 active:scale-95"
+              >
+                Sim, limpar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

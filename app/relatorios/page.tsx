@@ -87,6 +87,7 @@ import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 import { SalesByProductReport } from '@/components/reports/SalesByProductReport';
 import { SalesReport } from '@/components/reports/SalesReport';
+import { SalesMoreLessReport } from '@/components/reports/SalesMoreLessReport';
 import * as XLSX from 'xlsx';
 
 export default function ReportsPage() {
@@ -316,9 +317,12 @@ function ReportsContent() {
   const allReports = [
     { id: 'dash_exec', category: 'gerencial', title: 'Dashboard Executivo', description: 'Visão geral de desempenho, lucro e KPIs principais.', icon: Gauge },
     { id: 'vendas_periodo', category: 'vendas', title: 'Vendas por Período', description: 'Detalhamento de vendas brutas, líquidas e ticket médio.', icon: Calendar },
+    { id: 'resumo_vendas_dia', category: 'vendas', title: 'Resumo de Vendas por Dia', description: 'Consolidado diário de faturamento bruto, descontos, transações de venda e ticket médio.', icon: Calendar },
     { id: 'vendas_produto', category: 'vendas', title: 'Vendas por Produto', description: 'Ranking de produtos mais vendidos por volume e receita.', icon: ShoppingCart },
+    { id: 'produtos_mais_menos', category: 'vendas', title: 'Vendas Mais/Menos Produtos', description: 'Identificação rápida dos produtos com maior e menor volume de saída.', icon: TrendingUp },
     { id: 'vendas_vendedor', category: 'vendas', title: 'Vendas por Vendedor', description: 'Ranking de performance e comissões da equipe.', icon: Users },
     { id: 'vendas_categoria', category: 'vendas', title: 'Vendas por Categoria', description: 'Análise de mix de produtos e categorias mais vendidas.', icon: PieChartIcon },
+    { id: 'vendas_departamento', category: 'vendas', title: 'Vendas por Departamento', description: 'Análise de faturamento, share de vendas e mix de produtos por departamento.', icon: Layers },
     { id: 'vendas_hora', category: 'vendas', title: 'Vendas por Hora', description: 'Identificação de horários de pico e fluxo de clientes.', icon: Clock },
     { id: 'comissoes', category: 'vendas', title: 'Comissões de Vendedores', description: 'Cálculo detalhado de comissões por período.', icon: DollarSign },
     { id: 'fluxo_caixa', category: 'financeiro', title: 'Fluxo de Caixa', description: 'Projeção de entradas e saídas para os próximos meses.', icon: Activity },
@@ -678,6 +682,7 @@ function ReportsContent() {
                   selectedReportView === 'Dashboard Executivo' ? "p-0 bg-slate-50/50" : "p-6 md:p-10 bg-slate-50/40"
                 )}>
                   {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Resumo de Vendas por Dia' && <SalesByDaySummaryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Fechamento de Caixa' && <CashClosingReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Giro de Estoque' && <StockTurnoverReport startDate={startDate} endDate={endDate} />}
@@ -687,6 +692,8 @@ function ReportsContent() {
                   {selectedReportView === 'Vendas por Vendedor' && <SalesBySellerReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Produto' && <SalesByProductReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Categoria' && <SalesByCategoryReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Vendas por Departamento' && <SalesByDepartmentReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Vendas Mais/Menos Produtos' && <SalesMoreLessReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Hora' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
@@ -712,7 +719,7 @@ function ReportsContent() {
                     />
                   )}
                   
-                  {!['Dashboard Executivo', 'Vendas por Período', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas por Categoria', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
+                  {!['Dashboard Executivo', 'Vendas por Período', 'Resumo de Vendas por Dia', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas Mais/Menos Produtos', 'Vendas por Categoria', 'Vendas por Departamento', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -1557,35 +1564,35 @@ function AdvancedPerformanceDashboard({
       <div className="flex flex-col gap-8">
         
         {/* Header Section */}
-        <div className="flex flex-col gap-6 border-b border-slate-200/60 pb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-brand-blue font-black uppercase italic tracking-wider text-xs mb-1">
+        <div className="flex flex-col gap-8 pb-8 border-b border-slate-200/60">
+          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-blue/5 rounded-full text-brand-blue font-black uppercase italic tracking-widest text-[10px]">
                 <Activity size={12} className="animate-pulse" />
                 Módulo Executivo de BI
               </div>
-              <h2 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Relatórios Avançados de Desempenho</h2>
-              <p className="text-sm font-medium text-slate-500 mt-1 leading-relaxed">
-                Análise de dados estratégica, projeções de fluxo de caixa e inteligência de distribuição.
+              <h1 className="text-4xl font-black tracking-tight text-slate-900 italic uppercase">Relatórios Avançados</h1>
+              <p className="text-sm font-semibold text-slate-500 leading-relaxed max-w-xl">
+                Análise de dados estratégica, projeções de fluxo de caixa e inteligência de distribuição operacional.
               </p>
             </div>
             
-            <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-3">
               {onOpenCatalog && (
                 <button 
                   onClick={onOpenCatalog}
-                  className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 shadow-sm"
+                  className="flex items-center gap-2.5 px-6 py-3.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-2xl text-xs font-black uppercase italic tracking-tight transition-all active:scale-95 shadow-sm"
                 >
-                  <LayoutGrid size={14} className="text-brand-blue" />
-                  Catálogo
+                  <LayoutGrid size={16} className="text-brand-blue" />
+                  Ver Catalógo
                 </button>
               )}
               <button 
                 onClick={handleExportExcel}
-                className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/15 active:scale-95"
+                className="flex items-center gap-2.5 px-6 py-3.5 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-slate-800 transition-all shadow-lg active:scale-95"
               >
-                <Download size={14} />
-                Exportar Excel
+                <Download size={16} />
+                Exportar Relatório
               </button>
             </div>
           </div>
@@ -2386,12 +2393,93 @@ function AdvancedPerformanceDashboard({
 
 // Componentes de Relatórios Reais
 function CashClosingReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { cashRegisters, cashClosings, sales, cashMovements } = useERP();
+  const { cashRegisters, cashClosings, sales, cashMovements, systemUsers } = useERP();
+  const [expandedRegisterId, setExpandedRegisterId] = useState<string | null>(null);
   
   const filteredRegisters = cashRegisters.filter(r => {
     const d = toLocalDateString(r.openedAt);
     return d >= startDate && d <= endDate;
   });
+
+  const calculateRegisterTotals = (r: any) => {
+    const normalizeStr = (str?: string) => (str || '').trim().toLowerCase();
+
+    const getClosureCategory = (methodName?: string, methodType?: string): string => {
+      const normName = normalizeStr(methodName);
+      const normType = normalizeStr(methodType);
+
+      if (normName === 'dinheiro' || normName === 'especie' || normName === 'dinheiro em especie' || normName === 'cash' || normName === 'money') return 'Dinheiro';
+      if (normName === 'pix') return 'Pix';
+      if (normName === 'credito' || normName === 'cartao de credito' || normName === 'credit' || normName === 'card' || normName === 'cartao') return 'Crédito';
+      if (normName === 'debito' || normName === 'cartao de debito' || normName === 'debit') return 'Débito';
+      if (normName === 'voucher' || normName === 'vale' || normName === 'vale credito' || normName === 'vale-credito' || normName === 'cupom') return 'Voucher';
+      if (normName === 'fiado' || normName === 'prazo' || normName === 'conta assinada' || normName === 'caderneta') return 'Fiado';
+
+      if (normType === 'dinheiro') return 'Dinheiro';
+      if (normType === 'pix') return 'Pix';
+      if (normType === 'credito') return 'Crédito';
+      if (normType === 'debito') return 'Débito';
+      if (normType === 'voucher' || normType === 'vale_credito' || normType === 'vale-credito') return 'Voucher';
+      if (normType === 'fiado' || normType === 'prazo') return 'Fiado';
+
+      if (normName.includes('dinheiro') || normName.includes('especie') || normName.includes('money') || normName.includes('cash')) return 'Dinheiro';
+      if (normName.includes('pix')) return 'Pix';
+      if (normName.includes('credito') || normName.includes('credit')) return 'Crédito';
+      if (normName.includes('debito') || normName.includes('debit')) return 'Débito';
+      if (normName.includes('voucher') || normName.includes('vale') || normName.includes('cupom')) return 'Voucher';
+      if (normName.includes('fiado') || normName.includes('prazo') || normName.includes('conta ass') || normName.includes('caderneta') || normName.includes('assina')) return 'Fiado';
+
+      return 'Dinheiro';
+    };
+
+    const isCancelledSale = (status?: string): boolean => {
+      if (!status) return false;
+      const s = status.toUpperCase();
+      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
+    };
+
+    const registerSales = (sales || []).filter(s => s.cashRegisterId === r.id && !isCancelledSale(s.status));
+    
+    const totals: Record<string, number> = {
+      'Dinheiro': 0,
+      'Pix': 0,
+      'Crédito': 0,
+      'Débito': 0,
+      'Voucher': 0,
+      'Fiado': 0
+    };
+
+    registerSales.forEach(sale => {
+      if (sale.payments && Array.isArray(sale.payments) && sale.payments.length > 0) {
+        sale.payments.forEach((payment: any) => {
+          const category = getClosureCategory(payment.method);
+          if (totals[category] !== undefined) {
+            totals[category] += payment.amount || 0;
+          }
+        });
+      } else {
+        const category = getClosureCategory(sale.paymentMethod);
+        if (totals[category] !== undefined) {
+          totals[category] += sale.total || 0;
+        }
+      }
+    });
+
+    // Add opening balance to Cash (Dinheiro)
+    totals['Dinheiro'] += r.openingBalance || 0;
+
+    // Add movements (Sangria/Suprimento)
+    const registerMovements = (cashMovements || []).filter(m => m.cashRegisterId === r.id);
+    registerMovements.forEach(m => {
+      if (m.type === 'suprimento') {
+        totals['Dinheiro'] += m.amount || 0;
+      } else if (m.type === 'sangria') {
+        totals['Dinheiro'] -= m.amount || 0;
+      }
+    });
+
+    return totals;
+  };
 
   const getRegisterCurrentBalance = (r: any) => {
     const isCancelledSale = (status?: string): boolean => {
@@ -2460,31 +2548,221 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
         <tbody className="divide-y divide-slate-50">
           {filteredRegisters.length > 0 ? filteredRegisters.map((r) => {
             const closing = cashClosings.find(c => c.cashRegisterId === r.id);
+            const isExpanded = expandedRegisterId === r.id;
+
+            // Parse detailed justification & informed breakdown
+            let justificationText = '';
+            let informedTotalsList: any[] = [];
+            
+            if (closing) {
+              if (closing.justification && typeof closing.justification === 'string' && closing.justification.trim().startsWith('{')) {
+                try {
+                  const parsed = JSON.parse(closing.justification);
+                  justificationText = parsed.text || '';
+                  informedTotalsList = parsed.informedTotals || [];
+                } catch (e) {
+                  justificationText = closing.justification;
+                }
+              } else {
+                justificationText = closing.justification || '';
+              }
+            }
+
+            // Fallback generation if no detailed breakdown was saved (older version support)
+            if (closing && (!informedTotalsList || informedTotalsList.length === 0)) {
+              const expectedTotals = calculateRegisterTotals(r);
+              informedTotalsList = Object.entries(expectedTotals).map(([method, systemValue]) => {
+                const isCash = method === 'Dinheiro';
+                let informedValue = systemValue;
+                if (isCash) {
+                  informedValue = systemValue + (closing.totalDifference || 0);
+                }
+                return {
+                  method,
+                  system: systemValue,
+                  informed: informedValue
+                };
+              });
+            }
+
+            // Web UI robustness fallback if closing record was lost or not created
+            if (!closing && r.status === 'closed') {
+              const expectedTotals = calculateRegisterTotals(r);
+              informedTotalsList = Object.entries(expectedTotals).map(([method, systemValue]) => {
+                return {
+                  method,
+                  system: systemValue,
+                  informed: systemValue
+                };
+              });
+              justificationText = 'Preenchido automaticamente (dados reais recuperados)';
+            }
+
+            const movements = (cashMovements || []).filter(m => m.cashRegisterId === r.id);
+
             return (
-              <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="py-4 text-sm font-bold text-brand-text-main">
-                  {new Date(r.openedAt).toLocaleString('pt-BR')}
-                </td>
-                <td className="py-4 text-sm font-bold text-brand-text-main uppercase italic">
-                  {r.userId?.slice(0, 8) || 'SISTEMA'}
-                </td>
-                <td className="py-4">
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
-                    r.status === 'open' ? 'bg-emerald-100 text-emerald-700' : 
-                    r.status === 'closed' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-700'
+              <React.Fragment key={r.id}>
+                <tr 
+                  onClick={() => setExpandedRegisterId(isExpanded ? null : r.id)}
+                  className="hover:bg-slate-50/50 transition-colors cursor-pointer select-none"
+                >
+                  <td className="py-4 text-sm font-bold text-brand-text-main flex items-center gap-2">
+                    <span className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                      <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </span>
+                    {new Date(r.openedAt).toLocaleString('pt-BR')}
+                  </td>
+                  <td className="py-4 text-sm font-bold text-brand-text-main uppercase italic">
+                    {r.userId?.slice(0, 8) || 'SISTEMA'}
+                  </td>
+                  <td className="py-4">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
+                      r.status === 'open' ? 'bg-emerald-100 text-emerald-700' : 
+                      r.status === 'closed' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {r.status === 'open' ? 'Aberto' : r.status === 'closed' ? 'Fechado' : r.status}
+                    </span>
+                  </td>
+                  <td className="py-4 text-sm font-black text-brand-blue">
+                    {formatCurrency(r.openingBalance)}
+                  </td>
+                  <td className={`py-4 text-right text-sm font-black ${
+                    !closing ? (r.status === 'closed' ? 'text-brand-green' : 'text-slate-400') : closing.totalDifference === 0 ? 'text-brand-green' : 'text-brand-danger'
                   }`}>
-                    {r.status === 'open' ? 'Aberto' : r.status === 'closed' ? 'Fechado' : r.status}
-                  </span>
-                </td>
-                <td className="py-4 text-sm font-black text-brand-blue">
-                  {formatCurrency(r.openingBalance)}
-                </td>
-                <td className={`py-4 text-right text-sm font-black ${
-                  !closing ? 'text-slate-400' : closing.totalDifference === 0 ? 'text-brand-green' : 'text-brand-danger'
-                }`}>
-                  {closing ? formatCurrency(closing.totalDifference) : '---'}
-                </td>
-              </tr>
+                    {closing ? (
+                      <span className="flex items-center justify-end gap-1.5">
+                        {closing.totalDifference > 0 ? '+' : ''}
+                        {formatCurrency(closing.totalDifference)}
+                        {closing.totalDifference !== 0 && (
+                          <span className={`w-2 h-2 rounded-full ${closing.totalDifference > 0 ? 'bg-blue-500 animate-pulse' : 'bg-rose-500 animate-pulse'}`} />
+                        )}
+                      </span>
+                    ) : (r.status === 'closed' ? formatCurrency(0) : '---')}
+                  </td>
+                </tr>
+
+                {isExpanded && (
+                  <tr>
+                    <td colSpan={5} className="py-3 px-4 bg-slate-50/70 border-t border-b border-slate-100">
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="py-4 px-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 shadow-sm space-y-6 overflow-hidden"
+                      >
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-4">
+                          <div>
+                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                              Detalhamento de Fechamento de Caixa
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Sessão iniciada em <strong className="font-semibold">{new Date(r.openedAt).toLocaleString('pt-BR')}</strong>
+                              {r.closedAt && (
+                                <> e encerrada em <strong className="font-semibold">{new Date(r.closedAt).toLocaleString('pt-BR')}</strong></>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase">Total Esperado:</span>
+                            <span className="text-sm font-black text-slate-900">
+                              {closing ? formatCurrency(closing.totalSystem) : formatCurrency(getRegisterCurrentBalance(r))}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                              Conferência por Meio de Pagamento
+                            </h5>
+                            
+                            <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
+                              <table className="w-full text-left border-collapse">
+                                <thead className="bg-slate-50/80">
+                                  <tr>
+                                    <th className="p-2.5 text-[9px] font-bold uppercase text-slate-500">Método</th>
+                                    <th className="p-2.5 text-[9px] font-bold uppercase text-slate-500 text-right">Esperado</th>
+                                    <th className="p-2.5 text-[9px] font-bold uppercase text-slate-500 text-right">Informado</th>
+                                    <th className="p-2.5 text-[9px] font-bold uppercase text-slate-500 text-right">Diferença</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {informedTotalsList.map((item: any) => {
+                                    const diff = (item.informed !== undefined ? item.informed : item.system) - item.system;
+                                    return (
+                                      <tr key={item.method} className="hover:bg-slate-50/40 text-xs">
+                                        <td className="p-2.5 font-bold text-slate-800">{item.method}</td>
+                                        <td className="p-2.5 text-right font-medium text-slate-500">{formatCurrency(item.system)}</td>
+                                        <td className="p-2.5 text-right font-bold text-slate-750">
+                                          {item.informed !== undefined ? formatCurrency(item.informed) : '---'}
+                                        </td>
+                                        <td className={`p-2.5 text-right font-black ${
+                                          diff === 0 ? 'text-emerald-600' : diff > 0 ? 'text-brand-blue' : 'text-rose-600'
+                                        }`}>
+                                          {diff > 0 ? '+' : ''}
+                                          {formatCurrency(diff)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="rounded-xl border border-slate-100 p-4 space-y-2 bg-slate-50/30">
+                              <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                Observações do Fechamento
+                              </h5>
+                              <p className="text-xs italic text-slate-600 font-medium whitespace-pre-wrap">
+                                {justificationText ? `"${justificationText}"` : 'Nenhuma observação ou justificativa preenchida.'}
+                              </p>
+                              {closing?.approvedBy && (
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">
+                                  Aprovado/Assinado por: <span className="text-slate-600">
+                                    {(systemUsers || []).find(u => u.id === closing.approvedBy)?.fullName || (systemUsers || []).find(u => u.id === closing.approvedBy)?.username || closing.approvedBy}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                Movimentações (Suprimentos / Sangrias)
+                              </h5>
+                              {movements.length > 0 ? (
+                                <div className="max-h-[140px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                                  {movements.map((move: any) => (
+                                    <div 
+                                      key={move.id} 
+                                      className={`flex justify-between items-center p-2 rounded-lg text-xs ${
+                                        move.type === 'suprimento' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'
+                                      }`}
+                                    >
+                                      <div>
+                                        <span className="font-bold uppercase tracking-wider text-[9px] px-1.5 py-0.5 rounded bg-white/60 mr-2">
+                                          {move.type}
+                                        </span>
+                                        <span className="font-semibold">{move.reason || 'Sem justificativa'}</span>
+                                      </div>
+                                      <span className="font-black font-mono">
+                                        {move.type === 'sangria' ? '-' : '+'} {formatCurrency(move.amount)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 italic">Não houveram suprimentos ou sangrias neste caixa.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             );
           }) : (
             <tr>
@@ -9869,6 +10147,1341 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ==========================================
+// RELATÓRIO RESUMO DE VENDAS POR DIA
+// ==========================================
+function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { sales } = useERP();
+  const [chartMetric, setChartMetric] = React.useState<'net' | 'count' | 'discount'>('net');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedWeekday, setSelectedWeekday] = React.useState('all');
+  const [expandedDate, setExpandedDate] = React.useState<string | null>(null);
+  
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 10;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedWeekday]);
+
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = getLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
+
+  const weekdaysPT = [
+    'Domingo',
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado'
+  ];
+
+  const dailySummary = React.useMemo(() => {
+    const summaryMap: Record<string, {
+      date: string;
+      weekday: string;
+      count: number;
+      gross: number;
+      discount: number;
+      net: number;
+      canceledCount: number;
+      canceledValue: number;
+      paymentMethods: Record<string, { count: number, total: number }>;
+    }> = {};
+
+    // Initialize days in range to verify gaps and display zeroed days
+    const startObj = new Date(startDate + 'T12:00:00');
+    const endObj = new Date(endDate + 'T12:00:00');
+    const current = new Date(startObj);
+
+    while (current <= endObj) {
+      const dateStr = getLocalDateString(current);
+      const wDay = weekdaysPT[current.getDay()];
+      summaryMap[dateStr] = {
+        date: dateStr,
+        weekday: wDay,
+        count: 0,
+        gross: 0,
+        discount: 0,
+        net: 0,
+        canceledCount: 0,
+        canceledValue: 0,
+        paymentMethods: {}
+      };
+      current.setDate(current.getDate() + 1);
+    }
+
+    filteredSales.forEach(sale => {
+      const dateStr = getLocalDateString(sale.date);
+      if (!summaryMap[dateStr]) {
+        const dateObj = new Date(sale.date + 'T12:00:00');
+        const dayIdx = isNaN(dateObj.getDay()) ? 0 : dateObj.getDay();
+        summaryMap[dateStr] = {
+          date: dateStr,
+          weekday: weekdaysPT[dayIdx] || 'Dia Útil',
+          count: 0,
+          gross: 0,
+          discount: 0,
+          net: 0,
+          canceledCount: 0,
+          canceledValue: 0,
+          paymentMethods: {}
+        };
+      }
+
+      const total = Number(sale.total) || 0;
+      const discount = Number(sale.discount) || 0;
+      const subtotal = Number(sale.subtotal) || (total + discount);
+      const isCanceled = sale.status === 'Cancelada' || sale.status === 'cancelada';
+
+      if (isCanceled) {
+        summaryMap[dateStr].canceledCount += 1;
+        summaryMap[dateStr].canceledValue += total;
+      } else {
+        summaryMap[dateStr].count += 1;
+        summaryMap[dateStr].gross += subtotal;
+        summaryMap[dateStr].discount += discount;
+        summaryMap[dateStr].net += total;
+
+        const pm = (sale.paymentMethod || sale.payment_method || 'Outros').toUpperCase();
+        if (!summaryMap[dateStr].paymentMethods[pm]) {
+          summaryMap[dateStr].paymentMethods[pm] = { count: 0, total: 0 };
+        }
+        summaryMap[dateStr].paymentMethods[pm].count += 1;
+        summaryMap[dateStr].paymentMethods[pm].total += total;
+      }
+    });
+
+    return Object.values(summaryMap).sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredSales, startDate, endDate]);
+
+  const executiveTotals = React.useMemo(() => {
+    let totalGross = 0;
+    let totalDiscount = 0;
+    let totalNet = 0;
+    let totalCount = 0;
+    let totalCanceledCount = 0;
+    let totalCanceledValue = 0;
+    let bestDayDate = '--';
+    let bestDayValue = 0;
+
+    dailySummary.forEach(day => {
+      totalGross += day.gross;
+      totalDiscount += day.discount;
+      totalNet += day.net;
+      totalCount += day.count;
+      totalCanceledCount += day.canceledCount;
+      totalCanceledValue += day.canceledValue;
+
+      if (day.net > bestDayValue) {
+        bestDayValue = day.net;
+        bestDayDate = day.date;
+      }
+    });
+
+    const averageTicket = totalCount > 0 ? totalNet / totalCount : 0;
+
+    return {
+      totalGross,
+      totalDiscount,
+      totalNet,
+      totalCount,
+      totalCanceledCount,
+      totalCanceledValue,
+      bestDayDate,
+      bestDayValue,
+      averageTicket
+    };
+  }, [dailySummary]);
+
+  const processedDailyList = React.useMemo(() => {
+    return dailySummary.filter(day => {
+      const parts = day.date.split('-');
+      const formattedDateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      const matchesSearch = 
+        day.date.includes(searchQuery) || 
+        formattedDateStr.includes(searchQuery) ||
+        day.weekday.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesWeekday = selectedWeekday === 'all' || day.weekday === selectedWeekday;
+
+      return matchesSearch && matchesWeekday;
+    });
+  }, [dailySummary, searchQuery, selectedWeekday]);
+
+  const paginatedDailyList = React.useMemo(() => {
+    const idx = (currentPage - 1) * itemsPerPage;
+    return processedDailyList.slice(idx, idx + itemsPerPage);
+  }, [processedDailyList, currentPage]);
+
+  const totalPages = Math.ceil(processedDailyList.length / itemsPerPage);
+
+  const chartData = React.useMemo(() => {
+    return [...dailySummary]
+      .reverse()
+      .map(day => {
+        const parts = day.date.split('-');
+        return {
+          formattedDate: `${parts[2]}/${parts[1]}`,
+          net: day.net,
+          count: day.count,
+          discount: day.discount,
+          label: `${parts[2]}/${parts[1]}/${parts[0]}`
+        };
+      });
+  }, [dailySummary]);
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  };
+
+  const formatDateBR = (dateStr: string) => {
+    if (!dateStr || dateStr === '--') return '--';
+    const parts = dateStr.split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+
+  const exportToCSV = () => {
+    try {
+      const headers = [
+        'Data',
+        'Dia da Semana',
+        'Quantidade Vendas',
+        'Faturamento Bruto (R$)',
+        'Descontos Concedidos (R$)',
+        'Faturamento Liquido (R$)',
+        'Ticket Medio (R$)',
+        'Transacoes Canceladas',
+        'Valor Cancelado (R$)'
+      ];
+
+      const rows = dailySummary.map(day => {
+        const tkt = day.count > 0 ? (day.net / day.count) : 0;
+        return [
+          formatDateBR(day.date),
+          day.weekday,
+          day.count,
+          day.gross.toFixed(2),
+          day.discount.toFixed(2),
+          day.net.toFixed(2),
+          tkt.toFixed(2),
+          day.canceledCount,
+          day.canceledValue.toFixed(2)
+        ];
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Resumo_Vendas_Diario_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const getDayValuePercentage = (net: number) => {
+    const maxVal = Math.max(...dailySummary.map(d => d.net), 1);
+    return (net / maxVal) * 100;
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/60 pb-5 gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Calendar size={11} className="text-brand-blue" />
+            Consolidação Temporal Diária
+          </div>
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Resumo de Vendas por Dia</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Visão gerencial consolidada por data, destacando faturamento bruto, descontos promocionais, volumes de venda e ticket médio.
+          </p>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={exportToCSV}
+            className="px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-600 hover:text-slate-805 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <Download size={14} /> Exportar CSV
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-600 hover:text-slate-805 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <Printer size={14} /> Imprimir
+          </button>
+        </div>
+      </div>
+
+      {dailySummary.length > 0 ? (
+        <>
+          {/* KPI CARDS GRID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* KPI 1: Faturamento Líquido */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Líquido</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <TrendingUp size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight text-emerald-600">
+                  {formatCurrency(executiveTotals.totalNet)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Cálculo real pós descontos
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 2: Faturamento Bruto */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Award size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Bruto</span>
+                <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                  <DollarSign size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(executiveTotals.totalGross)}
+                </h3>
+                <span className="text-[10px] font-black text-rose-500 uppercase italic mt-1.5 block">
+                  Descontos de {formatCurrency(executiveTotals.totalDiscount)}
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 3: Ticket Médio Geral */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Percent size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Ticket Médio</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <Percent size={14} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(executiveTotals.averageTicket)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  {executiveTotals.totalCount} transações concluídas
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 4: Melhor Dia */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Trophy size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Melhor Dia do Período</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Trophy size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-lg font-black text-slate-800 tracking-tight">
+                  {formatDateBR(executiveTotals.bestDayDate)}
+                </h3>
+                <span className="text-[10px] font-black text-amber-600 uppercase italic mt-1.5 flex items-center gap-1">
+                  Faturamento de {formatCurrency(executiveTotals.bestDayValue)}
+                </span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* DYNAMIC CHART SECTION */}
+          <div className="bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-5 mb-6 gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">
+                  Curva de Fluxo de Venda Diário
+                </h4>
+                <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão sequencial e ritmo de vendas diárias ao longo do período selecionado</p>
+              </div>
+
+              {/* Chart Mode Selector */}
+              <div className="bg-slate-100 p-1 rounded-xl flex items-center shrink-0 self-start">
+                <button
+                  onClick={() => setChartMetric('net')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer",
+                    chartMetric === 'net' 
+                      ? "bg-white text-slate-800 shadow-sm" 
+                      : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Faturamento Líquido
+                </button>
+                <button
+                  onClick={() => setChartMetric('count')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer",
+                    chartMetric === 'count' 
+                      ? "bg-white text-slate-800 shadow-sm" 
+                      : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Qtd Vendas
+                </button>
+                <button
+                  onClick={() => setChartMetric('discount')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer",
+                    chartMetric === 'discount' 
+                      ? "bg-white text-slate-800 shadow-sm" 
+                      : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Descontos Concedidos
+                </button>
+              </div>
+            </div>
+
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 15, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="salesDayGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartMetric === 'net' ? '#10b981' : chartMetric === 'count' ? '#1e5eff' : '#ef4444'} stopOpacity={0.4} />
+                      <stop offset="100%" stopColor={chartMetric === 'net' ? '#10b981' : chartMetric === 'count' ? '#1e5eff' : '#ef4444'} stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis 
+                    dataKey="formattedDate" 
+                    tickLine={false} 
+                    axisLine={false}
+                    tick={{ fontSize: 9, fill: '#64748B', fontWeight: 600, fontFamily: 'var(--font-mono)' }}
+                  />
+                  <YAxis 
+                    tickLine={false} 
+                    axisLine={false}
+                    tick={{ fontSize: 9, fill: '#64748B', fontWeight: 600, fontFamily: 'var(--font-mono)' }}
+                    tickFormatter={(val) => chartMetric === 'count' ? val : `R$ ${val}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                    labelFormatter={(label, items) => {
+                      if (items && items[0]) {
+                        return items[0].payload.label;
+                      }
+                      return label;
+                    }}
+                    formatter={(val: any) => [
+                      chartMetric === 'count' ? `${val} transações` : formatCurrency(Number(val)), 
+                      chartMetric === 'net' ? 'Faturamento Líquido' : chartMetric === 'count' ? 'Quantidade' : 'Total de Descontos'
+                    ]}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey={chartMetric} 
+                    stroke={chartMetric === 'net' ? '#10b981' : chartMetric === 'count' ? '#1e5eff' : '#ef4444'} 
+                    strokeWidth={4}
+                    fill="url(#salesDayGradient)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* ADVANCED FILTERING AND DETAILED DATA TABLE */}
+          <div className="bg-white rounded-[2.2rem] border border-slate-200/80 shadow-sm overflow-hidden">
+            
+            {/* Filter controls */}
+            <div className="p-6 md:p-8 bg-slate-50/50 border-b border-slate-200/60 flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Filtrar por data, dia útil ou keyword..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/20 placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <Filter size={13} className="text-slate-400" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Dia de Semana:</span>
+                </div>
+                <select
+                  value={selectedWeekday}
+                  onChange={(e) => setSelectedWeekday(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                >
+                  <option value="all">TODOS OS DIAS</option>
+                  {weekdaysPT.map(day => (
+                    <option key={day} value={day}>{day.toUpperCase()}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Structured Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-200/60 bg-slate-100/50">
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Data</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Dia da Semana</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-center">Transações</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Fat. Bruto</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Descontos</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Fat. Líquido</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedDailyList.map((item) => (
+                    <React.Fragment key={item.date}>
+                      <tr 
+                        className={cn(
+                          "hover:bg-slate-50/50 group transition-all text-xs font-semibold text-slate-600",
+                          item.count === 0 && "opacity-50"
+                        )}
+                      >
+                        <td className="px-8 py-4 text-slate-800 font-bold font-mono">
+                          {formatDateBR(item.date)}
+                        </td>
+                        <td className="px-8 py-4 font-bold">
+                          {item.weekday}
+                        </td>
+                        <td className="px-8 py-4 text-center font-bold">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-black",
+                            item.count > 0 ? "bg-blue-50 text-brand-blue" : "bg-slate-100 text-slate-400"
+                          )}>
+                            {item.count} vendas
+                          </span>
+                          {item.canceledCount > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.5 bg-rose-50 rounded text-rose-500 font-mono text-[9px]">
+                              {item.canceledCount} cancelada(s)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-8 py-4 text-right font-mono text-[11px]">
+                          {formatCurrency(item.gross)}
+                        </td>
+                        <td className="px-8 py-4 text-right font-mono text-[11px] text-rose-500">
+                          {item.discount > 0 ? `-${formatCurrency(item.discount)}` : formatCurrency(0)}
+                        </td>
+                        <td className="px-8 py-4 text-right font-mono font-black text-slate-800 text-[11px]" style={{ position: 'relative' }}>
+                          <span className="relative z-10">{formatCurrency(item.net)}</span>
+                          {item.net > 0 && (
+                            <div 
+                              className="absolute right-8 top-1/2 -translate-y-1/2 h-1.5 bg-emerald-500/10 rounded-full" 
+                              style={{ width: `${getDayValuePercentage(item.net) * 0.4}px`, zIndex: 1 }}
+                            />
+                          )}
+                        </td>
+                        <td className="px-8 py-4 text-center">
+                          <button
+                            onClick={() => setExpandedDate(expandedDate === item.date ? null : item.date)}
+                            disabled={item.count === 0}
+                            className={cn(
+                              "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer",
+                              expandedDate === item.date
+                                ? "bg-slate-800 border-slate-800 text-white"
+                                : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800"
+                            )}
+                          >
+                            {expandedDate === item.date ? 'Recolher' : 'Detalhamento'}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Section */}
+                      {expandedDate === item.date && (
+                        <tr className="bg-slate-50/50">
+                          <td colSpan={7} className="px-8 py-4.5 border-b border-slate-200">
+                            <div className="bg-white border border-slate-100 rounded-2xl p-4.5 shadow-sm grid grid-cols-2 lg:grid-cols-4 gap-6">
+                              <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Pix</span>
+                                <span className="text-sm font-bold text-slate-700 font-mono">
+                                  {formatCurrency(item.paymentMethods['PIX']?.total || 0)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans font-semibold">
+                                  {item.paymentMethods['PIX']?.count || 0} transações
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Dinheiro</span>
+                                <span className="text-sm font-bold text-slate-700 font-mono">
+                                  {formatCurrency(item.paymentMethods['DINHEIRO']?.total || 0)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans font-semibold">
+                                  {item.paymentMethods['DINHEIRO']?.count || 0} transações
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Cartões</span>
+                                <span className="text-sm font-bold text-slate-700 font-mono">
+                                  {formatCurrency(
+                                    (item.paymentMethods['CRÉDITO']?.total || 0) + 
+                                    (item.paymentMethods['DÉBITO']?.total || 0) + 
+                                    (item.paymentMethods['CARTÃO']?.total || 0) + 
+                                    (item.paymentMethods['CARTAO']?.total || 0)
+                                  )}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans font-semibold">
+                                  {(
+                                    (item.paymentMethods['CRÉDITO']?.count || 0) + 
+                                    (item.paymentMethods['DÉBITO']?.count || 0) + 
+                                    (item.paymentMethods['CARTÃO']?.count || 0) + 
+                                    (item.paymentMethods['CARTAO']?.count || 0)
+                                  )} transações
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Fiado / Outros</span>
+                                <span className="text-sm font-bold text-slate-700 font-mono">
+                                  {formatCurrency(
+                                    (item.paymentMethods['FIADO']?.total || 0) + 
+                                    (item.paymentMethods['OUTROS']?.total || 0) + 
+                                    (item.paymentMethods['VOUCHER']?.total || 0)
+                                  )}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-sans font-semibold">
+                                  {(
+                                    (item.paymentMethods['FIADO']?.count || 0) + 
+                                    (item.paymentMethods['OUTROS']?.count || 0) + 
+                                    (item.paymentMethods['VOUCHER']?.count || 0)
+                                  )} fiados/vouchers
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+
+                  {processedDailyList.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-3">
+                          <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
+                            <Calendar size={20} />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-700">Nenhum evento registrado no período</h4>
+                          <p className="text-[11px] text-slate-400 max-w-sm">
+                            Tente refazer sua busca ou selecionar datas diferentes para obter dados consolidados.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination block */}
+            {totalPages > 1 && (
+              <div className="px-8 py-4 bg-slate-50/50 border-t border-slate-200/60 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-semibold">
+                  Mostrando {paginatedDailyList.length} de {processedDailyList.length} dias analisados
+                </span>
+
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl disabled:opacity-40 max-md:p-1.5 transition-all outline-none"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="text-xs font-bold text-slate-700">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl disabled:opacity-40 max-md:p-1.5 transition-all outline-none"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center bg-white border border-slate-200 rounded-[2.2rem] py-24 text-center">
+          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4">
+            <Calendar size={32} />
+          </div>
+          <h4 className="text-lg font-bold text-slate-800">Sem registros para o período especificado</h4>
+          <p className="text-slate-400 text-sm max-w-md mt-1">Selecione uma faixa de datas no cabeçalho ou adicione novas vendas para analisar seu faturamento diário.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// RELATÓRIO VENDAS POR DEPARTAMENTO
+// ==========================================
+function SalesByDepartmentReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { sales, products, subcategorias, categorias, departamentos } = useERP();
+  const [expandedDept, setExpandedDept] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const filteredSales = React.useMemo(() => {
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const d = toLocalDateString(s.date);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sales, startDate, endDate]);
+
+  const departmentTotals: Record<string, { id: string, name: string, total: number, quantity: number }> = {};
+  const departmentProducts: Record<string, Record<string, { name: string, quantity: number, total: number }>> = {};
+  const departmentCategories: Record<string, Record<string, { name: string, quantity: number, total: number }>> = {};
+  let totalRevenue = 0;
+
+  filteredSales.forEach(sale => {
+    const isCanceled = sale.status === 'Cancelada' || sale.status === 'cancelada';
+    if (isCanceled) return; // ignore canceled sales in analytical report
+
+    sale.items.forEach((item: any) => {
+      const product = products.find(p => p.id === item.productId);
+      let deptId = 'OUTROS';
+      let deptName = 'Outros / Sem Departamento';
+      let catId = product?.category_id || '';
+      let catName = 'Sem Categoria';
+
+      if (product) {
+        if (product.subcategoria_id) {
+          const sub = subcategorias.find(s => s.id === product.subcategoria_id);
+          if (sub) {
+            catId = sub.categoria_id;
+          }
+        }
+        if (catId) {
+          const cat = categorias.find(c => c.id === catId);
+          if (cat) {
+            catName = cat.nome.trim();
+            if (cat.departamento_id) {
+              const dept = departamentos.find(d => d.id === cat.departamento_id);
+              if (dept) {
+                deptId = dept.id;
+                deptName = dept.nome.trim();
+              }
+            }
+          }
+        }
+      }
+
+      const itemTotal = item.price * item.quantity;
+      totalRevenue += itemTotal;
+
+      if (!departmentTotals[deptId]) {
+        departmentTotals[deptId] = { id: deptId, name: deptName, total: 0, quantity: 0 };
+      }
+      departmentTotals[deptId].total += itemTotal;
+      departmentTotals[deptId].quantity += item.quantity;
+
+      // Track categories inside this department
+      if (catId) {
+        if (!departmentCategories[deptId]) departmentCategories[deptId] = {};
+        if (!departmentCategories[deptId][catId]) {
+          departmentCategories[deptId][catId] = {
+            name: catName,
+            quantity: 0,
+            total: 0
+          };
+        }
+        departmentCategories[deptId][catId].quantity += item.quantity;
+        departmentCategories[deptId][catId].total += itemTotal;
+      }
+
+      // Track products inside this department
+      if (!departmentProducts[deptId]) departmentProducts[deptId] = {};
+      if (!departmentProducts[deptId][item.productId]) {
+        departmentProducts[deptId][item.productId] = {
+          name: product ? product.name : 'Produto Desconhecido',
+          quantity: 0,
+          total: 0
+        };
+      }
+      departmentProducts[deptId][item.productId].quantity += item.quantity;
+      departmentProducts[deptId][item.productId].total += itemTotal;
+    });
+  });
+
+  const colors = ['#1e5eff', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6', '#06b6d4', '#14b8a6'];
+  
+  const allDataList = Object.values(departmentTotals)
+    .sort((a, b) => b.total - a.total)
+    .map((dept, index) => {
+      const shareVal = totalRevenue > 0 ? (dept.total / totalRevenue) * 105 : 0; // standard share calculation
+      const shareRepresentation = totalRevenue > 0 ? (dept.total / totalRevenue) * 100 : 0;
+      return {
+        ...dept,
+        percentVal: shareRepresentation,
+        percent: totalRevenue > 0 ? `${shareRepresentation.toFixed(1)}%` : '0%',
+        color: colors[index % colors.length],
+        categories: Object.values(departmentCategories[dept.id] || {}).sort((a, b) => b.total - a.total),
+        products: Object.values(departmentProducts[dept.id] || {}).sort((a, b) => b.total - a.total)
+      };
+    });
+
+  const filteredDataList = useMemo(() => {
+    return allDataList.filter(item => 
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allDataList, searchQuery]);
+
+  const paginatedList = useMemo(() => {
+    const idx = (currentPage - 1) * itemsPerPage;
+    return filteredDataList.slice(idx, idx + itemsPerPage);
+  }, [filteredDataList, currentPage]);
+
+  const totalPages = Math.ceil(filteredDataList.length / itemsPerPage);
+
+  const totalUnitsSold = useMemo(() => {
+    return Object.values(departmentTotals).reduce((sum, item) => sum + item.quantity, 0);
+  }, [departmentTotals]);
+
+  const leaderDept = allDataList.length > 0 ? allDataList[0] : null;
+
+  const avgRevenuePerDept = useMemo(() => {
+    const numDepts = Object.keys(departmentTotals).length;
+    return numDepts > 0 ? totalRevenue / numDepts : 0;
+  }, [departmentTotals, totalRevenue]);
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  };
+
+  const exportToCSV = () => {
+    try {
+      const headers = [
+        'Departamento ID',
+        'Nome do Departamento',
+        'Quantidade Itens Vendidos',
+        'Faturamento Líquido (R$)',
+        'Representação / Share (%)'
+      ];
+
+      const rows = allDataList.map(dept => {
+        return [
+          dept.id,
+          dept.name,
+          dept.quantity,
+          dept.total.toFixed(2),
+          dept.percentVal.toFixed(2)
+        ];
+      });
+
+      const csvContent = "\uFEFF" + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Faturamento_Departamentos_${startDate}_a_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/60 pb-5 gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
+            <Layers size={11} className="text-brand-blue" />
+            Consolidação por canais de produto
+          </div>
+          <h4 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight italic uppercase">Vendas por Departamento</h4>
+          <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
+            Consolidação de faturamento por canais e sub-divisões comerciais, com análise detalhada por categorias e produtos vinculados.
+          </p>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={exportToCSV}
+            className="px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-600 hover:text-slate-805 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <Download size={14} /> Exportar CSV
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-600 hover:text-slate-805 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <Printer size={14} /> Imprimir
+          </button>
+        </div>
+      </div>
+
+      {allDataList.length > 0 ? (
+        <>
+          {/* KPI CARDS GRID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* KPI 1: Faturamento Geral */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <DollarSign size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Faturamento Total</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-brand-blue flex items-center justify-center shrink-0">
+                  <DollarSign size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(totalRevenue)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Receita total consolidada
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 2: Departamento Líder */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Trophy size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Departamento Líder</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Trophy size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-lg font-black text-slate-800 italic uppercase truncate max-w-[180px]">
+                  {leaderDept?.name}
+                </h3>
+                <span className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 flex items-center gap-1">
+                  <span className="font-mono">{leaderDept?.percent}</span> do total faturado
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 3: Volume de Vendas */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Package size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Unidades Vendidas</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Package size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {totalUnitsSold} <span className="text-xs text-slate-400 font-medium font-sans">itens</span>
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Movimentação do estoque ativo
+                </span>
+              </div>
+            </motion.div>
+
+            {/* KPI 4: Média por Departamento */}
+            <motion.div 
+              whileHover={{ y: -4 }}
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group"
+            >
+              <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.03] group-hover:scale-110 pointer-events-none transition-transform duration-500">
+                <Percent size={140} className="text-slate-900" />
+              </div>
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Média por Departamento</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <Percent size={15} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight">
+                  {formatCurrency(avgRevenuePerDept)}
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
+                  Distribuição proporcional
+                </span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Visualization panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Pie Chart */}
+            <div className="lg:col-span-5 bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Market Share</h4>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Visão percentual do faturamento total</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <PieIcon size={14} />
+                </div>
+              </div>
+
+              {/* Graphic Stage */}
+              <div className="h-64 relative flex items-center justify-center isolate">
+                {/* Donut Center Label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Faturado</span>
+                  <span className="text-lg font-black text-slate-800 font-mono tracking-tight mt-1">
+                    {new Intl.NumberFormat('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL' }).format(totalRevenue)}
+                  </span>
+                </div>
+
+                <div className="relative z-20 w-full h-full">
+                  <ResponsiveContainer id="rel-dept-pie-resp" width="100%" height="100%" minWidth={10} minHeight={10} debounce={1}>
+                    <PieChart>
+                      <Pie
+                        data={allDataList}
+                        innerRadius={70}
+                        outerRadius={95}
+                        paddingAngle={4}
+                        dataKey="total"
+                      >
+                        {allDataList.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#fff" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        wrapperStyle={{ zIndex: 999999 }}
+                        contentStyle={{ 
+                          borderRadius: '16px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', 
+                          fontSize: '11px', 
+                          fontWeight: 'bold',
+                          backgroundColor: '#1e293b',
+                          color: '#fff'
+                        }}
+                        formatter={(val: any) => [formatCurrency(val), 'Faturamento']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart legend items */}
+              <div className="mt-4 grid grid-cols-2 gap-3.5 border-t border-slate-100 pt-5 pr-2 max-h-[160px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                {allDataList.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2.5 hover:bg-slate-50 p-1.5 rounded-lg transition-colors cursor-pointer">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-slate-800 uppercase italic truncate">{item.name}</p>
+                      <p className="text-[9px] font-bold text-slate-400 font-mono mt-0.5">{item.percent} • {formatCurrency(item.total)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top performing items */}
+            <div className="lg:col-span-7 bg-white p-7 rounded-[2.2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight">Ranking de Departamentos</h4>
+                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">Faturamento e volume comercializado no período</p>
+                  </div>
+                  <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                    <TrendingUp size={14} />
+                  </div>
+                </div>
+
+                <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+                  {allDataList.map((item, idx) => {
+                    return (
+                      <div key={idx} className="space-y-1.5 p-2 hover:bg-slate-50 rounded-2xl transition-all">
+                        <div className="flex items-center justify-between text-xs font-bold leading-none">
+                          <span className="text-slate-800 uppercase italic truncate max-w-[200px]">{item.name}</span>
+                          <span className="font-mono text-slate-700">{formatCurrency(item.total)} <span className="text-[9px] text-slate-400">({item.percent})</span></span>
+                        </div>
+                        <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.percentVal}%` }}
+                            transition={{ duration: 0.8, delay: idx * 0.05 }}
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] font-bold text-slate-400">
+                          <span>Volume: {item.quantity} itens</span>
+                          <span>Posição: #{idx + 1}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* FILTERING AND DETAILED DATA TABLE */}
+          <div className="bg-white rounded-[2.2rem] border border-slate-200/80 shadow-sm overflow-hidden">
+            
+            {/* Filter controls */}
+            <div className="p-6 md:p-8 bg-slate-50/50 border-b border-slate-200/60 flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Filtrar por nome de departamento..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-blue/20 placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Structured Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-200/60 bg-slate-100/50">
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Departamento</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-center">Itens Vendidos</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Faturamento Líquido</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-right">Proporção (Share)</th>
+                    <th className="px-8 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedList.map((item) => (
+                    <React.Fragment key={item.id}>
+                      <tr 
+                        className={cn(
+                          "hover:bg-slate-50/55 group transition-all text-xs font-semibold text-slate-600",
+                          item.quantity === 0 && "opacity-50"
+                        )}
+                      >
+                        <td className="px-8 py-4 text-slate-800 font-bold uppercase italic tracking-wide">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                            {item.name}
+                          </div>
+                        </td>
+                        <td className="px-8 py-4 text-center font-bold">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-50 text-brand-blue">
+                            {item.quantity} un
+                          </span>
+                        </td>
+                        <td className="px-8 py-4 text-right font-mono text-[11px] font-black text-slate-800">
+                          {formatCurrency(item.total)}
+                        </td>
+                        <td className="px-8 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="font-mono text-xs font-bold text-slate-600">{item.percent}</span>
+                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: item.percent, backgroundColor: item.color }} />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-4 text-center">
+                          <button
+                            onClick={() => setExpandedDept(expandedDept === item.id ? null : item.id)}
+                            disabled={item.quantity === 0}
+                            className={cn(
+                              "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer",
+                              expandedDept === item.id
+                                ? "bg-slate-800 border-slate-800 text-white"
+                                : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800"
+                            )}
+                          >
+                            {expandedDept === item.id ? 'Recolher' : 'Detalhamento'}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Section */}
+                      {expandedDept === item.id && (
+                        <tr className="bg-slate-50/50">
+                          <td colSpan={5} className="px-8 py-4.5 border-b border-slate-200">
+                            <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-6">
+                              <div>
+                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Vendas Consolidadas por Categorias</h5>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                  {item.categories.slice(0, 12).map((cat, catIdx) => {
+                                    const shareCat = item.total > 0 ? (cat.total / item.total) * 100 : 0;
+                                    return (
+                                      <div key={catIdx} className="border border-slate-100 p-3.5 rounded-xl bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                        <div className="text-xs font-black text-slate-700 truncate uppercase mb-1">{cat.name}</div>
+                                        <div className="flex items-baseline justify-between mt-1">
+                                          <span className="text-[11px] font-mono font-black text-slate-800">{formatCurrency(cat.total)}</span>
+                                          <span className="text-[9px] font-bold text-slate-400 font-mono">{shareCat.toFixed(1)}% share</span>
+                                        </div>
+                                        <div className="text-[9px] font-bold text-slate-400 mt-0.5">Volume: {cat.quantity} unidades</div>
+                                      </div>
+                                    );
+                                  })}
+                                  {item.categories.length === 0 && (
+                                    <div className="col-span-full py-1 text-center text-[11px] font-bold text-slate-450 italic col-span-3">Sem categorias vinculadas</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="pt-4 border-t border-slate-100">
+                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Produtos Mais Vendidos no Departamento</h5>
+                                <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                                  <table className="w-full text-left border-collapse">
+                                    <thead>
+                                      <tr className="bg-slate-50/80 border-b border-slate-100">
+                                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Produto</th>
+                                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Unidades</th>
+                                        <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Faturamento</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {item.products.slice(0, 5).map((prod, prodIdx) => (
+                                        <tr key={prodIdx} className="hover:bg-slate-50/50 text-[11px] font-bold text-slate-600">
+                                          <td className="p-3 text-slate-700 truncate max-w-[280px]">{prod.name}</td>
+                                          <td className="p-3 text-center text-slate-500 font-mono">{prod.quantity}</td>
+                                          <td className="p-3 text-right text-slate-800 font-mono font-black">{formatCurrency(prod.total)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+
+                  {filteredDataList.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-3">
+                          <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
+                            <Layers size={20} />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-700">Nenhum evento registrado no período</h4>
+                          <p className="text-[11px] text-slate-400 max-w-sm">
+                            Tente refazer sua busca ou selecionar datas diferentes para obter dados consolidados.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination block */}
+            {totalPages > 1 && (
+              <div className="px-8 py-4 bg-slate-50/50 border-t border-slate-200/60 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-semibold">
+                  Mostrando {paginatedList.length} de {filteredDataList.length} departamentos analisados
+                </span>
+
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl disabled:opacity-40 max-md:p-1.5 transition-all outline-none"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="text-xs font-bold text-slate-700">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl disabled:opacity-40 max-md:p-1.5 transition-all outline-none"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center bg-white border border-slate-200 rounded-[2.2rem] py-24 text-center">
+          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4">
+            <Layers size={32} />
+          </div>
+          <h4 className="text-lg font-bold text-slate-800">Sem registros para o período especificado</h4>
+          <p className="text-slate-400 text-sm max-w-md mt-1">Selecione uma faixa de datas no cabeçalho ou adicione novas vendas para analisar seu faturamento por departamento.</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -54,6 +54,7 @@ export function CashRegisterManager({
   const [supervisorCode, setSupervisorCode] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showDivergences, setShowDivergences] = useState(true);
 
   // Transaction state (Sangria/Suprimento)
   const [transType, setTransType] = useState<'Sangria' | 'Suprimento'>(
@@ -156,7 +157,7 @@ export function CashRegisterManager({
           const pmObj = safePaymentMethods.find(m => m.id === payment.method || normalizeStr(m.name) === normalizeStr(payment.method));
           const category = getClosureCategory(payment.method, pmObj?.type);
           if (totals[category] !== undefined) {
-            totals[category] += payment.amount || 0;
+            totals[category] += Number(payment.amount) || 0;
           }
         });
       } else {
@@ -164,21 +165,21 @@ export function CashRegisterManager({
         const pmObj = safePaymentMethods.find(m => m.id === sale.paymentMethod || normalizeStr(m.name) === normalizeStr(sale.paymentMethod));
         const category = getClosureCategory(sale.paymentMethod, pmObj?.type);
         if (totals[category] !== undefined) {
-          totals[category] += sale.total || 0;
+          totals[category] += Number(sale.total) || 0;
         }
       }
     });
 
     // Add opening balance to Cash (Dinheiro)
-    totals['Dinheiro'] += activeRegister.openingBalance || 0;
+    totals['Dinheiro'] += Number(activeRegister.openingBalance) || 0;
 
     // Add movements (Sangria/Suprimento)
     const registerMovements = cashMovements.filter(m => m.cashRegisterId === activeRegister.id);
     registerMovements.forEach(m => {
       if (m.type === 'suprimento') {
-        totals['Dinheiro'] += m.amount || 0;
+        totals['Dinheiro'] += Number(m.amount) || 0;
       } else if (m.type === 'sangria') {
-        totals['Dinheiro'] -= m.amount || 0;
+        totals['Dinheiro'] -= Number(m.amount) || 0;
       }
     });
 
@@ -444,10 +445,19 @@ export function CashRegisterManager({
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">Fechamento de Caixa</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                    <Lock className="w-3 h-3 text-brand-blue" />
-                    <span>Conferência Física Às Cegas • Valores do sistema ocultos</span>
-                  </p>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap sm:flex-nowrap">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium select-none">
+                      <Lock className="w-3 h-3 text-brand-blue" />
+                      <span>{showDivergences ? 'Visualizando divergências/diferenças em tempo real' : 'Escondendo divergências (Modo Cego)'}</span>
+                    </p>
+                    <button 
+                      type="button"
+                      onClick={() => setShowDivergences(prev => !prev)}
+                      className="text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-200 hover:text-slate-900 transition-colors"
+                    >
+                      {showDivergences ? 'Ativar Modo Cego' : 'Exibir Diferenças (Auditoria)'}
+                    </button>
+                  </div>
                 </div>
                 <button onClick={() => { setIsClosing(false); onClose?.(); }} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
                   <X className="w-5 h-5" />
@@ -456,13 +466,16 @@ export function CashRegisterManager({
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 space-y-4">
-                  <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-800/50">
                           <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">Forma</th>
-                          <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">Informado</th>
-                          {isAuthorized && (
+                          {(showDivergences || isAuthorized) && (
+                            <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Esperado</th>
+                          )}
+                          <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">Informado</th>
+                          {(showDivergences || isAuthorized) && (
                             <th className="p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Diferença</th>
                           )}
                         </tr>
@@ -475,7 +488,12 @@ export function CashRegisterManager({
                           
                           return (
                             <tr key={method} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                              <td className="p-2.5 text-sm font-medium text-slate-900 dark:text-white">{method}</td>
+                              <td className="p-2.5 text-sm font-semibold text-slate-900 dark:text-white">{method}</td>
+                              {(showDivergences || isAuthorized) && (
+                                <td className="p-2.5 text-sm font-bold text-right text-slate-500 dark:text-slate-400">
+                                  R$ {system.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                              )}
                                <td className="p-2.5">
                                 <input 
                                   ref={(el) => { informedInputsRef.current[idx] = el; }}
@@ -508,9 +526,9 @@ export function CashRegisterManager({
                                   className="w-28 p-1.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-blue outline-none text-right text-sm"
                                 />
                               </td>
-                              {isAuthorized && (
+                              {(showDivergences || isAuthorized) && (
                                 <td className={`p-2.5 text-sm font-bold text-right ${diff === 0 ? 'text-emerald-500' : diff > 0 ? 'text-blue-500' : 'text-rose-500'}`}>
-                                  {diff > 0 ? '+' : ''}{diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  {diff > 0 ? '+ R$ ' : diff < 0 ? '- R$ ' : 'R$ '}{Math.abs(diff).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </td>
                               )}
                             </tr>
@@ -521,7 +539,7 @@ export function CashRegisterManager({
                   </div>
 
                   {/* Operator Observations (Always available during blind period) */}
-                  {!isAuthorized && (
+                  {!(showDivergences || isAuthorized) && (
                     <div className="p-4 bg-slate-50 dark:bg-slate-800/20 rounded-xl border border-slate-200 dark:border-slate-800">
                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
                         Observações / Justificativas do Operador
@@ -536,7 +554,7 @@ export function CashRegisterManager({
                   )}
 
                   {/* Justifications Section (Detailed breakdown revealed only after supervisor authorization) */}
-                  {isAuthorized && (hasSmallDifference || hasLargeDifference) && (
+                  {(showDivergences || isAuthorized) && (hasSmallDifference || hasLargeDifference) && (
                     <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/30">
                       <div className="flex items-center gap-2 mb-3 text-amber-700 dark:text-amber-400">
                         <AlertCircle className="w-5 h-5" />
@@ -582,7 +600,7 @@ export function CashRegisterManager({
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Resumo do Fechamento</h4>
                     <div className="space-y-2">
-                      {isAuthorized && (
+                      {(showDivergences || isAuthorized) && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-600 dark:text-slate-400">Total Sistema:</span>
                           <span className="font-bold text-slate-900 dark:text-white">
@@ -596,7 +614,7 @@ export function CashRegisterManager({
                           R$ {Object.values(informedValues).reduce((acc, val) => acc + val, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
-                      {isAuthorized && (
+                      {(showDivergences || isAuthorized) && (
                         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center animate-pulse-subtle">
                           <span className="font-bold text-xs text-slate-900 dark:text-white">Diferença Total:</span>
                           <span className={`text-md font-black ${

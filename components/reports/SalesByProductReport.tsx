@@ -356,7 +356,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
             <DollarSign size={140} className="text-slate-900" />
           </div>
           <div className="flex items-center justify-between gap-4 mb-2">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Lucro Bruto (Margem)</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Lucro Líquido (Margem)</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-605 flex items-center justify-center shrink-0">
               <DollarSign size={15} />
             </div>
@@ -478,7 +478,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
                           <span className="text-xs font-black text-slate-800 font-mono mb-1">{formattedValue}</span>
                           <span className="text-[9px] text-slate-400 grid grid-cols-2 gap-x-2 font-medium">
                             <span>Faturamento:</span> <strong className="text-slate-700 font-mono">{formatCurrency(item.total)}</strong>
-                            <span>Lucro Bruto:</span> <strong className="text-emerald-600 font-mono">{formatCurrency(item.profit)}</strong>
+                            <span>Lucro Líquido:</span> <strong className="text-emerald-600 font-mono">{formatCurrency(item.profit)}</strong>
                             <span>Unidades:</span> <strong className="text-purple-600 font-mono">{item.qty} un</strong>
                           </span>
                         </div>,
@@ -604,7 +604,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
             >
               <option value="revenue-desc">Maior Faturamento</option>
               <option value="qty-desc">Quantidade de Vendas</option>
-              <option value="profit-desc">Maior Lucro Bruto (R$)</option>
+              <option value="profit-desc">Maior Lucro Líquido (R$)</option>
               <option value="name-asc">Nome Alfabético</option>
             </select>
           </div>
@@ -635,7 +635,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
                 <th className="py-4 text-right min-w-[100px]">Preço Médio</th>
                 <th className="py-4 text-right min-w-[100px]">Custo (CMV)</th>
                 <th className="py-4 text-right min-w-[90px]">Taxas Proporc.</th>
-                <th className="py-4 text-right min-w-[120px]">Lucro Bruto</th>
+                <th className="py-4 text-right min-w-[120px]">Lucro Líquido</th>
                 <th className="py-4 text-right pr-4 min-w-[140px]">Receita Bruta</th>
                 <th className="py-4 text-center w-12"></th>
               </tr>
