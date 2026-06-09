@@ -22,6 +22,8 @@ import {
   Printer,
   Share2,
   X,
+  Maximize2,
+  Minimize2,
   Package,
   CreditCard,
   Clock,
@@ -108,6 +110,15 @@ function ReportsContent() {
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
 
   const [selectedReportView, setSelectedReportView] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    if (selectedReportView) {
+      setIsMaximized(true);
+    } else {
+      setIsMaximized(false);
+    }
+  }, [selectedReportView]);
 
   // Prevent background page scrolling when the modal or sub-reports are open
   useEffect(() => {
@@ -402,7 +413,10 @@ function ReportsContent() {
     <div className="min-h-screen bg-brand-bg">
       {/* Report Viewer Modal */}
       {selectedReportView && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 md:p-8">
+        <div className={cn(
+          "fixed inset-0 z-[60] flex items-center justify-center transition-all duration-300",
+          isMaximized ? "p-0" : "p-3 sm:p-4 md:p-8"
+        )}>
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -412,7 +426,12 @@ function ReportsContent() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.96, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative w-full bg-slate-50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 max-w-[98vw] h-[95vh] md:max-w-[96vw] md:h-[94vh] border border-slate-200/60"
+            className={cn(
+              "relative bg-slate-50 shadow-2xl overflow-hidden flex flex-col transition-all duration-300 border border-slate-200/60",
+              isMaximized 
+                ? "w-full h-full max-w-full max-h-full rounded-none border-none" 
+                : "relative w-full bg-slate-50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 max-w-[98vw] h-[95vh] md:max-w-[96vw] md:h-[94vh]"
+            )}
           >
             {/* Modal Header */}
             <div className="px-6 md:px-10 py-5 md:py-6 bg-white border-b border-slate-200/60 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between shrink-0 shadow-sm">
@@ -490,6 +509,14 @@ function ReportsContent() {
                     </div>
                   </>
                 )}
+
+                <button 
+                  onClick={() => setIsMaximized(!isMaximized)}
+                  className="p-3 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-2xl transition-all active:scale-95 shadow-xs"
+                  title={isMaximized ? "Restaurar tamanho" : "Maximizar"}
+                >
+                  {isMaximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                </button>
 
                 <button 
                   onClick={() => setSelectedReportView(null)}
