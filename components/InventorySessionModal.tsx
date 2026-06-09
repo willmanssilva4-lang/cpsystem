@@ -61,6 +61,9 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       filtered = [...selectedRotativoProducts];
     }
 
+    // Ordenar os produtos em ordem alfabética (A-Z) para as contagens e relatórios
+    filtered.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+
     setSessionProducts(filtered);
     
     const initialCounts: Record<string, number> = {};

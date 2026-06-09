@@ -33,7 +33,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn, formatDateTimeBR, toLocalDateString } from '@/lib/utils';
@@ -57,6 +58,7 @@ export default function ProductsPage() {
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('produtos');
   const [showInventorySession, setShowInventorySession] = useState(false);
+  const [selectedDetailInventory, setSelectedDetailInventory] = useState<any | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDepartamento, setSelectedDepartamento] = useState<string | null>(null);
@@ -1799,7 +1801,11 @@ export default function ProductsPage() {
                         return true;
                       })
                       .map((inv, idx) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/40 transition-colors group">
+                      <tr 
+                        key={inv.id} 
+                        onClick={() => setSelectedDetailInventory(inv)}
+                        className="hover:bg-slate-50/45 transition-colors group cursor-pointer"
+                      >
                         <td className="px-8 py-4">
                           <span className="text-xs font-black text-slate-450 font-mono">#{inventories.length - idx}</span>
                         </td>
@@ -1888,6 +1894,13 @@ export default function ProductsPage() {
           onComplete={() => {
             setShowInventorySession(false);
           }}
+        />
+      )}
+
+      {selectedDetailInventory && (
+        <InventoryDetailModal 
+          inventory={selectedDetailInventory} 
+          onClose={() => setSelectedDetailInventory(null)} 
         />
       )}
 
@@ -2615,5 +2628,246 @@ function StatusBadge({ status }: { status: string }) {
     )}>
       {status}
     </span>
+  );
+}
+
+function InventoryDetailModal({ inventory, onClose }: { inventory: any, onClose: () => void }) {
+  const { stockMovements, products } = useERP();
+
+  // Filtra movimentos de estoque do tipo AJUSTE vinculados a este inventário por proximidade temporal (2 min)
+  const relatedMovements = stockMovements.filter(m => {
+    if (m.type !== 'AJUSTE') return false;
+    if (!m.origin || !m.origin.includes('Ajuste de Inventário')) return false;
+    
+    const moveTime = new Date(m.date).getTime();
+    const invTime = new Date(inventory.date).getTime();
+    return Math.abs(moveTime - invTime) < 120000;
+  });
+
+  // Calcula valores somados das divergências com base nos movimentos relacionados
+  const movementsWithProducts = relatedMovements.map(m => {
+    const product = products.find(p => p.id === m.productId);
+    const cost = product?.costPrice || 0;
+    return {
+      movement: m,
+      product,
+      cost,
+      totalCost: m.quantity * cost
+    };
+  });
+
+  const totalDivergencesCost = movementsWithProducts.reduce((acc, curr) => acc + curr.totalCost, 0);
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[700] p-4 overflow-y-auto print:bg-white print:p-0">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-inventory-report, #printable-inventory-report * {
+            visibility: visible;
+          }
+          #printable-inventory-report {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: auto;
+            background: white !important;
+            color: black !important;
+            padding: 10px 0;
+            margin: 0;
+            overflow: visible;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+          }
+          .print-hidden {
+            display: none !important;
+          }
+        }
+      `}} />
+
+      <div 
+        id="printable-inventory-report"
+        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white max-w-2xl w-full rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto print:max-h-none print:overflow-visible print:bg-white print:text-black print:shadow-none print:border-none print:rounded-none"
+      >
+        {/* Modal Header */}
+        <div className="flex justify-between items-start pb-4 border-b border-dashed border-slate-200 dark:border-slate-800 print:border-black">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-2 py-0.5 bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue dark:text-brand-blue text-[9px] font-black uppercase tracking-wider rounded">
+                Inventário {inventory.type || 'Geral'}
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-400">
+                Ref: #{inventory.id.substring(0, 8)}
+              </span>
+            </div>
+            <h3 className="text-lg md:text-xl font-black uppercase italic tracking-wider text-slate-900 dark:text-white print:text-black">
+              Relatório de Ajustes de Estoque
+            </h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest pl-0.5">
+              Histórico consolidado com divergências aferidas
+            </p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-1 px-2.5 bg-slate-150 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-400 hover:text-slate-650 rounded-xl transition-all cursor-pointer print:hidden"
+          >
+            <span className="text-xs font-black uppercase tracking-widest">Fechar</span>
+          </button>
+        </div>
+
+        {/* Audit Details Mini Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono py-4 bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 print:bg-slate-100 print:text-black print:border-black">
+          <div>
+            <span className="block text-[9px] text-slate-400 font-bold uppercase">Data Abertura:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black">
+              {new Date(inventory.date).toLocaleDateString('pt-BR')} {new Date(inventory.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+          <div>
+            <span className="block text-[9px] text-slate-400 font-bold uppercase">Responsável:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black uppercase">
+              {inventory.responsible || 'Sistema'}
+            </span>
+          </div>
+          <div>
+            <span className="block text-[9px] text-slate-400 font-bold uppercase">Localização:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black truncate uppercase block">
+              {inventory.location || 'Loja Principal'}
+            </span>
+          </div>
+          <div>
+            <span className="block text-[9px] text-slate-400 font-bold uppercase">Status:</span>
+            <span className="font-black text-emerald-600 dark:text-emerald-400 uppercase">
+              {inventory.status === 'Concluído' ? 'Finalizado' : inventory.status}
+            </span>
+          </div>
+        </div>
+
+        {/* Dynamic Totals */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-slate-50/50 dark:bg-slate-800/20 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60 print:bg-slate-100 print:border-black">
+            <span className="text-[10px] uppercase font-bold text-slate-400">Total Itens Auditados</span>
+            <div className="text-xl font-black text-slate-800 dark:text-white print:text-black mt-1 font-mono">
+              {inventory.itemsCounted || 0}
+            </div>
+          </div>
+          <div className={cn(
+            "p-4 rounded-2xl border print:bg-slate-100 print:border-black",
+            totalDivergencesCost === 0 
+              ? "bg-slate-50/50 dark:bg-slate-800/20 border-slate-100 dark:border-slate-800/60" 
+              : totalDivergencesCost > 0 
+                ? "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-950" 
+                : "bg-rose-500/5 dark:bg-rose-500/10 border-rose-100 dark:border-rose-950"
+          )}>
+            <span className="text-[10px] uppercase font-bold text-slate-400">Divergência Financeira</span>
+            <div className={cn(
+              "text-xl font-black mt-1 font-mono",
+              totalDivergencesCost === 0 
+                ? "text-slate-800 dark:text-white print:text-black" 
+                : totalDivergencesCost > 0 
+                  ? "text-emerald-600 dark:text-emerald-400 print:text-black" 
+                  : "text-rose-600 dark:text-rose-400 print:text-black"
+            )}>
+              R$ {totalDivergencesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Correction Items */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+            Divergências e Correções de Estoque
+          </h4>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 print:border-black">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 print:bg-slate-100 print:text-black print:border-black">
+                  <th className="p-3.5 font-bold uppercase tracking-wider text-slate-400 text-[10px]">Produto / Código</th>
+                  <th className="p-3.5 font-bold uppercase tracking-wider text-slate-400 text-[10px] text-center">Ajuste Qtd</th>
+                  <th className="p-3.5 font-bold uppercase tracking-wider text-slate-400 text-[10px] text-right">Preço Custo</th>
+                  <th className="p-3.5 font-bold uppercase tracking-wider text-slate-400 text-[10px] text-right font-mono">Divergência R$</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-black">
+                {movementsWithProducts.length > 0 ? (
+                  movementsWithProducts.map(({ movement, product, cost, totalCost }, index) => (
+                    <tr key={`${movement.id}-${index}`} className="hover:bg-slate-50/50 print:text-black select-none">
+                      <td className="p-3.5 font-medium">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-700 dark:text-slate-200 print:text-black leading-tight truncate max-w-[200px] md:max-w-xs">{product?.name || 'Produto Não Encontrado'}</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {movement.productId.substring(0, 8)}</span>
+                        </div>
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span className={cn(
+                          "inline-flex px-2 py-0.5 rounded-lg text-xs font-black font-mono",
+                          movement.quantity > 0 
+                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 print:bg-transparent print:text-black" 
+                            : "bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 print:bg-transparent print:text-black"
+                        )}>
+                          {movement.quantity > 0 ? `+${movement.quantity}` : movement.quantity}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right font-semibold text-slate-500 dark:text-slate-400 print:text-black">
+                        R$ {cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className={cn(
+                        "p-3.5 text-right font-black font-mono",
+                        totalCost > 0 
+                          ? "text-emerald-600 dark:text-emerald-400 print:text-black" 
+                          : "text-rose-600 dark:text-rose-400 print:text-black"
+                      )}>
+                        R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="p-8 text-center text-slate-400 uppercase tracking-wider text-[10px] font-mono leading-none">
+                      Nenhuma divergência de estoque física foi registrada neste inventário. todos os saldos coincidiram!
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Signature Audit Block on Print */}
+        <div className="hidden print:block pt-16 space-y-12">
+          <div className="flex justify-between gap-12 text-center text-xs font-mono">
+            <div className="flex-1 border-t border-slate-900 pt-2 text-black shrink-0">
+              <p className="font-bold uppercase leading-none">{inventory.responsible || 'Operador'}</p>
+              <p className="text-[10px] text-slate-500 pt-1">Assinatura do Auditor</p>
+            </div>
+            <div className="flex-1 border-t border-slate-900 pt-2 text-black shrink-0">
+              <p className="font-bold uppercase leading-none">Visto de Gerência / Supervisor</p>
+              <p className="text-[10px] text-slate-500 pt-1">Assinatura Responsável</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action CTAs */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden justify-end">
+          <button 
+            onClick={() => window.print()}
+            className="py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95 cursor-pointer"
+          >
+            <Printer size={16} />
+            Imprimir Relatório
+          </button>
+          <button 
+            onClick={onClose}
+            className="py-3 px-6 bg-brand-blue hover:opacity-90 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95 cursor-pointer"
+          >
+            Fechar Visualização
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
