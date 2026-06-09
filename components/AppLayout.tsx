@@ -8,7 +8,7 @@ import { GlobalAlert } from '@/components/GlobalAlert';
 import { AuthGuard } from '@/components/AuthGuard';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle, AlertTriangle, ArrowRight, TrendingUp } from 'lucide-react';
+import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle, AlertTriangle, ArrowRight, TrendingUp, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
@@ -16,7 +16,7 @@ import { getLocalDateString, cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { user: any, onMenuClick: () => void, onHelpClick: () => void, showMenuToggleOnDesktop?: boolean }) {
-  const { products, expenses, lotes, systemSettings, sendEmailNotification } = useERP();
+  const { products, expenses, lotes, systemSettings, sendEmailNotification, fetchData, isLoading } = useERP();
   const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -275,6 +275,20 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
 
             {!isSuperAdmin && (
               <button 
+                id="sync-toggle"
+                name="sync-toggle"
+                onClick={() => fetchData()}
+                disabled={isLoading}
+                className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group cursor-pointer disabled:opacity-50"
+                title="Sincronizar dados com o servidor"
+              >
+                <RefreshCw size={18} className={isLoading ? "animate-spin text-brand-blue" : "transition-transform group-hover:rotate-45"} />
+                <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Sincronizar</span>
+              </button>
+            )}
+
+            {!isSuperAdmin && (
+              <button 
                 id="help-toggle"
                 name="help-toggle"
                 onClick={onHelpClick}
@@ -321,7 +335,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
 
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, systemSettings, expenses, sales } = useERP();
+  const { user, systemSettings, expenses, sales, fetchData } = useERP();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -329,6 +343,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [modalTab, setModalTab] = useState<'overdue' | 'upcoming'>('overdue');
   
   const today = getLocalDateString();
+
+  // Efeito de auto-polling inteligente para atualizar os dados silenciosamente a cada 45 segundos
+  useEffect(() => {
+    const isLoginPage = pathname === '/login';
+    if (isLoginPage) return;
+
+    let intervalId: NodeJS.Timeout;
+
+    const startPolling = () => {
+      intervalId = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          console.log('[AutoSync] Procurando atualizações em segundo plano...');
+          fetchData();
+        }
+      }, 45000); // 45 segundos
+    };
+
+    startPolling();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [fetchData, pathname]);
 
   useEffect(() => {
     if (pathname === '/login' && typeof window !== 'undefined') {

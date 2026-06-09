@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ShieldCheck, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,22 +15,68 @@ export function AuthorizationModal({ onClose, onAuthorize, title = 'Ação Reque
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef('');
+
+  // Keep ref in sync with state to avoid stale closure issues in the global listener
+  useEffect(() => {
+    passwordRef.current = password;
+  }, [password]);
+
+  // Force focus and select content on mount, and pull focus back if clicked inside
+  useEffect(() => {
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 150);
+    return () => clearTimeout(focusTimer);
+  }, []);
 
   const handleAuthorize = () => {
-    if (!password.trim()) {
+    const currentPassword = passwordRef.current;
+    if (!currentPassword.trim()) {
       setError('Informe a senha do supervisor.');
+      inputRef.current?.focus();
       return;
     }
-    onAuthorize(password);
+    onAuthorize(currentPassword);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
       handleAuthorize();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       onClose();
     }
   };
+
+  // Setup global event listener for Enter/Escape keys to guarantee input confirmation at any time
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      // If user typing in this password input, standard onKeyDown takes pre-eminence, so avoid duplicate execution
+      if (activeEl === inputRef.current) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleAuthorize();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    };
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[400] flex items-center justify-center p-4">
@@ -56,6 +102,7 @@ export function AuthorizationModal({ onClose, onAuthorize, title = 'Ação Reque
             <label className="text-xs font-bold text-brand-text-main uppercase tracking-widest">Senha do Supervisor</label>
             <div className="relative">
               <input
+                ref={inputRef}
                 type={showPassword ? 'text' : 'password'}
                 autoFocus
                 value={password}
