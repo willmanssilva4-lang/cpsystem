@@ -35,8 +35,17 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
   const [rotativoSearch, setRotativoSearch] = useState('');
   const [showRotativoWarning, setShowRotativoWarning] = useState(false);
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
 
   const rotativoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCloseRequest = () => {
+    if (step === 'counting' || step === 'summary' || (step === 'setup' && selectedRotativoProducts.length > 0)) {
+      setShowCloseConfirmation(true);
+    } else {
+      onClose();
+    }
+  };
 
   useEffect(() => {
     if (config.type === 'Rotativo') {
@@ -243,7 +252,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             </div>
           </div>
           <button 
-            onClick={onClose}
+            onClick={handleCloseRequest}
             className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all"
           >
             <X size={20} />
@@ -701,6 +710,39 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             >
               Entendido
             </button>
+          </div>
+        </div>
+      )}
+
+      {showCloseConfirmation && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] p-8 max-w-sm w-full border border-slate-200 shadow-2xl space-y-6 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+              <AlertCircle size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-rose-600 uppercase italic tracking-tight">Sair do Inventário?</h3>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed">
+                As contagens informadas e o progresso atual do inventário serão perdidos. Tem certeza de que deseja sair?
+              </p>
+            </div>
+            <div className="w-full flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  setShowCloseConfirmation(false);
+                  onClose();
+                }}
+                className="w-full bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl font-black uppercase italic text-sm transition-all active:scale-95"
+              >
+                Sim, Cancelar e Sair
+              </button>
+              <button 
+                onClick={() => setShowCloseConfirmation(false)}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-500 py-3.5 rounded-2xl font-black uppercase italic text-sm transition-all active:scale-95"
+              >
+                Voltar à Contagem
+              </button>
+            </div>
           </div>
         </div>
       )}
