@@ -79,6 +79,8 @@ export default function ProductsPage() {
   const [bulkPriceRound, setBulkPriceRound] = useState<'none' | '0.05' | '0.10' | '0.50' | '0.90' | '0.99'>('none');
   const [bulkSelectedProducts, setBulkSelectedProducts] = useState<Record<string, boolean>>({});
   const [bulkCustomPrices, setBulkCustomPrices] = useState<Record<string, number>>({});
+  const [bulkCustomCostPrices, setBulkCustomCostPrices] = useState<Record<string, number>>({});
+  const [bulkCustomWholesalePrices, setBulkCustomWholesalePrices] = useState<Record<string, number>>({});
   const [bulkIsSubmitting, setBulkIsSubmitting] = useState(false);
   const [bulkPriceSearch, setBulkPriceSearch] = useState('');
   const [bulkPriceCat, setBulkPriceCat] = useState<string | null>(null);
@@ -133,7 +135,11 @@ export default function ProductsPage() {
       return;
     }
 
-    const hasCustomOverrides = productsToUpdate.some(p => bulkCustomPrices[p.id] !== undefined);
+    const hasCustomOverrides = productsToUpdate.some(p => 
+      bulkCustomPrices[p.id] !== undefined || 
+      bulkCustomCostPrices[p.id] !== undefined || 
+      bulkCustomWholesalePrices[p.id] !== undefined
+    );
 
     if (bulkPriceValue === 0 && bulkPriceOp !== 'fixed' && !hasCustomOverrides) {
       setCustomAlert({ message: 'Por favor, insira um valor diferente de zero para reajustar ou altere diretamente nos inputs de cada produto.', type: 'warning' });
@@ -146,32 +152,50 @@ export default function ProductsPage() {
 
     try {
       for (const product of productsToUpdate) {
-        const currentVal = bulkPriceTarget === 'salePrice' 
-          ? product.salePrice 
-          : (bulkPriceTarget === 'costPrice' ? product.costPrice : (product.wholesalePrice || 0));
-        
-        const isCustom = bulkCustomPrices[product.id] !== undefined;
-        const newVal = isCustom 
-          ? bulkCustomPrices[product.id]
-          : calculateAdjustedPrice(currentVal, bulkPriceOp, bulkPriceValue, bulkPriceRound);
+        const initCost = product.costPrice || 0;
+        const initSale = product.salePrice || 0;
+        const initWholesale = product.wholesalePrice || 0;
+
+        const isCostTarget = bulkPriceTarget === 'costPrice';
+        const isSaleTarget = bulkPriceTarget === 'salePrice';
+        const isWholesaleTarget = bulkPriceTarget === 'wholesalePrice';
+
+        const formulaCost = isCostTarget ? calculateAdjustedPrice(initCost, bulkPriceOp, bulkPriceValue, bulkPriceRound) : initCost;
+        const formulaSale = isSaleTarget ? calculateAdjustedPrice(initSale, bulkPriceOp, bulkPriceValue, bulkPriceRound) : initSale;
+        const formulaWholesale = isWholesaleTarget ? calculateAdjustedPrice(initWholesale, bulkPriceOp, bulkPriceValue, bulkPriceRound) : initWholesale;
+
+        const newCost = bulkCustomCostPrices[product.id] !== undefined ? bulkCustomCostPrices[product.id] : formulaCost;
+        const newSale = bulkCustomPrices[product.id] !== undefined ? bulkCustomPrices[product.id] : formulaSale;
+        const newWholesale = bulkCustomWholesalePrices[product.id] !== undefined ? bulkCustomWholesalePrices[product.id] : formulaWholesale;
 
         const updateData: any = {};
-        if (bulkPriceTarget === 'salePrice') {
-          updateData.sale_price = newVal;
-        } else if (bulkPriceTarget === 'costPrice') {
-          updateData.cost_price = newVal;
-        } else if (bulkPriceTarget === 'wholesalePrice') {
-          updateData.wholesale_price = newVal;
+        let changed = false;
+
+        if (newCost !== initCost) {
+          updateData.cost_price = newCost;
+          changed = true;
+        }
+        if (newSale !== initSale) {
+          updateData.sale_price = newSale;
+          changed = true;
+        }
+        if (newWholesale !== initWholesale) {
+          updateData.wholesale_price = newWholesale;
+          changed = true;
         }
 
-        const { error } = await supabase
-          .from('products')
-          .update(updateData)
-          .eq('id', product.id);
+        if (changed) {
+          const { error } = await supabase
+            .from('products')
+            .update(updateData)
+            .eq('id', product.id);
 
-        if (error) {
-          console.error(`Error updating price for ${product.name}:`, error);
-          errorCount++;
+          if (error) {
+            console.error(`Error updating prices for ${product.name}:`, error);
+            errorCount++;
+          } else {
+            successCount++;
+          }
         } else {
           successCount++;
         }
@@ -187,6 +211,8 @@ export default function ProductsPage() {
         setBulkPriceValue(0);
         setBulkSelectedProducts({});
         setBulkCustomPrices({});
+        setBulkCustomCostPrices({});
+        setBulkCustomWholesalePrices({});
       } else {
         setCustomAlert({ 
           message: `Reajuste concluído com avisos: ${successCount} atualizados, ${errorCount} falhas.`, 
@@ -2232,19 +2258,35 @@ export default function ProductsPage() {
                     ) : (
                       filteredBulkProducts.map((p) => {
                         const isSelected = !!bulkSelectedProducts[p.id];
-                        const currentVal = bulkPriceTarget === 'salePrice' ? p.salePrice : (bulkPriceTarget === 'costPrice' ? p.costPrice : (p.wholesalePrice || 0));
-                        
-                        const isCustom = bulkCustomPrices[p.id] !== undefined;
-                        const formulaVal = calculateAdjustedPrice(currentVal, bulkPriceOp, bulkPriceValue, bulkPriceRound);
-                        const newVal = isCustom ? bulkCustomPrices[p.id] : formulaVal;
-                        
-                        const diffVal = newVal - currentVal;
-                        const diffPct = currentVal > 0 ? (diffVal / currentVal) * 100 : 0;
+
+                        const initCost = p.costPrice || 0;
+                        const initSale = p.salePrice || 0;
+                        const initWholesale = p.wholesalePrice || 0;
+
+                        const isCostTarget = bulkPriceTarget === 'costPrice';
+                        const isSaleTarget = bulkPriceTarget === 'salePrice';
+                        const isWholesaleTarget = bulkPriceTarget === 'wholesalePrice';
+
+                        const formulaCost = isCostTarget ? calculateAdjustedPrice(initCost, bulkPriceOp, bulkPriceValue, bulkPriceRound) : initCost;
+                        const formulaSale = isSaleTarget ? calculateAdjustedPrice(initSale, bulkPriceOp, bulkPriceValue, bulkPriceRound) : initSale;
+                        const formulaWholesale = isWholesaleTarget ? calculateAdjustedPrice(initWholesale, bulkPriceOp, bulkPriceValue, bulkPriceRound) : initWholesale;
+
+                        const newCost = bulkCustomCostPrices[p.id] !== undefined ? bulkCustomCostPrices[p.id] : formulaCost;
+                        const newSale = bulkCustomPrices[p.id] !== undefined ? bulkCustomPrices[p.id] : formulaSale;
+                        const newWholesale = bulkCustomWholesalePrices[p.id] !== undefined ? bulkCustomWholesalePrices[p.id] : formulaWholesale;
+
+                        const isCostCustom = bulkCustomCostPrices[p.id] !== undefined;
+                        const isSaleCustom = bulkCustomPrices[p.id] !== undefined;
+                        const isWholesaleCustom = bulkCustomWholesalePrices[p.id] !== undefined;
+
+                        // Margem de Lucro (%): (Venda - Custo) / Venda
+                        const currentMargin = initSale > 0 ? ((initSale - initCost) / initSale) * 100 : 0;
+                        const newMargin = newSale > 0 ? ((newSale - newCost) / newSale) * 100 : 0;
 
                         return (
                           <div 
                             key={p.id}
-                            className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors cursor-pointer hover:bg-slate-50/50 ${isSelected ? 'bg-blue-50/10' : ''}`}
+                            className={`p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 transition-colors cursor-pointer hover:bg-slate-50/50 ${isSelected ? 'bg-blue-50/10' : ''}`}
                             onClick={() => {
                               setBulkSelectedProducts(prev => ({
                                 ...prev,
@@ -2252,7 +2294,8 @@ export default function ProductsPage() {
                               }));
                             }}
                           >
-                            <div className="flex items-center gap-3.5 min-w-0">
+                            {/* Product Info Block */}
+                            <div className="flex items-center gap-3.5 min-w-0 lg:w-1/4">
                               <div 
                                 className="shrink-0"
                                 onClick={(e) => e.stopPropagation()} // Prevent double trigger
@@ -2280,97 +2323,229 @@ export default function ProductsPage() {
                               </div>
                             </div>
 
-                            <div className="text-right shrink-0 flex items-center justify-between sm:justify-end gap-6 sm:gap-8">
-                              {/* Price Transition Info */}
-                              <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Atual</p>
-                                  <p className="text-xs font-bold text-slate-500">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentVal)}
-                                  </p>
+                            {/* Editing Prices Columns */}
+                            <div className="flex flex-wrap md:flex-nowrap items-center gap-4 lg:w-3/4 justify-between lg:justify-end shrink-0" onClick={(e) => e.stopPropagation()}>
+                              
+                              {/* COST PRICE COLUMN */}
+                              <div className="flex items-center gap-2 bg-slate-50/60 p-2 rounded-xl border border-slate-100 min-w-[155px]">
+                                <div className="text-left select-none">
+                                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Custo Atual</span>
+                                  <span className="text-[10px] font-bold text-slate-500 block font-mono">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(initCost)}
+                                  </span>
                                 </div>
-                                <ArrowRight size={14} className="text-slate-300 shrink-0" />
-                                <div className="text-right flex items-center gap-2">
-                                  <div>
-                                    <p className={`text-[9px] font-black uppercase tracking-widest leading-none mb-1 text-right ${isCustom ? 'text-blue-600' : 'text-brand-blue'}`}>
-                                      {isCustom ? 'Personalizado R$' : 'Novo R$'}
-                                    </p>
+                                <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                                <div className="relative">
+                                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 text-right">
+                                    {isCostCustom ? 'Custo Pers. R$' : 'Novo Custo R$'}
+                                  </span>
+                                  <div className="relative flex items-center">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={isCostCustom ? (bulkCustomCostPrices[p.id] !== undefined ? bulkCustomCostPrices[p.id] : '') : newCost.toFixed(2)}
+                                      onChange={(e) => {
+                                        const valStr = e.target.value;
+                                        if (valStr === '') {
+                                          setBulkCustomCostPrices(prev => {
+                                            const next = { ...prev };
+                                            delete next[p.id];
+                                            return next;
+                                          });
+                                        } else {
+                                          const val = parseFloat(valStr);
+                                          setBulkCustomCostPrices(prev => ({
+                                            ...prev,
+                                            [p.id]: isNaN(val) ? 0 : val
+                                          }));
+                                          setBulkSelectedProducts(prev => ({
+                                            ...prev,
+                                            [p.id]: true
+                                          }));
+                                        }
+                                      }}
+                                      className={`w-20 px-1.5 py-0.5 border rounded text-xs font-bold text-slate-800 text-right outline-none transition-all shadow-sm ${
+                                        isCostCustom 
+                                          ? 'border-indigo-500 bg-indigo-50/30 focus:bg-white focus:ring-2 focus:ring-indigo-200' 
+                                          : isCostTarget 
+                                            ? 'border-blue-400 bg-blue-50/20 focus:bg-white focus:ring-2 focus:ring-blue-150'
+                                            : 'border-slate-200 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:ring-2 focus:ring-brand-blue/15'
+                                      }`}
+                                    />
+                                    {isCostCustom && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setBulkCustomCostPrices(prev => {
+                                            const next = { ...prev };
+                                            delete next[p.id];
+                                            return next;
+                                          });
+                                        }}
+                                        className="absolute -right-4 p-0.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                        title="Limpar custo customizado"
+                                      >
+                                        <X size={8} className="stroke-[3]" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* SALE PRICE COLUMN */}
+                              <div className="flex items-center gap-2 bg-slate-50/60 p-2 rounded-xl border border-slate-100 min-w-[155px]">
+                                <div className="text-left select-none">
+                                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Venda Atual</span>
+                                  <span className="text-[10px] font-bold text-slate-500 block font-mono">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(initSale)}
+                                  </span>
+                                </div>
+                                <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                                <div className="relative">
+                                  <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 text-right">
+                                    {isSaleCustom ? 'Venda Pers. R$' : 'Nova Venda R$'}
+                                  </span>
+                                  <div className="relative flex items-center">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={isSaleCustom ? (bulkCustomPrices[p.id] !== undefined ? bulkCustomPrices[p.id] : '') : newSale.toFixed(2)}
+                                      onChange={(e) => {
+                                        const valStr = e.target.value;
+                                        if (valStr === '') {
+                                          setBulkCustomPrices(prev => {
+                                            const next = { ...prev };
+                                            delete next[p.id];
+                                            return next;
+                                          });
+                                        } else {
+                                          const val = parseFloat(valStr);
+                                          setBulkCustomPrices(prev => ({
+                                            ...prev,
+                                            [p.id]: isNaN(val) ? 0 : val
+                                          }));
+                                          setBulkSelectedProducts(prev => ({
+                                            ...prev,
+                                            [p.id]: true
+                                          }));
+                                        }
+                                      }}
+                                      className={`w-20 px-1.5 py-0.5 border rounded text-xs font-bold text-slate-800 text-right outline-none transition-all shadow-sm ${
+                                        isSaleCustom 
+                                          ? 'border-blue-500 bg-blue-50/30 focus:bg-white focus:ring-2 focus:ring-blue-200' 
+                                          : isSaleTarget
+                                            ? 'border-blue-400 bg-blue-50/20 focus:bg-white focus:ring-2 focus:ring-blue-150'
+                                            : 'border-slate-200 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:ring-2 focus:ring-brand-blue/15'
+                                      }`}
+                                    />
+                                    {isSaleCustom && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setBulkCustomPrices(prev => {
+                                            const next = { ...prev };
+                                            delete next[p.id];
+                                            return next;
+                                          });
+                                        }}
+                                        className="absolute -right-4 p-0.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                        title="Limpar venda customizada"
+                                      >
+                                        <X size={8} className="stroke-[3]" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* WHOLESALE PRICE COLUMN (OPTIONAL, rendered if bulkPriceTarget is wholesale or if there is a custom override) */}
+                              {(isWholesaleTarget || isWholesaleCustom) && (
+                                <div className="flex items-center gap-2 bg-slate-50/60 p-2 rounded-xl border border-slate-100 min-w-[155px]">
+                                  <div className="text-left select-none">
+                                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Atacado Atual</span>
+                                    <span className="text-[10px] font-bold text-slate-500 block font-mono">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(initWholesale)}
+                                    </span>
+                                  </div>
+                                  <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                                  <div className="relative">
+                                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 text-right">
+                                      {isWholesaleCustom ? 'Atacado Pers. R$' : 'Novo Atacado R$'}
+                                    </span>
                                     <div className="relative flex items-center">
                                       <input
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        value={isCustom ? (bulkCustomPrices[p.id] !== undefined ? bulkCustomPrices[p.id] : '') : newVal.toFixed(2)}
+                                        value={isWholesaleCustom ? (bulkCustomWholesalePrices[p.id] !== undefined ? bulkCustomWholesalePrices[p.id] : '') : newWholesale.toFixed(2)}
                                         onChange={(e) => {
                                           const valStr = e.target.value;
                                           if (valStr === '') {
-                                            setBulkCustomPrices(prev => {
+                                            setBulkCustomWholesalePrices(prev => {
                                               const next = { ...prev };
                                               delete next[p.id];
                                               return next;
                                             });
                                           } else {
                                             const val = parseFloat(valStr);
-                                            setBulkCustomPrices(prev => ({
+                                            setBulkCustomWholesalePrices(prev => ({
                                               ...prev,
                                               [p.id]: isNaN(val) ? 0 : val
                                             }));
-                                            // Actively select/select this product when modified manually
                                             setBulkSelectedProducts(prev => ({
                                               ...prev,
                                               [p.id]: true
                                             }));
                                           }
                                         }}
-                                        onClick={(e) => e.stopPropagation()} // Prevent double trigger
-                                        className={`w-28 px-2 py-1 border rounded text-xs font-bold text-slate-800 text-right outline-none transition-all shadow-sm ${
-                                          isCustom 
-                                            ? 'border-blue-500 bg-blue-50/30 focus:bg-white focus:ring-2 focus:ring-blue-200' 
+                                        className={`w-20 px-1.5 py-0.5 border rounded text-xs font-bold text-slate-800 text-right outline-none transition-all shadow-sm ${
+                                          isWholesaleCustom 
+                                            ? 'border-emerald-500 bg-emerald-50/30 focus:bg-white focus:ring-2 focus:ring-emerald-200' 
                                             : 'border-slate-200 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:ring-2 focus:ring-brand-blue/15'
                                         }`}
                                       />
-                                      {isCustom && (
+                                      {isWholesaleCustom && (
                                         <button
                                           type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setBulkCustomPrices(prev => {
+                                          onClick={() => {
+                                            setBulkCustomWholesalePrices(prev => {
                                               const next = { ...prev };
                                               delete next[p.id];
                                               return next;
                                             });
                                           }}
-                                          className="absolute -right-5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-rose-500 transition-colors"
-                                          title="Limpar valor customizado e reverter para fórmula"
+                                          className="absolute -right-4 p-0.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                          title="Limpar atacado customizado"
                                         >
-                                          <X size={10} className="stroke-[3]" />
+                                          <X size={8} className="stroke-[3]" />
                                         </button>
                                       )}
                                     </div>
                                   </div>
                                 </div>
+                              )}
+
+                              {/* REAL-TIME MARGIN AND IMPACT */}
+                              <div className="text-right w-20 select-none">
+                                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Margem</span>
+                                <div className="text-[10px] font-mono font-black space-y-0.5 leading-tight">
+                                  <span className="text-slate-400 block decoration-2 line-through text-[9px]">
+                                    {currentMargin.toFixed(1)}%
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded-lg text-[9px] inline-block ${
+                                    newMargin > currentMargin 
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                      : newMargin < currentMargin 
+                                        ? 'bg-rose-50 text-rose-700 border border-rose-100' 
+                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                  }`}>
+                                    {newMargin.toFixed(1)}%
+                                  </span>
+                                </div>
                               </div>
 
-                              {/* Difference Badge */}
-                              <div className="w-24 text-right">
-                                {diffVal === 0 ? (
-                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-1 rounded">
-                                    Sem alteração
-                                  </span>
-                                ) : (
-                                  <span className={`text-[10px] font-mono font-black px-2 py-1 rounded-lg border block ${
-                                    diffVal > 0 
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                                      : 'bg-rose-50 text-rose-700 border-rose-100'
-                                  }`}>
-                                    {diffVal > 0 ? '+' : ''}
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(diffVal)} 
-                                    <span className="block text-[8px] font-bold mt-0.5 opacity-80">
-                                      {diffPct > 0 ? '+' : ''}{diffPct.toFixed(1)}%
-                                    </span>
-                                  </span>
-                                )}
-                              </div>
                             </div>
                           </div>
                         );
