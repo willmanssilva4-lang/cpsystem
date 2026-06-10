@@ -8,6 +8,13 @@ import { useERP } from '@/lib/context';
 import { cn, formatDateTimeBR, formatDateBR, toLocalDateString } from '@/lib/utils';
 import { InventorySessionModal } from './InventorySessionModal';
 
+const parseCommaNumber = (val: string | number | undefined | null): number => {
+  if (val === undefined || val === null || val === '') return 0;
+  const str = String(val).replace(/\s/g, '').replace(',', '.');
+  const num = Number(str);
+  return isNaN(num) ? 0 : num;
+};
+
 interface ProductFormProps {
   onClose: () => void;
   onSave: (product: any) => void;
@@ -130,7 +137,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       name: initialData?.name || '',
       supplier: initialData?.supplier || '',
       unit: initialData?.unit || 'UN',
-      costPrice: initialData?.costPrice ?? '',
+      costPrice: (() => {
+        if (initialData?.costPrice === undefined || initialData?.costPrice === null) return '';
+        const num = initialData.costPrice;
+        return num.toFixed(3).replace('.', ',');
+      })(),
       salePrice: initialData?.salePrice ?? '',
       termPrice: initialData?.termPrice ?? '',
       wholesalePrice: initialData?.wholesalePrice ?? '',
@@ -143,7 +154,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         : (initialData?.controlStock || 'SIM'),
       subcategoria_id: initialData?.subcategoria_id || '',
       brand: initialData?.brand || 'PADRAO',
-      composition: initialData?.composition || [] as CompositionItem[],
+      composition: (() => {
+        const rawComp = initialData?.composition || [];
+        return rawComp.map((item: any) => {
+          const matchedProd = products.find(p => p.id === item.productId);
+          return {
+            ...item,
+            price: matchedProd ? matchedProd.costPrice : (item.price || 0)
+          };
+        });
+      })() as CompositionItem[],
       profit: initialProfit,
       profitPercentage: initialProfitPercentage,
       image: initialData?.image || DEFAULT_IMAGE,
@@ -250,11 +270,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     const segs = new Set<string>();
     departamentos.forEach(d => { 
       if (d.segmento) {
-        d.segmento.split(',').forEach(s => segs.add(s.trim()));
+        d.segmento.split(',').forEach(s => segs.add(s.trim().toUpperCase()));
       }
     });
-    products.forEach(p => { if (p.segmento) segs.add(p.segmento); });
-    if (formData.segmento) segs.add(formData.segmento);
+    products.forEach(p => { if (p.segmento) segs.add(p.segmento.trim().toUpperCase()); });
+    if (formData.segmento) segs.add(formData.segmento.trim().toUpperCase());
     return Array.from(segs).filter(Boolean).sort();
   }, [departamentos, products, formData.segmento]);
 
@@ -262,19 +282,19 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     const secs = new Set<string>();
     departamentos.forEach(d => { 
       if (d.secao) {
-        d.secao.split(',').forEach(s => secs.add(s.trim()));
+        d.secao.split(',').forEach(s => secs.add(s.trim().toUpperCase()));
       }
     });
-    products.forEach(p => { if (p.section) secs.add(p.section); });
-    if (formData.section) secs.add(formData.section);
+    products.forEach(p => { if (p.section) secs.add(p.section.trim().toUpperCase()); });
+    if (formData.section) secs.add(formData.section.trim().toUpperCase());
     return Array.from(secs).filter(Boolean).sort();
   }, [departamentos, products, formData.section]);
 
   const uniqueBrands = React.useMemo(() => {
     const brands = new Set<string>();
     brands.add('PADRAO');
-    products.forEach(p => { if (p.brand) brands.add(p.brand); });
-    if (formData.brand) brands.add(formData.brand);
+    products.forEach(p => { if (p.brand) brands.add(p.brand.trim().toUpperCase()); });
+    if (formData.brand) brands.add(formData.brand.trim().toUpperCase());
     return Array.from(brands).filter(Boolean).sort();
   }, [products, formData.brand]);
 
@@ -292,11 +312,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     }
     
     if (effectiveCost !== null) {
-      const currentCost = typeof formData.costPrice === 'string' ? (formData.costPrice === '' ? 0 : Number(formData.costPrice)) : formData.costPrice;
+      const currentCost = parseCommaNumber(formData.costPrice);
       
       // Use a small epsilon for floating point comparison
       if (Math.abs(effectiveCost - currentCost) > 0.01) {
-        const salePrice = typeof formData.salePrice === 'string' ? (formData.salePrice === '' ? 0 : Number(formData.salePrice)) : formData.salePrice;
+        const salePrice = parseCommaNumber(formData.salePrice);
         const profit = Math.round((salePrice - effectiveCost) * 100) / 100;
         
         let profitPercentage = 0;
@@ -308,7 +328,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         
         setFormData(prev => ({
           ...prev,
-          costPrice: effectiveCost as number,
+          costPrice: (effectiveCost as number).toFixed(3).replace('.', ','),
           profit,
           profitPercentage: Math.round(profitPercentage * 100) / 100
         }));
@@ -495,11 +515,24 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       }
     }
 
+    const parseCommaNumber = (val: string | number | undefined): number => {
+      if (val === undefined || val === null || val === '') return 0;
+      const str = String(val).replace(/\s/g, '').replace(',', '.');
+      const num = Number(str);
+      return isNaN(num) ? 0 : num;
+    };
+
     const finalData = {
       ...formData,
       codigo_mercadologico: finalCodigoMercadologico,
       stock: displayStock,
-      costPrice: calculatedVirtualCost !== null ? calculatedVirtualCost : (calculatedKitStock !== null ? formData.costPrice : formData.costPrice)
+      costPrice: calculatedVirtualCost !== null ? calculatedVirtualCost : parseCommaNumber(formData.costPrice),
+      salePrice: parseCommaNumber(formData.salePrice),
+      termPrice: parseCommaNumber(formData.termPrice),
+      wholesalePrice: parseCommaNumber(formData.wholesalePrice),
+      clubPrice: parseCommaNumber(formData.clubPrice),
+      profit: parseCommaNumber(formData.profit),
+      profitPercentage: parseCommaNumber(formData.profitPercentage)
     };
     onSave(finalData);
   };
@@ -821,12 +854,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         />
                         <datalist id="suppliers-list">
                           <option value="PADRAO" />
-                          {suppliers.map(sup => (
-                            <option key={sup.id} value={sup.name} />
-                          ))}
-                          {Array.from(new Set(products.map(p => p.supplier).filter(Boolean))).map(s => (
-                             <option key={s} value={s} />
-                          ))}
+                          {(() => {
+                            const uniqueSuppliers = Array.from(new Set([
+                              ...suppliers.map(sup => sup.name?.trim().toUpperCase()),
+                              ...products.map(p => p.supplier?.trim().toUpperCase())
+                            ].filter(Boolean))).sort();
+                            return uniqueSuppliers.map(s => (
+                              <option key={s} value={s} />
+                            ));
+                          })()}
                         </datalist>
                       </div>
                     </div>
@@ -902,8 +938,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           type="button"
                           disabled={!pricingSettings.allowEditOnProduct}
                           onClick={() => {
-                            const costPrice = Number(formData.costPrice);
-                            const salePrice = Number(formData.salePrice);
+                            const costPrice = parseCommaNumber(formData.costPrice);
+                            const salePrice = parseCommaNumber(formData.salePrice);
                             const profit = Math.round((salePrice - costPrice) * 100) / 100;
                             const newProfitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
                             setPricingMethod('markup');
@@ -923,8 +959,8 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           type="button"
                           disabled={!pricingSettings.allowEditOnProduct}
                           onClick={() => {
-                            const costPrice = Number(formData.costPrice);
-                            const salePrice = Number(formData.salePrice);
+                            const costPrice = parseCommaNumber(formData.costPrice);
+                            const salePrice = parseCommaNumber(formData.salePrice);
                             const profit = Math.round((salePrice - costPrice) * 100) / 100;
                             const newProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                             setPricingMethod('margin');
@@ -952,15 +988,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                             <input 
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               name="costPrice"
-                              step="0.001"
-                              value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(3) : (typeof formData.costPrice === 'number' ? Number(formData.costPrice.toFixed(3)) : formData.costPrice)}
+                              value={calculatedVirtualCost !== null ? calculatedVirtualCost.toFixed(3).replace('.', ',') : ((formData.costPrice as any) === '' ? '' : formData.costPrice.toString().replace('.', ','))}
                               readOnly={calculatedKitStock !== null || calculatedVirtualCost !== null}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                const costPrice = val === '' ? 0 : Number(val);
-                                let profitPercentage = Number(formData.profitPercentage);
+                                const val = e.target.value.replace('.', ',');
+                                const normalized = val.replace(',', '.');
+                                const costPrice = normalized === '' ? 0 : Number(normalized);
+                                let profitPercentage = parseCommaNumber(formData.profitPercentage);
                                 let salePrice = 0;
 
                                 if (pricingMethod === 'markup') {
@@ -982,7 +1019,27 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   }
                                 }
 
-                                setFormData(prev => ({ ...prev, costPrice: val === '' ? '' : costPrice, salePrice, profit, profitPercentage: Math.round(finalProfitPercentage * 100) / 100 }));
+                                if (normalized === '' || !isNaN(Number(normalized))) {
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    costPrice: normalized, 
+                                    salePrice, 
+                                    profit, 
+                                    profitPercentage: Math.round(finalProfitPercentage * 100) / 100 
+                                  }));
+                                }
+                              }}
+                              onBlur={() => {
+                                const currentVal = formData.costPrice;
+                                if (currentVal !== '') {
+                                  const parsed = Number(String(currentVal).replace(',', '.'));
+                                  if (!isNaN(parsed)) {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      costPrice: parsed.toFixed(3).replace('.', ',')
+                                    }));
+                                  }
+                                }
                               }}
                               className="w-full bg-white border border-slate-200/80 pl-8 pr-3 py-2 rounded-xl text-sm font-black text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
                             />
@@ -995,22 +1052,30 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                             <input 
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               name="profit"
-                              value={formData.profit === '' ? '' : formData.profit}
-                              step="0.01"
+                              value={(formData.profit as any) === '' ? '' : formData.profit.toString().replace('.', ',')}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                const profit = val === '' ? '' : Math.round(Number(val) * 100) / 100;
-                                const costPrice = Number(formData.costPrice);
-                                const salePrice = costPrice + (profit === '' ? 0 : profit);
+                                const val = e.target.value.replace('.', ',');
+                                const normalized = val.replace(',', '.');
+                                const profit = normalized === '' ? 0 : Number(normalized);
+                                const costPrice = parseCommaNumber(formData.costPrice);
+                                const salePrice = costPrice + profit;
                                 let profitPercentage = 0;
                                 if (pricingMethod === 'markup') {
-                                  profitPercentage = costPrice > 0 ? ((profit === '' ? 0 : profit) / costPrice) * 100 : 0;
+                                  profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
                                 } else {
-                                  profitPercentage = salePrice > 0 ? ((profit === '' ? 0 : profit) / salePrice) * 100 : 0;
+                                  profitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                                 }
-                                setFormData(prev => ({ ...prev, profit, salePrice, profitPercentage: Math.round(profitPercentage * 100) / 100 }));
+                                if (normalized === '' || !isNaN(Number(normalized))) {
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    profit: normalized, 
+                                    salePrice, 
+                                    profitPercentage: Math.round(profitPercentage * 100) / 100 
+                                  }));
+                                }
                               }}
                               className="w-full bg-white border border-slate-200/80 pl-8 pr-3 py-2 rounded-xl text-sm font-black text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
                             />
@@ -1024,25 +1089,33 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           </label>
                           <div className="relative">
                             <input 
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               name="profitPercentage"
-                              value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage}
+                              value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage.toString().replace('.', ',')}
                               readOnly={!pricingSettings.allowEditOnProduct}
-                              step="0.01"
                               onChange={(e) => {
-                                const val = e.target.value;
-                                const profitPercentage = val === '' ? '' : Number(val);
-                                const costPrice = Number(formData.costPrice);
+                                const val = e.target.value.replace('.', ',');
+                                const normalized = val.replace(',', '.');
+                                const profitPercentage = normalized === '' ? 0 : Number(normalized);
+                                const costPrice = parseCommaNumber(formData.costPrice);
                                 let salePrice = 0;
                                 if (pricingMethod === 'markup') {
-                                  salePrice = costPrice * (1 + ((profitPercentage === '' ? 0 : profitPercentage) / 100));
+                                  salePrice = costPrice * (1 + (profitPercentage / 100));
                                 } else {
-                                  const margin = (profitPercentage === '' ? 0 : profitPercentage) >= 100 ? 99.99 : (profitPercentage === '' ? 0 : profitPercentage);
+                                  const margin = profitPercentage >= 100 ? 99.99 : profitPercentage;
                                   salePrice = costPrice / (1 - (margin / 100));
                                 }
                                 salePrice = roundPrice(salePrice);
                                 const profit = Math.round((salePrice - costPrice) * 100) / 100;
-                                setFormData(prev => ({ ...prev, profitPercentage, salePrice, profit }));
+                                if (normalized === '' || !isNaN(Number(normalized))) {
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    profitPercentage: normalized, 
+                                    salePrice, 
+                                    profit 
+                                  }));
+                                }
                               }}
                               className={cn(
                                 "w-full border border-slate-200/80 px-3 py-2 rounded-xl text-sm font-black text-center outline-none transition-all pr-7 shadow-xs",
@@ -1070,7 +1143,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                 const val = e.target.value.replace('.', ',');
                                 const normalized = val.replace(',', '.');
                                 const salePrice = normalized === '' ? 0 : Number(normalized);
-                                const costPrice = Number(formData.costPrice);
+                                const costPrice = parseCommaNumber(formData.costPrice);
                                 const profit = Math.round((salePrice - costPrice) * 100) / 100;
                                 let profitPercentage = 0;
                                 if (pricingMethod === 'markup') {
@@ -1109,12 +1182,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                               <input 
                                 ref={termPriceInputRef}
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 name="termPrice"
-                                value={formData.termPrice}
+                                value={(formData.termPrice as any) === '' ? '' : formData.termPrice.toString().replace('.', ',')}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  setFormData(prev => ({ ...prev, termPrice: val === '' ? '' : Number(val) }));
+                                  const val = e.target.value.replace('.', ',');
+                                  const normalized = val.replace(',', '.');
+                                  if (normalized === '' || !isNaN(Number(normalized))) {
+                                    setFormData(prev => ({ ...prev, termPrice: normalized }));
+                                  }
                                 }}
                                 className="w-full bg-slate-50 border border-slate-200/80 pl-8 pr-3 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
                               />
@@ -1127,12 +1204,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                               <input 
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 name="wholesalePrice"
-                                value={formData.wholesalePrice}
+                                value={(formData.wholesalePrice as any) === '' ? '' : formData.wholesalePrice.toString().replace('.', ',')}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  setFormData(prev => ({ ...prev, wholesalePrice: val === '' ? '' : Number(val) }));
+                                  const val = e.target.value.replace('.', ',');
+                                  const normalized = val.replace(',', '.');
+                                  if (normalized === '' || !isNaN(Number(normalized))) {
+                                    setFormData(prev => ({ ...prev, wholesalePrice: normalized }));
+                                  }
                                 }}
                                 className="w-full bg-slate-50 border border-slate-200/80 pl-8 pr-3 py-2.5 rounded-xl text-sm font-black text-slate-700 focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all shadow-xs" 
                               />
@@ -1161,12 +1242,16 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             <div className="relative">
                               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sky-600 font-extrabold text-xs">R$</span>
                               <input 
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 name="clubPrice"
-                                value={formData.clubPrice}
+                                value={(formData.clubPrice as any) === '' ? '' : formData.clubPrice.toString().replace('.', ',')}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  setFormData(prev => ({ ...prev, clubPrice: val === '' ? '' : Number(val) }));
+                                  const val = e.target.value.replace('.', ',');
+                                  const normalized = val.replace(',', '.');
+                                  if (normalized === '' || !isNaN(Number(normalized))) {
+                                    setFormData(prev => ({ ...prev, clubPrice: normalized }));
+                                  }
                                 }}
                                 className="w-full border-0 px-2 pl-7 py-1.5 rounded-lg text-sm font-black text-center outline-none bg-white text-sky-700 shadow-sm focus:ring-2 focus:ring-sky-400" 
                               />
@@ -2805,11 +2890,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   disabled={!pricingSettings.allowEditOnProduct}
                                   onClick={() => {
                                     const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
-                                    const salePrice = Number(formData.salePrice);
+                                    const salePrice = parseCommaNumber(formData.salePrice);
                                     const profit = salePrice - costPrice;
                                     const newProfitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
                                     setPricingMethod('markup');
-                                    setFormData(prev => ({ ...prev, profitPercentage: newProfitPercentage, costPrice, profit }));
+                                    setFormData(prev => ({ ...prev, profitPercentage: newProfitPercentage, costPrice: costPrice.toFixed(3).replace('.', ','), profit }));
                                   }}
                                   className={cn(
                                     "px-3 py-1 text-[10px] font-black uppercase italic rounded-md transition-all",
@@ -2824,11 +2909,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   disabled={!pricingSettings.allowEditOnProduct}
                                   onClick={() => {
                                     const costPrice = formData.composition.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
-                                    const salePrice = Number(formData.salePrice);
+                                    const salePrice = parseCommaNumber(formData.salePrice);
                                     const profit = salePrice - costPrice;
                                     const newProfitPercentage = salePrice > 0 ? (profit / salePrice) * 100 : 0;
                                     setPricingMethod('margin');
-                                    setFormData(prev => ({ ...prev, profitPercentage: newProfitPercentage, costPrice, profit }));
+                                    setFormData(prev => ({ ...prev, profitPercentage: newProfitPercentage, costPrice: costPrice.toFixed(3).replace('.', ','), profit }));
                                   }}
                                   className={cn(
                                     "px-3 py-1 text-[10px] font-black uppercase italic rounded-md transition-all",
@@ -2842,10 +2927,10 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             </div>
                             <div className="relative">
                               <input 
-                                type="number" 
+                                type="text" 
+                                inputMode="decimal"
                                 name="profitPercentage"
-                                value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage}
-                                step="0.01"
+                                value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage.toString().replace('.', ',')}
                                 readOnly={!pricingSettings.allowEditOnProduct}
                                 onChange={(e) => {
                                   const val = e.target.value.replace('.', ',');
@@ -2860,13 +2945,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                     salePrice = costPrice / (1 - (margin / 100));
                                   }
                                   const profit = (salePrice - costPrice);
-                                  setFormData(prev => ({ 
-                                    ...prev, 
-                                    profitPercentage: val === '' ? '' : Math.round(profitPercentage * 100) / 100, 
-                                    salePrice: Math.round(salePrice * 100) / 100, 
-                                    profit: Math.round(profit * 100) / 100, 
-                                    costPrice 
-                                  }));
+                                  if (normalized === '' || !isNaN(Number(normalized))) {
+                                    setFormData(prev => ({ 
+                                      ...prev, 
+                                      profitPercentage: normalized, 
+                                      salePrice: Math.round(salePrice * 100) / 100, 
+                                      profit: Math.round(profit * 100) / 100, 
+                                      costPrice: costPrice.toFixed(3).replace('.', ',') 
+                                    }));
+                                  }
                                 }}
                                 className={cn(
                                   "w-full border px-4 py-3 rounded-2xl text-lg font-black outline-none transition-all",

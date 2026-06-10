@@ -521,36 +521,47 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
           <div>
             <h5 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight flex items-center gap-1.5">
               <Package size={14} className="text-brand-blue" />
-              Top Produtos por Receita
+              Top 5 Produtos Mais Vendidos
             </h5>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Top produtos com maior faturamento no período</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5">Top 5 produtos com maior volume de unidades vendidas</p>
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-76 pr-1 mt-5 space-y-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
-            {filteredAndSortedData.slice(0, 10).map((prod, idx) => {
-              const percent = totals.revenue > 0 ? (prod.total / totals.revenue) * 100 : 0;
-              const barColors = ['bg-brand-blue', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500', 'bg-rose-500', 'bg-teal-500'];
-              const chosenBarColor = barColors[idx % barColors.length];
+            {(() => {
+              const top5MostSold = [...filteredAndSortedData]
+                .sort((a, b) => b.qty - a.qty)
+                .slice(0, 5);
 
-              return (
-                <div key={prod.id} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-700 truncate max-w-[150px] uppercase italic">
-                      {prod.name}
-                    </span>
-                    <span className="font-black text-slate-800 font-mono">
-                      {formatCurrency(prod.total)}
-                    </span>
+              return top5MostSold.map((prod, idx) => {
+                const percent = totals.qty > 0 ? (prod.qty / totals.qty) * 100 : 0;
+                const barColors = ['bg-brand-blue', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500'];
+                const chosenBarColor = barColors[idx % barColors.length];
+
+                return (
+                  <div key={prod.id} className="space-y-1 block hover:bg-slate-50/50 p-1.5 rounded-xl transition-colors">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex flex-col truncate max-w-[170px]">
+                        <span className="font-bold text-slate-700 truncate uppercase italic">
+                          {prod.name}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-semibold">
+                          Receita: {formatCurrency(prod.total)}
+                        </span>
+                      </div>
+                      <span className="font-black text-slate-800 font-mono text-right shrink-0">
+                        {prod.qty} <span className="text-[10px] text-slate-400 font-semibold font-sans">un</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className={cn("h-full rounded-full transition-all duration-500", chosenBarColor)}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full rounded-full transition-all duration-500", chosenBarColor)}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
 
             {filteredAndSortedData.length === 0 && (
               <div className="py-20 text-center text-xs text-slate-300 uppercase italic">Nenhum produto encontrado</div>

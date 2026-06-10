@@ -346,20 +346,54 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const cClos_res = getData(28);
 
       if (Array.isArray(prods)) {
-        setProducts(prods.map((p: any) => ({
-          ...p,
-          costPrice: p.costPrice ?? p.cost_price,
-          salePrice: p.salePrice ?? p.sale_price,
-          wholesalePrice: p.wholesalePrice ?? p.wholesale_price,
-          wholesaleMinQty: p.wholesaleMinQty ?? p.wholesale_min_qty,
-          clubPrice: p.clubPrice ?? p.club_price,
-          termPrice: p.termPrice ?? p.term_price,
-          minStock: p.minStock ?? p.min_stock,
-          controlStock: p.controlStock ?? p.control_stock,
-          profit: p.profit,
-          profitPercentage: p.profitPercentage,
-          brand: p.brand ?? p.marca
-        })));
+        const resolvedBasicProducts = prods.map((p: any) => {
+          let costPrice = p.costPrice ?? p.cost_price;
+          let image = p.image || '';
+          if (image.includes('#cost:')) {
+            const parts = image.split('#cost:');
+            image = parts[0];
+            const parsedCost = Number(parts[1]);
+            if (!isNaN(parsedCost)) {
+              costPrice = parsedCost;
+            }
+          }
+          return {
+            ...p,
+            image,
+            costPrice,
+            salePrice: p.salePrice ?? p.sale_price,
+            wholesalePrice: p.wholesalePrice ?? p.wholesale_price,
+            wholesaleMinQty: p.wholesaleMinQty ?? p.wholesale_min_qty,
+            clubPrice: p.clubPrice ?? p.club_price,
+            termPrice: p.termPrice ?? p.term_price,
+            minStock: p.minStock ?? p.min_stock,
+            controlStock: p.controlStock ?? p.control_stock,
+            profit: p.profit,
+            profitPercentage: p.profitPercentage,
+            brand: p.brand ?? p.marca
+          };
+        });
+
+        const resolvedProducts = resolvedBasicProducts.map((p: any) => {
+          if (p.product_type === 'KIT' && p.composition && Array.isArray(p.composition)) {
+            const updatedComposition = p.composition.map((item: any) => {
+              const compProd = resolvedBasicProducts.find(bp => bp.id === item.productId);
+              return {
+                ...item,
+                price: compProd ? compProd.costPrice : (item.price || 0)
+              };
+            });
+            const dynamicCostPrice = Number(updatedComposition.reduce((acc: number, item: any) => acc + ((item.price || 0) * item.quantity), 0).toFixed(3));
+            return {
+              ...p,
+              composition: updatedComposition,
+              costPrice: dynamicCostPrice
+            };
+          }
+          return p;
+        });
+
+        setProducts(resolvedProducts);
       }
       if (Array.isArray(supps_res)) {
         setSuppliers(supps_res.map(s => ({
@@ -726,8 +760,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   // Products
   const addProduct = async (data: any) => {
+    const rawImage = data.image ?? 'https://i.imgur.com/jGU5BUa.png';
+    const cleanImage = String(rawImage).split('#cost:')[0];
+    const costVal = Number(data.costPrice ?? data.cost_price ?? 0);
+    const costStr = isNaN(costVal) ? '0' : String(costVal);
+
     const dbPayload = {
       ...data,
+      image: `${cleanImage}#cost:${costStr}`,
       cost_price: Number(data.costPrice ?? data.cost_price) || 0,
       sale_price: Number(data.salePrice ?? data.sale_price) || 0,
       wholesale_price: Number(data.wholesalePrice ?? data.wholesale_price) || 0,
@@ -791,8 +831,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProduct = async (data: any) => {
+    const rawImage = data.image ?? data.image_url ?? 'https://i.imgur.com/jGU5BUa.png';
+    const cleanImage = String(rawImage).split('#cost:')[0];
+    const costVal = Number(data.costPrice ?? data.cost_price ?? 0);
+    const costStr = isNaN(costVal) ? '0' : String(costVal);
+
     const dbPayload = {
       ...data,
+      image: `${cleanImage}#cost:${costStr}`,
       cost_price: Number(data.costPrice ?? data.cost_price) || 0,
       sale_price: Number(data.salePrice ?? data.sale_price) || 0,
       wholesale_price: Number(data.wholesalePrice ?? data.wholesale_price) || 0,

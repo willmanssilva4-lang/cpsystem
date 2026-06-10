@@ -570,7 +570,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                               </div>
                             </div>
                             <span className="text-[10px] font-black text-slate-650 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
-                              Custo de Compra: {formatCurrency((item.price || compProd?.costPrice || 0) * item.quantity)}
+                              Custo de Compra: {formatCurrency((compProd ? compProd.costPrice : (item.price || 0)) * item.quantity)}
                             </span>
                           </div>
                         );
