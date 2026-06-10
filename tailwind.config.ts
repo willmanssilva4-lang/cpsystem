@@ -33,6 +33,9 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
+      },
+      screens: {
+        xs: "480px",
       }
     },
   },

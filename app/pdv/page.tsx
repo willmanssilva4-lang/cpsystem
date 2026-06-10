@@ -1416,49 +1416,59 @@ export default function PDVPage() {
   return (
     <div className="h-screen flex flex-col bg-white text-slate-900 font-sans overflow-hidden select-none">
       {/* Top Header */}
-      <header className="bg-brand-text-main text-white px-4 py-2 flex items-center justify-between border-b border-brand-text-main">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+      <header className="bg-brand-text-main text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-brand-text-main gap-2">
+        <div className="flex items-center gap-1.5 md:gap-4 min-w-0 flex-1 md:flex-initial">
+          <div className="hidden sm:block shrink-0">
             <Logo size="sm" hideText theme="dark" />
           </div>
-          <div className="text-center">
-            <h1 className="text-xl font-bold tracking-widest uppercase">{companySettings?.tradeName || 'MERCADINHO SUPERNICE'}</h1>
+          <div className="text-left min-w-0 flex-1">
+            <h1 className="text-xs md:text-xl font-bold md:tracking-widest uppercase leading-tight break-words sm:truncate">{companySettings?.tradeName || 'MERCADINHO SUPERNICE'}</h1>
           </div>
-          <button
-            onClick={() => {
-              setPricingMode(prev => {
-                const nextMode = prev === 'retail' ? 'term' : 'retail';
-                setCart(currentCart => currentCart.map(item => {
-                  let newPrice = item.product.salePrice;
-                  if (nextMode === 'term' && item.product.termPrice) {
-                    newPrice = item.product.termPrice;
-                  } else {
-                    newPrice = item.product.salePrice;
-                  }
-
-                  return {
-                    ...item,
-                    product: { ...item.product, salePrice: newPrice },
-                    originalPrice: newPrice,
-                    discount: 0
-                  };
-                }));
-                return nextMode;
-              });
-            }}
-            className={cn(
-              "ml-4 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border",
-              pricingMode === 'term' && "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
-              pricingMode === 'retail' && "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
-            )}
-          >
-            {pricingMode === 'retail' && 'Modo Varejo (F11)'}
-            {pricingMode === 'term' && 'Modo Preço 2 (F11)'}
-          </button>
         </div>
         
         <div className="flex flex-col items-end">
-          <div className="flex gap-2 mb-1">
+          <div className="flex gap-2 mb-1 items-center">
+            <button
+              onClick={() => {
+                setPricingMode(prev => {
+                  const nextMode = prev === 'retail' ? 'term' : 'retail';
+                  setCart(currentCart => currentCart.map(item => {
+                    let newPrice = item.product.salePrice;
+                    if (nextMode === 'term' && item.product.termPrice) {
+                      newPrice = item.product.termPrice;
+                    } else {
+                      newPrice = item.product.salePrice;
+                    }
+
+                    return {
+                      ...item,
+                      product: { ...item.product, salePrice: newPrice },
+                      originalPrice: newPrice,
+                      discount: 0
+                    };
+                  }));
+                  return nextMode;
+                });
+              }}
+              className={cn(
+                "px-2 py-1 md:px-3 md:py-1 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors border shrink-0",
+                pricingMode === 'term' && "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
+                pricingMode === 'retail' && "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
+              )}
+            >
+              {pricingMode === 'retail' && (
+                <>
+                  <span className="hidden md:inline">Modo Varejo (F11)</span>
+                  <span className="md:hidden">Varejo</span>
+                </>
+              )}
+              {pricingMode === 'term' && (
+                <>
+                  <span className="hidden md:inline">Modo Preço 2 (F11)</span>
+                  <span className="md:hidden">Preço 2</span>
+                </>
+              )}
+            </button>
             <a 
               href="/consulta-preco" 
               target="_blank"
@@ -1741,21 +1751,40 @@ export default function PDVPage() {
           </h3>
         </div>
         
-        <div className="w-full md:w-[40%] flex flex-col gap-2">
-          <h3 className="text-xl md:text-3xl font-black italic uppercase tracking-wider text-brand-text-main">Total a Pagar</h3>
-          <div className="bg-brand-text-main py-4 text-center rounded-xl border-2 border-brand-blue shadow-lg relative overflow-hidden">
+        <div className="w-full md:w-[40%] flex flex-col gap-1.5">
+          <h3 className="text-xs md:text-sm font-black italic uppercase tracking-wider text-brand-text-main">Total a Pagar</h3>
+          <button
+            type="button"
+            disabled={cart.length === 0}
+            onClick={handleCheckout}
+            className={cn(
+              "w-full bg-brand-text-main py-2 md:py-3 text-center rounded-xl border border-brand-blue shadow-md relative overflow-hidden transition-all duration-200 outline-none text-left flex flex-col items-center justify-center",
+              cart.length > 0 ? "cursor-pointer hover:bg-brand-text-main/90 active:scale-[0.98]" : "cursor-not-allowed"
+            )}
+          >
             {saleDiscount > 0 && (
-              <div className="absolute top-0 right-0 bg-rose-600 text-white text-[10px] px-2 py-0.5 font-black italic rounded-bl-lg">
+              <div className="absolute top-0 right-0 bg-rose-600 text-white text-[9px] px-1.5 py-0.5 font-black italic rounded-bl-lg">
                 DESC: -{formatCurrency(saleDiscount)}
               </div>
             )}
-            <span className="text-4xl md:text-6xl font-black tracking-tighter text-white">R$ {formatCurrency(total)}</span>
-          </div>
+            <span className="text-2xl md:text-4xl font-black tracking-tighter text-white">R$ {formatCurrency(total)}</span>
+          </button>
+
+          {/* Botão de Finalização Exclusivo para Celular/Tablet */}
+          {cart.length > 0 && (
+            <button
+              type="button"
+              onClick={handleCheckout}
+              className="md:hidden w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase text-[10px] tracking-widest py-2 rounded-xl shadow-md border border-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <span className="animate-pulse">🟢</span> Finalizar Venda
+            </button>
+          )}
         </div>
       </footer>
 
       {/* Shortcuts Bar */}
-      <div className="bg-brand-text-main py-1 px-4 text-[9px] font-bold border-t border-brand-text-main overflow-x-auto whitespace-nowrap text-brand-border">
+      <div className="hidden lg:block bg-brand-text-main py-1 px-4 text-[9px] font-bold border-t border-brand-text-main overflow-x-auto whitespace-nowrap text-brand-border">
         <div className="flex gap-4 justify-center opacity-80">
           <span>F1 - Ajuda</span>
           <span>|</span>

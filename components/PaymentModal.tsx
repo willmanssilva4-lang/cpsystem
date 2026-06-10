@@ -403,27 +403,27 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
   // ... (shortcuts and UI implementation)
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-2 md:p-4">
+      <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
         {/* Header: Resumo */}
-        <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
+        <div className="bg-slate-900 text-white p-4 md:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h2 className="text-sm font-black uppercase italic text-slate-400">Total da Venda</h2>
-            <p className="text-4xl font-black italic">R$ {totalToPay.toFixed(2)}</p>
+            <h2 className="text-[10px] md:text-sm font-black uppercase italic text-slate-400">Total da Venda</h2>
+            <p className="text-2xl md:text-4xl font-black italic">R$ {totalToPay.toFixed(2)}</p>
             {dynamicRemaining > 0 ? (
-              <p className="text-sm font-bold text-brand-blue mt-1 uppercase italic">Faltando: R$ {dynamicRemaining.toFixed(2)}</p>
+              <p className="text-xs md:text-sm font-bold text-brand-blue mt-0.5 md:mt-1 uppercase italic">Faltando: R$ {dynamicRemaining.toFixed(2)}</p>
             ) : (
-              <p className="text-sm font-bold text-brand-green mt-1 uppercase italic">
+              <p className="text-xs md:text-sm font-bold text-brand-green mt-0.5 md:mt-1 uppercase italic">
                 {remainingAmount === 0 ? "Total Pago" : "Total Coberto"}
               </p>
             )}
           </div>
-          <div className="text-right">
-            <p className="text-sm">Subtotal: R$ {subtotal.toFixed(2)}</p>
-            <p className="text-sm text-red-400">Desconto: R$ {discount.toFixed(2)}</p>
-            <div className="mt-2 space-y-1">
+          <div className="text-left sm:text-right w-full sm:w-auto border-t border-slate-800 pt-2.5 sm:pt-0 sm:border-t-0">
+            <p className="text-xs md:text-sm">Subtotal: R$ {subtotal.toFixed(2)}</p>
+            <p className="text-xs md:text-sm text-red-400">Desconto: R$ {discount.toFixed(2)}</p>
+            <div className="mt-1 md:mt-2 space-y-1">
               {payments.map((p, i) => (
-                <div key={i} className="flex items-center justify-end gap-2 text-[10px] text-slate-400">
+                <div key={i} className="flex items-center justify-start sm:justify-end gap-2 text-[10px] text-slate-400">
                   <span>{p.method}: R$ {p.amount.toFixed(2)}</span>
                   <button onClick={() => removePayment(i)} className="text-red-400 hover:text-red-500">
                     <X className="w-3 h-3" />
@@ -435,23 +435,23 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         </div>
 
         {/* Body: Pagamento */}
-        <div className="p-6 grid grid-cols-2 gap-6">
+        <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 overflow-y-auto flex-1">
           {/* Formas de Pagamento */}
-          <div className="space-y-4">
-            <h3 className="font-black uppercase italic text-slate-500">Formas de Pagamento</h3>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3 md:space-y-4">
+            <h3 className="text-xs md:text-sm font-black uppercase italic text-slate-500">Formas de Pagamento</h3>
+            <div className="grid grid-cols-2 gap-1.5 md:gap-2">
               {activeMethods.map((method, index) => (
                 <button 
                   key={method.id}
                   onClick={() => selectMethod(method)}
                   className={cn(
-                    "p-4 rounded-xl font-black italic uppercase text-sm transition-all text-left flex justify-between items-center",
+                    "p-2 md:p-4 rounded-xl font-black italic uppercase text-xs md:text-sm transition-all text-left flex justify-between items-center",
                     activeMethod === method.name ? "bg-brand-blue text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   )}
                 >
-                  <span>{method.name}</span>
+                  <span className="truncate pr-1">{method.name}</span>
                   <span className={cn(
-                    "text-[11px] px-2 py-0.5 rounded-md font-extrabold transition-colors font-mono",
+                    "hidden xs:inline-block text-[10px] md:text-[11px] px-1.5 md:px-2 py-0.5 rounded-md font-extrabold transition-colors font-mono scale-90 md:scale-100",
                     activeMethod === method.name 
                       ? "bg-white/25 text-white border border-white/40" 
                       : "bg-slate-200 text-slate-900 border border-slate-300 shadow-sm"
@@ -464,22 +464,22 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           </div>
 
           {/* Detalhes do Pagamento */}
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {payments.length > 0 && (
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                <h4 className="text-[10px] font-black uppercase italic text-slate-400">Pagamentos Adicionados</h4>
+              <div className="bg-slate-50 p-2.5 md:p-3 rounded-xl border border-slate-200 space-y-1.5 md:space-y-2">
+                <h4 className="text-[9px] md:text-[10px] font-black uppercase italic text-slate-400">Pagamentos Adicionados</h4>
                 {payments.map((p, i) => (
-                  <div key={i} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                  <div key={i} className="flex justify-between items-center bg-white p-1.5 md:p-2 rounded-lg border border-slate-100">
                     <div className="flex flex-col">
-                      <span className="text-xs font-black italic uppercase text-slate-700">{p.method}</span>
+                      <span className="text-[10px] md:text-xs font-black italic uppercase text-slate-700">{p.method}</span>
                       {p.maquininhaId && (
-                        <span className="text-[9px] text-slate-400">Maq: {activeMaquininhas.find(m => m.id === p.maquininhaId)?.nome}</span>
+                        <span className="text-[8px] md:text-[9px] text-slate-400">Maq: {activeMaquininhas.find(m => m.id === p.maquininhaId)?.nome}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-black italic text-brand-blue">R$ {p.amount.toFixed(2)}</span>
-                      <button onClick={() => removePayment(i)} className="text-red-400 hover:text-red-500 p-1">
-                        <X className="w-4 h-4" />
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <span className="text-xs md:text-sm font-black italic text-brand-blue">R$ {p.amount.toFixed(2)}</span>
+                      <button onClick={() => removePayment(i)} className="text-red-400 hover:text-red-500 p-0.5">
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -494,37 +494,37 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="space-y-3 bg-slate-50 p-4 rounded-2xl border-2 border-slate-100"
+                  className="space-y-2 md:space-y-3 bg-slate-50 p-3 md:p-4 rounded-2xl border-2 border-slate-100"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
-                      <CreditCard className="w-4 h-4 text-brand-blue" />
+                  <div className="flex items-center gap-1.5 md:gap-2 mb-1.5">
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
+                      <CreditCard className="w-3.5 h-3.5 md:w-4 md:h-4 text-brand-blue" />
                     </div>
-                    <h4 className="font-black uppercase italic text-slate-600 text-xs">Selecione a Maquininha</h4>
+                    <h4 className="font-black uppercase italic text-slate-600 text-[10px] md:text-xs">Selecione a Maquininha</h4>
                   </div>
                   
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 gap-1.5 md:gap-2">
                     {filteredMaquininhas.map((maq, idx) => (
                       <button
                         key={maq.id}
                         onClick={() => selectMaquininha(maq)}
                         className={cn(
-                          "group flex items-center justify-between p-4 border-2 rounded-xl transition-all text-left",
+                          "group flex items-center justify-between p-3 md:p-4 border-2 rounded-xl transition-all text-left",
                           highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id
                             ? "border-brand-blue bg-brand-blue/5" 
                             : "bg-white border-slate-100 hover:border-slate-200"
                         )}
                       >
                         <span className={cn(
-                          "font-black italic uppercase",
+                          "font-black italic uppercase text-xs md:text-sm",
                           highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id ? "text-brand-blue" : "text-slate-700"
                         )}>{maq.nome}</span>
                         <div className={cn(
-                          "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                          "w-5 h-5 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center",
                           highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id ? "border-brand-blue" : "border-slate-200"
                         )}>
                           <div className={cn(
-                            "w-2.5 h-2.5 rounded-full transition-all",
+                            "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full transition-all",
                             highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id ? "bg-brand-blue" : "bg-transparent"
                           )} />
                         </div>
@@ -537,19 +537,19 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                   key="payment-details"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4"
+                  className="space-y-3 md:space-y-4"
                 >
                   {isCard && selectedMaquininhaId && (
-                    <div className="flex items-center justify-between p-3 bg-brand-blue/5 border-2 border-brand-blue/20 rounded-xl">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-brand-blue" />
-                        <span className="text-xs font-black italic uppercase text-brand-blue">
+                    <div className="flex items-center justify-between p-2.5 md:p-3 bg-brand-blue/5 border-2 border-brand-blue/20 rounded-xl">
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <CreditCard className="w-3.5 h-3.5 md:w-4 md:h-4 text-brand-blue" />
+                        <span className="text-[10px] md:text-xs font-black italic uppercase text-brand-blue">
                           {activeMaquininhas.find(m => m.id === selectedMaquininhaId)?.nome}
                         </span>
                       </div>
                       <button 
                         onClick={() => setSelectedMaquininhaId('')}
-                        className="text-[10px] font-black uppercase italic text-slate-400 hover:text-red-500 transition-colors"
+                        className="text-[9px] md:text-[10px] font-black uppercase italic text-slate-400 hover:text-red-500 transition-colors"
                       >
                         Alterar
                       </button>
@@ -557,16 +557,16 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                   )}
 
                   {isVoucher ? (
-                    <div className="space-y-3 bg-brand-blue/5 p-4 rounded-2xl border-2 border-brand-blue/10">
-                      <label className="text-sm font-black italic text-brand-blue">Informar Código do Cupom</label>
-                      <div className="flex gap-2">
+                    <div className="space-y-2 md:space-y-3 bg-brand-blue/5 p-3 md:p-4 rounded-2xl border-2 border-brand-blue/10">
+                      <label className="text-xs md:text-sm font-black italic text-brand-blue">Informar Código do Cupom</label>
+                      <div className="flex gap-1.5 md:gap-2">
                         <input 
                           ref={voucherInputRef}
                           type="text"
                           value={voucherCode}
                           onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
                           placeholder="EX: ABC123DEF"
-                          className="flex-1 min-w-0 p-4 text-xl font-black border-2 border-brand-blue/20 rounded-xl focus:border-brand-blue outline-none uppercase"
+                          className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-xl font-black border-2 border-brand-blue/20 rounded-xl focus:border-brand-blue outline-none uppercase"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -580,13 +580,13 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                         <button 
                           onClick={handleVoucherApply}
                           disabled={!voucherCode || isValidatingVoucher}
-                          className="shrink-0 px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50"
+                          className="shrink-0 px-4 md:px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-[10px] md:text-xs disabled:opacity-50"
                         >
                           {isValidatingVoucher ? '...' : 'Validar'}
                         </button>
                       </div>
                       {voucherError && (
-                        <p className="text-[10px] font-black text-red-500 uppercase italic flex items-center gap-1">
+                        <p className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic flex items-center gap-1">
                           <Settings size={10} /> {voucherError}
                         </p>
                       )}
@@ -594,8 +594,8 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                   ) : (
                     <>
                       <div className="space-y-1">
-                        <label className="text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
-                        <div className="flex gap-2">
+                        <label className="text-xs md:text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
+                        <div className="flex gap-1.5 md:gap-2">
                           <input 
                             ref={inputRef}
                             type="number"
@@ -603,7 +603,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                             placeholder={remainingAmount.toFixed(2)}
                             onChange={(e) => setReceivedAmount(Number(e.target.value))}
                             onFocus={(e) => e.target.select()}
-                            className="flex-1 min-w-0 p-4 text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all"
+                            className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === 'F10') {
@@ -616,15 +616,15 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                           <button 
                             onClick={addPayment}
                             disabled={remainingAmount <= 0}
-                            className="shrink-0 px-4 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50 whitespace-nowrap"
+                            className="shrink-0 px-3 md:px-4 bg-brand-blue text-white rounded-xl font-black italic uppercase text-[10px] md:text-xs disabled:opacity-50 whitespace-nowrap"
                           >
                             Adicionar
                           </button>
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-sm font-black italic text-slate-500">Troco</label>
-                        <div className="w-full p-4 text-2xl font-black bg-slate-100 rounded-xl text-right">
+                        <label className="text-xs md:text-sm font-black italic text-slate-500">Troco</label>
+                        <div className="w-full p-2.5 md:p-4 text-lg md:text-2xl font-black bg-slate-100 rounded-xl text-right">
                           R$ {(remainingAmount === 0 && payments.length > 0 ? lastChange : change).toFixed(2)}
                         </div>
                       </div>
@@ -637,21 +637,28 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-slate-50 flex justify-between items-center">
-          <button onClick={onClose} className="px-8 py-4 bg-slate-200 rounded-xl font-black italic uppercase">Cancelar (ESC)</button>
-          <div className="flex items-center gap-4">
+        <div className="p-4 md:p-6 bg-slate-50 flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="px-4 py-2.5 md:px-8 md:py-4 bg-slate-200 rounded-xl font-black italic uppercase text-xs md:text-sm text-center"
+          >
+            Cancelar <span className="hidden md:inline">(ESC)</span>
+          </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             {dynamicRemaining > 0 ? (
-              <span className="text-sm font-black italic uppercase text-slate-400">Faltam R$ {dynamicRemaining.toFixed(2)}</span>
+              <span className="text-xs md:text-sm font-black italic uppercase text-slate-400 text-center sm:text-right">Faltam R$ {dynamicRemaining.toFixed(2)}</span>
             ) : (
-              <span className="text-sm font-black italic uppercase text-brand-green">
+              <span className="text-xs md:text-sm font-black italic uppercase text-brand-green text-center sm:text-right">
                 {remainingAmount === 0 ? "Total Pago" : "Total Coberto"}
               </span>
             )}
             <button 
+              type="button"
               onClick={confirmAndFinalize} 
-              className="px-8 py-4 rounded-xl font-black italic uppercase transition-all bg-brand-green text-white hover:bg-emerald-600 shadow-md active:scale-95"
+              className="px-4 py-3 md:px-8 md:py-4 rounded-xl font-black italic uppercase transition-all bg-brand-green text-white hover:bg-emerald-600 shadow-md active:scale-95 text-xs md:text-sm text-center"
             >
-              Confirmar Venda (F10)
+              Confirmar Venda <span className="hidden md:inline">(F10)</span>
             </button>
           </div>
         </div>
