@@ -1127,6 +1127,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteSale = async (id: string) => {
+    // Find the original sale in state to snapshot it
+    const sale = sales?.find(s => s.id === id);
+    if (sale) {
+      try {
+        const logPayload = {
+          action: 'cancelamento',
+          module: 'vendas',
+          entity_id: id,
+          user_id: user?.id || null,
+          old_data: JSON.stringify(sale),
+          reason: 'Venda Cancelada pelo Usuário',
+          company_id: user?.companyId || null,
+          terminal: 'Terminal Web',
+          ip: 'Local'
+        };
+        await supabase.from('audit_logs').insert([logPayload]);
+      } catch (auditErr) {
+        console.error('[deleteSale] failed to insert audit log entry:', auditErr);
+      }
+    }
     await supabase.from('sales').delete().eq('id', id);
     await fetchData();
   };

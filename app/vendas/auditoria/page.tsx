@@ -102,25 +102,32 @@ function SalesAuditContent() {
     auditLogs.filter(log => log.module === 'vendas' || log.module === 'sales' || log.module_name === 'vendas').forEach(log => {
       const logId = log.id;
       const logAction = log.action || log.action_name || '';
+      const actionLower = logAction.toLowerCase();
       const logCreatedAt = log.createdAt || log.created_at || new Date().toISOString();
       const logUserId = log.userId || log.user_id || 'Sistema';
       const logModule = log.module || log.module_name || 'vendas';
       const logEntityId = log.entityId || log.entity_id;
 
       let sev = 'low';
-      if (logAction === 'cancelamento' || logAction === 'exclusão' || logAction === 'delete' || logAction === 'cancel') {
+      if (actionLower === 'cancelamento' || actionLower === 'exclusão' || actionLower === 'delete' || actionLower === 'cancel_pedido' || actionLower === 'cancel' || actionLower === 'estorno') {
         sev = 'high';
-      } else if (logAction === 'edit' || logAction === 'edição' || logAction === 'update') {
+      } else if (actionLower === 'edit' || actionLower === 'edição' || actionLower === 'update') {
         sev = 'medium';
       }
 
+      const eventType = (actionLower === 'venda' || actionLower === 'sale') 
+        ? 'venda' 
+        : (actionLower.includes('devol') || actionLower.includes('ret')) 
+          ? 'return' 
+          : 'cancelamento';
+
       events.push({
         id: `audit-${logId}`,
-        type: logAction === 'venda' || logAction === 'sale' ? 'venda' : logAction.includes('devol') || logAction.includes('ret') ? 'return' : 'cancelamento',
+        type: eventType,
         date: logCreatedAt,
         user: logUserId,
         details: `${logAction.toUpperCase()}: ${logModule.toUpperCase()} #${logEntityId?.substring(0, 8).toUpperCase() || 'N/A'}`,
-        reason: logAction === 'venda' || logAction === 'sale' ? 'Operação Normal' : 'Ação de Auditoria',
+        reason: (actionLower === 'venda' || actionLower === 'sale') ? 'Operação Normal' : 'Ação de Auditoria',
         severity: sev,
         rawData: log,
         isAuditLog: true
@@ -135,13 +142,16 @@ function SalesAuditContent() {
       const total = Number(sale.total) || 0;
       const discount = Number(sale.discount) || 0;
       const subtotal = Number(sale.subtotal) || total;
-      const isCancelled = sale.status === 'Cancelada' || sale.status === 'cancelada';
+      
+      const statusUpper = sale.status ? sale.status.toUpperCase() : '';
+      const isCancelled = statusUpper === 'CANCELADA' || statusUpper === 'CANCELADO' || statusUpper === 'CANCEL_PEDIDO';
 
       // Avoid duplicate if an auditLog of 'cancelamento' or similar exists for the same sale
-      const hasDetailedAudit = auditLogs.some(log => 
-        (log.entityId === saleId || log.entity_id === saleId) && 
-        (log.action === 'cancelamento' || log.action_name === 'cancelamento' || log.action === 'cancel' || log.action_name === 'cancel')
-      );
+      const hasDetailedAudit = auditLogs.some(log => {
+        const actionLower = (log.action || log.action_name || '').toLowerCase();
+        return (log.entityId === saleId || log.entity_id === saleId) && 
+          (actionLower === 'cancelamento' || actionLower === 'cancel' || actionLower === 'cancel_pedido' || actionLower === 'estorno');
+      });
 
       if (isCancelled && hasDetailedAudit) {
         // Skip adding the simplified sale cancelled event since a detailed audit log represents it
@@ -409,6 +419,7 @@ function SalesAuditContent() {
                                 {event.type === 'venda' ? 'Venda Registrada' :
                                  event.type === 'discount' ? 'Desconto Aplicado' :
                                  event.type === 'return' ? 'Devolução Realizada' :
+                                 event.type === 'cancelamento' ? 'Venda Cancelada' :
                                  'Ação Crítica'}
                               </p>
                               <p className="text-[10px] text-brand-text-sec font-bold">{formatDateTimeBR(event.date)}</p>
@@ -453,7 +464,7 @@ function SalesAuditContent() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
+                    <td colSpan={6} className="px-6 py-12 text-center">
                       <p className="text-brand-text-sec font-bold uppercase tracking-widest opacity-50">Nenhum evento registrado no período</p>
                     </td>
                   </tr>
@@ -783,14 +794,14 @@ function SalesAuditContent() {
                   </div>
                 )}
 
-                {relatedSale && (
+                {(relatedSale || selectedEvent.isSaleEvent) && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
                       <div className="h-px flex-1 bg-brand-border" />
                       <label className="text-[10px] font-black text-brand-text-sec uppercase tracking-widest">Cupom de Venda Relacionada</label>
                       <div className="h-px flex-1 bg-brand-border" />
                     </div>
-                    {renderFriendlyData(relatedSale)}
+                    {renderFriendlyData(relatedSale || selectedEvent.rawData)}
                   </div>
                 )}
               </div>

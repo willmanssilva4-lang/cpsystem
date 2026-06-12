@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#blueGrad)"/>
+  
+  <!-- Outer subtle border -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#3b82f6" stroke-width="4" opacity="0.15"/>
+  
+  <!-- Glowing circle effect in center background -->
+  <circle cx="256" cy="230" r="140" fill="#3b82f6" opacity="0.08" filter="blur(20px)" />
+
+  <!-- Centered Checkmark Logo -->
+  <g transform="translate(256, 220) scale(7.5)">
+    <!-- Main Checkmark (Y shape) -->
+    <path d="M -10 -7 L -2 5 L 14 -19" fill="none" stroke="#00E676" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M -2 5 L -10 19" fill="none" stroke="#00E676" stroke-width="5.5" stroke-linecap="round" />
+    <!-- White Dot from Brand Logo -->
+    <circle cx="-2" cy="5" r="4.5" fill="#ffffff" />
+  </g>
+  
+  <!-- Brand Name Text -->
+  <text x="256" y="420" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="44" fill="#ffffff" letter-spacing="6">CPSystem</text>
+  <text x="256" y="455" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14" fill="#3b82f6" letter-spacing="4" opacity="0.8">GESTÃO INTELIGENTE</text>
+</svg>
