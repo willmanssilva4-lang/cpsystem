@@ -12,9 +12,12 @@ export default function FornecedoresPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [loadingCnpj, setLoadingCnpj] = useState(false);
+  const [saving, setSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
+    tradeName: '',
     document: '',
     phone: '',
     email: '',
@@ -30,14 +33,136 @@ export default function FornecedoresPage() {
     );
   }
 
+  const formatDocument = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    if (digits.length <= 11) {
+      return digits
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+      return digits
+        .slice(0, 14)
+        .replace(/(\d{2})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1/$2')
+        .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+    }
+  };
+
+  const fetchCnpjData = async (cnpjInput: string) => {
+    const cleanCnpj = cnpjInput.replace(/\D/g, '');
+    if (cleanCnpj.length !== 14) {
+      alert('Por favor, informe um CNPJ com 14 dígitos para buscar.');
+      return;
+    }
+    
+    setLoadingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
+      if (!res.ok) {
+        throw new Error('Erro na consulta do CNPJ');
+      }
+      
+      const data = await res.json();
+      
+      const companyName = data.razao_social || '';
+      const brandName = data.nome_fantasia || '';
+      const emailVal = data.email || '';
+      
+      let phoneVal = '';
+      if (data.ddd_telefone_1) {
+        const rawPhone = data.ddd_telefone_1.replace(/\D/g, '');
+        if (rawPhone.length === 10) {
+          phoneVal = `(${rawPhone.slice(0, 2)}) ${rawPhone.slice(2, 6)}-${rawPhone.slice(6)}`;
+        } else if (rawPhone.length === 11) {
+          phoneVal = `(${rawPhone.slice(0, 2)}) ${rawPhone.slice(2, 7)}-${rawPhone.slice(7)}`;
+        } else {
+          phoneVal = rawPhone;
+        }
+      }
+      
+      let fullAddress = '';
+      if (data.logradouro) {
+        fullAddress = `${data.logradouro}`;
+        if (data.numero) fullAddress += `, ${data.numero}`;
+        if (data.bairro) fullAddress += `, ${data.bairro}`;
+        if (data.municipio && data.uf) fullAddress += `, ${data.municipio} - ${data.uf}`;
+        if (data.cep) fullAddress += ` (CEP: ${data.cep})`;
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        name: companyName ? companyName.toUpperCase() : prev.name,
+        tradeName: brandName ? brandName.toUpperCase() : prev.tradeName,
+        phone: phoneVal ? phoneVal.toUpperCase() : prev.phone,
+        email: emailVal ? emailVal.toUpperCase() : prev.email,
+        address: fullAddress ? fullAddress.toUpperCase() : prev.address
+      }));
+      
+    } catch (err) {
+      console.error(err);
+      
+      // Fallback API
+      try {
+        const resFallback = await fetch(`https://publica.cnpj.ws/cnpj/${cleanCnpj}`);
+        if (resFallback.ok) {
+          const dataFb = await resFallback.json();
+          const companyName = dataFb.razao_social || '';
+          const brandName = dataFb.estabelecimento?.nome_fantasia || '';
+          const emailVal = dataFb.estabelecimento?.email || '';
+          let phoneVal = '';
+          const ddd = dataFb.estabelecimento?.ddd1 || '';
+          const tel = dataFb.estabelecimento?.telefone1 || '';
+          if (ddd && tel) phoneVal = `(${ddd}) ${tel}`;
+          
+          let fullAddress = '';
+          const est = dataFb.estabelecimento;
+          if (est?.logradouro) {
+            fullAddress = `${est.logradouro}`;
+            if (est.numero) fullAddress += `, ${est.numero}`;
+            if (est.bairro) fullAddress += `, ${est.bairro}`;
+            if (est.cidade?.nome && est.estado?.sigla) {
+              fullAddress += `, ${est.cidade.nome} - ${est.estado.sigla}`;
+            }
+          }
+          
+          setFormData(prev => ({
+            ...prev,
+            name: companyName ? companyName.toUpperCase() : prev.name,
+            tradeName: brandName ? brandName.toUpperCase() : prev.tradeName,
+            phone: phoneVal ? phoneVal.toUpperCase() : prev.phone,
+            email: emailVal ? emailVal.toUpperCase() : prev.email,
+            address: fullAddress ? fullAddress.toUpperCase() : prev.address
+          }));
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback failed:', fallbackErr);
+      }
+      
+      alert('Não foi possível recuperar os dados do CNPJ automaticamente. Por favor, preencha manualmente.');
+    } finally {
+      setLoadingCnpj(false);
+    }
+  };
+
   const filteredSuppliers = suppliers.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
     s.document.includes(search)
   );
 
   const handleEdit = (supplier: Supplier) => {
+    let nameVal = supplier.name;
+    let tradeVal = '';
+    if (supplier.name.includes(' | ')) {
+      const parts = supplier.name.split(' | ');
+      nameVal = parts[0];
+      tradeVal = parts[1];
+    }
     setFormData({
-      name: supplier.name,
+      name: nameVal,
+      tradeName: tradeVal,
       document: supplier.document,
       phone: supplier.phone || '',
       email: supplier.email || '',
@@ -55,27 +180,42 @@ export default function FornecedoresPage() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.document) {
-      alert('Preencha os campos obrigatórios (Nome e CNPJ/CPF)');
+      alert('Preencha os campos obrigatórios (Razão Social e CNPJ/CPF)');
       return;
     }
 
+    const payloadName = formData.tradeName 
+      ? `${formData.name} | ${formData.tradeName}` 
+      : formData.name;
+
     const payload = {
-      name: formData.name,
+      name: payloadName.toUpperCase(),
       document: formData.document,
       phone: formData.phone,
       email: formData.email,
       address: formData.address
     };
 
-    if (editingId) {
-      await updateSupplier({ id: editingId, ...payload } as any);
-    } else {
-      await addSupplier(payload as any);
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateSupplier({ id: editingId, ...payload } as any);
+      } else {
+        await addSupplier(payload as any);
+      }
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({ name: '', tradeName: '', document: '', phone: '', email: '', address: '' });
+    } catch (err: any) {
+      console.error(err);
+      if (err?.code === '23505' || err?.message?.includes('duplicate key') || err?.message?.includes('violates unique constraint')) {
+        alert('Este CNPJ/CPF já está cadastrado para outro fornecedor neste estabelecimento!');
+      } else {
+        alert(`Erro ao salvar fornecedor: ${err?.message || 'Erro desconhecido'}`);
+      }
+    } finally {
+      setSaving(false);
     }
-
-    setShowForm(false);
-    setEditingId(null);
-    setFormData({ name: '', document: '', phone: '', email: '', address: '' });
   };
 
   if (showForm) {
@@ -100,7 +240,43 @@ export default function FornecedoresPage() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Razão Social / Nome</label>
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">CNPJ / CPF</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="00.000.000/0000-00"
+                    value={formData.document}
+                    onChange={e => setFormData({...formData, document: formatDocument(e.target.value)})}
+                    className="flex-1 px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                  />
+                  {formData.document.replace(/\D/g, '').length === 14 && (
+                    <button
+                      type="button"
+                      onClick={() => fetchCnpjData(formData.document)}
+                      disabled={loadingCnpj}
+                      className="px-5 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic text-xs tracking-wider shadow-md shadow-brand-blue/15 hover:bg-brand-text-main disabled:bg-slate-300 disabled:shadow-none transition-all flex items-center justify-center gap-2 shrink-0"
+                    >
+                      {loadingCnpj ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Buscando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search size={14} />
+                          <span>Buscar CNPJ</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {formData.document.replace(/\D/g, '').length === 14 && !loadingCnpj && (
+                  <p className="text-[10px] text-brand-green font-bold tracking-wide italic ml-1">✓ CNPJ válido. Clique no botão acima para consultar e preencher automaticamente.</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Razão Social / Nome completo *</label>
                 <input 
                   type="text"
                   placeholder="Ex: Distribuidora XYZ Ltda"
@@ -109,16 +285,18 @@ export default function FornecedoresPage() {
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">CNPJ / CPF</label>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Nome Fantasia</label>
                 <input 
                   type="text"
-                  placeholder="00.000.000/0000-00"
-                  value={formData.document}
-                  onChange={e => setFormData({...formData, document: e.target.value.toUpperCase()})}
+                  placeholder="Ex: Supermercado do João"
+                  value={formData.tradeName}
+                  onChange={e => setFormData({...formData, tradeName: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Telefone</label>
                 <input 
@@ -153,10 +331,20 @@ export default function FornecedoresPage() {
             <div className="flex justify-end pt-6 border-t border-slate-100">
               <button 
                 onClick={handleSave} 
-                className="flex items-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover transition-all"
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover disabled:bg-slate-300 disabled:shadow-none transition-all"
               >
-                <Save size={18} />
-                Salvar Fornecedor
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    <span>Salvar Fornecedor</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -191,7 +379,7 @@ export default function FornecedoresPage() {
           </div>
           <button 
             onClick={() => {
-              setFormData({ name: '', document: '', phone: '', email: '', address: '' });
+              setFormData({ name: '', tradeName: '', document: '', phone: '', email: '', address: '' });
               setEditingId(null);
               setShowForm(true);
             }}
@@ -230,8 +418,21 @@ export default function FornecedoresPage() {
                           <Building2 size={20} />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-black text-brand-text-main">{supplier.name}</span>
-                          <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest">CNPJ/CPF: {supplier.document}</span>
+                          {(() => {
+                            const hasTrade = supplier.name.includes(' | ');
+                            const parts = supplier.name.split(' | ');
+                            const mainName = hasTrade ? parts[1] : supplier.name;
+                            const subName = hasTrade ? parts[0] : '';
+                            return (
+                              <>
+                                <span className="text-sm font-black text-brand-text-main">{mainName}</span>
+                                {subName && (
+                                  <span className="text-xs text-brand-text-main/50 font-bold italic">{subName}</span>
+                                )}
+                              </>
+                            );
+                          })()}
+                          <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest mt-0.5">CNPJ/CPF: {supplier.document}</span>
                         </div>
                       </div>
                     </td>

@@ -13,13 +13,14 @@
   <!-- Glowing circle effect in center background -->
   <circle cx="256" cy="230" r="140" fill="#3b82f6" opacity="0.08" filter="blur(20px)" />
 
-  <!-- Centered Checkmark Logo -->
-  <g transform="translate(256, 220) scale(7.5)">
-    <!-- Main Checkmark (Y shape) -->
-    <path d="M -10 -7 L -2 5 L 14 -19" fill="none" stroke="#00E676" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M -2 5 L -10 19" fill="none" stroke="#00E676" stroke-width="5.5" stroke-linecap="round" />
-    <!-- White Dot from Brand Logo -->
-    <circle cx="-2" cy="5" r="4.5" fill="#ffffff" />
+  <!-- Centered CP Logo -->
+  <g transform="translate(256, 230)">
+    <text x="0" y="5" text-anchor="middle" dominant-baseline="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="150" letter-spacing="-8">
+      <tspan fill="#ffffff">C</tspan><tspan fill="#00E676">P</tspan>
+    </text>
+    <!-- Brand connection dot -->
+    <circle cx="95" cy="40" r="14" fill="#00E676" />
+    <circle cx="95" cy="40" r="7" fill="#ffffff" />
   </g>
   
   <!-- Brand Name Text -->

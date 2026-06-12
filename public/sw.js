@@ -1,8 +1,8 @@
-const CACHE_NAME = 'cpsystem-erp-v1';
+const CACHE_NAME = 'cpsystem-erp-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
-  '/icon.svg',
+  '/icon.svg?v=3',
   '/vendas/historico',
   '/vendas/auditoria',
   '/pdv',

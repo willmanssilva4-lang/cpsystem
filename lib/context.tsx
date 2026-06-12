@@ -908,21 +908,44 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   // Suppliers
   const addSupplier = async (data: any) => {
     const payload = {
-      ...data,
-      status: data.status || 'Ativo',
+      name: data.name,
+      document: data.document,
+      phone: data.phone || '',
+      email: data.email || '',
+      address: data.address || '',
       company_id: data.company_id || user?.companyId || null
     };
-    await supabase.from('suppliers').insert([payload]);
+    const { error } = await supabase.from('suppliers').insert([payload]);
+    if (error) {
+      console.error('[addSupplier] Error inserting supplier:', error);
+      throw error;
+    }
     await fetchData();
   };
 
   const updateSupplier = async (data: any) => {
-    await supabase.from('suppliers').update(data).eq('id', data.id);
+    const payload = {
+      name: data.name,
+      document: data.document,
+      phone: data.phone || '',
+      email: data.email || '',
+      address: data.address || '',
+      company_id: data.company_id || user?.companyId || null
+    };
+    const { error } = await supabase.from('suppliers').update(payload).eq('id', data.id);
+    if (error) {
+      console.error('[updateSupplier] Error updating supplier:', error);
+      throw error;
+    }
     await fetchData();
   };
 
   const deleteSupplier = async (id: string) => {
-    await supabase.from('suppliers').delete().eq('id', id);
+    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    if (error) {
+      console.error('[deleteSupplier] Error deleting supplier:', error);
+      throw error;
+    }
     await fetchData();
   };
 

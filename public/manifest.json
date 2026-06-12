@@ -11,19 +11,19 @@
   "categories": ["business", "finance", "productivity"],
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=3",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=3",
       "type": "image/svg+xml",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=3",
       "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any maskable"
