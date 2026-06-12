@@ -1109,6 +1109,46 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Se o reembolso for Crédito em Loja e houver um voucherCode gerado, insere o voucher na tabela 'vouchers'
+    if (returnId && data.voucherCode && data.refundMethod === 'Crédito em Loja') {
+      let customerId = data.customerId || null;
+      if (!customerId && data.saleId) {
+        try {
+          const { data: saleObj } = await supabase
+            .from('sales')
+            .select('customer_id')
+            .eq('id', data.saleId)
+            .single();
+          if (saleObj) {
+            customerId = saleObj.customer_id;
+          }
+        } catch (err) {
+          console.error('[addReturn] Could not query sale customer_id:', err);
+        }
+      }
+
+      const voucherPayload = {
+        code: data.voucherCode,
+        initial_value: data.total,
+        current_value: data.total,
+        customer_id: customerId,
+        sale_id: data.saleId || null,
+        return_id: returnId,
+        status: 'Ativo',
+        company_id: user?.companyId || null
+      };
+
+      const { error: voucherInsertError } = await supabase
+        .from('vouchers')
+        .insert([voucherPayload]);
+
+      if (voucherInsertError) {
+        console.error('[addReturn] Error inserting voucher:', voucherInsertError);
+      } else {
+        console.log('[addReturn] Voucher registered in DB as active:', data.voucherCode);
+      }
+    }
+
     await fetchData();
     return true;
   };
