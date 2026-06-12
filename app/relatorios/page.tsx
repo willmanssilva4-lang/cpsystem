@@ -469,22 +469,22 @@ function ReportsContent() {
                 </div>
               </div>
               
-              <div className="flex items-center justify-between sm:justify-end gap-1.5 md:gap-2.5 self-stretch sm:self-auto shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-1 md:gap-2.5 self-stretch sm:self-auto shrink-0 min-w-0">
                 {selectedReportView !== 'Catálogo' && (
-                  <div className="flex items-center gap-1 md:gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 md:px-2.5 md:py-1.5 shadow-xs shrink-0 select-none">
-                    <Calendar size={12} className="text-slate-400 shrink-0" />
+                  <div className="flex-1 sm:flex-initial flex items-center gap-0.5 xs:gap-1 md:gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-1.5 py-1 xs:px-2 md:px-2.5 md:py-1.5 shadow-xs select-none min-w-0">
+                    <Calendar size={11} className="hidden xs:block text-slate-400 shrink-0 md:size-3.5" />
                     <input 
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none text-[10px] md:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 w-[82px] xs:w-[92px] md:w-[105px] cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
+                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[75px] xs:max-w-[95px] md:max-w-[110px] text-center cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
                     />
-                    <span className="text-slate-300 text-[9px] md:text-[10px] font-black uppercase italic select-none">-</span>
+                    <span className="text-slate-300 text-[9px] sm:text-[10px] font-black uppercase italic select-none shrink-0 px-0.5">-</span>
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none text-[10px] md:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 w-[82px] xs:w-[92px] md:w-[105px] cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
+                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[75px] xs:max-w-[95px] md:max-w-[110px] text-center cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
                     />
                   </div>
                 )}
@@ -707,7 +707,7 @@ function ReportsContent() {
                 </>
               ) : (
                 <div className={cn(
-                  "flex-1 h-full overflow-y-auto overscroll-contain",
+                  "flex-1 h-full overflow-y-auto overscroll-contain overflow-x-hidden",
                   selectedReportView === 'Dashboard Executivo' ? "p-0 bg-slate-50/50" : "p-6 md:p-10 bg-slate-50/40"
                 )}>
                   {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
@@ -1589,7 +1589,7 @@ function AdvancedPerformanceDashboard({
   const lowStockProductsCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
 
   return (
-    <div className="space-y-4 md:space-y-8 bg-slate-50/50 p-3 md:p-10 pb-20 md:pb-32 min-h-full font-sans">
+    <div className="space-y-4 md:space-y-8 bg-slate-50/50 p-3 md:p-10 pb-20 md:pb-32 min-h-full font-sans overflow-x-hidden max-w-full">
       <div className="flex flex-col gap-4 md:gap-8">
         
         {/* Header Section */}
@@ -1714,33 +1714,33 @@ function AdvancedPerformanceDashboard({
             </div>
 
             {/* Date Picker Group */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-4 lg:w-auto shrink-0 w-full">
-              <div className="space-y-1 sm:w-44">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-4 lg:w-auto shrink-0 w-full">
+              <div className="space-y-1 flex-1 xs:w-auto sm:w-44">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Início</label>
                 <div className="relative">
                   <span className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                    <Calendar size={12} className="md:size-[14px]" />
+                    <Calendar size={11} className="md:size-[14px]" />
                   </span>
                   <input 
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-xl md:rounded-2xl pl-8 md:pl-11 pr-2 md:pr-4 py-2 md:py-3 text-[10px] md:text-xs font-black uppercase italic focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-xl md:rounded-2xl pl-7 md:pl-11 pr-1.5 md:pr-4 py-2 md:py-3 text-[10px] md:text-xs font-black uppercase italic focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1 sm:w-44">
+              <div className="space-y-1 flex-1 xs:w-auto sm:w-44">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data Fim</label>
                 <div className="relative">
                   <span className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                    <Calendar size={12} className="md:size-[14px]" />
+                    <Calendar size={11} className="md:size-[14px]" />
                   </span>
                   <input 
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-xl md:rounded-2xl pl-8 md:pl-11 pr-2 md:pr-4 py-2 md:py-3 text-[10px] md:text-xs font-black uppercase italic focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                    className="w-full bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-xl md:rounded-2xl pl-7 md:pl-11 pr-1.5 md:pr-4 py-2 md:py-3 text-[10px] md:text-xs font-black uppercase italic focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                   />
                 </div>
               </div>
@@ -2422,9 +2422,60 @@ function AdvancedPerformanceDashboard({
 
 // Componentes de Relatórios Reais
 function CashClosingReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { cashRegisters, cashClosings, sales, cashMovements, systemUsers } = useERP();
+  const { cashRegisters, cashClosings, sales, cashMovements, systemUsers, closeCashRegister } = useERP();
   const [expandedRegisterId, setExpandedRegisterId] = useState<string | null>(null);
-  
+  const [manualInformedValues, setManualInformedValues] = useState<Record<string, string | number>>({});
+  const [manualJustification, setManualJustification] = useState('');
+  const [isClosingInProgress, setIsClosingInProgress] = useState(false);
+  const [closingErrorMsg, setClosingErrorMsg] = useState<string | null>(null);
+  const [closingSuccessMsg, setClosingSuccessMsg] = useState<string | null>(null);
+
+  const handleManualClose = async (registerId: string) => {
+    setIsClosingInProgress(true);
+    setClosingErrorMsg(null);
+    setClosingSuccessMsg(null);
+    
+    // Build informed totals list
+    const register = cashRegisters.find(r => r.id === registerId);
+    if (!register) {
+      setClosingErrorMsg('Caixa não localizado no sistema.');
+      setIsClosingInProgress(false);
+      return;
+    }
+    
+    const expected = calculateRegisterTotals(register);
+    const informedTotals = Object.keys(expected).map(method => {
+      const typedVal = manualInformedValues[`${registerId}_${method}`];
+      return {
+        method,
+        informed: typedVal !== undefined && typedVal !== '' ? Number(typedVal) : (expected[method] || 0),
+        system: expected[method] || 0
+      };
+    });
+    
+    const justificationText = manualJustification.trim() || 'Fechamento manual efetuado via histórico/relatório';
+    
+    try {
+      const success = await closeCashRegister(informedTotals, justificationText, registerId);
+      if (success) {
+        setClosingSuccessMsg('Caixa encerrado com sucesso!');
+        setManualJustification('');
+        // Clean the manual keyboard input states
+        const cleanedInformed = { ...manualInformedValues };
+        Object.keys(expected).forEach(m => {
+          delete cleanedInformed[`${registerId}_${m}`];
+        });
+        setManualInformedValues(cleanedInformed);
+      } else {
+        setClosingErrorMsg('Ocorreu um erro ao encerrar o caixa no banco de dados. Verifique a conexão.');
+      }
+    } catch (e: any) {
+      setClosingErrorMsg(`Erro de conexão: ${e.message || e}`);
+    } finally {
+      setIsClosingInProgress(false);
+    }
+  };
+
   const filteredRegisters = cashRegisters.filter(r => {
     const d = toLocalDateString(r.openedAt);
     return d >= startDate && d <= endDate;
@@ -2627,6 +2678,20 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
               justificationText = 'Preenchido automaticamente (dados reais recuperados)';
             }
 
+            // Live preview generation if the register is open
+            if (r.status === 'open') {
+              const expectedTotals = calculateRegisterTotals(r);
+              informedTotalsList = Object.entries(expectedTotals).map(([method, systemValue]) => {
+                const typedVal = manualInformedValues[`${r.id}_${method}`];
+                return {
+                  method,
+                  system: systemValue,
+                  informed: typedVal !== undefined && typedVal !== '' ? Number(typedVal) : systemValue
+                };
+              });
+              justificationText = 'Caixa ativo - Dados em tempo real';
+            }
+
             const movements = (cashMovements || []).filter(m => m.cashRegisterId === r.id);
 
             return (
@@ -2740,51 +2805,122 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
                           </div>
 
                           <div className="space-y-4">
-                            <div className="rounded-xl border border-slate-100 p-4 space-y-2 bg-slate-50/30">
-                              <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                                Observações do Fechamento
-                              </h5>
-                              <p className="text-xs italic text-slate-600 font-medium whitespace-pre-wrap">
-                                {justificationText ? `"${justificationText}"` : 'Nenhuma observação ou justificativa preenchida.'}
-                              </p>
-                              {closing?.approvedBy && (
-                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">
-                                  Aprovado/Assinado por: <span className="text-slate-600">
-                                    {(systemUsers || []).find(u => u.id === closing.approvedBy)?.fullName || (systemUsers || []).find(u => u.id === closing.approvedBy)?.username || closing.approvedBy}
-                                  </span>
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="space-y-2">
-                              <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                                Movimentações (Suprimentos / Sangrias)
-                              </h5>
-                              {movements.length > 0 ? (
-                                <div className="max-h-[140px] overflow-y-auto space-y-1.5 scrollbar-thin">
-                                  {movements.map((move: any) => (
-                                    <div 
-                                      key={move.id} 
-                                      className={`flex justify-between items-center p-2 rounded-lg text-xs ${
-                                        move.type === 'suprimento' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'
-                                      }`}
-                                    >
-                                      <div>
-                                        <span className="font-bold uppercase tracking-wider text-[9px] px-1.5 py-0.5 rounded bg-white/60 mr-2">
-                                          {move.type}
-                                        </span>
-                                        <span className="font-semibold">{move.reason || 'Sem justificativa'}</span>
-                                      </div>
-                                      <span className="font-black font-mono">
-                                        {move.type === 'sangria' ? '-' : '+'} {formatCurrency(move.amount)}
-                                      </span>
-                                    </div>
-                                  ))}
+                            {r.status === 'open' ? (
+                              <div className="rounded-2xl border border-amber-200 p-5 space-y-4 bg-amber-50/40">
+                                <div className="flex items-center gap-2 text-amber-800">
+                                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                                  <h4 className="text-xs font-black uppercase tracking-widest">
+                                    Fechar Caixa Pendente
+                                  </h4>
                                 </div>
-                              ) : (
-                                <p className="text-xs text-slate-400 italic">Não houveram suprimentos ou sangrias neste caixa.</p>
-                              )}
-                            </div>
+                                
+                                <p className="text-xs text-slate-600 font-medium">
+                                  Este caixa ainda consta como <strong>Aberto</strong> no sistema. Caso queira fechá-lo agora, ajuste os valores contados abaixo e justifique o encerramento manual.
+                                </p>
+
+                                <div className="space-y-2 p-3 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-100 max-h-[160px] overflow-y-auto scrollbar-thin grid grid-cols-1 gap-y-2.5">
+                                  {Object.keys(calculateRegisterTotals(r)).map((method) => {
+                                    const expectedVal = calculateRegisterTotals(r)[method] || 0;
+                                    return (
+                                      <div key={method} className="flex justify-between items-center gap-3 text-xs">
+                                        <span className="font-bold text-slate-700">{method}</span>
+                                        <div className="relative w-28 shrink-0">
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">R$</span>
+                                          <input 
+                                            type="number"
+                                            className="w-full pl-6 pr-1.5 py-1 text-right text-xs font-bold border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                                            placeholder={expectedVal.toFixed(2)}
+                                            value={manualInformedValues[`${r.id}_${method}`] !== undefined ? manualInformedValues[`${r.id}_${method}`] : ''}
+                                            onChange={(e) => {
+                                              const val = e.target.value === '' ? '' : Number(e.target.value);
+                                              setManualInformedValues(prev => ({
+                                                ...prev,
+                                                [`${r.id}_${method}`]: val
+                                              }));
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Justificativa / Motivo</label>
+                                  <textarea 
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue bg-white"
+                                    rows={2}
+                                    placeholder="Ex: Fechamento retroativo pendente do dia 10."
+                                    value={manualJustification}
+                                    onChange={(e) => setManualJustification(e.target.value)}
+                                  />
+                                </div>
+
+                                {closingErrorMsg && (
+                                  <p className="text-xs font-bold text-rose-600 p-2 bg-rose-50 rounded-lg">{closingErrorMsg}</p>
+                                )}
+                                {closingSuccessMsg && (
+                                  <p className="text-xs font-bold text-emerald-600 p-2 bg-emerald-50 rounded-lg">{closingSuccessMsg}</p>
+                                )}
+
+                                <button
+                                  type="button"
+                                  disabled={isClosingInProgress}
+                                  onClick={() => handleManualClose(r.id)}
+                                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 text-white font-black text-xs uppercase italic rounded-xl tracking-wider transition-all shadow-sm"
+                                >
+                                  {isClosingInProgress ? 'Processando...' : 'Encerrar Caixa Manualmente'}
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="rounded-xl border border-slate-100 p-4 space-y-2 bg-slate-50/30">
+                                  <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                    Observações do Fechamento
+                                  </h5>
+                                  <p className="text-xs italic text-slate-600 font-medium whitespace-pre-wrap">
+                                    {justificationText ? `"${justificationText}"` : 'Nenhuma observação ou justificativa preenchida.'}
+                                  </p>
+                                  {closing?.approvedBy && (
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">
+                                      Aprovado/Assinado por: <span className="text-slate-600">
+                                        {(systemUsers || []).find(u => u.id === closing.approvedBy)?.fullName || (systemUsers || []).find(u => u.id === closing.approvedBy)?.username || closing.approvedBy}
+                                      </span>
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="space-y-2">
+                                  <h5 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                    Movimentações (Suprimentos / Sangrias)
+                                  </h5>
+                                  {movements.length > 0 ? (
+                                    <div className="max-h-[140px] overflow-y-auto space-y-1.5 scrollbar-thin">
+                                      {movements.map((move: any) => (
+                                        <div 
+                                          key={move.id} 
+                                          className={`flex justify-between items-center p-2 rounded-lg text-xs ${
+                                            move.type === 'suprimento' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'
+                                          }`}
+                                        >
+                                          <div>
+                                            <span className="font-bold uppercase tracking-wider text-[9px] px-1.5 py-0.5 rounded bg-white/60 mr-2">
+                                              {move.type}
+                                            </span>
+                                            <span className="font-semibold">{move.reason || 'Sem justificativa'}</span>
+                                          </div>
+                                          <span className="font-black font-mono">
+                                            {move.type === 'sangria' ? '-' : '+'} {formatCurrency(move.amount)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-slate-400 italic">Não houveram suprimentos ou sangrias neste caixa.</p>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </motion.div>

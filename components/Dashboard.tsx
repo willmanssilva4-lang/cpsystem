@@ -285,7 +285,7 @@ export function Dashboard() {
     .slice(0, 3);
 
   return (
-    <div className="space-y-8 p-6 md:p-8 relative bg-brand-bg/50">
+    <div className="space-y-8 p-6 md:p-8 relative bg-brand-bg/50 overflow-x-hidden max-w-full">
       {/* Visual top bar glow effect */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-blue/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-brand-green/3 rounded-full blur-[120px] pointer-events-none" />
@@ -313,33 +313,33 @@ export function Dashboard() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
           <a 
             href="/consulta-preco" 
-            className="flex items-center gap-2.5 px-5 py-3 bg-brand-blue text-white rounded-2xl text-[11px] font-black uppercase italic hover:bg-brand-blue-hover transition-all border border-brand-blue/20 hover:shadow-lg hover:shadow-brand-blue/25"
+            className="flex items-center justify-center gap-2.5 px-5 py-3 bg-brand-blue text-white rounded-2xl text-[11px] font-black uppercase italic hover:bg-brand-blue-hover transition-all border border-brand-blue/20 hover:shadow-lg hover:shadow-brand-blue/25 shrink-0"
           >
             <Monitor size={16} />
             Terminal de Consulta
           </a>
 
-          <div className="flex items-center gap-3 bg-brand-card border border-brand-border p-2 rounded-2xl shadow-sm hover:shadow-md transition-all">
-            <div className="flex items-center gap-2 px-3 py-2 bg-brand-bg rounded-xl border border-brand-border transition-all hover:border-slate-300">
-              <Calendar size={14} className="text-brand-blue" />
+          <div className="flex items-center gap-1.5 xs:gap-3 bg-brand-card border border-brand-border p-1.5 xs:p-2 rounded-xl xs:rounded-2xl shadow-sm hover:shadow-md transition-all min-w-0">
+            <div className="flex-1 sm:flex-initial flex items-center gap-1 xs:gap-2 px-1.5 py-1 xs:px-3 xs:py-2 bg-brand-bg rounded-lg xs:rounded-xl border border-brand-border transition-all hover:border-slate-300 min-w-0">
+              <Calendar size={12} className="text-brand-blue shrink-0 hidden xs:block" />
               <input 
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent border-none text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-28"
+                className="bg-transparent border-none text-[9px] xs:text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-full min-w-0 max-w-[70px] xs:max-w-28 cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
               />
             </div>
-            <span className="text-brand-text-sec font-black italic text-xs px-1">A</span>
-            <div className="flex items-center gap-2 px-3 py-2 bg-brand-bg rounded-xl border border-brand-border transition-all hover:border-slate-300">
-              <Calendar size={14} className="text-brand-blue" />
+            <span className="text-brand-text-sec font-black italic text-[10px] xs:text-xs px-0.5 shrink-0 select-none">A</span>
+            <div className="flex-1 sm:flex-initial flex items-center gap-1 xs:gap-2 px-1.5 py-1 xs:px-3 xs:py-2 bg-brand-bg rounded-lg xs:rounded-xl border border-brand-border transition-all hover:border-slate-300 min-w-0">
+              <Calendar size={12} className="text-brand-blue shrink-0 hidden xs:block" />
               <input 
                 type="date" 
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent border-none text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-28"
+                className="bg-transparent border-none text-[9px] xs:text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-full min-w-0 max-w-[70px] xs:max-w-28 cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
               />
             </div>
           </div>

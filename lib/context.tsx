@@ -138,7 +138,7 @@ interface ERPContextType {
   updateVoucher: (data: any) => Promise<boolean>;
   getVoucherByCode: (code: string) => any;
   openCashRegister: (openingBalance: number) => Promise<boolean>;
-  closeCashRegister: (informedTotals: any[], justification: string) => Promise<boolean>;
+  closeCashRegister: (informedTotals: any[], justification: string, explicitRegisterId?: string) => Promise<boolean>;
   addCashMovement: (movement: any) => Promise<boolean>;
   addDiscountLog: (data: any) => Promise<void>;
   addLoss: (data: any) => Promise<void>;
@@ -1065,8 +1065,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     return !error;
   };
 
-  const closeCashRegister = async (informedTotals: any[], justification: string) => {
-    if (!activeRegister) return false;
+  const closeCashRegister = async (informedTotals: any[], justification: string, explicitRegisterId?: string) => {
+    const targetId = explicitRegisterId || activeRegister?.id;
+    if (!targetId) return false;
 
     const { error: registerError } = await supabase.from('cash_registers')
       .update({
@@ -1074,7 +1075,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         closed_at: new Date().toISOString(),
         closed_by: user?.id || null
       })
-      .eq('id', activeRegister.id);
+      .eq('id', targetId);
 
     if (registerError) {
       console.error('Error updating register:', registerError);
@@ -1092,7 +1093,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     });
 
     const closingPayload = {
-      cash_register_id: activeRegister.id,
+      cash_register_id: targetId,
       total_system: totalSystem,
       total_informed: totalInformed,
       total_difference: totalDifference,

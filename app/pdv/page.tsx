@@ -2268,7 +2268,7 @@ export default function PDVPage() {
       )}
 
       {/* Cash Register Manager Overlay (Force Open) */}
-      {!activeRegister && !isLoading && (
+      {!activeRegister && !isLoading && !showClosureModal && (
         <div className="fixed inset-0 bg-brand-text-main/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
           <div className="max-w-md w-full">
             <div className="text-center mb-8">

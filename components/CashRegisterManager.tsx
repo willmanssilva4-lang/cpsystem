@@ -13,7 +13,8 @@ import {
   History,
   Calculator,
   ShieldCheck,
-  Printer
+  Printer,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -56,6 +57,7 @@ export function CashRegisterManager({
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showDivergences, setShowDivergences] = useState(true);
+  const [showAutoConfirmModal, setShowAutoConfirmModal] = useState(false);
 
   // Transaction state (Sangria/Suprimento)
   const [transType, setTransType] = useState<'Sangria' | 'Suprimento'>(
@@ -266,6 +268,54 @@ export function CashRegisterManager({
     }
   };
 
+  const handleAutomaticClose = async () => {
+    if (!activeRegister) return;
+    setErrorMsg(null);
+
+    const isCancelledSale = (status?: string): boolean => {
+      if (!status) return false;
+      const s = status.toUpperCase();
+      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
+    };
+
+    const snapshotMovements = cashMovements.filter(m => m.cashRegisterId === activeRegister.id);
+    const snapshotSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s.status));
+
+    const autoInformedValues = { ...systemTotals };
+
+    const reportSnapshot = {
+      registerId: activeRegister.id,
+      openedAt: activeRegister.openedAt,
+      closedAt: new Date().toISOString(),
+      operatorName: user?.name || 'Operador',
+      openingBalance: Number(activeRegister.openingBalance) || 0,
+      systemTotals: { ...systemTotals },
+      informedValues: autoInformedValues,
+      justifications: { 'Geral': 'Fechamento automático concluído sem divergências físicas.' },
+      movements: snapshotMovements,
+      salesCount: snapshotSales.length,
+      salesTotal: snapshotSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0)
+    };
+
+    const informedTotals = Object.entries(systemTotals).map(([method, systemValue]) => ({
+      method,
+      informed: systemValue,
+      system: systemValue
+    }));
+
+    const result = await closeCashRegister(informedTotals, 'Fechamento automático concluído sem divergências físicas.');
+    if (result) {
+      setFinalReportData(reportSnapshot);
+      setShowAutoConfirmModal(false);
+      setIsClosing(false);
+      setIsAuthorized(false);
+      setSupervisorCode('');
+      setShowSuccessMessage(true);
+    } else {
+      setErrorMsg('Erro ao salvar o fechamento do caixa automático no banco de dados.');
+    }
+  };
+
   const checkAuthorization = () => {
     // Simple mock authorization
     if (supervisorCode === '1234') {
@@ -399,13 +449,24 @@ export function CashRegisterManager({
           </button>
         </div>
 
-        <button 
-          onClick={() => setIsClosing(true)}
-          className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-2"
-        >
-          <Calculator className="w-4 h-4" />
-          Fechar Caixa
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button 
+            type="button"
+            onClick={() => setIsClosing(true)}
+            className="py-3 bg-slate-950 dark:bg-slate-800 text-white dark:text-slate-200 rounded-xl font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2 border border-slate-800 dark:border-slate-700"
+          >
+            <Calculator className="w-4 h-4" />
+            Conferência Manual
+          </button>
+          <button 
+            type="button"
+            onClick={() => setShowAutoConfirmModal(true)}
+            className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Zap className="w-4 h-4 text-emerald-200 animate-pulse" />
+            Fechamento Rápido
+          </button>
+        </div>
       </div>
 
       {/* Transaction Modal */}
@@ -499,6 +560,24 @@ export function CashRegisterManager({
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-brand-blue/5 dark:bg-slate-800/40 rounded-xl border border-brand-blue/10 dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Copiar valores esperados do sistema?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInformedValues({ ...systemTotals });
+                        setJustifications(prev => ({
+                          ...prev,
+                          'Geral': 'Preenchimento automático efetuado com base nos valores previstos pelo sistema.'
+                        }));
+                      }}
+                      className="px-3 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white text-[11px] font-black uppercase rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
+                    >
+                      <Zap className="w-3 h-3 text-emerald-200 animate-pulse" />
+                      Auto-Preencher
+                    </button>
+                  </div>
+
                   <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -946,6 +1025,74 @@ export function CashRegisterManager({
                   className="flex-1 py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
                 >
                   Concluir e Voltar ao Início
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Automatic Closing Confirmation Modal */}
+      <AnimatePresence>
+        {showAutoConfirmModal && (
+          <div className="fixed inset-0 z-[610] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+               exit={{ opacity: 0, scale: 0.95 }}
+               className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl relative"
+            >
+              <button 
+                type="button"
+                onClick={() => setShowAutoConfirmModal(false)} 
+                className="absolute right-4 top-4 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+
+              <div className="text-center space-y-3 mb-6 pt-2">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                  <Zap className="w-7 h-7 text-emerald-500 animate-bounce" />
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white italic">
+                  Fechamento Rápido
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Confirma o encerramento do caixa batendo os valores físicos 100% idênticos ao esperado pelo sistema?
+                </p>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 space-y-2 mb-6">
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <span className="text-slate-500">Saldo Consolidado:</span>
+                  <span className="font-extrabold text-slate-800 dark:text-slate-100 text-sm font-mono">
+                    R$ {Object.values(systemTotals).reduce((acc, val) => acc + val, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="border-t border-slate-200 dark:border-slate-700/50 pt-2 space-y-1.5 max-h-[140px] overflow-y-auto scrollbar-thin">
+                  {Object.entries(systemTotals).map(([method, val]) => (
+                    <div key={method} className="flex justify-between items-center text-[11px] text-slate-500 font-medium font-mono">
+                      <span>{method}:</span>
+                      <span className="font-bold">R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAutoConfirmModal(false)}
+                  className="flex-1 py-3 border border-slate-205 dark:border-slate-705/50 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAutomaticClose}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-600/10"
+                >
+                  Confirmar e Fechar
                 </button>
               </div>
             </motion.div>
