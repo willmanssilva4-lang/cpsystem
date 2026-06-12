@@ -16,7 +16,21 @@ type PaymentMethod = 'Dinheiro' | 'Pix' | 'Crédito' | 'Fiado' | 'Voucher';
 
 export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) {
   const { user, paymentMethods, maquininhas, getVoucherByCode, updateVoucher } = useERP();
-  const activeMethods = paymentMethods.filter(m => m.active);
+  
+  // Garante que o Voucher esteja sempre disponível como opção de pagamento no PDV
+  const hasVoucherInMethods = paymentMethods.some(m => m.active && (m.type?.toUpperCase() === 'VOUCHER' || m.name?.toUpperCase() === 'VOUCHER' || m.name?.toUpperCase() === 'VALE-LOJA' || m.name?.toUpperCase() === 'VALE CRÉDITO'));
+  
+  const activeMethods = [
+    ...paymentMethods.filter(m => m.active),
+    ...(hasVoucherInMethods ? [] : [{
+      id: 'virtual-voucher-id',
+      name: 'Voucher',
+      type: 'Voucher',
+      active: true,
+      taxPercentage: 0
+    }])
+  ];
+  
   const activeMaquininhas = maquininhas.filter(m => m.ativo);
   
   const [activeMethod, setActiveMethod] = useState<string>(activeMethods[0]?.name || 'Dinheiro');

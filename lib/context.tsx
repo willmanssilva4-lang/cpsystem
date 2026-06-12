@@ -254,6 +254,27 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         return q;
       };
 
+      const fetchReturns = async () => {
+        try {
+          let q = supabase.from('returns').select('*, return_items(*)');
+          if (targetCompanyId) {
+            q = q.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+          }
+          const { data, error } = await q;
+          if (error) {
+            console.error('[ERPProvider] Error fetching returns with return_items:', error);
+            // Fallback
+            const { data: fallback, error: fallbackErr } = await baseQuery('returns');
+            if (fallbackErr) throw fallbackErr;
+            return fallback || [];
+          }
+          return data;
+        } catch (e) {
+          console.error('[ERPProvider] Exception in fetchReturns:', e);
+          return [];
+        }
+      };
+
       console.log(`[ERPProvider] fetchData: Starting fetches for company ${targetCompanyId || 'ALL'}`);
 
       const results = await Promise.allSettled([
@@ -274,7 +295,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         supabase.from('system_settings').select('*').single(), // Settings might be per company
         supabase.from('system_users').select('*'), // Filter users by company later if needed
         baseQuery('promotions'),
-        baseQuery('returns'),
+        fetchReturns(),
         baseQuery('employees'),
         supabase.from('access_profiles').select('*'),
         supabase.from('permissions').select('*'),
@@ -538,7 +559,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           saleId: r.saleId || r.sale_id || '',
           sale_id: r.sale_id || r.saleId || '',
           date: r.date || r.created_at || '',
-          items: r.items || [],
+          items: r.return_items ? r.return_items.map((ri: any) => ({
+            productId: ri.product_id,
+            quantity: ri.quantity,
+            price: ri.price || 0,
+            reason: ri.reason || ''
+          })) : (r.items || []),
           total: r.total !== undefined ? Number(r.total) : 0,
           type: r.type || 'TOTAL',
           refundMethod: r.refundMethod || r.refund_method || '',
@@ -1036,25 +1062,55 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addReturn = async (data: any) => {
-    const dbPayload = {
+    const parentPayload = {
       sale_id: data.saleId,
-      saleId: data.saleId,
       date: data.date,
-      items: data.items,
       total: data.total,
       type: data.type,
       refund_method: data.refundMethod,
-      refundMethod: data.refundMethod,
-      user_id: data.userId,
-      userId: data.userId,
+      user_id: (user?.id && user.id !== 'Sistema') ? user.id : null,
       status: data.status,
       voucher_code: data.voucherCode,
-      voucherCode: data.voucherCode,
       company_id: user?.companyId || null
     };
-    const { error } = await supabase.from('returns').insert([dbPayload]);
+
+    const { data: insertedReturn, error: returnError } = await supabase
+      .from('returns')
+      .insert([parentPayload])
+      .select('id')
+      .single();
+
+    if (returnError) {
+      console.error('[addReturn] Error inserting parent return:', returnError);
+      return false;
+    }
+
+    const returnId = insertedReturn?.id;
+
+    if (returnId && data.items && data.items.length > 0) {
+      const itemsPayload = data.items.map((item: any) => ({
+        return_id: returnId,
+        product_id: item.productId,
+        quantity: item.quantity,
+        price: item.price || 0,
+        reason: item.reason || '',
+        company_id: user?.companyId || null
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('return_items')
+        .insert(itemsPayload);
+
+      if (itemsError) {
+        console.error('[addReturn] Error inserting return items:', itemsError);
+        // Clean up parent return to prevent orphans on partial failure
+        await supabase.from('returns').delete().eq('id', returnId);
+        return false;
+      }
+    }
+
     await fetchData();
-    return !error;
+    return true;
   };
 
   const updateVoucher = async (data: any) => {
