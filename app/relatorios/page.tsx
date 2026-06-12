@@ -101,7 +101,7 @@ export default function ReportsPage() {
 }
 
 function ReportsContent() {
-  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods, setCustomAlert } = useERP();
+  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods, setCustomAlert, promotions = [] } = useERP();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [activeReport, setActiveReport] = useState('dashboard');
@@ -477,14 +477,14 @@ function ReportsContent() {
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[75px] xs:max-w-[95px] md:max-w-[110px] text-center cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
+                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[110px] xs:max-w-[130px] md:max-w-[140px] text-center cursor-pointer"
                     />
                     <span className="text-slate-300 text-[9px] sm:text-[10px] font-black uppercase italic select-none shrink-0 px-0.5">-</span>
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[75px] xs:max-w-[95px] md:max-w-[110px] text-center cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
+                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[110px] xs:max-w-[130px] md:max-w-[140px] text-center cursor-pointer"
                     />
                   </div>
                 )}
@@ -863,7 +863,7 @@ function AdvancedPerformanceDashboard({
   onOpenCatalog?: () => void,
   onViewReport?: (reportName: string) => void
 }) {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert, fetchData } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert, fetchData, promotions = [] } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
 
@@ -1235,12 +1235,88 @@ function AdvancedPerformanceDashboard({
 
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
-    const promoItemsTotal = s.items
-      ?.filter((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
-      .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0) || 0;
-    return acc + promoItemsTotal;
+    const hasSaleDiscount = s.discount && s.discount > 0;
+    
+    const promoItemsTotal = (s.items || [])
+      .filter((item: any) => {
+        if (item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice)) {
+          return true;
+        }
+        if (hasSaleDiscount) {
+          return true;
+        }
+        
+        // Fallback: product is part of an active promotion at the time of sale
+        const isPromoProduct = (promotions || []).some((promo: any) => {
+          if (promo.status !== 'ACTIVE') return false;
+          const promoStart = new Date(promo.start_date || promo.startDate);
+          const promoEnd = new Date(promo.end_date || promo.endDate);
+          const saleDate = new Date(s.date);
+          
+          if (saleDate < promoStart || saleDate > promoEnd) return false;
+          
+          let targets: string[] = [];
+          if (typeof promo.target_id === 'string') {
+            try {
+              targets = JSON.parse(promo.target_id);
+            } catch (e) {
+              targets = [promo.target_id];
+            }
+          } else if (Array.isArray(promo.target_id)) {
+            targets = promo.target_id;
+          } else if (promo.targetId) {
+            targets = Array.isArray(promo.targetId) ? promo.targetId : [promo.targetId];
+          }
+          
+          return targets.includes(item.productId);
+        });
+        
+        return isPromoProduct;
+      })
+      .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0);
+
+    const subtotal = s.subtotal || (s.total + (s.discount || 0));
+    const promoValue = subtotal > 0 ? promoItemsTotal * (s.total / subtotal) : promoItemsTotal;
+    
+    return acc + promoValue;
   }, 0);
-  const promoSalesCount = filteredSales.filter(s => s.items?.some((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
+
+  const promoSalesCount = filteredSales.filter(s => {
+    const hasSaleDiscount = s.discount && s.discount > 0;
+    if (hasSaleDiscount) return true;
+    
+    return (s.items || []).some((item: any) => {
+      if (item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice)) {
+        return true;
+      }
+      
+      const isPromoProduct = (promotions || []).some((promo: any) => {
+        if (promo.status !== 'ACTIVE') return false;
+        const promoStart = new Date(promo.start_date || promo.startDate);
+        const promoEnd = new Date(promo.end_date || promo.endDate);
+        const saleDate = new Date(s.date);
+        
+        if (saleDate < promoStart || saleDate > promoEnd) return false;
+        
+        let targets: string[] = [];
+        if (typeof promo.target_id === 'string') {
+          try {
+            targets = JSON.parse(promo.target_id);
+          } catch (e) {
+            targets = [promo.target_id];
+          }
+        } else if (Array.isArray(promo.target_id)) {
+          targets = promo.target_id;
+        } else if (promo.targetId) {
+          targets = Array.isArray(promo.targetId) ? promo.targetId : [promo.targetId];
+        }
+        
+        return targets.includes(item.productId);
+      });
+      
+      return isPromoProduct;
+    });
+  }).length;
 
   // Previous Period Data for Trends
   const start = new Date(safeStartDate);

@@ -306,7 +306,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         baseQuery('vouchers').order('created_at', { ascending: false }),
         baseQuery('cash_registers'),
         baseQuery('cash_movements'),
-        baseQuery('cash_closings')
+        baseQuery('cash_closings'),
+        baseQuery('sale_items').limit(5000)
       ]);
 
       console.log('[ERPProvider] Parallel fetches finished, processing results');
@@ -365,6 +366,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const cRegs_res = getData(26);
       const cMovs_res = getData(27);
       const cClos_res = getData(28);
+      const saleItems_res = getData(29);
 
       if (Array.isArray(prods)) {
         const resolvedBasicProducts = prods.map((p: any) => {
@@ -449,27 +451,47 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(sls_res)) {
         const movements = Array.isArray(movs_res) ? movs_res : [];
         const loadedProducts = Array.isArray(prods) ? prods : [];
+        const saleItemsList = Array.isArray(saleItems_res) ? saleItems_res : [];
         const mappedSales = sls_res.map((sale: any) => {
           const saleMovements = movements.filter((m: any) => 
             m.type === 'VENDA' && 
             (m.origin === `Venda #${sale.id}` || m.origin === `Venda #${sale.id?.substring(0, 8)}`)
           );
           
-          const items = saleMovements.map((move: any) => {
-            const prodId = move.product_id || move.productId;
-            const product = loadedProducts.find((p: any) => p.id === prodId);
-            const price = product ? ((product as any).sale_price ?? (product as any).salePrice ?? 0) : 0;
-            const cost = move.cost !== undefined ? move.cost : (product ? (product.costPrice ?? product.cost_price ?? 0) : 0);
-            return {
-              productId: prodId,
-              quantity: move.quantity || 0,
-              price: price,
-              costPrice: cost,
-              originalPrice: price,
-              discount: 0,
-              promotionId: null
-            };
-          });
+          const dbItems = saleItemsList.filter((si: any) => si.sale_id === sale.id);
+          
+          let items;
+          if (dbItems && dbItems.length > 0) {
+            items = dbItems.map((si: any) => {
+              const product = loadedProducts.find((p: any) => p.id === si.product_id);
+              const cost = product ? (product.costPrice ?? product.cost_price ?? 0) : 0;
+              return {
+                productId: si.product_id,
+                quantity: si.quantity || 0,
+                price: si.price || 0,
+                costPrice: cost,
+                originalPrice: si.original_price ?? si.price ?? 0,
+                discount: si.discount || 0,
+                promotionId: si.promotion_id || null
+              };
+            });
+          } else {
+            items = saleMovements.map((move: any) => {
+              const prodId = move.product_id || move.productId;
+              const product = loadedProducts.find((p: any) => p.id === prodId);
+              const price = product ? ((product as any).sale_price ?? (product as any).salePrice ?? 0) : 0;
+              const cost = move.cost !== undefined ? move.cost : (product ? (product.costPrice ?? product.cost_price ?? 0) : 0);
+              return {
+                productId: prodId,
+                quantity: move.quantity || 0,
+                price: price,
+                costPrice: cost,
+                originalPrice: price,
+                discount: 0,
+                promotionId: null
+              };
+            });
+          }
 
           return {
             ...sale,
@@ -1033,6 +1055,24 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           userName: user?.name || 'Sistema',
           companyId: data.companyId || user?.companyId || ''
         }, true);
+      }
+
+      // Registrar itens da venda na tabela sale_items para preservar preços, descontos e dados promocionais
+      const saleItemsToInsert = items.map(item => ({
+        sale_id: inserted.id,
+        product_id: item.productId,
+        quantity: item.quantity,
+        price: item.price !== undefined ? item.price : 0,
+        original_price: item.originalPrice !== undefined ? item.originalPrice : (item.price !== undefined ? item.price : 0),
+        discount: item.discount || 0,
+        promotion_id: item.promotionId || null,
+        company_id: inserted.company_id || null,
+        store_id: inserted.store_id || null
+      }));
+
+      const { error: itemsError } = await supabase.from('sale_items').insert(saleItemsToInsert);
+      if (itemsError) {
+        console.error('DEBUG: Erro ao inserir itens de venda no sale_items:', itemsError);
       }
     }
 

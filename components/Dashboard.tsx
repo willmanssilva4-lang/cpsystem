@@ -48,7 +48,7 @@ import { useERP } from '@/lib/context';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 
 export function Dashboard() {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission, promotions = [] } = useERP();
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -113,11 +113,74 @@ export function Dashboard() {
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
     const promoItemsTotal = (s.items || [])
-      .filter((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))
+      .filter((item: any) => {
+        if (item.promotionId) return true;
+        
+        // Fallback: product is part of an active promotion at the time of sale
+        const isPromoProduct = (promotions || []).some((promo: any) => {
+          if (promo.status !== 'ACTIVE') return false;
+          const promoStart = new Date(promo.start_date || promo.startDate);
+          const promoEnd = new Date(promo.end_date || promo.endDate);
+          const saleDate = new Date(s.date);
+          
+          if (saleDate < promoStart || saleDate > promoEnd) return false;
+          
+          let targets: string[] = [];
+          if (typeof promo.target_id === 'string') {
+            try {
+              targets = JSON.parse(promo.target_id);
+            } catch (e) {
+              targets = [promo.target_id];
+            }
+          } else if (Array.isArray(promo.target_id)) {
+            targets = promo.target_id;
+          } else if (promo.targetId) {
+            targets = Array.isArray(promo.targetId) ? promo.targetId : [promo.targetId];
+          }
+          
+          return targets.includes(item.productId);
+        });
+        
+        return isPromoProduct;
+      })
       .reduce((itemAcc: number, item: any) => itemAcc + (item.price * item.quantity), 0);
-    return acc + promoItemsTotal;
+    const subtotal = s.subtotal || (s.total + (s.discount || 0));
+    const promoValue = subtotal > 0 ? promoItemsTotal * (s.total / subtotal) : promoItemsTotal;
+    
+    return acc + promoValue;
   }, 0);
-  const promoSalesCount = filteredSales.filter(s => (s.items || []).some((item: any) => item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice))).length;
+
+  const promoSalesCount = filteredSales.filter(s => {
+    return (s.items || []).some((item: any) => {
+      if (item.promotionId) return true;
+      
+      const isPromoProduct = (promotions || []).some((promo: any) => {
+        if (promo.status !== 'ACTIVE') return false;
+        const promoStart = new Date(promo.start_date || promo.startDate);
+        const promoEnd = new Date(promo.end_date || promo.endDate);
+        const saleDate = new Date(s.date);
+        
+        if (saleDate < promoStart || saleDate > promoEnd) return false;
+        
+        let targets: string[] = [];
+        if (typeof promo.target_id === 'string') {
+          try {
+            targets = JSON.parse(promo.target_id);
+          } catch (e) {
+            targets = [promo.target_id];
+          }
+        } else if (Array.isArray(promo.target_id)) {
+          targets = promo.target_id;
+        } else if (promo.targetId) {
+          targets = Array.isArray(promo.targetId) ? promo.targetId : [promo.targetId];
+        }
+        
+        return targets.includes(item.productId);
+      });
+      
+      return isPromoProduct;
+    });
+  }).length;
 
   // Previous Period Data for Trends
   const start = new Date(startDate);
@@ -329,7 +392,7 @@ export function Dashboard() {
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent border-none text-[9px] xs:text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-full min-w-0 max-w-[70px] xs:max-w-28 cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
+                className="bg-transparent border-none text-[9px] xs:text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-full min-w-0 max-w-[110px] xs:max-w-36 cursor-pointer"
               />
             </div>
             <span className="text-brand-text-sec font-black italic text-[10px] xs:text-xs px-0.5 shrink-0 select-none">A</span>
@@ -339,7 +402,7 @@ export function Dashboard() {
                 type="date" 
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent border-none text-[9px] xs:text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-full min-w-0 max-w-[70px] xs:max-w-28 cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:m-0"
+                className="bg-transparent border-none text-[9px] xs:text-[11px] font-black uppercase italic text-brand-text-main focus:ring-0 p-0 w-full min-w-0 max-w-[110px] xs:max-w-36 cursor-pointer"
               />
             </div>
           </div>
