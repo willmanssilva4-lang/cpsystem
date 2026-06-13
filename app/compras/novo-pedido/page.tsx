@@ -585,12 +585,25 @@ export default function NovaCompraPage() {
           }
 
           // 3. Update Stock and Sale Price
-          const product = Array.isArray(productsList) ? productsList.find(p => p.id === item.productId) : null;
-          if (product) {
+          const originalProduct = products.find(p => p.id === item.productId);
+          if (originalProduct) {
+            let productIdToUpdate = originalProduct.id;
+            let productToUpdate = originalProduct;
+            
+            if (originalProduct.base_product_id) {
+               const baseProduct = products.find(p => p.id === originalProduct.base_product_id);
+               if (baseProduct) {
+                   productIdToUpdate = baseProduct.id;
+                   productToUpdate = baseProduct;
+               }
+            }
+
+            const newStock = Number(productToUpdate.stock || 0) + item.qty;
             const updateData: any = { 
               cost_price: item.cost,
               supplier: supplierName,
-              has_had_stock: true
+              has_had_stock: true,
+              stock: newStock
             };
 
             if (item.salePrice > 0) {
@@ -603,8 +616,12 @@ export default function NovaCompraPage() {
             
             const { error: updateError } = await supabase.from('products')
               .update(updateData)
-              .eq('id', item.productId)
+              .eq('id', productIdToUpdate)
               .eq('company_id', user?.companyId || null);
+            
+            if (updateError) {
+              console.error('Error updating stock for product:', productIdToUpdate, updateError);
+            }
           }
 
           // 4. Register Movement
