@@ -50,24 +50,14 @@ import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 export function Dashboard() {
   const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission, promotions = [] } = useERP();
   
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  useEffect(() => {
-    const todayDate = new Date();
-    const year = todayDate.getFullYear();
-    const month = String(todayDate.getMonth() + 1).padStart(2, '0');
-    const day = String(todayDate.getDate()).padStart(2, '0');
-    
-    const today = `${year}-${month}-${day}`;
-    const firstDayOfMonth = `${year}-${month}-01`;
-
-    const timer = setTimeout(() => {
-      setStartDate(firstDayOfMonth);
-      setEndDate(today);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+  const [startDate, setStartDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
 
   if (!startDate || !endDate) return null;
 
@@ -82,15 +72,39 @@ export function Dashboard() {
   }
 
   // Filter data based on date range
+  const safeToLocalDateString = (dateInput: string) => {
+    if (!dateInput) return '';
+    // Assume ISO format YYYY-MM-DD...
+    return dateInput.split('T')[0];
+  };
+
   const filteredSales = sales.filter(s => {
-    const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
+    const d = safeToLocalDateString(s.date);
+    const inRange = d >= startDate && d <= endDate;
+    if (!inRange) {
+        console.log(`[Dashboard DEBUG] Sale ${s.id} excluded. Date: ${d}, Range: ${startDate} to ${endDate}`);
+    }
+    return inRange;
   });
 
   const filteredExpenses = expenses.filter(e => {
-    const d = toLocalDateString(e.date);
-    return d >= startDate && d <= endDate;
+    const d = safeToLocalDateString(e.date);
+    const inRange = d >= startDate && d <= endDate;
+    if (!inRange) {
+        console.log(`[Dashboard DEBUG] Expense ${e.id} excluded. Date: ${d}, Range: ${startDate} to ${endDate}`);
+    }
+    return inRange;
   });
+
+  useEffect(() => {
+    console.log('[Dashboard DEBUG] Filtering:', {
+      startDate,
+      endDate,
+      totalSalesCount: sales.length,
+      filteredSalesCount: filteredSales.length,
+      firstSaleDate: sales.length > 0 ? toLocalDateString(sales[sales.length - 1].date) : 'N/A'
+    });
+  }, [startDate, endDate, sales, filteredSales]);
 
   // Calculate Metrics
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);

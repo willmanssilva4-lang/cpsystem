@@ -1147,6 +1147,18 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         await supabase.from('returns').delete().eq('id', returnId);
         return false;
       }
+
+      // Add stock movements to revert the sale
+      for (const item of data.items) {
+        await addStockMovement({
+          productId: item.productId,
+          type: 'DEVOLUÇÃO',
+          quantity: item.quantity,
+          origin: `Devolução #${returnId}`,
+          date: new Date().toISOString(),
+          userId: user?.email || 'Sistema'
+        }, true);
+      }
     }
 
     // Se o reembolso for Crédito em Loja e houver um voucherCode gerado, insere o voucher na tabela 'vouchers'
@@ -1194,6 +1206,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateVoucher = async (data: any) => {
+    console.log('[ERPContext] updateVoucher called with:', data);
     const dbPayload = {
       code: data.code,
       customer_id: data.customerId || data.customer_id || null,
@@ -1203,6 +1216,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       company_id: data.company_id || user?.companyId || null
     };
     const { error } = await supabase.from('vouchers').update(dbPayload).eq('id', data.id);
+    if (error) {
+      console.error('[ERPContext] Error updating voucher:', error);
+    } else {
+      console.log('[ERPContext] Voucher updated successfully');
+    }
     await fetchData();
     return !error;
   };
@@ -1425,6 +1443,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   // Stock
   const addStockMovement = async (data: any, skipFetch?: boolean) => {
+    console.log('[ERPContext] addStockMovement received:', data);
     const dbPayload = {
       product_id: data.productId || data.product_id,
       type: data.type,
@@ -1462,9 +1481,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const moveQty = Number(data.quantity) || 0;
       const newStock = currentStock + (moveQty * modifier);
       
+      console.log(`[ERPContext] Updating stock for product ${productId}: ${currentStock} + (${moveQty} * ${modifier}) = ${newStock}`);
+      
       const { error: updateError } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
       if (updateError) {
         console.error('Erro ao atualizar saldo de estoque do produto:', updateError);
+        throw updateError; // Force visibility
       }
     }
 

@@ -411,7 +411,7 @@ export default function SalesHistoryPage() {
                           return (
                             <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-brand-border">
                               <div>
-                                <p className="font-bold text-sm text-brand-text-main uppercase leading-tight">{product?.name || 'Produto'}</p>
+                                <p className="font-bold text-sm text-brand-text-main uppercase leading-tight">{item.productName || product?.name || 'Produto'}</p>
                                 <div className="flex items-center gap-2">
                                   <p className="text-[10px] text-brand-text-sec font-bold">{item.quantity}x R$ {item.price.toFixed(2)}</p>
                                   {(item.discount || 0) > 0 && (

@@ -30,7 +30,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon.svg?v=3" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon.svg?v=3" />
-        <script
+        {/* <script
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
@@ -47,7 +47,7 @@ export default function RootLayout({
               }
             `,
           }}
-        />
+        /> */}
       </head>
       <body className="h-full text-slate-900 selection:bg-blue-100 selection:text-blue-900">
         <ERPProvider>

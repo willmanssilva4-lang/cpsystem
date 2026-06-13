@@ -1242,9 +1242,6 @@ function AdvancedPerformanceDashboard({
         if (item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice)) {
           return true;
         }
-        if (hasSaleDiscount) {
-          return true;
-        }
         
         // Fallback: product is part of an active promotion at the time of sale
         const isPromoProduct = (promotions || []).some((promo: any) => {
@@ -1278,13 +1275,12 @@ function AdvancedPerformanceDashboard({
     const subtotal = s.subtotal || (s.total + (s.discount || 0));
     const promoValue = subtotal > 0 ? promoItemsTotal * (s.total / subtotal) : promoItemsTotal;
     
+    console.log(`DEBUG: Sale ID ${s.id}, total ${s.total}, subtotal ${subtotal}, promoItemsTotal ${promoItemsTotal}, promoValue ${promoValue}`);
+    
     return acc + promoValue;
   }, 0);
 
   const promoSalesCount = filteredSales.filter(s => {
-    const hasSaleDiscount = s.discount && s.discount > 0;
-    if (hasSaleDiscount) return true;
-    
     return (s.items || []).some((item: any) => {
       if (item.promotionId || (item.discount && item.discount > 0) || (item.originalPrice && item.price < item.originalPrice)) {
         return true;
@@ -1694,7 +1690,7 @@ function AdvancedPerformanceDashboard({
               )}
               <button 
                 onClick={handleExportExcel}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 md:px-6 md:py-3.5 bg-slate-900 text-white rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase italic tracking-tight hover:bg-slate-800 transition-all shadow-lg active:scale-95 animate-pulse"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 md:px-6 md:py-3.5 bg-slate-900 text-white rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase italic tracking-tight hover:bg-slate-800 transition-all shadow-lg active:scale-95"
               >
                 <Download size={14} className="md:size-4" />
                 Exportar Relatório
@@ -2348,7 +2344,7 @@ function AdvancedPerformanceDashboard({
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
                         <span className="text-xs font-bold text-slate-600">{item.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 justify-end tabular-nums">
                         <span className="text-xs font-black text-slate-700 font-mono">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalValue)}
                         </span>
