@@ -992,15 +992,74 @@ export default function NovaCompraPage() {
                   </div>
                   <div className="lg:col-span-2 space-y-2">
                     <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Qtd</label>
-                    <input type="number" min="1" value={itemQty} onChange={(e) => setItemQty(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-center" />
+                      <input 
+                        ref={qtyInputRef}
+                        type="number" 
+                        min="1" 
+                        value={itemQty} 
+                        onChange={(e) => setItemQty(Number(e.target.value))} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            costInputRef.current?.focus();
+                            costInputRef.current?.select();
+                          }
+                        }}
+                        className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-center" 
+                      />
                   </div>
                   <div className="lg:col-span-2 space-y-2">
                     <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Custo (R$)</label>
-                    <input type="number" min="0" step="0.01" value={itemCost} onChange={(e) => setItemCost(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-right" />
+                    <input 
+                        ref={costInputRef}
+                        type="number" 
+                        min="0" 
+                        step="0.01" 
+                        value={itemCost} 
+                        onChange={(e) => setItemCost(Number(e.target.value))} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            salePriceInputRef.current?.focus();
+                            salePriceInputRef.current?.select();
+                          }
+                        }}
+                        className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-right" 
+                      />
                   </div>
                   <div className="lg:col-span-2 space-y-2">
                     <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Venda Sugerida (R$)</label>
-                    <input type="number" min="0" step="0.01" value={itemSalePrice} onChange={(e) => setItemSalePrice(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-right" />
+                    <input 
+                        ref={salePriceInputRef}
+                        type="number" 
+                        min="0" 
+                        step="0.01" 
+                        value={itemSalePrice} 
+                        onChange={(e) => setItemSalePrice(Number(e.target.value))} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            expirationInputRef.current?.focus();
+                          }
+                        }}
+                        className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-right" 
+                      />
+                  </div>
+                  <div className="lg:col-span-2 space-y-2">
+                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">Validade</label>
+                    <input 
+                        ref={expirationInputRef}
+                        type="date" 
+                        value={itemExpiration} 
+                        onChange={(e) => setItemExpiration(e.target.value)} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddProduct();
+                          }
+                        }}
+                        className="w-full px-4 py-3 rounded-xl border border-brand-border font-bold text-sm text-center" 
+                      />
                   </div>
                   <div className="lg:col-span-2">
                     <button onClick={handleAddProduct} className="w-full px-4 py-3 bg-brand-green text-white rounded-xl font-black uppercase italic shadow-sm hover:bg-brand-green-hover transition-all active:scale-95">Adicionar</button>

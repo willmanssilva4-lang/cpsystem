@@ -48,7 +48,7 @@ import { useERP } from '@/lib/context';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 
 export function Dashboard() {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission, promotions = [] } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission, promotions = [], cashRegisters } = useERP();
   
   const [startDate, setStartDate] = useState(() => {
     const today = new Date();
@@ -79,32 +79,17 @@ export function Dashboard() {
   };
 
   const filteredSales = sales.filter(s => {
-    const d = safeToLocalDateString(s.date);
-    const inRange = d >= startDate && d <= endDate;
-    if (!inRange) {
-        console.log(`[Dashboard DEBUG] Sale ${s.id} excluded. Date: ${d}, Range: ${startDate} to ${endDate}`);
-    }
+    const session = cashRegisters.find(r => r.id === s.cashRegisterId);
+    const businessDate = session ? safeToLocalDateString(session.openedAt) : safeToLocalDateString(s.date);
+    const inRange = businessDate >= startDate && businessDate <= endDate;
     return inRange;
   });
 
   const filteredExpenses = expenses.filter(e => {
     const d = safeToLocalDateString(e.date);
     const inRange = d >= startDate && d <= endDate;
-    if (!inRange) {
-        console.log(`[Dashboard DEBUG] Expense ${e.id} excluded. Date: ${d}, Range: ${startDate} to ${endDate}`);
-    }
     return inRange;
   });
-
-  useEffect(() => {
-    console.log('[Dashboard DEBUG] Filtering:', {
-      startDate,
-      endDate,
-      totalSalesCount: sales.length,
-      filteredSalesCount: filteredSales.length,
-      firstSaleDate: sales.length > 0 ? toLocalDateString(sales[sales.length - 1].date) : 'N/A'
-    });
-  }, [startDate, endDate, sales, filteredSales]);
 
   // Calculate Metrics
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
@@ -120,7 +105,7 @@ export function Dashboard() {
     });
   });
 
-  const totalProfit = totalSales - totalCost - totalTax - totalExpenses;
+  const totalProfit = totalSales - totalCost - totalTax;
   const ticketMedio = totalSales / (filteredSales.length || 1);
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
@@ -441,7 +426,7 @@ export function Dashboard() {
           positive={profitTrend >= 0}
           icon={TrendingUp}
           color="green"
-          subText="Deduções e custos aplicados"
+          subText="Custos e impostos aplicados"
         />
         <MetricCard 
           label="Ticket Médio" 
