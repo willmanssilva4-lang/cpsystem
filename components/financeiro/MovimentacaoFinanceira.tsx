@@ -56,6 +56,31 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
     cutoffDate.setDate(now.getDate() - daysFilter);
     cutoffDate.setHours(0, 0, 0, 0);
 
+    const purchaseMovements = stockMovements.filter(m => m.type === 'COMPRA');
+    const groupedPurchases: Record<string, typeof purchaseMovements> = {};
+    purchaseMovements.forEach(m => {
+      const key = m.origin || m.date;
+      if (!groupedPurchases[key]) {
+        groupedPurchases[key] = [];
+      }
+      groupedPurchases[key].push(m);
+    });
+
+    const consolidatedPurchases = Object.values(groupedPurchases).map(movements => {
+      const first = movements[0];
+      const amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
+      return {
+        id: `stk-group-${first.id}`,
+        date: first.date,
+        description: first.origin || `Compra Consol.: ${movements.length} item(s)`,
+        category: 'Compra de Mercadoria',
+        type: 'saida',
+        amount: amount,
+        status: 'Pago',
+        source: 'stock'
+      };
+    });
+
     const all: any[] = [
       ...sales.map(s => ({
         id: `sale-${s.id}`,
@@ -77,16 +102,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         status: e.status,
         source: 'expense'
       })),
-      ...stockMovements.filter(m => m.type === 'COMPRA').map(m => ({
-        id: `stk-${m.id}`,
-        date: m.date,
-        description: `Compra: ${m.quantity}x ${m.productName || 'Mercadoria'}`,
-        category: 'Compra de Mercadoria',
-        type: 'saida',
-        amount: m.quantity * (m.cost || 0),
-        status: 'Pago',
-        source: 'stock'
-      })),
+      ...consolidatedPurchases,
       ...cashMovements.filter(m => m.type === 'suprimento' || m.type === 'sangria').map(m => ({
         id: `csh-${m.id}`,
         date: m.createdAt,

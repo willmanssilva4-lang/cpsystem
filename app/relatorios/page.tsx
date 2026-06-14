@@ -343,6 +343,7 @@ function ReportsContent() {
     { id: 'giro_estoque', category: 'estoque', title: 'Giro de Estoque', description: 'Velocidade de saída dos produtos e necessidade de reposição.', icon: RefreshCw },
     { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
+    { id: 'relatorio_perdas', category: 'estoque', title: 'Relatório de Perdas e Avarias', description: 'Acompanhamento de produtos vencidos, avariados ou com perdas registradas.', icon: AlertTriangle },
     { id: 'dre', category: 'gerencial', title: 'DRE Gerencial', description: 'Demonstrativo de resultados, impostos e lucro líquido.', icon: FileBarChart },
     { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
     { id: 'abc_produtos', category: 'gerencial', title: 'Curva ABC de Produtos', description: 'Classificação de produtos por volume de vendas e faturamento.', icon: Layers },
@@ -726,6 +727,7 @@ function ReportsContent() {
                   {selectedReportView === 'Vendas por Hora' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Perdas e Avarias' && <LossesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Meios de Pagamento' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
@@ -748,7 +750,7 @@ function ReportsContent() {
                     />
                   )}
                   
-                  {!['Dashboard Executivo', 'Vendas por Período', 'Resumo de Vendas por Dia', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas Mais/Menos Produtos', 'Vendas por Categoria', 'Vendas por Departamento', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
+                  {!['Dashboard Executivo', 'Vendas por Período', 'Resumo de Vendas por Dia', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas Mais/Menos Produtos', 'Vendas por Categoria', 'Vendas por Departamento', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Relatório de Perdas e Avarias', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />

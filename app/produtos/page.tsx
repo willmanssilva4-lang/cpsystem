@@ -534,6 +534,7 @@ export default function ProductsPage() {
   const [adjustmentSearchTerm, setAdjustmentSearchTerm] = useState('');
   const [isAdjustmentDropdownOpen, setIsAdjustmentDropdownOpen] = useState(false);
   const adjustmentDropdownRef = useRef<HTMLDivElement>(null);
+  const [selectedAdjustmentProducts, setSelectedAdjustmentProducts] = useState<{ id: string; name: string; stock: number; unit?: string; quantity: number }[]>([]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -738,9 +739,25 @@ export default function ProductsPage() {
       });
       return;
     }
-    if (!adjustmentProductId || adjustmentQty <= 0) {
+
+    const itemsToAdjust = selectedAdjustmentProducts.length > 0 
+      ? selectedAdjustmentProducts 
+      : adjustmentProductId 
+        ? [{ id: adjustmentProductId, name: adjustmentSearchTerm, stock: 0, quantity: adjustmentQty }] 
+        : [];
+
+    if (itemsToAdjust.length === 0) {
       setCustomAlert({
-        message: 'Selecione um produto e informe uma quantidade válida.',
+        message: 'Selecione pelo menos um produto e insira uma quantidade válida.',
+        type: 'warning'
+      });
+      return;
+    }
+
+    const hasInvalidQty = itemsToAdjust.some(item => item.quantity <= 0);
+    if (hasInvalidQty) {
+      setCustomAlert({
+        message: 'A quantidade de ajuste deve ser maior do que zero para todos os produtos.',
         type: 'warning'
       });
       return;
@@ -748,27 +765,36 @@ export default function ProductsPage() {
 
     setIsAdjusting(true);
     try {
-      await addStockMovement({
-        productId: adjustmentProductId,
-        type: 'AJUSTE',
-        quantity: adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty,
-        origin: `Ajuste: ${adjustmentReason}`,
-        date: new Date().toISOString(),
-        userId: user?.email || 'system',
-        userName: user?.name || 'Sistema',
-        companyId: user?.companyId || ''
-      });
+      for (const item of itemsToAdjust) {
+        await addStockMovement({
+          productId: item.id,
+          type: 'AJUSTE',
+          quantity: adjustmentType === 'ENTRADA' ? item.quantity : -item.quantity,
+          origin: `Ajuste: ${adjustmentReason}`,
+          date: new Date().toISOString(),
+          userId: user?.email || 'system',
+          userName: user?.name || 'Sistema',
+          companyId: user?.companyId || ''
+        });
+      }
       
       setCustomAlert({
-        message: 'Ajuste realizado com sucesso!',
+        message: itemsToAdjust.length > 1 
+          ? `Ajuste de ${itemsToAdjust.length} produtos realizado com sucesso!` 
+          : 'Ajuste realizado com sucesso!',
         type: 'success'
       });
       setAdjustmentQty(0);
       setAdjustmentProductId('');
       setAdjustmentSearchTerm('');
+      setSelectedAdjustmentProducts([]);
       setIsAdjustmentDropdownOpen(false);
     } catch (error) {
       console.error('Adjustment error:', error);
+      setCustomAlert({
+        message: 'Ocorreu um erro ao realizar o ajuste de estoque.',
+        type: 'error'
+      });
     } finally {
       setIsAdjusting(false);
     }
@@ -1389,7 +1415,7 @@ export default function ProductsPage() {
                 </div>
                 <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Ajuste de Estoque em Massa</h3>
               </div>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Selecione qualquer produto no catálogo para ajustar seu saldo físico rapidamente</p>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Selecione vários produtos no catálogo para ajustar seus saldos físicos rapidamente de uma só vez</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1397,7 +1423,7 @@ export default function ProductsPage() {
               <div className="lg:col-span-2 space-y-6">
                 {/* Selecionar Produto */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3" ref={adjustmentDropdownRef}>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Selecionar Produto:</label>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Selecionar Produto(s) para Ajuste:</label>
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-450 z-10" size={16} />
                     <input 
@@ -1406,12 +1432,9 @@ export default function ProductsPage() {
                       onChange={(e) => {
                         setAdjustmentSearchTerm(e.target.value);
                         setIsAdjustmentDropdownOpen(true);
-                        if (adjustmentProductId) {
-                          setAdjustmentProductId('');
-                        }
                       }}
                       onFocus={() => setIsAdjustmentDropdownOpen(true)}
-                      placeholder="Digite o nome, SKU ou código mercadológico para buscar..."
+                      placeholder="Busque por nome, SKU ou Código para adicionar à lista..."
                       className="w-full pl-11 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:ring-4 focus:ring-brand-blue/10 focus:border-brand-blue text-xs font-bold text-slate-700 transition-all outline-none"
                     />
                     {adjustmentSearchTerm ? (
@@ -1419,7 +1442,6 @@ export default function ProductsPage() {
                         type="button"
                         onClick={() => {
                           setAdjustmentSearchTerm('');
-                          setAdjustmentProductId('');
                           setIsAdjustmentDropdownOpen(false);
                         }}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
@@ -1453,35 +1475,150 @@ export default function ProductsPage() {
                             );
                           }
 
-                          return filtered.slice(0, 50).map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                setAdjustmentProductId(p.id);
-                                setAdjustmentSearchTerm(p.name);
-                                setIsAdjustmentDropdownOpen(false);
-                              }}
-                              className={cn(
-                                "w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-slate-50 flex flex-col gap-1 cursor-pointer",
-                                adjustmentProductId === p.id ? "bg-brand-blue/5 text-brand-blue" : "text-slate-700"
-                              )}
-                            >
-                              <div className="flex justify-between items-center gap-2">
-                                <span className={cn("truncate font-black", adjustmentProductId === p.id ? "text-brand-blue" : "text-slate-800")}>{p.name}</span>
-                                <span className="text-[10px] text-slate-400 shrink-0 font-mono font-normal">ESTOQUE: {p.stock} {p.unit || 'UN'}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono font-normal">
-                                {p.sku && <span>SKU: {p.sku}</span>}
-                                {p.codigo_mercadologico && <span>CÓD: {p.codigo_mercadologico}</span>}
-                              </div>
-                            </button>
-                          ));
+                          return filtered.slice(0, 50).map(p => {
+                            const isSelected = selectedAdjustmentProducts.some(item => item.id === p.id);
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedAdjustmentProducts(prev => prev.filter(item => item.id !== p.id));
+                                  } else {
+                                    setSelectedAdjustmentProducts(prev => [
+                                      ...prev,
+                                      {
+                                        id: p.id,
+                                        name: p.name,
+                                        stock: p.stock || 0,
+                                        unit: p.unit || 'UN',
+                                        quantity: adjustmentQty || 1
+                                      }
+                                    ]);
+                                  }
+                                  setAdjustmentSearchTerm('');
+                                }}
+                                className={cn(
+                                  "w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-slate-50 flex flex-col gap-1 cursor-pointer",
+                                  isSelected ? "bg-brand-blue/5 text-brand-blue" : "text-slate-700"
+                                )}
+                              >
+                                <div className="flex justify-between items-center gap-2">
+                                  <div className="flex items-center gap-2 truncate">
+                                    {isSelected && <span className="w-2 h-2 rounded-full bg-brand-blue shrink-0 animate-pulse"></span>}
+                                    <span className={cn("truncate font-black", isSelected ? "text-brand-blue" : "text-slate-800")}>{p.name}</span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 shrink-0 font-mono font-normal">ESTOQUE: {p.stock} {p.unit || 'UN'}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono font-normal">
+                                  <div className="flex items-center gap-3">
+                                    {p.sku && <span>SKU: {p.sku}</span>}
+                                    {p.codigo_mercadologico && <span>CÓD: {p.codigo_mercadologico}</span>}
+                                  </div>
+                                  {isSelected && <span className="text-brand-blue font-black uppercase text-[9px]">Selecionado (Clique para remover)</span>}
+                                </div>
+                              </button>
+                            );
+                          });
                         })()}
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* Lista de Produtos Selecionados */}
+                {selectedAdjustmentProducts.length > 0 && (
+                  <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-4 animate-in fade-in duration-200">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest font-mono">Produtos Selecionados ({selectedAdjustmentProducts.length})</h4>
+                      <button 
+                        type="button" 
+                        onClick={() => setSelectedAdjustmentProducts([])}
+                        className="text-[10px] uppercase font-black text-rose-500 hover:text-rose-600 transition-colors cursor-pointer"
+                      >
+                        Limpar Lista
+                      </button>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="pb-2 text-[10px] font-black uppercase text-slate-400 tracking-wider">Produto</th>
+                            <th className="pb-2 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Sld. Atual</th>
+                            <th className="pb-2 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Qtd. Ajustar</th>
+                            <th className="pb-2 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Novo Saldo</th>
+                            <th className="pb-2 text-[10px] font-black uppercase text-slate-400 tracking-wider text-right w-10 font-mono">Remover</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {selectedAdjustmentProducts.map((item, index) => {
+                            const projected = item.stock + (adjustmentType === 'ENTRADA' ? item.quantity : -item.quantity);
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="py-3 pr-4">
+                                  <div className="font-bold text-slate-800 text-xs truncate max-w-[200px] md:max-w-xs">{item.name}</div>
+                                </td>
+                                <td className="py-3 text-center font-bold text-slate-600 font-mono text-xs whitespace-nowrap">
+                                  {item.stock} {item.unit || 'UN'}
+                                </td>
+                                <td className="py-3 text-center">
+                                  <div className="flex items-center justify-center gap-1.5 max-w-[120px] mx-auto">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedAdjustmentProducts(prev => prev.map((p, i) => i === index ? { ...p, quantity: Math.max(0, p.quantity - 1) } : p));
+                                      }}
+                                      className="w-7 h-7 flex items-center justify-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-bold hover:text-slate-800 transition-colors cursor-pointer active:scale-95"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      value={item.quantity || ''}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, Number(e.target.value));
+                                        setSelectedAdjustmentProducts(prev => prev.map((p, i) => i === index ? { ...p, quantity: val } : p));
+                                      }}
+                                      className="w-14 bg-slate-50/50 border border-slate-200 h-7 rounded-lg text-center text-xs font-black text-slate-800 focus:bg-white focus:border-brand-blue outline-none transition-all"
+                                      placeholder="0"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedAdjustmentProducts(prev => prev.map((p, i) => i === index ? { ...p, quantity: p.quantity + 1 } : p));
+                                      }}
+                                      className="w-7 h-7 flex items-center justify-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-bold hover:text-slate-800 transition-colors cursor-pointer active:scale-95"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className={cn(
+                                  "py-3 text-center font-mono text-xs font-black whitespace-nowrap",
+                                  projected < 0 ? "text-rose-600 animate-pulse" : "text-brand-blue"
+                                )}>
+                                  {projected} {item.unit || 'UN'}
+                                </td>
+                                <td className="py-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAdjustmentProducts(prev => prev.filter((_, i) => i !== index))}
+                                    className="p-1 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer mx-auto block"
+                                  >
+                                    <Trash2 size={14} className="stroke-[2.5]" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Tipo de Ajuste */}
@@ -1519,7 +1656,18 @@ export default function ProductsPage() {
 
                   {/* Quantidade */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3 flex flex-col justify-between">
-                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Quantidade a ser Ajustada:</label>
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none text-left">Quantidade Padrão:</label>
+                      {selectedAdjustmentProducts.length > 0 && adjustmentQty > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAdjustmentProducts(prev => prev.map(p => ({ ...p, quantity: adjustmentQty })))}
+                          className="text-[9px] uppercase font-black text-brand-blue hover:text-brand-blue-hover transition-colors cursor-pointer"
+                        >
+                          Aplicar a todos
+                        </button>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -1574,7 +1722,7 @@ export default function ProductsPage() {
                 <button 
                   type="button"
                   onClick={handleStockAdjustment}
-                  disabled={isAdjusting || !adjustmentProductId || adjustmentQty <= 0}
+                  disabled={isAdjusting || (selectedAdjustmentProducts.length === 0 && !adjustmentProductId)}
                   className={cn(
                     "w-full text-white font-black py-4 rounded-2xl uppercase italic tracking-widest shadow-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer",
                     adjustmentType === 'ENTRADA' 
@@ -1589,7 +1737,7 @@ export default function ProductsPage() {
                     </>
                   ) : (
                     <>
-                      Confirmar Ajuste Manual
+                      Confirmar Ajuste {selectedAdjustmentProducts.length > 0 ? `de ${selectedAdjustmentProducts.length} Produtos` : 'Manual'}
                     </>
                   )}
                 </button>
@@ -1599,8 +1747,7 @@ export default function ProductsPage() {
               <div className="space-y-6">
                 {/* Card Resumo do Estoque */}
                 {(() => {
-                  const selectedProduct = products.find(p => p.id === adjustmentProductId);
-                  if (!selectedProduct) {
+                  if (selectedAdjustmentProducts.length === 0) {
                     return (
                       <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-200 border-dashed text-center space-y-3 flex flex-col items-center justify-center min-h-[220px]">
                         <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
@@ -1608,18 +1755,26 @@ export default function ProductsPage() {
                         </div>
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Simulador de Saldo</h4>
                         <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider leading-relaxed px-4">
-                          Selecione um produto para visualizar a projeção do saldo resultante e alertas de cobertura.
+                          Selecione um ou mais produtos para visualizar a projeção do saldo resultante e alertas de cobertura.
                         </p>
                       </div>
                     );
                   }
 
-                  const displayStock = selectedProduct.stock;
-                  const projectedStock = displayStock + (adjustmentType === 'ENTRADA' ? adjustmentQty : -adjustmentQty);
-                  const minStock = selectedProduct.minStock ?? 0;
+                  const lowStockCount = selectedAdjustmentProducts.filter(item => {
+                    const projected = item.stock + (adjustmentType === 'ENTRADA' ? item.quantity : -item.quantity);
+                    const pSource = products.find(p => p.id === item.id);
+                    const minStock = pSource?.minStock ?? 0;
+                    return projected <= minStock && projected >= 0;
+                  }).length;
+
+                  const negativeStockCount = selectedAdjustmentProducts.filter(item => {
+                    const projected = item.stock + (adjustmentType === 'ENTRADA' ? item.quantity : -item.quantity);
+                    return projected < 0;
+                  }).length;
 
                   return (
-                    <div className="bg-gradient-to-br from-white to-slate-50 p-6 rounded-[24px] border border-slate-200 shadow-sm space-y-5">
+                    <div className="bg-gradient-to-br from-white to-slate-50 p-6 rounded-[24px] border border-slate-200 shadow-sm space-y-5 animate-in fade-in duration-350">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                         <div className="w-7 h-7 rounded-lg bg-brand-blue/10 flex items-center justify-center text-brand-blue">
                           <History size={14} className="stroke-[2.5]" />
@@ -1627,86 +1782,74 @@ export default function ProductsPage() {
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">Previsão Demonstrada</h4>
                       </div>
 
-                      <div className="space-y-4">
-                        {/* Saldo Atual */}
+                      <div className="space-y-3">
                         <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-150 shadow-sm">
-                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Saldo Atual:</span>
-                          <span className="text-xs font-black text-slate-705">{displayStock} {selectedProduct.unit || 'UN'}</span>
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Produtos selecionados:</span>
+                          <span className="text-xs font-black text-slate-705">{selectedAdjustmentProducts.length} itens</span>
                         </div>
 
-                        {/* Transição do Ajuste */}
-                        <div className="flex items-center justify-between px-3">
-                          <div className="flex flex-col">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ajuste</span>
-                            <span className={cn(
-                              "text-xs font-black",
-                              adjustmentType === 'ENTRADA' ? "text-emerald-500" : "text-rose-500"
-                            )}>
-                              {adjustmentType === 'ENTRADA' ? `+ ${adjustmentQty}` : `- ${adjustmentQty}`} {selectedProduct.unit || 'UN'}
-                            </span>
+                        {negativeStockCount > 0 && (
+                          <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex gap-2.5 items-start">
+                            <AlertTriangle size={14} className="text-rose-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                            <div className="space-y-0.5">
+                              <span className="text-[9px] font-black uppercase text-rose-700 block tracking-wider leading-none">Saldo Negativo Detectado</span>
+                              <p className="text-[9px] text-rose-550 leading-tight font-bold uppercase tracking-wide">
+                                {negativeStockCount} produto(s) resultará(ão) em estoque negativo físico!
+                              </p>
+                            </div>
                           </div>
-                          <ArrowRight size={14} className="text-slate-350" />
-                          <div className="flex flex-col items-end">
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Resultará</span>
-                            <span className={cn(
-                              "text-xs font-black",
-                              projectedStock < 0 ? "text-rose-600" : "text-brand-blue"
-                            )}>
-                              {projectedStock} {selectedProduct.unit || 'UN'}
-                            </span>
+                        )}
+
+                        {lowStockCount > 0 && (
+                          <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl flex gap-2.5 items-start">
+                            <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                            <div className="space-y-0.5">
+                              <span className="text-[9px] font-black uppercase text-amber-700 block tracking-wider leading-none">Estoque Crítico / Baixo</span>
+                              <p className="text-[9px] text-amber-550 leading-tight font-bold uppercase tracking-wide">
+                                {lowStockCount} produto(s) ficará(ão) abaixo do estoque mínimo.
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        <div className="h-px bg-slate-150" />
-
-                        {/* Novo Saldo */}
-                        <div className="flex justify-between items-center pt-1 animate-pulse">
-                          <span className="text-[10px] font-black text-slate-550 uppercase tracking-wider">Novo Saldo Projetado:</span>
-                          <span className={cn(
-                            "text-lg font-black italic tracking-tighter",
-                            projectedStock < 0 ? "text-rose-600" : "text-brand-blue"
-                          )}>
-                            {projectedStock} {selectedProduct.unit || 'UN'}
-                          </span>
-                        </div>
+                        {negativeStockCount === 0 && lowStockCount === 0 && (
+                          <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex gap-2.5 items-start">
+                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5 stroke-[2.5]" />
+                            <div className="space-y-0.5">
+                              <span className="text-[9px] font-black uppercase text-emerald-700 block tracking-wider leading-none">Estoque Saudável</span>
+                              <p className="text-[9px] text-emerald-600 leading-tight font-bold uppercase tracking-wide">
+                                Todos os produtos permanecerão em níveis saudáveis de estoque.
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Alertas específicos dependendo do saldo projetado */}
-                      {(() => {
-                        if (projectedStock < 0) {
+                      {/* Lista resumida com scroll das projeções */}
+                      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 scrollbar-thin">
+                        {selectedAdjustmentProducts.map(item => {
+                          const projected = item.stock + (adjustmentType === 'ENTRADA' ? item.quantity : -item.quantity);
                           return (
-                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex gap-2.5 items-start">
-                              <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5 stroke-[2.5]" />
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-black uppercase text-rose-700 block tracking-wider leading-none">Saldo Negativo Detectado</span>
-                                <p className="text-[9px] text-rose-500 leading-relaxed font-bold uppercase tracking-wide">Atenção! Esta ação deixará o estoque no valor negativo de {projectedStock}. Verifique a consistência física.</p>
+                            <div key={item.id} className="pt-2 flex justify-between items-center text-[10px] gap-2">
+                              <span className="font-extrabold text-slate-705 truncate max-w-[125px]">{item.name}</span>
+                              <div className="flex items-center gap-1.5 font-mono font-bold shrink-0">
+                                <span className="text-slate-400">{item.stock}</span>
+                                <span className={cn(
+                                  "text-[10px]",
+                                  adjustmentType === 'ENTRADA' ? "text-emerald-500" : "text-rose-500"
+                                )}>
+                                  {adjustmentType === 'ENTRADA' ? `+${item.quantity}` : `-${item.quantity}`}
+                                </span>
+                                <ArrowRight size={10} className="text-slate-350 shrink-0" />
+                                <span className={cn(
+                                  "font-black text-xs",
+                                  projected < 0 ? "text-rose-600" : "text-brand-blue"
+                                )}>{projected}</span>
                               </div>
                             </div>
                           );
-                        }
-                        
-                        if (projectedStock <= minStock) {
-                          return (
-                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-2.5 items-start">
-                              <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5 stroke-[2.5]" />
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-black uppercase text-amber-700 block tracking-wider leading-none">Estoque Crítico / Baixo</span>
-                                <p className="text-[9px] text-amber-500 leading-relaxed font-bold uppercase tracking-wide">O novo saldo de {projectedStock} estará igual ou abaixo do estoque mínimo definido de {minStock}. Recomenda-se providenciar novas compras.</p>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-xl flex gap-2.5 items-start">
-                            <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5 stroke-[2.5]" />
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black uppercase text-emerald-700 block tracking-wider leading-none">Estoque Seguro</span>
-                              <p className="text-[9px] text-emerald-650 leading-relaxed font-bold uppercase tracking-wide">Com o saldo projetado em {projectedStock} {selectedProduct.unit || 'UN'}, o produto permanecerá saudável com nível de segurança.</p>
-                            </div>
-                          </div>
-                        );
-                      })()}
+                        })}
+                      </div>
                     </div>
                   );
                 })()}
