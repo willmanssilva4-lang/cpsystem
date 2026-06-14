@@ -217,6 +217,7 @@ export default function PDVPage() {
     const todayStr = getLocalDateString(now);
     
     const activeCombos = promotions.filter(p => {
+      if (!p.startDate || !p.endDate) return false;
       const startStr = getLocalDateString(p.startDate);
       const endStr = getLocalDateString(p.endDate);
       return (
@@ -274,6 +275,7 @@ export default function PDVPage() {
     
     // Find active promotions that might apply to this product
     const activePromos = promotions.filter(p => {
+      if (!p.startDate || !p.endDate) return false;
       const startStr = getLocalDateString(p.startDate);
       const endStr = getLocalDateString(p.endDate);
       return (
@@ -1314,6 +1316,7 @@ export default function PDVPage() {
     const todayStr = getLocalDateString(now);
     
     const activePromos = promotions.filter(p => {
+      if (!p.startDate || !p.endDate) return false;
       const startStr = getLocalDateString(p.startDate);
       const endStr = getLocalDateString(p.endDate);
       return (

@@ -86,6 +86,17 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     return true;
   });
 
+  // Auto-select first matching maquininha when method or filtered maquininhas list changes
+  useEffect(() => {
+    if (isCard && filteredMaquininhas.length > 0) {
+      if (!selectedMaquininhaId || !filteredMaquininhas.some(m => m.id === selectedMaquininhaId)) {
+        setSelectedMaquininhaId(filteredMaquininhas[0].id);
+      }
+    } else {
+      setSelectedMaquininhaId('');
+    }
+  }, [activeMethod, isCard, filteredMaquininhas, selectedMaquininhaId]);
+
   // Calculate tax and net amount
   let currentTaxPercentage = 0;
   if (isCard && selectedMaquininhaId) {
@@ -156,12 +167,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
   const selectMaquininha = useCallback((maq: any) => {
     setSelectedMaquininhaId(maq.id);
-    setReceivedAmount(Math.round(remainingAmount * 100) / 100);
-  }, [remainingAmount, setSelectedMaquininhaId, setReceivedAmount]);
+  }, [setSelectedMaquininhaId]);
 
   const addPayment = useCallback(() => {
-    const inputValue = inputRef.current ? Number(inputRef.current.value) : 0;
-    const amountToApply = Math.round(Math.min(inputValue || remainingAmount, remainingAmount) * 100) / 100;
+    const amountToApply = Math.round(Math.min(receivedAmount || remainingAmount, remainingAmount) * 100) / 100;
     if (amountToApply <= 0 && remainingAmount > 0) return;
 
     // Recalculate tax for this specific payment part
@@ -191,7 +200,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     const newPayment = {
       method: activeMethod,
       amount: amountToApply,
-      maquininhaId: isCard ? selectedMaquininhaId : null,
+      maquininhaId: isCard && selectedMaquininhaId ? selectedMaquininhaId : null,
       taxAmount: partTaxAmount,
       netAmount: partNetAmount,
       taxPercentage: partTaxPercentage
@@ -199,13 +208,10 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
     setPayments(prev => [...prev, newPayment]);
     if (amountToApply >= remainingAmount) {
-      setLastChange(inputValue > remainingAmount ? inputValue - remainingAmount : 0);
+      setLastChange(receivedAmount > remainingAmount ? receivedAmount - remainingAmount : 0);
     }
     setReceivedAmount(0);
-    setSelectedMaquininhaId('');
-    
-    // If it was the last payment, we might want to finalize, but let's let the user click confirm
-  }, [activeMethod, remainingAmount, isCard, selectedMaquininhaId, activeMaquininhas, selectedMethodObj, setPayments, setReceivedAmount, setSelectedMaquininhaId, setLastChange]);
+  }, [activeMethod, remainingAmount, isCard, selectedMaquininhaId, activeMaquininhas, selectedMethodObj, setPayments, setReceivedAmount, receivedAmount]);
 
   const removePayment = (index: number) => {
     setPayments(prev => prev.filter((_, i) => i !== index));
@@ -399,14 +405,24 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         confirmAndFinalize();
       }
 
-      if (current.isCard && !current.selectedMaquininhaId && current.filteredMaquininhas.length > 0) {
+      if (current.isCard && current.filteredMaquininhas.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setHighlightedMaquininhaIndex(prev => (prev + 1) % current.filteredMaquininhas.length);
+          const currentIndex = current.filteredMaquininhas.findIndex((m: any) => m.id === current.selectedMaquininhaId);
+          const nextIndex = (currentIndex + 1) % current.filteredMaquininhas.length;
+          const nextMaquininha = current.filteredMaquininhas[nextIndex];
+          if (nextMaquininha) {
+            setSelectedMaquininhaId(nextMaquininha.id);
+          }
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setHighlightedMaquininhaIndex(prev => (prev - 1 + current.filteredMaquininhas.length) % current.filteredMaquininhas.length);
+          const currentIndex = current.filteredMaquininhas.findIndex((m: any) => m.id === current.selectedMaquininhaId);
+          const prevIndex = (currentIndex - 1 + current.filteredMaquininhas.length) % current.filteredMaquininhas.length;
+          const prevMaquininha = current.filteredMaquininhas[prevIndex];
+          if (prevMaquininha) {
+            setSelectedMaquininhaId(prevMaquininha.id);
+          }
         }
       }
     };
@@ -502,150 +518,114 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             )}
 
             <AnimatePresence mode="wait">
-              {isCard && !selectedMaquininhaId && filteredMaquininhas.length > 0 ? (
-                <motion.div 
-                  key="maq-selector"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-2 md:space-y-3 bg-slate-50 p-3 md:p-4 rounded-2xl border-2 border-slate-100"
-                >
-                  <div className="flex items-center gap-1.5 md:gap-2 mb-1.5">
-                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
-                      <CreditCard className="w-3.5 h-3.5 md:w-4 md:h-4 text-brand-blue" />
-                    </div>
-                    <h4 className="font-black uppercase italic text-slate-600 text-[10px] md:text-xs">Selecione a Maquininha</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-1.5 md:gap-2">
-                    {filteredMaquininhas.map((maq, idx) => (
-                      <button
-                        key={maq.id}
-                        onClick={() => selectMaquininha(maq)}
-                        className={cn(
-                          "group flex items-center justify-between p-3 md:p-4 border-2 rounded-xl transition-all text-left",
-                          highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id
-                            ? "border-brand-blue bg-brand-blue/5" 
-                            : "bg-white border-slate-100 hover:border-slate-200"
-                        )}
-                      >
-                        <span className={cn(
-                          "font-black italic uppercase text-xs md:text-sm",
-                          highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id ? "text-brand-blue" : "text-slate-700"
-                        )}>{maq.nome}</span>
-                        <div className={cn(
-                          "w-5 h-5 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center",
-                          highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id ? "border-brand-blue" : "border-slate-200"
-                        )}>
-                          <div className={cn(
-                            "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full transition-all",
-                            highlightedMaquininhaIndex === idx || selectedMaquininhaId === maq.id ? "bg-brand-blue" : "bg-transparent"
-                          )} />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="payment-details"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-3 md:space-y-4"
-                >
-                  {isCard && selectedMaquininhaId && (
-                    <div className="flex items-center justify-between p-2.5 md:p-3 bg-brand-blue/5 border-2 border-brand-blue/20 rounded-xl">
-                      <div className="flex items-center gap-1.5 md:gap-2">
-                        <CreditCard className="w-3.5 h-3.5 md:w-4 md:h-4 text-brand-blue" />
-                        <span className="text-[10px] md:text-xs font-black italic uppercase text-brand-blue">
-                          {activeMaquininhas.find(m => m.id === selectedMaquininhaId)?.nome}
-                        </span>
-                      </div>
+              <motion.div 
+                key={activeMethod}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-3 md:space-y-4"
+              >
+                {isVoucher ? (
+                  <div className="space-y-2 md:space-y-3 bg-brand-blue/5 p-3 md:p-4 rounded-2xl border-2 border-brand-blue/10">
+                    <label className="text-xs md:text-sm font-black italic text-brand-blue">Informar Código do Cupom</label>
+                    <div className="flex gap-1.5 md:gap-2">
+                      <input 
+                        ref={voucherInputRef}
+                        type="text"
+                        value={voucherCode}
+                        onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                        placeholder="EX: ABC123DEF"
+                        className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-xl font-black border-2 border-brand-blue/20 rounded-xl focus:border-brand-blue outline-none uppercase"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.nativeEvent.stopImmediatePropagation();
+                            e.stopPropagation();
+                            e.preventDefault();
+                            handleVoucherApply();
+                          }
+                        }}
+                      />
                       <button 
-                        onClick={() => setSelectedMaquininhaId('')}
-                        className="text-[9px] md:text-[10px] font-black uppercase italic text-slate-400 hover:text-red-500 transition-colors"
+                        onClick={handleVoucherApply}
+                        disabled={!voucherCode || isValidatingVoucher}
+                        className="shrink-0 px-4 md:px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-[10px] md:text-xs disabled:opacity-50"
                       >
-                        Alterar
+                        {isValidatingVoucher ? '...' : 'Validar'}
                       </button>
                     </div>
-                  )}
-
-                  {isVoucher ? (
-                    <div className="space-y-2 md:space-y-3 bg-brand-blue/5 p-3 md:p-4 rounded-2xl border-2 border-brand-blue/10">
-                      <label className="text-xs md:text-sm font-black italic text-brand-blue">Informar Código do Cupom</label>
+                    {voucherError && (
+                      <p className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic flex items-center gap-1">
+                        <Settings size={10} /> {voucherError}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs md:text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
                       <div className="flex gap-1.5 md:gap-2">
                         <input 
-                          ref={voucherInputRef}
-                          type="text"
-                          value={voucherCode}
-                          onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                          placeholder="EX: ABC123DEF"
-                          className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-xl font-black border-2 border-brand-blue/20 rounded-xl focus:border-brand-blue outline-none uppercase"
+                          ref={inputRef}
+                          type="number"
+                          value={receivedAmount || ''}
+                          placeholder={remainingAmount.toFixed(2)}
+                          onChange={(e) => setReceivedAmount(Number(e.target.value))}
+                          onFocus={(e) => e.target.select()}
+                          className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all font-mono"
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.nativeEvent.stopImmediatePropagation();
-                              e.stopPropagation();
+                            if (e.key === 'Enter' || e.key === 'F10') {
                               e.preventDefault();
-                              handleVoucherApply();
+                              e.stopPropagation();
+                              confirmAndFinalize();
                             }
                           }}
                         />
                         <button 
-                          onClick={handleVoucherApply}
-                          disabled={!voucherCode || isValidatingVoucher}
-                          className="shrink-0 px-4 md:px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-[10px] md:text-xs disabled:opacity-50"
+                          onClick={addPayment}
+                          type="button"
+                          disabled={remainingAmount <= 0}
+                          className="shrink-0 px-4 md:px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50 whitespace-nowrap active:scale-95 transition-all shadow-md"
                         >
-                          {isValidatingVoucher ? '...' : 'Validar'}
+                          Adicionar
                         </button>
                       </div>
-                      {voucherError && (
-                        <p className="text-[9px] md:text-[10px] font-black text-red-500 uppercase italic flex items-center gap-1">
-                          <Settings size={10} /> {voucherError}
-                        </p>
-                      )}
                     </div>
-                  ) : (
-                    <>
-                      <div className="space-y-1">
-                        <label className="text-xs md:text-sm font-black italic text-slate-500">Valor a Receber ({activeMethod})</label>
-                        <div className="flex gap-1.5 md:gap-2">
-                          <input 
-                            ref={inputRef}
-                            type="number"
-                            value={receivedAmount || ''}
-                            placeholder={remainingAmount.toFixed(2)}
-                            onChange={(e) => setReceivedAmount(Number(e.target.value))}
-                            onFocus={(e) => e.target.select()}
-                            className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === 'F10') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                confirmAndFinalize();
-                              }
-                            }}
-                          />
-                          <button 
-                            onClick={addPayment}
-                            disabled={remainingAmount <= 0}
-                            className="shrink-0 px-3 md:px-4 bg-brand-blue text-white rounded-xl font-black italic uppercase text-[10px] md:text-xs disabled:opacity-50 whitespace-nowrap"
-                          >
-                            Adicionar
-                          </button>
-                        </div>
+
+                    {isCard && filteredMaquininhas.length > 0 && (
+                      <div className="bg-slate-50 p-3 rounded-xl border-2 border-slate-100 space-y-1.5 animate-in fade-in duration-200">
+                        <label className="text-xs font-black italic text-slate-500 uppercase flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <CreditCard size={14} className="text-brand-blue" />
+                            Selecione o Terminal / Maquininha
+                          </span>
+                          <span className="text-[10px] text-brand-blue font-black bg-brand-blue/10 px-2 py-0.5 rounded flex items-center gap-1">
+                            Setas ↑ ↓ Mudar
+                          </span>
+                        </label>
+                        <select
+                          value={selectedMaquininhaId}
+                          onChange={(e) => setSelectedMaquininhaId(e.target.value)}
+                          className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl font-black italic text-xs md:text-sm text-slate-700 focus:border-brand-blue outline-none"
+                        >
+                          {filteredMaquininhas.map((maq) => (
+                            <option key={maq.id} value={maq.id}>
+                              {maq.nome} {selectedMethodObj?.type === 'Débito' ? `(Taxa Débito: ${maq.taxa_debito || 0}%)` : selectedMethodObj?.type === 'Crédito' ? `(Taxa Crédito: ${maq.taxa_credito || 0}%)` : `(Taxa Pix: ${maq.taxa_pix || 0}%)`}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-xs md:text-sm font-black italic text-slate-500">Troco</label>
-                        <div className="w-full p-2.5 md:p-4 text-lg md:text-2xl font-black bg-slate-100 rounded-xl text-right">
-                          R$ {(remainingAmount === 0 && payments.length > 0 ? lastChange : change).toFixed(2)}
-                        </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-xs md:text-sm font-black italic text-slate-500">Troco</label>
+                      <div className="w-full p-2.5 md:p-4 text-lg md:text-2xl font-black bg-slate-100 rounded-xl text-right font-mono">
+                        R$ {(remainingAmount === 0 && payments.length > 0 ? lastChange : change).toFixed(2)}
                       </div>
-                    </>
-                  )}
-                </motion.div>
-              )}
+                    </div>
+                  </>
+                )}
+              </motion.div>
             </AnimatePresence>
           </div>
         </div>

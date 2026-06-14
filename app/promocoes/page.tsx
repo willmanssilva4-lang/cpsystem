@@ -5,6 +5,7 @@ import { useERP } from '@/lib/context';
 import { Plus, Search, Filter, Edit, Trash2, Tag, Percent, ShoppingBag, Layers, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import PromotionModal from '@/components/PromotionModal';
 import { Promotion } from '@/lib/types';
+import { getLocalDateString } from '@/lib/utils';
 
 export default function PromocoesPage() {
   const { promotions, deletePromotion, sales, user } = useERP();
@@ -203,13 +204,22 @@ export default function PromocoesPage() {
                     </div>
                   </td>
                   <td className="py-5 px-6">
-                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
-                      promo.status === 'ACTIVE' 
-                        ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-900/50' 
-                        : 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200/50 dark:border-slate-800'
-                    }`}>
-                      {promo.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
-                    </span>
+                    {(() => {
+                      const todayStr = getLocalDateString();
+                      const endStr = getLocalDateString(promo.endDate);
+                      const isExpired = promo.status === 'ACTIVE' && todayStr > endStr;
+                      return (
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                          isExpired
+                            ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200/50 dark:border-amber-900/50'
+                            : promo.status === 'ACTIVE' 
+                              ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-900/50' 
+                              : 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200/50 dark:border-slate-800'
+                        }`}>
+                          {isExpired ? 'Expirada' : promo.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="py-5 px-6 text-right">
                     {(user?.role?.trim().toLowerCase() === 'administrador' || user?.role?.trim().toLowerCase() === 'admin' || user?.role?.trim().toLowerCase() === 'gerente') && (

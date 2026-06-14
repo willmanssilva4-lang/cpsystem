@@ -105,6 +105,7 @@ export default function PriceCheckPage() {
     
     // Find active promotions that might apply to this product
     const activePromos = promotions.filter(p => {
+      if (!p.startDate || !p.endDate) return false;
       const startStr = getLocalDateString(p.startDate);
       const endStr = getLocalDateString(p.endDate);
       return (

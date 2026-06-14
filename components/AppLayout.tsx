@@ -472,6 +472,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isPDVPage = pathname === '/pdv';
   const isPriceCheckPage = pathname === '/consulta-preco';
   const isEstoquePage = pathname === '/produtos';
+  const isComprasPage = pathname.startsWith('/compras');
+  const hideSidebar = isEstoquePage || isComprasPage;
 
   return (
     <AuthGuard>
@@ -480,7 +482,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Sidebar 
               isOpen={isMobileMenuOpen} 
               onClose={() => setIsMobileMenuOpen(false)} 
-              hideOnDesktop={isEstoquePage}
+              hideOnDesktop={hideSidebar}
             />
           )}
           <main id="main-content" data-id="main-content" data-name="main-content" className={`flex-1 flex flex-col min-w-0 ${!isLoginPage ? 'bg-brand-bg' : ''}`}>
@@ -489,7 +491,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 user={user} 
                 onMenuClick={() => setIsMobileMenuOpen(true)} 
                 onHelpClick={() => setIsHelpOpen(true)}
-                showMenuToggleOnDesktop={isEstoquePage}
+                showMenuToggleOnDesktop={hideSidebar}
               />
             )}
             <div id="page-content" data-id="page-content" data-name="page-content" className="flex-1">
