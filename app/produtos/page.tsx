@@ -1221,6 +1221,16 @@ export default function ProductsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  handleRegisterLoss(product);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                              >
+                                <AlertTriangle size={14} className="text-orange-500" />
+                                Registrar Perda
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   handleDelete(product.id);
                                 }}
                                 className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors mt-1"
@@ -1708,6 +1718,7 @@ export default function ProductsPage() {
                       <option value="Correção de Saldo">Correção de Saldo</option>
                       <option value="Avaria / Quebra">Avaria / Quebra</option>
                       <option value="Vencimento">Vencimento</option>
+                      <option value="Consumo Interno">Consumo Interno</option>
                       <option value="Bonificação">Bonificação</option>
                       <option value="Doação">Doação</option>
                       <option value="Outros">Outros</option>
@@ -2850,6 +2861,7 @@ function LossModal({ product, onClose }: { product: Product, onClose: () => void
                 <option value="Vencimento">Vencimento</option>
                 <option value="Avaria">Avaria</option>
                 <option value="Quebra">Quebra</option>
+                <option value="Consumo Interno">Consumo Interno</option>
                 <option value="Roubo/Furto">Roubo/Furto</option>
                 <option value="Outros">Outros</option>
               </select>
