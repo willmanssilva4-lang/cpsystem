@@ -168,7 +168,10 @@ export default function NovaCompraPage() {
           if (draft.supplierId) {
             setSupplierId(draft.supplierId);
             const supp = suppliersList.find((s) => s.id === draft.supplierId);
-            if (supp) setSupplierSearchTerm(supp.name);
+            if (supp) {
+              const tradeName = supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
+              setSupplierSearchTerm(tradeName);
+            }
           }
           if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber);
           if (draft.issueDate) setIssueDate(draft.issueDate);
@@ -200,7 +203,10 @@ export default function NovaCompraPage() {
       const supp = suppliersList.find(
         (s) => s.id === savedReplenishmentSupplierId,
       );
-      if (supp) setSupplierSearchTerm(supp.name);
+      if (supp) {
+        const tradeName = supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
+        setSupplierSearchTerm(tradeName);
+      }
       localStorage.removeItem("quotation_supplier_id");
     }
 
@@ -997,39 +1003,42 @@ export default function NovaCompraPage() {
                                   Nenhum fornecedor encontrado
                                 </div>
                               ) : (
-                                filteredSuppliers.map((s) => (
-                                  <button
-                                    key={s.id}
-                                    onClick={() => {
-                                      setSupplierId(s.id);
-                                      setSupplierSearchTerm(s.name);
-                                      setShowSupplierResults(false);
-                                    }}
-                                    className={cn(
-                                      "w-full flex items-center justify-between px-5 py-4 text-left transition-all border-b border-brand-border last:border-0 hover:bg-brand-blue/5",
-                                      supplierId === s.id
-                                        ? "bg-brand-blue/5 border-l-4 border-l-brand-blue"
-                                        : "",
-                                    )}
-                                  >
-                                    <div>
-                                      <div className="font-black text-brand-text-main text-sm uppercase italic tracking-tight">
-                                        {s.name}
+                                filteredSuppliers.map((s) => {
+                                  const tradeName = s.name.includes(" | ") ? s.name.split(" | ")[1] : s.name;
+                                  return (
+                                    <button
+                                      key={s.id}
+                                      onClick={() => {
+                                        setSupplierId(s.id);
+                                        setSupplierSearchTerm(tradeName);
+                                        setShowSupplierResults(false);
+                                      }}
+                                      className={cn(
+                                        "w-full flex items-center justify-between px-5 py-4 text-left transition-all border-b border-brand-border last:border-0 hover:bg-brand-blue/5",
+                                        supplierId === s.id
+                                          ? "bg-brand-blue/5 border-l-4 border-l-brand-blue"
+                                          : "",
+                                      )}
+                                    >
+                                      <div>
+                                        <div className="font-black text-brand-text-main text-sm uppercase italic tracking-tight">
+                                          {tradeName}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
+                                          {s.document ||
+                                            s.cnpj ||
+                                            "Sem Documento"}
+                                        </div>
                                       </div>
-                                      <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
-                                        {s.document ||
-                                          s.cnpj ||
-                                          "Sem Documento"}
-                                      </div>
-                                    </div>
-                                    {supplierId === s.id && (
-                                      <CheckCircle2
-                                        className="text-brand-blue"
-                                        size={20}
-                                      />
-                                    )}
-                                  </button>
-                                ))
+                                      {supplierId === s.id && (
+                                        <CheckCircle2
+                                          className="text-brand-blue"
+                                          size={20}
+                                        />
+                                      )}
+                                    </button>
+                                  );
+                                })
                               )}
                             </motion.div>
                           )}
@@ -1425,8 +1434,11 @@ export default function NovaCompraPage() {
                           Nome
                         </div>
                         <div className="font-bold text-brand-text-main">
-                          {suppliersList.find((s) => s.id === supplierId)
-                            ?.name || "Fornecedor não encontrado"}
+                          {(() => {
+                            const supp = suppliersList.find((s) => s.id === supplierId);
+                            if (!supp) return "Fornecedor não encontrado";
+                            return supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
+                          })()}
                         </div>
                       </div>
 
