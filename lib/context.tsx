@@ -407,12 +407,52 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               };
             });
             const dynamicCostPrice = Number(updatedComposition.reduce((acc: number, item: any) => acc + ((item.price || 0) * item.quantity), 0).toFixed(3));
+            
+            // Calculate Stock for KIT dynamically based on components
+            let kitStock = Infinity;
+            if (updatedComposition.length > 0) {
+              updatedComposition.forEach((item: any) => {
+                const component = resolvedBasicProducts.find(bp => bp.id === item.productId);
+                if (component) {
+                  const compStock = Number(component.stock || 0);
+                  const qtyNeeded = Number(item.quantity) || 1;
+                  const available = Math.floor(compStock / qtyNeeded);
+                  if (available < kitStock) {
+                    kitStock = available;
+                  }
+                } else {
+                  kitStock = 0;
+                }
+              });
+            }
+            if (kitStock === Infinity) kitStock = 0;
+
             return {
               ...p,
               composition: updatedComposition,
-              costPrice: dynamicCostPrice
+              costPrice: dynamicCostPrice,
+              stock: kitStock
             };
           }
+          
+          if (p.base_product_id && p.conversion_factor) {
+            const baseProduct = resolvedBasicProducts.find(bp => bp.id === p.base_product_id);
+            if (baseProduct) {
+              const baseStock = Number(baseProduct.stock || 0);
+              const convFactor = Number(p.conversion_factor) || 1;
+              const virtualStock = Math.floor(baseStock * convFactor);
+              
+              const baseCost = Number(baseProduct.costPrice || baseProduct.cost_price || 0);
+              const virtualCost = Number((baseCost / convFactor).toFixed(3));
+              
+              return {
+                ...p,
+                stock: virtualStock,
+                costPrice: virtualCost
+              };
+            }
+          }
+          
           return p;
         });
 
