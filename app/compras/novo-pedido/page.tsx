@@ -689,9 +689,15 @@ export default function NovaCompraPage() {
               cost_price: costToUpdate,
               supplier: supplierName,
               has_had_stock: true,
-              stock: newStock,
               image: `${cleanBaseImage}#cost:${costToUpdate}`,
             };
+
+            // Se for produto filho (com base_product_id), nós atualizamos o estoque do pai aqui de forma manual.
+            // Para produtos diretos, o addStockMovement ja atualiza o estoque de forma automatica e correta,
+            // evitando assim a duplicacao do estoque.
+            if (originalProduct.base_product_id) {
+              baseUpdateData.stock = newStock;
+            }
 
             if (originalProduct.base_product_id) {
               if (item.expirationDate) {

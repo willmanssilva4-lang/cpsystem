@@ -73,9 +73,7 @@ export function Dashboard() {
 
   // Filter data based on date range
   const safeToLocalDateString = (dateInput: string) => {
-    if (!dateInput) return '';
-    // Assume ISO format YYYY-MM-DD...
-    return dateInput.split('T')[0];
+    return toLocalDateString(dateInput);
   };
 
   const filteredSales = sales.filter(s => {

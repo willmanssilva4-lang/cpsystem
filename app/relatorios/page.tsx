@@ -5972,7 +5972,7 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
       if (s.status === 'Cancelada') return false;
-      const d = s.date.split('T')[0];
+      const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
   }, [sales, startDate, endDate]);
@@ -6438,7 +6438,7 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
   });
 
   const filteredSales = sales.filter(s => {
-    const d = s.date.split('T')[0];
+    const d = toLocalDateString(s.date);
     return d >= startDate && d <= endDate;
   });
 
@@ -8292,7 +8292,7 @@ function CostReport({ startDate, endDate }: { startDate: string, endDate: string
     try {
       const filteredSales = sales.filter(s => {
         if (s.status === 'Cancelada') return false;
-        const d = s.date.split('T')[0];
+        const d = toLocalDateString(s.date);
         return d >= startDate && d <= endDate;
       });
 
@@ -9396,7 +9396,7 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
       type: 'Entrada' as const,
       description: `Recebimento de Venda #${s.id.slice(0, 8)} ${s.customerName ? `(${s.customerName})` : ''}`,
       category: 'Vendas de Produtos',
-      date: s.date.split('T')[0],
+      date: toLocalDateString(s.date),
       amount: s.total,
       tagColor: 'text-emerald-700 bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40',
     }));
@@ -9406,7 +9406,7 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
       type: 'Saída' as const,
       description: e.description || 'Despesa Não Identificada',
       category: e.category || 'Despesas Compartilhadas',
-      date: e.date.split('T')[0],
+      date: toLocalDateString(e.date),
       amount: e.amount,
       tagColor: 'text-rose-700 bg-rose-50 border border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/40',
     }));
