@@ -51,6 +51,25 @@ export default function NovaCompraPage() {
     fetchData,
   } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
+
+  // Dynamically hide scrollbar when in Fornecedor tab
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (activeTab === 1) {
+        document.documentElement.classList.add("no-scrollbar");
+        document.body.classList.add("no-scrollbar");
+      } else {
+        document.documentElement.classList.remove("no-scrollbar");
+        document.body.classList.remove("no-scrollbar");
+      }
+    }
+    return () => {
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("no-scrollbar");
+        document.body.classList.remove("no-scrollbar");
+      }
+    };
+  }, [activeTab]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
@@ -162,75 +181,109 @@ export default function NovaCompraPage() {
     // Load draft PERSISTENCY once
     if (!hasLoadedDraft) {
       const savedDraft = localStorage.getItem("purchase_draft");
+      const savedItems = localStorage.getItem("replenishment_items");
+      const savedReplenishmentSupplierId = localStorage.getItem(
+        "quotation_supplier_id",
+      );
+
+      let draftObj: any = null;
       if (savedDraft) {
         try {
-          const draft = JSON.parse(savedDraft);
-          if (draft.supplierId) {
-            setSupplierId(draft.supplierId);
-            const supp = suppliersList.find((s) => s.id === draft.supplierId);
-            if (supp) {
-              const tradeName = supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
-              setSupplierSearchTerm(tradeName);
-            }
-          }
-          if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber);
-          if (draft.issueDate) setIssueDate(draft.issueDate);
-          if (draft.entryDate) setEntryDate(draft.entryDate);
-          if (draft.paymentCondition)
-            setPaymentCondition(draft.paymentCondition);
-          if (draft.financialAccount)
-            setFinancialAccount(draft.financialAccount);
-          if (draft.observations) setObservations(draft.observations);
-          if (draft.items && draft.items.length > 0) setItems(draft.items);
-          if (draft.activeTab) setActiveTab(draft.activeTab);
-          if (draft.orderStatus) setOrderStatus(draft.orderStatus);
+          draftObj = JSON.parse(savedDraft);
         } catch (e) {
-          console.error("Error loading purchase draft:", e);
+          console.error("Error parsing purchase draft:", e);
         }
       }
+
+      // Load draft variables (except items if replenishment is active)
+      if (draftObj) {
+        if (draftObj.supplierId && !savedReplenishmentSupplierId) {
+          setSupplierId(draftObj.supplierId);
+          const supp = suppliersList.find((s) => s.id === draftObj.supplierId);
+          if (supp) {
+            const tradeName = supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
+            setSupplierSearchTerm(tradeName);
+          }
+        }
+        if (draftObj.invoiceNumber) setInvoiceNumber(draftObj.invoiceNumber);
+        if (draftObj.issueDate) setIssueDate(draftObj.issueDate);
+        if (draftObj.entryDate) setEntryDate(draftObj.entryDate);
+        if (draftObj.paymentCondition)
+          setPaymentCondition(draftObj.paymentCondition);
+        if (draftObj.financialAccount)
+          setFinancialAccount(draftObj.financialAccount);
+        if (draftObj.observations) setObservations(draftObj.observations);
+        if (draftObj.orderStatus) setOrderStatus(draftObj.orderStatus);
+
+        // Only load draft items if we are NOT running a replenishment flow
+        if (!savedItems && draftObj.items && draftObj.items.length > 0) {
+          setItems(draftObj.items);
+          if (draftObj.activeTab) setActiveTab(draftObj.activeTab);
+        }
+      }
+
+      // Load replenishment supplier if active
+      if (savedReplenishmentSupplierId) {
+        setSupplierId(savedReplenishmentSupplierId);
+        const supp = suppliersList.find(
+          (s) => s.id === savedReplenishmentSupplierId,
+        );
+        if (supp) {
+          const tradeName = supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
+          setSupplierSearchTerm(tradeName);
+        }
+        localStorage.removeItem("quotation_supplier_id");
+      }
+
       setHasLoadedDraft(true);
       setIsLoading(false);
     }
 
-    // Check for replenishment items
+    // Now check for replenishment items
     const savedItems = localStorage.getItem("replenishment_items");
-    const savedReplenishmentSupplierId = localStorage.getItem(
-      "quotation_supplier_id",
-    );
-
-    if (savedReplenishmentSupplierId) {
-      setSupplierId(savedReplenishmentSupplierId);
-      const supp = suppliersList.find(
-        (s) => s.id === savedReplenishmentSupplierId,
-      );
-      if (supp) {
-        const tradeName = supp.name.includes(" | ") ? supp.name.split(" | ")[1] : supp.name;
-        setSupplierSearchTerm(tradeName);
-      }
-      localStorage.removeItem("quotation_supplier_id");
-    }
 
     if (savedItems && Array.isArray(products) && products.length > 0) {
       try {
         const parsedItems = JSON.parse(savedItems);
         const newItems: PurchaseItem[] = parsedItems.map((p: any) => {
           const product = products.find((prod: any) => prod.id === p.id);
-          const pMinStock = Number(p.minStock ?? p.min_stock ?? 0);
+          
+          // Ensure we get clean numeric values using fallback properties to prevent NaN representation issues
+          const pMinStock = Number(p.minStock ?? p.min_stock ?? (product as any)?.minStock ?? (product as any)?.min_stock ?? 0);
           const prodMinStock = Number(
-            (product as any)?.minStock ?? (product as any)?.min_stock ?? 0,
+            (product as any)?.minStock ?? (product as any)?.min_stock ?? pMinStock ?? 0,
           );
-          const pStock = Number(p.stock ?? (product as any)?.stock ?? 0);
+          
+          // Use currentStock pure number if available, otherwise safely parse formatted strings like "1 un."
+          let rawStock = p.currentStock !== undefined ? p.currentStock : (p.stock !== undefined ? p.stock : (product as any)?.stock);
+          if (typeof rawStock === 'string') {
+            // Remove text units (e.g., " un.", " kg") and parse correctly
+            rawStock = parseFloat(rawStock.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+          }
+          const pStock = Number(rawStock ?? 0);
 
-          const qty =
+          let qty =
             p.suggestedQty !== undefined
-              ? p.suggestedQty
+              ? Number(p.suggestedQty)
               : Math.max(0, prodMinStock - pStock);
-          const cost =
+          
+          if (isNaN(qty) || qty <= 0) {
+            qty = Math.max(1, prodMinStock - pStock);
+          }
+          if (isNaN(qty) || qty <= 0) {
+            qty = 1; // safe fallback so the item is truly added of at least 1 unit
+          }
+
+          let cost =
             p.costValue !== undefined
-              ? p.costValue
+              ? Number(p.costValue)
               : Number(
                   (product as any)?.costPrice ?? (product as any)?.cost_price,
                 ) || 0;
+          
+          if (isNaN(cost)) {
+            cost = 0;
+          }
 
           return {
             id: Math.random().toString(36).substr(2, 9),
@@ -255,7 +308,7 @@ export default function NovaCompraPage() {
         console.error("Error loading replenishment items:", e);
       }
     }
-  }, [isAuthReady, products, hasLoadedDraft]);
+  }, [isAuthReady, products, hasLoadedDraft, suppliersList]);
 
   // Save draft to localStorage
   useEffect(() => {
@@ -881,25 +934,28 @@ export default function NovaCompraPage() {
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
 
   return (
-    <div className="p-4 md:p-8 space-y-8 bg-brand-bg/50 min-h-screen relative">
+    <div className={cn(
+      "p-0 space-y-3 bg-brand-bg/50 min-h-screen relative flex flex-col",
+      activeTab === 1 ? "no-scrollbar overflow-y-hidden" : ""
+    )}>
       {/* Visual background glow */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-blue/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-brand-green/3 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-        <div className="flex items-center gap-4">
+      {/* Header Container with padding */}
+      <div className="px-4 md:px-8 pt-3 md:pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 md:gap-4 relative z-10 shrink-0">
+        <div className="flex items-center gap-3">
           <Link
             href="/compras"
-            className="w-14 h-14 rounded-3xl bg-brand-card border border-brand-border flex items-center justify-center text-brand-text-sec hover:text-brand-blue transition-all active:scale-95 shadow-sm"
+            className="w-11 h-11 rounded-2xl bg-brand-card border border-brand-border flex items-center justify-center text-brand-text-sec hover:text-brand-blue transition-all active:scale-95 shadow-sm shrink-0"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={18} />
           </Link>
           <div>
-            <h2 className="text-3xl lg:text-4xl font-black text-brand-text-main uppercase italic tracking-tight">
+            <h2 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">
               Nova Compra
             </h2>
-            <p className="text-sm text-brand-text-sec font-bold uppercase tracking-widest opacity-70 mt-1">
+            <p className="text-[10px] md:text-xs text-brand-text-sec font-bold uppercase tracking-widest opacity-70 mt-0.5">
               Entrada de Mercadoria e Lotes
             </p>
           </div>
@@ -908,29 +964,29 @@ export default function NovaCompraPage() {
         {(supplierId || items.length > 0) && (
           <button
             onClick={handleClearDraft}
-            className="flex items-center gap-2 px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-black uppercase italic tracking-tight hover:bg-rose-100 transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase italic tracking-tight hover:bg-rose-100 transition-all shadow-sm active:scale-95 shrink-0 select-none"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
             Limpar formulário
           </button>
         )}
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 relative z-10">
+      {/* Tabs Navigation with padding */}
+      <div className="px-4 md:px-8 flex items-center gap-1.5 md:gap-3 overflow-x-auto pb-1 no-scrollbar relative z-10 shrink-0">
         {[1, 2, 3].map((tab) => (
           <div
             key={tab}
             className={cn(
-              "flex items-center gap-3 px-6 py-4 rounded-3xl font-black uppercase italic tracking-tight transition-all shrink-0 border",
+              "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black uppercase italic tracking-tight transition-all shrink-0 border text-xs",
               activeTab === tab
-                ? "bg-brand-blue text-white border-brand-blue shadow-lg shadow-brand-blue/20"
+                ? "bg-brand-blue text-white border-brand-blue shadow-md shadow-brand-blue/10"
                 : "text-brand-text-sec bg-brand-card border-brand-border",
             )}
           >
             <div
               className={cn(
-                "w-8 h-8 rounded-2xl flex items-center justify-center text-xs",
+                "w-6 h-6 rounded-xl flex items-center justify-center text-[10px]",
                 activeTab === tab
                   ? "bg-white/20 text-white"
                   : "bg-brand-bg text-brand-text-sec",
@@ -938,15 +994,18 @@ export default function NovaCompraPage() {
             >
               {tab}
             </div>
-            <span className="text-sm">
+            <span className="text-xs">
               {tab === 1 ? "Fornecedor" : tab === 2 ? "Produtos" : "Finalizar"}
             </span>
           </div>
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="bg-white rounded-[40px] shadow-sm border border-brand-border/50 p-6 md:p-8 relative z-10">
+      {/* Tab Content Full Screen Modal Style */}
+      <div className={cn(
+        "flex-grow bg-white border-t border-brand-border/50 p-4 md:p-6 pb-6 relative z-10 w-full rounded-t-[32px] shadow-2xl flex flex-col",
+        activeTab === 1 ? "no-scrollbar overflow-y-hidden" : ""
+      )}>
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div>
@@ -958,191 +1017,203 @@ export default function NovaCompraPage() {
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="space-y-8"
+                className="space-y-4 no-scrollbar flex-grow flex flex-col justify-between"
               >
-                <div className="flex items-center gap-4 border-b border-brand-border/50 pb-6">
-                  <div className="w-12 h-12 bg-brand-blue/10 rounded-full flex items-center justify-center text-brand-blue">
-                    <Truck size={24} />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 border-b border-brand-border/50 pb-3">
+                    <div className="w-10 h-10 bg-brand-blue/10 rounded-full flex items-center justify-center text-brand-blue">
+                      <Truck size={20} />
+                    </div>
+                    <h3 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight">
+                      Dados do Fornecedor
+                    </h3>
                   </div>
-                  <h3 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">
-                    Dados do Fornecedor
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2 md:col-span-2 relative">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Fornecedor *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-brand-blue/40">
-                        <Truck size={20} />
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Fornecedor search */}
+                    <div className="space-y-1.5 md:col-span-2 relative">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Fornecedor *
+                      </label>
+                      <div className="relative">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-blue/40">
+                          <Truck size={18} />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder={
+                            isLoadingContext
+                              ? "Carregando fornecedores..."
+                              : "Buscar fornecedor por nome ou documento..."
+                          }
+                          value={supplierSearchTerm}
+                          onChange={(e) => {
+                            setSupplierSearchTerm(e.target.value);
+                            setShowSupplierResults(true);
+                          }}
+                          onFocus={() => setShowSupplierResults(true)}
+                          className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-xs md:text-sm transition-all outline-none"
+                        />
+
+                        <AnimatePresence>
+                          {showSupplierResults &&
+                            supplierSearchTerm.length >= 3 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute z-[60] left-0 right-0 mt-1 bg-white border border-brand-border rounded-xl shadow-2xl max-h-48 overflow-y-auto"
+                              >
+                                {filteredSuppliers.length === 0 ? (
+                                  <div className="p-3 text-center text-xs text-slate-400 italic">
+                                    Nenhum fornecedor encontrado
+                                  </div>
+                                ) : (
+                                  filteredSuppliers.map((s) => {
+                                    const tradeName = s.name.includes(" | ") ? s.name.split(" | ")[1] : s.name;
+                                    return (
+                                      <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSupplierId(s.id);
+                                          setSupplierSearchTerm(tradeName);
+                                          setShowSupplierResults(false);
+                                        }}
+                                        className={cn(
+                                          "w-full flex items-center justify-between px-4 py-2.5 text-left transition-all border-b border-brand-border last:border-0 hover:bg-brand-blue/5 text-xs",
+                                          supplierId === s.id
+                                            ? "bg-brand-blue/5 border-l-4 border-l-brand-blue"
+                                            : "",
+                                        )}
+                                      >
+                                        <div>
+                                          <div className="font-black text-brand-text-main text-xs uppercase italic tracking-tight">
+                                            {tradeName}
+                                          </div>
+                                          <div className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
+                                            {s.document ||
+                                              s.cnpj ||
+                                              "Sem Documento"}
+                                          </div>
+                                        </div>
+                                        {supplierId === s.id && (
+                                          <CheckCircle2
+                                            className="text-brand-blue"
+                                            size={16}
+                                          />
+                                        )}
+                                      </button>
+                                    );
+                                  })
+                                )}
+                              </motion.div>
+                            )}
+                        </AnimatePresence>
                       </div>
+                    </div>
+
+                    {/* Nº Nota Fiscal */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Nº Nota Fiscal
+                      </label>
                       <input
                         type="text"
-                        placeholder={
-                          isLoadingContext
-                            ? "Carregando fornecedores..."
-                            : "Buscar fornecedor por nome ou documento..."
-                        }
-                        value={supplierSearchTerm}
-                        onChange={(e) => {
-                          setSupplierSearchTerm(e.target.value);
-                          setShowSupplierResults(true);
-                        }}
-                        onFocus={() => setShowSupplierResults(true)}
-                        className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-sm md:text-base transition-all outline-none"
+                        placeholder="Ex: 123456"
+                        value={invoiceNumber}
+                        onChange={(e) => setInvoiceNumber(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-xs md:text-sm transition-all"
                       />
-
-                      <AnimatePresence>
-                        {showSupplierResults &&
-                          supplierSearchTerm.length >= 3 && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute z-[60] left-0 right-0 mt-2 bg-white border border-brand-border rounded-2xl shadow-2xl max-h-64 overflow-y-auto"
-                            >
-                              {filteredSuppliers.length === 0 ? (
-                                <div className="p-4 text-center text-sm text-slate-400 italic">
-                                  Nenhum fornecedor encontrado
-                                </div>
-                              ) : (
-                                filteredSuppliers.map((s) => {
-                                  const tradeName = s.name.includes(" | ") ? s.name.split(" | ")[1] : s.name;
-                                  return (
-                                    <button
-                                      key={s.id}
-                                      onClick={() => {
-                                        setSupplierId(s.id);
-                                        setSupplierSearchTerm(tradeName);
-                                        setShowSupplierResults(false);
-                                      }}
-                                      className={cn(
-                                        "w-full flex items-center justify-between px-5 py-4 text-left transition-all border-b border-brand-border last:border-0 hover:bg-brand-blue/5",
-                                        supplierId === s.id
-                                          ? "bg-brand-blue/5 border-l-4 border-l-brand-blue"
-                                          : "",
-                                      )}
-                                    >
-                                      <div>
-                                        <div className="font-black text-brand-text-main text-sm uppercase italic tracking-tight">
-                                          {tradeName}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
-                                          {s.document ||
-                                            s.cnpj ||
-                                            "Sem Documento"}
-                                        </div>
-                                      </div>
-                                      {supplierId === s.id && (
-                                        <CheckCircle2
-                                          className="text-brand-blue"
-                                          size={20}
-                                        />
-                                      )}
-                                    </button>
-                                  );
-                                })
-                              )}
-                            </motion.div>
-                          )}
-                      </AnimatePresence>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Nº Nota Fiscal
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 123456"
-                      value={invoiceNumber}
-                      onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-sm md:text-base transition-all"
-                    />
-                  </div>
+                    {/* Data de Emissão */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Data de Emissão
+                      </label>
+                      <input
+                        type="date"
+                        value={issueDate}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-xs md:text-sm transition-all animate-none"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Data de Emissão
-                    </label>
-                    <input
-                      type="date"
-                      value={issueDate}
-                      onChange={(e) => setIssueDate(e.target.value)}
-                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
-                    />
-                  </div>
+                    {/* Data de Entrada */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Data de Entrada
+                      </label>
+                      <input
+                        type="date"
+                        value={entryDate}
+                        onChange={(e) => setEntryDate(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-xs md:text-sm transition-all animate-none"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Data de Entrada
-                    </label>
-                    <input
-                      type="date"
-                      value={entryDate}
-                      onChange={(e) => setEntryDate(e.target.value)}
-                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
-                    />
-                  </div>
+                    {/* Condição de Pagamento */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Condição de Pagamento
+                      </label>
+                      <select
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-xs md:text-sm transition-all"
+                        value={paymentCondition}
+                        onChange={(e) => setPaymentCondition(e.target.value)}
+                      >
+                        <option value="">Selecione...</option>
+                        {paymentConditions.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Condição de Pagamento
-                    </label>
-                    <select
-                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
-                      value={paymentCondition}
-                      onChange={(e) => setPaymentCondition(e.target.value)}
-                    >
-                      <option value="">Selecione...</option>
-                      {paymentConditions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    {/* Conta Financeira */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Conta Financeira
+                      </label>
+                      <select
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue text-xs md:text-sm transition-all"
+                        value={financialAccount}
+                        onChange={(e) => setFinancialAccount(e.target.value)}
+                      >
+                        <option value="">Selecione...</option>
+                        {financialAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Conta Financeira
-                    </label>
-                    <select
-                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all"
-                      value={financialAccount}
-                      onChange={(e) => setFinancialAccount(e.target.value)}
-                    >
-                      <option value="">Selecione...</option>
-                      {financialAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
-                      Observações
-                    </label>
-                    <textarea
-                      value={observations}
-                      onChange={(e) => setObservations(e.target.value)}
-                      placeholder="Alguma observação importante sobre esta compra..."
-                      className="w-full px-6 py-4 bg-slate-50 border border-brand-border rounded-2xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all min-h-[100px]"
-                    />
+                    {/* Observações */}
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[11px] font-black text-brand-text-main/60 uppercase italic tracking-widest ml-1">
+                        Observações
+                      </label>
+                      <textarea
+                        value={observations}
+                        onChange={(e) => setObservations(e.target.value)}
+                        placeholder="Observações importantes..."
+                        className="w-full px-4 py-2 bg-slate-50 border border-brand-border rounded-xl text-brand-text-main font-bold focus:ring-2 focus:ring-brand-blue transition-all min-h-[42px] h-[42px] resize-none text-xs md:text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-6 border-t border-brand-border/50">
+                <div className="flex justify-end pt-3 border-t border-brand-border/50 shrink-0">
                   <button
+                    type="button"
                     onClick={handleNextToProducts}
-                    className="flex items-center gap-2 px-8 py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-md shadow-brand-blue/10 active:scale-95 text-xs"
                   >
                     Continuar para Produtos
-                    <ChevronRight size={20} />
+                    <ChevronRight size={16} />
                   </button>
                 </div>
               </motion.div>

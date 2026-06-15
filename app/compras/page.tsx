@@ -238,16 +238,13 @@ export default function PurchasingPage() {
             const avgWeeklySales = Math.round(totalSold30d / 4);
             
             const currentStock = Number(p.stock || 0);
-            const minStock = Number(p.minStock || 0);
-            const suggestedQty = Math.max(0, (minStock + avgWeeklySales * 2) - currentStock);
+            const minStock = Number(p.minStock ?? (p as any).min_stock ?? 0);
 
-            // Only recommend replenishment if current stock list is at/below min_stock or needs replacement and minStock is > 0
-            if (minStock > 0 && (currentStock <= minStock || suggestedQty > 0)) {
-              const finalSuggestedQty = suggestedQty > 0 ? suggestedQty : Math.max(1, minStock - currentStock);
+            // Only recommend replenishment if current stock is strictly less than minStock and minStock > 0
+            if (minStock > 0 && currentStock < minStock) {
+              const finalSuggestedQty = minStock - currentStock;
               
-              if (currentStock <= minStock) {
-                actualBelowCount++;
-              }
+              actualBelowCount++;
 
               return {
                 id: p.id,
@@ -259,9 +256,9 @@ export default function PurchasingPage() {
                 avgSales: avgWeeklySales,
                 totalSold30d: totalSold30d,
                 suggestedQty: finalSuggestedQty,
-                lastCost: `R$ ${Number(p.costPrice || 0).toFixed(2).replace('.', ',')}`,
+                lastCost: `R$ ${Number(p.costPrice ?? (p as any).cost_price ?? 0).toFixed(2).replace('.', ',')}`,
                 supplier: supplierName,
-                costValue: Number(p.costPrice || 0)
+                costValue: Number(p.costPrice ?? (p as any).cost_price ?? 0)
               };
             }
             return null;

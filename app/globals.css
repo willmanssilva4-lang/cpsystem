@@ -41,3 +41,15 @@ body {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(30, 64, 175, 0.1);
 }
+
+/* Hide scrollbar for Chrome, Safari, Opera and all edge chromium */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+

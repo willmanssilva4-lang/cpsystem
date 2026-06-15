@@ -130,15 +130,11 @@ export default function ReposicaoPage() {
         const avgWeeklySales = Math.round(totalSold / 4);
         
         const currentStock = Number(p.stock || 0);
-        const minStock = Number(p.min_stock || 0);
-        const suggestedQty = Math.max(0, (minStock + avgWeeklySales * 2) - currentStock);
+        const minStock = Number((p as any).min_stock ?? p.minStock ?? 0);
 
-        // Include product if stock is less than or equal to min stock and min_stock is defined > 0,
-        // or if suggestedQty is significant even if sales average is zero but stock is low.
-        // Also fix the filter so products needing replenishment are actually outputted correctly.
-        if (minStock > 0 && (currentStock <= minStock || suggestedQty > 0)) {
-          // If suggested qty is 0 but we are below min, we recommend reaching the minimum plus a defaulted unit.
-          const finalSuggestedQty = suggestedQty > 0 ? suggestedQty : Math.max(1, minStock - currentStock);
+        // Include product if current stock is strictly less than minStock and minStock > 0
+        if (minStock > 0 && currentStock < minStock) {
+          const finalSuggestedQty = minStock - currentStock;
 
           return {
             id: p.id,
@@ -148,9 +144,9 @@ export default function ReposicaoPage() {
             minStock: minStock,
             avgSales: avgWeeklySales, 
             suggestedQty: finalSuggestedQty,
-            lastCost: `R$ ${Number(p.cost_price || 0).toFixed(2).replace('.', ',')}`,
+            lastCost: `R$ ${Number(p.costPrice ?? (p as any).cost_price ?? 0).toFixed(2).replace('.', ',')}`,
             supplier: supplierName,
-            costValue: Number(p.cost_price || 0)
+            costValue: Number(p.costPrice ?? (p as any).cost_price ?? 0)
           };
         }
         return null;
