@@ -7,7 +7,7 @@ import { toLocalDateString } from '@/lib/utils';
 import { motion } from 'motion/react';
 
 export function SalesMoreLessReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products } = useERP();
+  const { sales, products, returns } = useERP();
   const [topCount, setTopCount] = useState(10);
 
   const productStats = useMemo(() => {
@@ -15,6 +15,26 @@ export function SalesMoreLessReport({ startDate, endDate }: { startDate: string,
     
     const filteredSales = sales.filter(s => {
       if (!s.date) return false;
+
+      // Filter out returned/cancelled/reversed sales
+      const isReturned = returns.some(r => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      if (isReturned) return false;
+
+      const rawStatus = s.status?.toLowerCase().trim() || '';
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+        return false;
+      }
+
+      const sType = s.type?.toLowerCase().trim() || '';
+      if (cancelledStatuses.some(type => sType.includes(type))) {
+        return false;
+      }
+
       const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
@@ -35,7 +55,7 @@ export function SalesMoreLessReport({ startDate, endDate }: { startDate: string,
       qty: stat.qty,
       total: stat.total
     }));
-  }, [sales, products, startDate, endDate]);
+  }, [sales, products, startDate, endDate, returns]);
 
   const topSold = useMemo(() => [...productStats].sort((a,b) => b.qty - a.qty).slice(0, topCount), [productStats, topCount]);
   const bottomSold = useMemo(() => [...productStats].sort((a,b) => a.qty - b.qty).slice(0, topCount), [productStats, topCount]);

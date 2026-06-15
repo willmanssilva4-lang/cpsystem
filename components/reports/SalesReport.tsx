@@ -77,7 +77,11 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
       if (!s.date) return false;
 
       // Filter out returned/cancelled/reversed sales
-      const isReturned = returns.some(r => r.saleId === s.id);
+      const isReturned = returns.some(r => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
       if (isReturned) return false;
 
       const rawStatus = s.status;
