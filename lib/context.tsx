@@ -576,7 +576,28 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           is_recurring: e.is_recurring ?? e.isRecurring ?? false
         })));
       }
-      if (Array.isArray(lts_res)) setLotes(lts_res);
+      if (Array.isArray(lts_res)) {
+        setLotes(lts_res.map((l: any) => ({
+          ...l,
+          productId: l.productId ?? l.produto_id ?? '',
+          produto_id: l.produto_id ?? l.productId ?? '',
+          numeroLote: l.numeroLote ?? l.numero_lote ?? '',
+          numero_lote: l.numero_lote ?? l.numeroLote ?? '',
+          validade: l.validade ?? '',
+          saldoAtual: Number(l.saldoAtual ?? l.saldo_atual ?? 0),
+          saldo_atual: Number(l.saldo_atual ?? l.saldoAtual ?? 0),
+          dataEntrada: l.dataEntrada ?? l.data_entrada ?? '',
+          data_entrada: l.data_entrada ?? l.dataEntrada ?? '',
+          custoUnit: Number(l.custoUnit ?? l.custo_unit ?? 0),
+          custo_unit: Number(l.custo_unit ?? l.custoUnit ?? 0),
+          quantidadeInicial: Number(l.quantidadeInicial ?? l.quantidade_inicial ?? 0),
+          quantidade_inicial: Number(l.quantidade_inicial ?? l.quantidadeInicial ?? 0),
+          company_id: l.company_id ?? l.companyId ?? '',
+          companyId: l.companyId ?? l.company_id ?? '',
+          fornecedor_id: l.fornecedor_id ?? l.fornecedorId ?? '',
+          fornecedorId: l.fornecedorId ?? l.fornecedor_id ?? ''
+        })));
+      }
       if (sysSet) setSystemSettings(sysSet);
       if (Array.isArray(sysUsrs_res)) {
         setSystemUsers(sysUsrs_res.map((u: any) => ({

@@ -406,6 +406,8 @@ export default function NovaCompraPage() {
         .filter((term) => term.length > 0);
       const localFiltered = productsList
         .filter((p) => {
+          if (p.status === "Inativo") return false;
+          if (p.product_type === "KIT") return false;
           const searchableText =
             `${p.name || ""} ${p.sku || ""} ${p.barcode || ""} ${p.codigo_mercadologico || ""}`.toLowerCase();
           return searchTerms.every((term) => searchableText.includes(term));
@@ -438,6 +440,8 @@ export default function NovaCompraPage() {
             .or(
               `name.ilike.%${value}%,sku.ilike.%${value}%,barcode.ilike.%${value}%,codigo_mercadologico.ilike.%${value}%`,
             )
+            .neq("status", "Inativo")
+            .neq("product_type", "KIT")
             .limit(50);
 
           if (!error && data) {
@@ -445,7 +449,7 @@ export default function NovaCompraPage() {
             setSearchResults((prev) => {
               const existingIds = new Set(prev.map((p) => p.id));
               const newResults = data
-                .filter((p) => !existingIds.has(p.id))
+                .filter((p) => !existingIds.has(p.id) && p.status !== "Inativo" && p.product_type !== "KIT")
                 .map((p) => ({
                   ...p,
                   costPrice: p.costPrice ?? p.cost_price,
@@ -1272,11 +1276,17 @@ export default function NovaCompraPage() {
                     </label>
                     <input
                       ref={costInputRef}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={itemCost}
-                      onChange={(e) => setItemCost(Number(e.target.value))}
+                      type="text"
+                      inputMode="decimal"
+                      value={itemCost.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 4,
+                        maximumFractionDigits: 4,
+                      })}
+                      onChange={(e) => {
+                        const cleanValue = e.target.value.replace(/\D/g, "");
+                        const numericValue = Number(cleanValue) / 10000;
+                        setItemCost(numericValue);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
@@ -1293,11 +1303,17 @@ export default function NovaCompraPage() {
                     </label>
                     <input
                       ref={salePriceInputRef}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={itemSalePrice}
-                      onChange={(e) => setItemSalePrice(Number(e.target.value))}
+                      type="text"
+                      inputMode="decimal"
+                      value={itemSalePrice.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                      onChange={(e) => {
+                        const cleanValue = e.target.value.replace(/\D/g, "");
+                        const numericValue = Number(cleanValue) / 100;
+                        setItemSalePrice(numericValue);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
@@ -1368,7 +1384,7 @@ export default function NovaCompraPage() {
                           <td className="px-6 py-4">{item.productName}</td>
                           <td className="px-6 py-4 text-center">{item.qty}</td>
                           <td className="px-6 py-4 text-right text-slate-600">
-                            R$ {item.cost.toFixed(2)}
+                            R$ {item.cost.toFixed(4)}
                           </td>
                           <td className="px-6 py-4 text-right text-emerald-600 font-extrabold italic">
                             R$ {(item.salePrice || 0).toFixed(2)}
@@ -1598,7 +1614,7 @@ export default function NovaCompraPage() {
                               </div>
                               <div className="flex gap-4 text-xs text-slate-500 mt-1">
                                 <span>
-                                  {item.qty} un × R$ {item.cost.toFixed(2)}{" "}
+                                  {item.qty} un × R$ {item.cost.toFixed(4)}{" "}
                                   (Custo)
                                 </span>
                                 <span className="text-emerald-600 font-semibold uppercase tracking-tight text-[10px]">

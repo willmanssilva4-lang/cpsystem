@@ -196,17 +196,43 @@ export default function PurchasingPage() {
           }
 
           const supplierByProduct: Record<string, string> = {};
+          const purchasedProductIds = new Set<string>();
           if (purchaseItemsData) {
             for (const item of purchaseItemsData) {
-              if (!supplierByProduct[item.product_id]) {
+              if (item.product_id) {
+                purchasedProductIds.add(item.product_id);
                 const name = (item.purchase_orders as any)?.suppliers?.name || 'Não definido';
                 supplierByProduct[item.product_id] = name;
               }
             }
           }
 
+          // Fetch product ids from stock movements with type COMPRA to cover direct entries
+          let compMovementsQuery = supabase
+            .from('stock_movements')
+            .select('product_id')
+            .eq('type', 'COMPRA');
+
+          if (targetCompanyId) {
+            compMovementsQuery = compMovementsQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+          }
+
+          const { data: compMovementsData } = await compMovementsQuery;
+          if (compMovementsData) {
+            for (const m of compMovementsData) {
+              if (m.product_id) {
+                purchasedProductIds.add(m.product_id);
+              }
+            }
+          }
+
           // Compute replenishment suggestions or critical stock levels
           calculatedAlerts = activeProducts.map((p) => {
+            // Only include products that have at least one purchase history in the system
+            if (!purchasedProductIds.has(p.id)) {
+              return null;
+            }
+
             const supplierName = supplierByProduct[p.id] || 'Não definido';
             const totalSold30d = salesByProduct[p.id] || 0;
             const avgWeeklySales = Math.round(totalSold30d / 4);

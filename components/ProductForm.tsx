@@ -1557,13 +1557,25 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
               {(() => {
                 const productMovements = stockMovements.filter(m => m.productId === initialData?.id);
                 
-                const totalEntradas = productMovements
-                  .filter(m => m.type === 'ENTRADA' || m.type === 'COMPRA' || (m.type === 'AJUSTE' && m.quantity > 0))
-                  .reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+                let totalEntradas = 0;
+                let totalSaidas = 0;
 
-                const totalSaidas = productMovements
-                  .filter(m => m.type === 'SAÍDA' || (m.type === 'AJUSTE' && m.quantity < 0))
-                  .reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+                for (const m of productMovements) {
+                  const mTypeStr = (m.type || '').toString().toUpperCase().trim();
+                  let mModifier = 1;
+                  if (['SAIDA', 'SAÍDA', 'VENDA', 'PERDA'].includes(mTypeStr)) {
+                    mModifier = -1;
+                  }
+                  
+                  // Calculate net change of stock for this movement
+                  const netChange = (m.quantity !== undefined ? m.quantity : 0) * mModifier;
+                  
+                  if (netChange > 0) {
+                    totalEntradas += netChange;
+                  } else if (netChange < 0) {
+                    totalSaidas += Math.abs(netChange);
+                  }
+                }
 
                 const currentStock = initialData?.stock ?? 0;
                 const minStock = initialData?.minStock ?? 0;
@@ -1663,7 +1675,14 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       for (let i = 0; i < filtered.length; i++) {
                         const m = filtered[i];
                         movementBalances[m.id] = currentBalance;
-                        currentBalance -= m.quantity;
+                        
+                        const mTypeStr = (m.type || '').toString().toUpperCase().trim();
+                        let mModifier = 1;
+                        if (['SAIDA', 'SAÍDA', 'VENDA', 'PERDA'].includes(mTypeStr)) {
+                          mModifier = -1;
+                        }
+                        const netChange = (m.quantity !== undefined ? m.quantity : 0) * mModifier;
+                        currentBalance -= netChange;
                       }
 
                       const totalHistoryItems = filtered.length;
@@ -1676,8 +1695,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         <>
                           {paginated.map((mov) => {
                             const resBalance = movementBalances[mov.id] ?? 0;
-                            const isPositive = mov.quantity > 0;
-                            const isNegValue = mov.quantity < 0;
+                            
+                            const mTypeStr = (mov.type || '').toString().toUpperCase().trim();
+                            let mModifier = 1;
+                            if (['SAIDA', 'SAÍDA', 'VENDA', 'PERDA'].includes(mTypeStr)) {
+                              mModifier = -1;
+                            }
+                            const netChange = (mov.quantity !== undefined ? mov.quantity : 0) * mModifier;
+                            const isPositive = netChange > 0;
+                            const isNegValue = netChange < 0;
                             
                             return (
                               <tr key={mov.id} className="hover:bg-slate-50/40 transition-colors group">
@@ -1688,15 +1714,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   <div className="flex items-center gap-1.5">
                                     <span className={cn(
                                       "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
-                                      mov.type === 'ENTRADA' || mov.type === 'COMPRA'
+                                      mTypeStr === 'ENTRADA' || mTypeStr === 'COMPRA' || mTypeStr === 'DEVOLUÇÃO' || mTypeStr === 'DEVOLUCAO'
                                         ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
-                                        : mov.type === 'SAÍDA'
+                                        : mTypeStr === 'SAÍDA' || mTypeStr === 'SAIDA' || mTypeStr === 'VENDA'
                                         ? "bg-rose-50 text-rose-700 border-rose-100" 
                                         : "bg-amber-50 text-amber-700 border-amber-100"
                                     )}>
-                                      {mov.type === 'ENTRADA' || mov.type === 'COMPRA' ? (
+                                      {mTypeStr === 'ENTRADA' || mTypeStr === 'COMPRA' || mTypeStr === 'DEVOLUÇÃO' || mTypeStr === 'DEVOLUCAO' ? (
                                         <TrendingUp size={11} className="stroke-[2.5]" />
-                                      ) : mov.type === 'SAÍDA' ? (
+                                      ) : mTypeStr === 'SAÍDA' || mTypeStr === 'SAIDA' || mTypeStr === 'VENDA' ? (
                                         <TrendingDown size={11} className="stroke-[2.5]" />
                                       ) : (
                                         <RefreshCw size={11} className="stroke-[2.5]" />
@@ -1712,7 +1738,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                   "px-6 py-4 text-xs font-black text-center whitespace-nowrap",
                                   isPositive ? "text-emerald-600" : isNegValue ? "text-rose-600" : "text-slate-650"
                                 )}>
-                                  {isPositive ? `+${mov.quantity}` : mov.quantity}
+                                  {isPositive ? `+${mov.quantity}` : isNegValue ? `-${mov.quantity}` : mov.quantity}
                                 </td>
                                 <td className="px-6 py-4 text-xs font-black text-slate-700 text-center bg-slate-50/20 group-hover:bg-slate-50/40 transition-colors">
                                   {Number.isInteger(resBalance) ? resBalance : resBalance.toFixed(3)}
