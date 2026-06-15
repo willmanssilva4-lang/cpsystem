@@ -1365,7 +1365,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     }
     // Mark as cancelled instead of deleting
-    await supabase.from('sales').update({ status: 'cancelada' }).eq('id', id);
+    const { error: cancelError } = await supabase.from('sales').update({ status: 'cancelada' }).eq('id', id);
+    if (cancelError) {
+      console.error('[deleteSale] failed to cancel sale:', cancelError);
+    }
     await fetchData();
   };
 

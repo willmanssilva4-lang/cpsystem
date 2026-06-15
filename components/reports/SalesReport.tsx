@@ -38,7 +38,7 @@ import { cn, toLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias, pricingSettings } = useERP();
+  const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias, pricingSettings, returns } = useERP();
   
   // Accordion unique state
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
@@ -75,8 +75,27 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     // 1. Initial date and status filter
     let result = sales.filter(s => {
       if (!s.date) return false;
-      // Filter out cancelled sales
-      if (s.status?.toLowerCase() === 'cancelada') return false;
+
+      // Filter out returned/cancelled/reversed sales
+      const isReturned = returns.some(r => r.saleId === s.id);
+      if (isReturned) return false;
+
+      const rawStatus = s.status;
+      const status = rawStatus?.toLowerCase().trim();
+      
+      // More robust check
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      
+      if (status && cancelledStatuses.includes(status)) {
+        return false;
+      }
+      
+      // Also filter by type if it indicates reversal
+      const sType = s.type?.toLowerCase().trim();
+      if (sType === 'devolução' || sType === 'estorno' || sType === 'reversão') {
+        return false;
+      }
+      
       const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });

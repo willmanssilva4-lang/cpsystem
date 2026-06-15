@@ -102,10 +102,10 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
       })
       .reduce((acc, m) => acc + Math.abs(m.quantity), 0);
 
-    console.log(`[DEBUG_STATS] Total exits calc for ${product.name}:`, exits, 'from', movements.length, 'movements');
+    console.log(`[DEBUG_STATS] Total exits calc for ${product?.name || 'Unknown'}:`, exits, 'from', movements.length, 'movements');
 
     let calculatedExits = exits;
-    if (product.product_type === 'KIT' && product.composition && product.composition.length > 0) {
+    if (product?.product_type === 'KIT' && product?.composition && product?.composition.length > 0) {
       const kitSales = movements.filter(m => m.type === 'SAÍDA' || m.type === 'VENDA');
       let componentExits = 0;
       for (const m of kitSales) {

@@ -34,7 +34,7 @@ import { cn, toLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function SalesByProductReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, customers, employees, systemUsers, categorias, subcategorias } = useERP();
+  const { sales, products, customers, employees, systemUsers, categorias, subcategorias, returns } = useERP();
   
   // States for interactive filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,6 +74,23 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
     // Filter sales within the target period
     const filteredSales = sales.filter(s => {
       if (!s.date) return false;
+      
+      // Filter out returned/cancelled/reversed sales
+      const isReturned = returns.some(r => r.saleId === s.id);
+      if (isReturned) return false;
+      
+      const rawStatus = s.status?.toLowerCase().trim() || '';
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+        return false;
+      }
+      
+      // Also filter by type if it indicates reversal
+      const sType = s.type?.toLowerCase().trim() || '';
+      if (cancelledStatuses.some(type => sType.includes(type))) {
+        return false;
+      }
+      
       const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
@@ -104,7 +121,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
     });
 
     return stats;
-  }, [sales, products, startDate, endDate]);
+  }, [sales, products, startDate, endDate, returns]);
 
   // Format all product rows with names, categories, and margin ratios
   const processedData = useMemo(() => {

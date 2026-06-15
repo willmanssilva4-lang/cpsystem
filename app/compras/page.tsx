@@ -446,6 +446,12 @@ export default function PurchasingPage() {
           <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Central de Compras</h1>
           <p className="text-xs md:text-sm text-brand-blue/60 font-medium font-bold uppercase tracking-widest">Gestão robusta de suprimentos e entradas de mercadorias.</p>
         </div>
+        <button 
+          onClick={() => router.push('/relatorios')}
+          className="px-6 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all text-sm"
+        >
+          Dashboard Executivo
+        </button>
       </div>
 
       {/* Stats Grid */}
