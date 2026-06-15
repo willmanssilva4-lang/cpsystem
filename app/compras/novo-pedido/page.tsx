@@ -52,24 +52,33 @@ export default function NovaCompraPage() {
   } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
 
-  // Dynamically hide scrollbar when in Fornecedor tab
+  // Lock layout and body scroll on mount, restore on unmount to completely prevent screen from bouncing or moving vertically
   useEffect(() => {
     if (typeof document !== "undefined") {
-      if (activeTab === 1) {
-        document.documentElement.classList.add("no-scrollbar");
-        document.body.classList.add("no-scrollbar");
-      } else {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      const originalBodyHeight = document.body.style.height;
+      const originalHtmlHeight = document.documentElement.style.height;
+
+      document.body.style.overflow = "hidden";
+      document.body.style.height = "100%";
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+
+      document.documentElement.classList.add("no-scrollbar");
+      document.body.classList.add("no-scrollbar");
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.body.style.height = originalBodyHeight;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+        document.documentElement.style.height = originalHtmlHeight;
+
         document.documentElement.classList.remove("no-scrollbar");
         document.body.classList.remove("no-scrollbar");
-      }
+      };
     }
-    return () => {
-      if (typeof document !== "undefined") {
-        document.documentElement.classList.remove("no-scrollbar");
-        document.body.classList.remove("no-scrollbar");
-      }
-    };
-  }, [activeTab]);
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
@@ -934,10 +943,7 @@ export default function NovaCompraPage() {
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
 
   return (
-    <div className={cn(
-      "p-0 space-y-3 bg-brand-bg/50 min-h-screen relative flex flex-col",
-      activeTab === 1 ? "no-scrollbar overflow-y-hidden" : ""
-    )}>
+    <div className="p-0 space-y-3 bg-brand-bg/50 h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden relative flex flex-col no-scrollbar">
       {/* Visual background glow */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-blue/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-brand-green/3 rounded-full blur-[120px] pointer-events-none" />
@@ -1002,10 +1008,7 @@ export default function NovaCompraPage() {
       </div>
 
       {/* Tab Content Full Screen Modal Style */}
-      <div className={cn(
-        "flex-grow bg-white border-t border-brand-border/50 p-4 md:p-6 pb-6 relative z-10 w-full rounded-t-[32px] shadow-2xl flex flex-col",
-        activeTab === 1 ? "no-scrollbar overflow-y-hidden" : ""
-      )}>
+      <div className="flex-grow bg-white border-t border-brand-border/50 p-4 md:p-6 pb-6 relative z-10 w-full rounded-t-[32px] shadow-2xl flex flex-col overflow-y-auto min-h-0 no-scrollbar">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div>
