@@ -72,9 +72,11 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
 
   // Filter & sort list of sales
   const processedSales = useMemo(() => {
-    // 1. Initial date filter
+    // 1. Initial date and status filter
     let result = sales.filter(s => {
       if (!s.date) return false;
+      // Filter out cancelled sales
+      if (s.status?.toLowerCase() === 'cancelada') return false;
       const d = toLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });

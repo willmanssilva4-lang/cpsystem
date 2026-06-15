@@ -1364,7 +1364,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.error('[deleteSale] failed to insert audit log entry:', auditErr);
       }
     }
-    await supabase.from('sales').delete().eq('id', id);
+    // Mark as cancelled instead of deleting
+    await supabase.from('sales').update({ status: 'cancelada' }).eq('id', id);
     await fetchData();
   };
 
@@ -1506,7 +1507,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     const productId = dbPayload.product_id;
     // 2. Atualizar o saldo de estoque no produto
-    const { data: product, error: prodError } = await supabase.from('products').select('stock').eq('id', productId).single();
+    const { data: product, error: prodError } = await supabase.from('products').select('*').eq('id', productId).single();
     if (prodError) {
       console.error('Erro ao buscar produto para atualizar estoque:', prodError);
     } else {
@@ -1527,6 +1528,39 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       if (updateError) {
         console.error('Erro ao atualizar saldo de estoque do produto:', updateError);
         throw updateError; // Force visibility
+      }
+
+      // Se o produto for um KIT, registrar movimentação recursiva de estoque e desconto dos componentes
+      let parsedComposition = product?.composition;
+      console.log(`[DEBUG_STOCK] Product ${product?.name} type ${product?.product_type} comp:`, parsedComposition);
+      if (parsedComposition && typeof parsedComposition === 'string') {
+        try {
+          parsedComposition = JSON.parse(parsedComposition);
+        } catch (e) {
+          console.error('[addStockMovement] Error parsing composition:', e);
+          parsedComposition = null;
+        }
+      }
+
+      if ((product?.product_type === 'KIT' || (product?.product_type === 'SALE' && product?.base_product_id)) && parsedComposition && Array.isArray(parsedComposition)) {
+        console.log(`[DEBUG_STOCK] Recursively updating ${parsedComposition.length} components`);
+        for (const comp of parsedComposition) {
+          const compQty = (Number(comp.quantity) || 0) * moveQty;
+          console.log(`[DEBUG_STOCK] Updating component ${comp.productId} qty ${compQty}`);
+          
+          await addStockMovement({
+            productId: comp.productId,
+            type: data.type,
+            quantity: compQty,
+            origin: `${data.origin || 'Venda'} (via ${product.product_type === 'KIT' ? 'Kit' : 'Produto Virtual'}: ${product.name})`,
+            date: dbPayload.date,
+            userId: dbPayload.user_id,
+            userName: dbPayload.user_name,
+            companyId: dbPayload.company_id,
+            cost: comp.price || null,
+            loteId: dbPayload.lote_id
+          }, true);
+        }
       }
     }
 

@@ -2190,8 +2190,9 @@ export default function PDVPage() {
                 <p><span className="font-bold">Alt + L</span> - Lista de produtos</p>
                 <p><span className="font-bold">Alt + N</span> - Nota fiscal</p>
                 <p><span className="font-bold">Alt + T</span> - Troca/devolução</p>
-                <div className="pt-4 text-[10px] opacity-60 italic">
-                  Dica: Use [Número] + F6 para desconto rápido no item.
+                <div className="pt-4 text-[10px] opacity-60 italic space-y-1">
+                  <div>Dica: Use [Número] + F6 para desconto rápido no item.</div>
+                  <div className="text-brand-blue font-bold">No Pagamento: F6 = Dinheiro rápido, F7 = Pix rápido.</div>
                 </div>
               </div>
             </div>

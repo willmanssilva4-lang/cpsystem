@@ -68,7 +68,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
     return movements.filter(m => {
       if (movementTypeFilter === 'TODOS') return true;
       if (movementTypeFilter === 'ENTRADA') return m.type === 'ENTRADA' || m.type === 'COMPRA';
-      if (movementTypeFilter === 'SAÍDA') return m.type === 'SAÍDA';
+      if (movementTypeFilter === 'SAÍDA') return m.type === 'SAÍDA' || m.type === 'VENDA';
       if (movementTypeFilter === 'AJUSTE') return m.type === 'AJUSTE';
       return true;
     });
@@ -95,15 +95,34 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
       .reduce((acc, m) => acc + m.quantity, 0);
     
     const exits = movements
-      .filter(m => m.type === 'SAÍDA')
+      .filter(m => {
+        const isExit = m.type?.toUpperCase() === 'SAÍDA' || m.type?.toUpperCase() === 'VENDA';
+        if (isExit) console.log(`[DEBUG_STATS] Movement matching exit:`, m);
+        return isExit;
+      })
       .reduce((acc, m) => acc + Math.abs(m.quantity), 0);
+
+    console.log(`[DEBUG_STATS] Total exits calc for ${product.name}:`, exits, 'from', movements.length, 'movements');
+
+    let calculatedExits = exits;
+    if (product.product_type === 'KIT' && product.composition && product.composition.length > 0) {
+      const kitSales = movements.filter(m => m.type === 'SAÍDA' || m.type === 'VENDA');
+      let componentExits = 0;
+      for (const m of kitSales) {
+        const saleQty = Math.abs(m.quantity);
+        product.composition.forEach(comp => {
+          componentExits += saleQty * (comp.quantity || 0);
+        });
+      }
+      calculatedExits = componentExits;
+    }
     
     const adjustments = movements
       .filter(m => m.type === 'AJUSTE')
       .reduce((acc, m) => acc + m.quantity, 0);
 
-    return { entries, exits, adjustments };
-  }, [movements]);
+    return { entries, exits: calculatedExits, adjustments };
+  }, [movements, product]);
 
   // Reset page when filter changes
   React.useEffect(() => {

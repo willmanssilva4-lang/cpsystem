@@ -383,9 +383,76 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     }
   }, [handleFinalize, addPayment, onFinalize, activeMaquininhas, selectedMethodObj, isDinheiroMethod]);
 
+  const quickFinalizeWithMethod = useCallback((methodName: string) => {
+    const current = stateRef.current;
+    if (current.remainingAmount <= 0) {
+      handleFinalize();
+      return;
+    }
+
+    // Find the requested method from activeMethods
+    const methodObj = current.activeMethods.find(m => m.name.toLowerCase() === methodName.toLowerCase() || m.type?.toLowerCase() === methodName.toLowerCase());
+    const finalMethodName = methodObj ? methodObj.name : methodName;
+
+    // Determine maquininha for card payments if Pix or card
+    let maquininhaId = null;
+    if ((methodObj?.type === 'Pix' || methodObj?.type === 'Crédito' || methodObj?.type === 'Débito' || finalMethodName === 'Pix') && current.filteredMaquininhas.length > 0) {
+      maquininhaId = current.filteredMaquininhas[0].id;
+    }
+
+    // Recalculate tax
+    let partTaxPercentage = 0;
+    if (maquininhaId) {
+      const maq = activeMaquininhas.find(m => m.id === maquininhaId);
+      if (maq) {
+        if (methodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
+        else if (methodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
+        else if (methodObj?.type === 'Pix' || finalMethodName === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
+      }
+    } else if (methodObj) {
+      partTaxPercentage = Number(methodObj.taxPercentage || 0);
+    }
+
+    const partTaxAmount = Math.round(((current.remainingAmount * partTaxPercentage) / 100) * 100) / 100;
+    const partNetAmount = Math.round((current.remainingAmount - partTaxAmount) * 100) / 100;
+
+    const finalPayment = {
+      method: finalMethodName,
+      amount: current.remainingAmount,
+      maquininhaId: maquininhaId,
+      taxAmount: partTaxAmount,
+      netAmount: partNetAmount,
+      taxPercentage: partTaxPercentage
+    };
+
+    const prevCash = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
+    const cashReceived = isDinheiroMethod(finalMethodName) ? (prevCash + current.remainingAmount) : prevCash;
+
+    onFinalize({
+      payments: [...current.payments, finalPayment],
+      discount: current.discount,
+      subtotal: current.subtotal,
+      total: current.totalToPay,
+      totalPaid: current.totalPaid + current.remainingAmount,
+      change: 0,
+      cashReceived: cashReceived > 0 ? cashReceived : 0
+    });
+  }, [onFinalize, activeMaquininhas, isDinheiroMethod, handleFinalize]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const current = stateRef.current;
+
+      if (e.key === 'F6') {
+        e.preventDefault();
+        quickFinalizeWithMethod('Dinheiro');
+        return;
+      }
+      if (e.key === 'F7') {
+        e.preventDefault();
+        quickFinalizeWithMethod('Pix');
+        return;
+      }
 
       // Prevent default for handled keys
       if (e.key.startsWith('F') && !isNaN(Number(e.key.slice(1))) && e.key !== 'F10') {
@@ -429,7 +496,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectMethod, confirmAndFinalize, onClose]);
+  }, [selectMethod, confirmAndFinalize, onClose, quickFinalizeWithMethod]);
 
   // ... (shortcuts and UI implementation)
   return (
@@ -490,6 +557,35 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                   </span>
                 </button>
               ))}
+            </div>
+
+            {/* Secção de Finalização Rápida */}
+            <div className="pt-4 border-t border-slate-200 space-y-2">
+              <h4 className="text-[10px] font-black uppercase italic text-slate-400 tracking-wider">Finalização Rápida</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => quickFinalizeWithMethod('Dinheiro')}
+                  className="group flex flex-col justify-between items-start p-3 bg-emerald-50 hover:bg-emerald-110 border-2 border-emerald-200 rounded-2xl transition-all cursor-pointer text-left"
+                >
+                  <div className="flex w-full justify-between items-center mb-1">
+                    <span className="text-[11px] font-black tracking-wider text-emerald-800 uppercase italic">💸 Dinheiro</span>
+                    <span className="px-1.5 py-0.5 bg-emerald-600 text-white font-mono text-[9px] font-black rounded shadow-sm">F6</span>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700 font-mono">100% à vista</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickFinalizeWithMethod('Pix')}
+                  className="group flex flex-col justify-between items-start p-3 bg-cyan-50 hover:bg-cyan-110 border-2 border-cyan-200 rounded-2xl transition-all cursor-pointer text-left"
+                >
+                  <div className="flex w-full justify-between items-center mb-1">
+                    <span className="text-[11px] font-black tracking-wider text-cyan-800 uppercase italic">⚡ Pix</span>
+                    <span className="px-1.5 py-0.5 bg-cyan-600 text-white font-mono text-[9px] font-black rounded shadow-sm">F7</span>
+                  </div>
+                  <span className="text-xs font-bold text-cyan-700 font-mono">Instantâneo</span>
+                </button>
+              </div>
             </div>
           </div>
 
