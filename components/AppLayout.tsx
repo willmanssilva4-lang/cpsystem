@@ -473,7 +473,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isPriceCheckPage = pathname === '/consulta-preco';
   const isEstoquePage = pathname === '/produtos';
   const isComprasPage = pathname.startsWith('/compras');
-  const hideSidebar = isEstoquePage || isComprasPage;
+  const isFinanceiroPage = pathname.startsWith('/financeiro');
+  const hideSidebar = isEstoquePage || isComprasPage || isFinanceiroPage;
 
   return (
     <AuthGuard>
