@@ -6,7 +6,7 @@ import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, CreditCard, Percent, Smar
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { Maquininha } from '@/lib/types';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MaquininhasPage() {
   const { maquininhas, addMaquininha, updateMaquininha, deleteMaquininha, hasPermission, setCustomAlert } = useERP();

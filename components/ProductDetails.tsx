@@ -34,7 +34,7 @@ import {
 import { useERP } from '@/lib/context';
 import { Product, StockMovement } from '@/lib/types';
 import { cn, formatDateTimeBR } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProductDetailsProps {
   productId: string;

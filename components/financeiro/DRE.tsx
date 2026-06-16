@@ -29,7 +29,7 @@ import {
   ResponsiveContainer, 
   Tooltip as RechartsTooltip
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import * as XLSX from 'xlsx';
 
 interface DREProps {

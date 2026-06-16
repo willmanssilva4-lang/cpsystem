@@ -1399,7 +1399,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addLoss = async (data: any) => {
-    await supabase.from('losses').insert([data]);
+    const { error: lossError } = await supabase.from('losses').insert([{
+      product_id: data.productId,
+      lote_id: data.loteId,
+      quantity: data.quantity,
+      reason: data.reason,
+      date: data.date,
+      total_value: data.totalValue,
+      company_id: user?.companyId
+    }]);
+    if (lossError) {
+      console.error('Error inserting loss:', lossError);
+      return;
+    }
+    
+    await addStockMovement({
+      productId: data.productId,
+      loteId: data.loteId,
+      type: 'PERDA',
+      quantity: -data.quantity,
+      origin: `Perda: ${data.reason}`,
+      date: data.date,
+      userId: user?.name || 'Sistema',
+      companyId: user?.companyId
+    }, true);
+
     await fetchData();
   };
 

@@ -21,7 +21,7 @@ import {
   TrendingUp,
   BarChart3
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatDateBR, cn } from '@/lib/utils';

@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { useERP } from '@/lib/context';
 import { ArrowDown, ArrowUp, BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
 import { toLocalDateString } from '@/lib/utils';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 export function SalesMoreLessReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, returns } = useERP();

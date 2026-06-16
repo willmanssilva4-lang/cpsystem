@@ -9,7 +9,7 @@ import {
   LayoutGrid,
   Users
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { CustomerModal } from '../../components/CustomerModal';
 
 import Link from 'next/link';
@@ -69,7 +69,7 @@ export default function RegistrationsPage() {
             <button
               key={option.label}
               onClick={() => setIsCustomerModalOpen(true)}
-              className="group flex flex-col items-start gap-4 p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
+              className="group flex flex-col items-start gap-4 p-5 md:p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
             >
               {renderCardContent(option, index)}
             </button>
@@ -77,7 +77,7 @@ export default function RegistrationsPage() {
             <Link
               key={option.label}
               href={option.href || '#'}
-              className="group flex flex-col items-start gap-4 p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
+              className="group flex flex-col items-start gap-4 p-5 md:p-8 rounded-[2.5rem] border border-brand-border bg-brand-card hover:border-brand-blue/30 hover:shadow-2xl hover:shadow-brand-blue/5 hover:-translate-y-2 transition-all duration-300 text-left active:scale-[0.98] w-full"
             >
               {renderCardContent(option, index)}
             </Link>

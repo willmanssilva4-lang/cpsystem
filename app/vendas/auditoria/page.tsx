@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useERP } from '@/lib/context';
 import { Search, Calendar, ShieldCheck, User, Clock, AlertTriangle, Info, CheckCircle2, RotateCcw, Tag, Trash2, Eye, X, Terminal, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getLocalDateString, formatDateTimeBR } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 
 import { Suspense } from 'react';

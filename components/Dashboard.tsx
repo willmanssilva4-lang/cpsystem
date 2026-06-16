@@ -43,7 +43,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Tag, Package, ArrowLeft, Maximize, Minimize } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { Product } from '@/lib/types';
 import { cn, getLocalDateString } from '@/lib/utils';

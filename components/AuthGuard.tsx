@@ -65,6 +65,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // This prevents stuck loading screens on login/price check pages
   const isPublicPage = pathname === '/login' || pathname === '/consulta-preco';
 
+  // Force reload if stuck
+  useEffect(() => {
+    if (!isAuthReady && !isPublicPage) {
+      const timer = setTimeout(() => {
+        window.location.reload();
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthReady, isPublicPage]);
+
   // Show loading state while auth is initializing or when explicitly loading
   // No longer showing it for redirecting state to prevent stuck UI
   if (!isAuthReady && !isPublicPage) {
@@ -83,6 +93,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <span id="loading-text" data-id="loading-text" className="text-white font-bold uppercase italic tracking-widest">
               Carregando Sistema...
             </span>
+            <span className="text-white/60 text-xs mt-2">Se demorar mais de 10s, recarregando automaticamente...</span>
           </div>
         </div>
       </div>

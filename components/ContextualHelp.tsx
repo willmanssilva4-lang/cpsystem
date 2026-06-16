@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Info, X, Lightbulb } from 'lucide-react';
 import { CONTEXTUAL_TIPS } from '@/lib/helpData';
 

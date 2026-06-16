@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useERP } from '@/lib/context';
 import { X, AlertCircle, CheckCircle, AlertTriangle, Info } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function GlobalAlert() {
   const { customAlert, setCustomAlert } = useERP();

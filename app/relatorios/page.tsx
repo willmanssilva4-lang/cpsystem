@@ -83,7 +83,7 @@ import {
   Pie,
   Legend
 } from 'recharts';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useERP } from '@/lib/context';
 import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';

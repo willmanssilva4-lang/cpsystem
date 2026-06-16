@@ -13,7 +13,7 @@ import Image from 'next/image';
 import { HelpModal } from '@/components/HelpModal';
 import { ContextualHelp } from '@/components/ContextualHelp';
 import { getLocalDateString, cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { user: any, onMenuClick: () => void, onHelpClick: () => void, showMenuToggleOnDesktop?: boolean }) {
   const { products, expenses, lotes, systemSettings, sendEmailNotification, fetchData, isLoading } = useERP();

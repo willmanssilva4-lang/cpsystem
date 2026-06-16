@@ -7,7 +7,7 @@ import {
 import { useERP } from '@/lib/context';
 import { Expense } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface ExpenseModalProps {
   onClose: () => void;

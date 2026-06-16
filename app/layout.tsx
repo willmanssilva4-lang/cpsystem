@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className="h-full">
+    <html lang="pt-BR" className="h-full" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/icon.svg?v=3" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon.svg?v=3" />

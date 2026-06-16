@@ -19,7 +19,7 @@ import {
 import { useERP } from '@/lib/context';
 import { Promotion, Product, Categoria } from '@/lib/types';
 import { getLocalDateString } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PromotionModalProps {
   isOpen: boolean;

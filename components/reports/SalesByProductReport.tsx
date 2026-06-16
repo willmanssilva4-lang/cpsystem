@@ -31,7 +31,7 @@ import {
   CircleDollarSign
 } from 'lucide-react';
 import { cn, toLocalDateString } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function SalesByProductReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, customers, employees, systemUsers, categorias, subcategorias, returns } = useERP();

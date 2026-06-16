@@ -35,7 +35,7 @@ import {
   Layers
 } from 'lucide-react';
 import { cn, toLocalDateString } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias, pricingSettings, returns } = useERP();

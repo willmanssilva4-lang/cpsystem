@@ -244,8 +244,8 @@ function EmployeesSettings() {
             </button>
           }
         />
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <InputGroup label="Nome Completo" placeholder="Ex: João da Silva" value={formData.fullName} onChange={(e: any) => setFormData({...formData, fullName: e.target.value})} />
             <InputGroup label="CPF" placeholder="000.000.000-00" value={formData.cpf} onChange={(e: any) => setFormData({...formData, cpf: e.target.value})} />
             <InputGroup label="Telefone" placeholder="(00) 00000-0000" value={formData.phone} onChange={(e: any) => setFormData({...formData, phone: e.target.value})} />
@@ -264,8 +264,11 @@ function EmployeesSettings() {
               </select>
             </div>
           </div>
-          <div className="flex justify-end pt-6">
-            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover transition-all">
+          <div className="flex flex-col md:flex-row justify-end pt-4 md:pt-6 gap-3">
+            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-6 py-3 rounded-2xl font-black uppercase italic text-sm text-brand-text-main/60 hover:bg-slate-100 transition-all">
+              Cancelar
+            </button>
+            <button onClick={handleSave} className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover transition-all">
               <Save size={18} />
               Salvar Funcionário
             </button>
@@ -292,7 +295,60 @@ function EmployeesSettings() {
         }
       />
       <div className="p-6">
-        <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+        {/* Mobile View */}
+        <div className="md:hidden space-y-4 pb-4">
+          {employees.length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm font-bold text-brand-text-main/40">
+              Nenhum funcionário cadastrado.
+            </div>
+          ) : (
+            employees.map(emp => (
+              <div key={emp.id} className="bg-white p-4 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                    emp.status === 'Ativo' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                  )}>
+                    <User size={20} />
+                  </div>
+                  <div className="flex flex-col flex-grow min-w-0">
+                    <span className="text-sm font-black text-brand-text-main truncate">{emp.fullName}</span>
+                    <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest mt-0.5">CPF: {emp.cpf}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-[10px] font-bold text-brand-text-main/60 border-t border-slate-50 pt-3">
+                  <span className="bg-slate-50/50 px-2 py-1 rounded-md">{emp.role}</span>
+                  <span className="bg-slate-50/50 px-2 py-1 rounded-md">{new Date(emp.admissionDate).toLocaleDateString('pt-BR')}</span>
+                  <span className={cn(
+                    "px-2 py-1 rounded-md font-black uppercase",
+                    emp.status === 'Ativo' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                  )}>{emp.status}</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t border-slate-50 pt-3">
+                  <button 
+                    onClick={() => handleEdit(emp)} 
+                    className="p-2 text-brand-text-main/60 hover:text-brand-blue bg-slate-50 rounded-lg transition-all"
+                    title="Editar"
+                  >
+                    <Edit3 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(emp.id, emp.fullName)} 
+                    className="p-2 text-brand-text-main/60 hover:text-rose-500 bg-slate-50 rounded-lg transition-all"
+                    title="Excluir"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto border border-slate-100 rounded-2xl">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">

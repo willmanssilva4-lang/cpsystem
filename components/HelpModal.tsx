@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, Search, ChevronRight, PlayCircle, Keyboard, Book, Info } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { HELP_CATEGORIES, HELP_ARTICLES, SHORTCUTS, HelpArticle } from '@/lib/helpData';
 import { cn } from '@/lib/utils';
 

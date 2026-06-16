@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, Building2, MapPin, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit3, Trash2, Save, Building2, MapPin, Phone, Mail, AlertTriangle } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { Supplier } from '@/lib/types';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FornecedoresPage() {
   const { suppliers, addSupplier, updateSupplier, deleteSupplier, hasPermission } = useERP();
@@ -14,6 +15,7 @@ export default function FornecedoresPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingCnpj, setLoadingCnpj] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -172,9 +174,14 @@ export default function FornecedoresPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este fornecedor?')) {
-      await deleteSupplier(id);
+  const handleDelete = (id: string) => {
+    setSupplierToDelete(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (supplierToDelete) {
+      await deleteSupplier(supplierToDelete);
+      setSupplierToDelete(null);
     }
   };
 
@@ -392,7 +399,81 @@ export default function FornecedoresPage() {
       </div>
 
       <div className="bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="md:hidden space-y-4 pb-4">
+          {filteredSuppliers.length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm font-bold text-brand-text-main/40">
+              Nenhum fornecedor encontrado.
+            </div>
+          ) : (
+            filteredSuppliers.map(supplier => (
+              <div key={supplier.id} className="bg-white p-4 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+                    <Building2 size={20} />
+                  </div>
+                  <div className="flex flex-col flex-grow min-w-0">
+                    {(() => {
+                      const hasTrade = supplier.name.includes(' | ');
+                      const parts = supplier.name.split(' | ');
+                      const mainName = hasTrade ? parts[1] : supplier.name;
+                      const subName = hasTrade ? parts[0] : '';
+                      return (
+                        <>
+                          <span className="text-sm font-black text-brand-text-main truncate">{mainName}</span>
+                          {subName && (
+                            <span className="text-xs text-brand-text-main/50 font-bold italic truncate">{subName}</span>
+                          )}
+                        </>
+                      );
+                    })()}
+                    <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest mt-0.5">CNPJ/CPF: {supplier.document}</span>
+                  </div>
+                </div>
+
+                {/* Contato e Endereço inline no card mobile */}
+                <div className="space-y-2 border-t border-slate-50 pt-3">
+                    {supplier.phone && (
+                        <div className="flex items-center gap-2 text-xs font-bold text-brand-text-main/60">
+                            <Phone size={14} className="shrink-0" />
+                            <span className="truncate">{supplier.phone}</span>
+                        </div>
+                    )}
+                    {supplier.email && (
+                        <div className="flex items-center gap-2 text-xs font-bold text-brand-text-main/60">
+                            <Mail size={14} className="shrink-0" />
+                            <span className="truncate">{supplier.email}</span>
+                        </div>
+                    )}
+                    {supplier.address && (
+                        <div className="flex items-start gap-2 text-xs font-bold text-brand-text-main/60">
+                            <MapPin size={14} className="shrink-0 mt-0.5" />
+                            <span className="leading-tight">{supplier.address}</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t border-slate-50 pt-3">
+                  <button 
+                    onClick={() => handleEdit(supplier)} 
+                    className="p-2 text-brand-text-main/60 hover:text-brand-blue bg-slate-50 rounded-lg transition-all"
+                    title="Editar"
+                  >
+                    <Edit3 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(supplier.id)} 
+                    className="p-2 text-brand-text-main/60 hover:text-rose-500 bg-slate-50 rounded-lg transition-all"
+                    title="Excluir"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
@@ -492,6 +573,49 @@ export default function FornecedoresPage() {
           </table>
         </div>
       </div>
+
+      {/* Centered Exclusion Confirmation Modal */}
+      <AnimatePresence>
+        {supplierToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-[32px] border border-brand-border p-8 w-full max-w-sm flex flex-col items-center text-center shadow-2xl relative z-50 animate-in zoom-in-95 duration-150"
+            >
+              <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mb-4 animate-bounce">
+                <AlertTriangle size={28} />
+              </div>
+
+              <h3 className="text-lg font-black text-brand-text-main uppercase italic tracking-tight mb-2">
+                Excluir Fornecedor
+              </h3>
+
+              <p className="text-xs text-brand-text-main/70 font-bold uppercase tracking-wide leading-relaxed mb-6">
+                Tem certeza que deseja excluir este fornecedor?
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setSupplierToDelete(null)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase italic tracking-wider transition-all active:scale-95 border border-slate-200/50"
+                >
+                  Não, Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase italic tracking-wider transition-all shadow-md shadow-rose-600/10 active:scale-95"
+                >
+                  Sim, Excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

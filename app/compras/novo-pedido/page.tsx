@@ -18,7 +18,7 @@ import {
   Plus,
   ArrowRight,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from "next/link";
 import { cn, getLocalDateString, formatDateBR } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -52,33 +52,25 @@ export default function NovaCompraPage() {
   } = useERP();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
 
-  // Lock layout and body scroll on mount, restore on unmount to completely prevent screen from bouncing or moving vertically
+  // Dynamically hide scrollbar when in Fornecedor tab
   useEffect(() => {
     if (typeof document !== "undefined") {
-      const originalBodyOverflow = document.body.style.overflow;
-      const originalHtmlOverflow = document.documentElement.style.overflow;
-      const originalBodyHeight = document.body.style.height;
-      const originalHtmlHeight = document.documentElement.style.height;
-
-      document.body.style.overflow = "hidden";
-      document.body.style.height = "100%";
-      document.documentElement.style.overflow = "hidden";
-      document.documentElement.style.height = "100%";
-
-      document.documentElement.classList.add("no-scrollbar");
-      document.body.classList.add("no-scrollbar");
-
-      return () => {
-        document.body.style.overflow = originalBodyOverflow;
-        document.body.style.height = originalBodyHeight;
-        document.documentElement.style.overflow = originalHtmlOverflow;
-        document.documentElement.style.height = originalHtmlHeight;
-
+      if (activeTab === 1) {
+        document.documentElement.classList.add("no-scrollbar");
+        document.body.classList.add("no-scrollbar");
+      } else {
         document.documentElement.classList.remove("no-scrollbar");
         document.body.classList.remove("no-scrollbar");
-      };
+      }
     }
-  }, []);
+    return () => {
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("no-scrollbar");
+        document.body.classList.remove("no-scrollbar");
+      }
+    };
+  }, [activeTab]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
@@ -965,6 +957,34 @@ export default function NovaCompraPage() {
               Entrada de Mercadoria e Lotes
             </p>
           </div>
+          
+          <div className="flex items-center gap-1.5 md:gap-3 overflow-x-auto pb-1 no-scrollbar shrink-0">
+            {[1, 2, 3].map((tab) => (
+              <div
+                key={tab}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-2xl font-black uppercase italic tracking-tight transition-all shrink-0 border text-[10px]",
+                  activeTab === tab
+                    ? "bg-brand-blue text-white border-brand-blue shadow-md shadow-brand-blue/10"
+                    : "text-brand-text-sec bg-brand-card border-brand-border",
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-5 h-5 rounded-lg flex items-center justify-center text-[9px]",
+                    activeTab === tab
+                      ? "bg-white/20 text-white"
+                      : "bg-brand-bg text-brand-text-sec",
+                  )}
+                >
+                  {tab}
+                </div>
+                <span className="text-[10px]">
+                  {tab === 1 ? "Fornecedor" : tab === 2 ? "Produtos" : "Finalizar"}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {(supplierId || items.length > 0) && (
@@ -978,37 +998,8 @@ export default function NovaCompraPage() {
         )}
       </div>
 
-      {/* Tabs Navigation with padding */}
-      <div className="px-4 md:px-8 flex items-center gap-1.5 md:gap-3 overflow-x-auto pb-1 no-scrollbar relative z-10 shrink-0">
-        {[1, 2, 3].map((tab) => (
-          <div
-            key={tab}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black uppercase italic tracking-tight transition-all shrink-0 border text-xs",
-              activeTab === tab
-                ? "bg-brand-blue text-white border-brand-blue shadow-md shadow-brand-blue/10"
-                : "text-brand-text-sec bg-brand-card border-brand-border",
-            )}
-          >
-            <div
-              className={cn(
-                "w-6 h-6 rounded-xl flex items-center justify-center text-[10px]",
-                activeTab === tab
-                  ? "bg-white/20 text-white"
-                  : "bg-brand-bg text-brand-text-sec",
-              )}
-            >
-              {tab}
-            </div>
-            <span className="text-xs">
-              {tab === 1 ? "Fornecedor" : tab === 2 ? "Produtos" : "Finalizar"}
-            </span>
-          </div>
-        ))}
-      </div>
-
       {/* Tab Content Full Screen Modal Style */}
-      <div className="flex-grow bg-white border-t border-brand-border/50 p-4 md:p-6 pb-6 relative z-10 w-full rounded-t-[32px] shadow-2xl flex flex-col overflow-y-auto min-h-0 no-scrollbar">
+      <div className="flex-grow bg-white border-t border-brand-border/50 p-4 md:p-6 pb-6 relative z-10 w-full rounded-t-[32px] shadow-2xl flex flex-col min-h-0 no-scrollbar overflow-y-auto overscroll-y-contain">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue"></div>
@@ -1499,14 +1490,16 @@ export default function NovaCompraPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-8 max-w-5xl mx-auto"
               >
-                <div className="text-center space-y-2 mb-8">
-                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 size={32} />
+                <div className="flex flex-col items-center mb-8">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <h2 className="text-2xl font-black text-brand-text-main uppercase italic tracking-tight">
+                      Resumo da Compra
+                    </h2>
                   </div>
-                  <h2 className="text-2xl font-black text-brand-text-main uppercase italic tracking-tight">
-                    Resumo da Compra
-                  </h2>
-                  <p className="text-slate-500 font-medium">
+                  <p className="text-slate-500 font-medium text-sm">
                     Revise os dados antes de confirmar a entrada no estoque.
                   </p>
                 </div>
@@ -1707,7 +1700,7 @@ export default function NovaCompraPage() {
                 </div>
 
                 {/* Totals & Actions */}
-                <div className="p-8 bg-brand-text-main text-white rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="p-3 bg-brand-text-main text-white rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-2 max-w-4xl mx-auto w-full">
                   <div className="flex items-center gap-12">
                     <div>
                       <div className="text-[10px] font-black text-white/60 uppercase italic tracking-widest">

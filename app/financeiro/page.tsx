@@ -23,7 +23,7 @@ import {
   CreditCard,
   Users
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { cn, getLocalDateString } from '@/lib/utils';
 import { 
   BarChart, 
