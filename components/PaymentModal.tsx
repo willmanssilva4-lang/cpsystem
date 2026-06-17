@@ -21,7 +21,22 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const hasVoucherInMethods = paymentMethods.some(m => m.active && (m.type?.toUpperCase() === 'VOUCHER' || m.name?.toUpperCase() === 'VOUCHER' || m.name?.toUpperCase() === 'VALE-LOJA' || m.name?.toUpperCase() === 'VALE CRÉDITO'));
   
   const activeMethods = [
-    ...paymentMethods.filter(m => m.active),
+    ...paymentMethods.filter(m => m.active).map(m => {
+      let inferredType = m.type;
+      if (!inferredType && m.name) {
+        const upperName = m.name.toUpperCase();
+        if (upperName === 'CRÉDITO' || upperName === 'CREDITO') inferredType = 'Crédito';
+        else if (upperName === 'DÉBITO' || upperName === 'DEBITO') inferredType = 'Débito';
+        else if (upperName === 'PIX') inferredType = 'Pix';
+        else if (upperName === 'DINHEIRO') inferredType = 'Dinheiro';
+        else if (upperName === 'FIADO') inferredType = 'Fiado';
+        else if (upperName === 'VOUCHER' || upperName === 'VALE-LOJA' || upperName === 'VALE CRÉDITO') inferredType = 'Voucher';
+      }
+      return {
+        ...m,
+        type: inferredType
+      };
+    }),
     ...(hasVoucherInMethods ? [] : [{
       id: 'virtual-voucher-id',
       name: 'Voucher',
@@ -31,7 +46,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     }])
   ];
   
-  const activeMaquininhas = maquininhas.filter(m => m.ativo);
+  const activeMaquininhas = maquininhas.filter(m => m.ativo !== false);
   
   const [activeMethod, setActiveMethod] = useState<string>(activeMethods[0]?.name || 'Dinheiro');
   const [selectedMaquininhaId, setSelectedMaquininhaId] = useState<string>('');
@@ -80,9 +95,15 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   }, [remainingAmount]);
 
   const filteredMaquininhas = activeMaquininhas.filter(maq => {
-    if (selectedMethodObj?.type === 'Débito') return (maq.taxa_debito || 0) > 0 || maq.nome.toLowerCase().includes('débito') || maq.nome.toLowerCase().includes('debito');
-    if (selectedMethodObj?.type === 'Crédito') return (maq.taxa_credito || 0) > 0 || maq.nome.toLowerCase().includes('crédito') || maq.nome.toLowerCase().includes('credito');
-    if (activeMethod === 'Pix' || selectedMethodObj?.type === 'Pix') return (maq.taxa_pix || 0) > 0 || maq.nome.toLowerCase().includes('pix');
+    if (selectedMethodObj?.type === 'Débito') {
+      return (maq.taxa_debito || 0) > 0 || maq.nome.toUpperCase().includes('DÉBITO') || maq.nome.toUpperCase().includes('DEBITO');
+    }
+    if (selectedMethodObj?.type === 'Crédito') {
+      return (maq.taxa_credito || 0) > 0 || (maq.taxa_credito_parcelado || 0) > 0 || maq.nome.toUpperCase().includes('CRÉDITO') || maq.nome.toUpperCase().includes('CREDITO');
+    }
+    if (selectedMethodObj?.type === 'Pix' || activeMethod?.toUpperCase() === 'PIX') {
+      return (maq.taxa_pix || 0) > 0 || maq.nome.toUpperCase().includes('PIX');
+    }
     return true;
   });
 

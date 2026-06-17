@@ -17,6 +17,9 @@ import {
   CheckCircle2,
   Plus,
   ArrowRight,
+  TrendingUp,
+  Coins,
+  Tag,
 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from "next/link";
@@ -156,6 +159,7 @@ export default function NovaCompraPage() {
   // Tab 2: Produtos Data
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [averageCost, setAverageCost] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -543,19 +547,55 @@ export default function NovaCompraPage() {
     }
   };
 
-  const selectProduct = (product: any) => {
+  const selectProduct = async (product: any) => {
     setSelectedProduct(product);
     setSearchTerm(product.name);
-    setItemCost(Number(product.costPrice ?? product.cost_price) || 0);
+    const initialCost = Number(product.costPrice ?? product.cost_price) || 0;
+    setItemCost(initialCost);
     setItemSalePrice(Number(product.salePrice ?? product.sale_price) || 0);
     setSearchResults([]);
     setSelectedIndex(-1);
+    setAverageCost(null);
 
     // Focus next field after selection
     setTimeout(() => {
       qtyInputRef.current?.focus();
       qtyInputRef.current?.select();
     }, 10);
+
+    // Fetch average cost from purchase_order_items for this product
+    try {
+      const { data, error } = await supabase
+        .from("purchase_order_items")
+        .select("quantity, unit_price")
+        .eq("product_id", product.id);
+
+      if (!error && data && data.length > 0) {
+        let totalVal = 0;
+        let totalQty = 0;
+        for (const item of data) {
+          const q = Number(item.quantity) || 0;
+          const price = Number(item.unit_price) || 0;
+          if (q > 0) {
+            totalVal += q * price;
+            totalQty += q;
+          }
+        }
+        if (totalQty > 0) {
+          const avgCost = totalVal / totalQty;
+          console.log(`[NovaCompra] Average cost found: R$ ${avgCost}`);
+          setAverageCost(avgCost);
+          setItemCost(avgCost);
+        } else {
+          setAverageCost(initialCost);
+        }
+      } else {
+        setAverageCost(initialCost);
+      }
+    } catch (err) {
+      console.error("Error fetching average cost:", err);
+      setAverageCost(initialCost);
+    }
   };
 
   const handleNextToProducts = () => {
@@ -595,6 +635,7 @@ export default function NovaCompraPage() {
     // Reset fields
     setSelectedProduct(null);
     setSearchTerm("");
+    setAverageCost(null);
     setItemQty(1);
     setItemCost(0);
     setItemSalePrice(0);
@@ -1414,6 +1455,57 @@ export default function NovaCompraPage() {
                     </button>
                   </div>
                 </div>
+
+                {selectedProduct && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  >
+                    {/* Custo Médio Card */}
+                    <div className="bg-emerald-500/5 border border-emerald-500/10 p-5 rounded-3xl flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                          <TrendingUp size={22} className="stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black text-emerald-800/80 uppercase tracking-widest font-mono">
+                            Custo Médio (Histórico)
+                          </div>
+                          <div className="text-xl font-black text-emerald-700 font-mono mt-1">
+                            R$ {averageCost !== null 
+                              ? averageCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                              : Number(selectedProduct.costPrice ?? selectedProduct.cost_price ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                            }
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-emerald-600/70 font-black uppercase italic tracking-wider max-w-[120px] text-right hidden sm:block">
+                        {averageCost !== null ? "Calculado das compras anteriores" : "Sem histórico de compras - usando cadastro"}
+                      </div>
+                    </div>
+
+                    {/* Informações Auxiliares Card */}
+                    <div className="bg-slate-500/5 border border-slate-500/10 p-5 rounded-3xl flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                          <Coins size={22} className="stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">
+                            Custo Registrado
+                          </div>
+                          <div className="text-xl font-black text-slate-700 font-mono mt-1">
+                            R$ {Number(selectedProduct.costPrice ?? selectedProduct.cost_price ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-slate-500/70 font-black uppercase italic tracking-wider max-w-[120px] text-right hidden sm:block">
+                        Valor atual da ficha do produto
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {itemCost > 0 && itemSalePrice > 0 && (
                   <div className="text-right text-xs font-bold text-brand-green italic">

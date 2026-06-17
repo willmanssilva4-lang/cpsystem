@@ -474,7 +474,7 @@ export default function PurchasingPage() {
         </div>
         <button 
           onClick={() => router.push('/relatorios')}
-          className="px-6 py-3 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all text-sm"
+          className="px-6 py-3 bg-gradient-to-r from-brand-blue to-blue-700 text-white rounded-2xl font-black uppercase italic tracking-wider hover:from-brand-blue-hover hover:to-blue-800 transition-all text-xs md:text-sm shadow-md hover:shadow-lg shadow-brand-blue/15 hover:scale-[1.02] active:scale-[0.98]"
         >
           Dashboard Executivo
         </button>
@@ -803,7 +803,7 @@ export default function PurchasingPage() {
                 localStorage.setItem('replenishment_items', JSON.stringify(stockAlerts));
                 router.push('/compras/novo-pedido');
               }}
-              className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-xs md:text-sm hover:bg-rose-700 transition-all"
+              className="w-full py-4 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-2xl font-black uppercase italic tracking-wider text-xs md:text-sm hover:from-rose-700 hover:to-rose-800 transition-all shadow-md hover:shadow-lg shadow-rose-200/40 hover:scale-[1.01] active:scale-[0.99]"
             >
               Gerar Pedido de Reposição
             </button>
@@ -870,7 +870,7 @@ export default function PurchasingPage() {
             </div>
             <button 
               onClick={() => setIsSuppliersModalOpen(false)}
-              className="mt-6 w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20"
+              className="mt-6 w-full py-4 bg-gradient-to-r from-brand-blue to-blue-700 text-white rounded-2xl font-black uppercase italic tracking-wider text-sm hover:from-brand-blue-hover hover:to-blue-800 transition-all shadow-lg shadow-brand-blue/15 hover:scale-[1.01] active:scale-[0.99]"
             >
               Fechar
             </button>
@@ -959,7 +959,7 @@ export default function PurchasingPage() {
             <div className="flex gap-4 mt-6 shrink-0 pt-4 border-t border-slate-100">
               <button 
                 onClick={() => setIsReplenishmentModalOpen(false)}
-                className="flex-1 py-4 bg-slate-100 text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-slate-200 transition-all active:scale-95"
+                className="flex-1 py-4 bg-slate-100/80 hover:bg-slate-200/90 text-brand-text-main rounded-2xl font-black uppercase italic tracking-wider text-sm transition-all hover:scale-[1.01] active:scale-[0.99] border border-slate-200"
               >
                 Fechar
               </button>
@@ -969,7 +969,7 @@ export default function PurchasingPage() {
                     localStorage.setItem('replenishment_items', JSON.stringify(stockAlerts));
                     router.push('/compras/novo-pedido');
                   }}
-                  className="flex-[2] py-4 bg-rose-600 text-white rounded-2xl font-black uppercase italic tracking-tight text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 active:scale-95"
+                  className="flex-[2] py-4 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-2xl font-black uppercase italic tracking-wider text-sm hover:from-rose-700 hover:to-rose-800 transition-all shadow-lg shadow-rose-200/40 hover:scale-[1.01] active:scale-[0.99]"
                 >
                   Reposição Geral ({stockAlerts.length} itens)
                 </button>
