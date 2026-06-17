@@ -17,7 +17,7 @@ export function PaymentModal({ onClose, expense }: PaymentModalProps) {
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   const [formData, setFormData] = useState({
-    supplier: expense.supplier || '',
+    supplier: expense.supplier ? (expense.supplier.includes(' | ') ? expense.supplier.split(' | ')[1] : expense.supplier) : '',
     description: expense.description || '',
     amount: expense.amount.toString(),
     interest: (expense.interest || 0).toString(),

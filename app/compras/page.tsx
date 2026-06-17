@@ -19,7 +19,8 @@ import {
   XCircle,
   PackageCheck,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  ShoppingBag
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -44,6 +45,8 @@ const QUICK_ACTIONS = [
   { label: 'Importar XML', icon: FileSearch, href: '/compras/importar-xml', description: 'Entrada por nota fiscal (NF-e)' },
   { label: 'Reposição', icon: PackageCheck, href: '/compras/reposicao', description: 'Sugestão baseada em estoque' },
   { label: 'Cotações', icon: FileText, href: '/compras/cotacoes', description: 'Comparar preços de fornecedores' },
+  { label: 'Lista de Compras', icon: ShoppingBag, href: '/compras/lista-compras', description: 'Criar lista para o comprador' },
+  { label: 'Minhas Listas', icon: ShoppingBag, href: '/compras/minhas-listas', description: 'Ver listas salvas' },
 ];
 
 export default function PurchasingPage() {

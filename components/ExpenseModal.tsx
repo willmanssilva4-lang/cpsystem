@@ -75,7 +75,7 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
         type: expenseToEdit.type || 'Fixa',
         description: expenseToEdit.description,
         category: expenseToEdit.category,
-        supplier: expenseToEdit.supplier || '',
+        supplier: expenseToEdit.supplier ? (expenseToEdit.supplier.includes(' | ') ? expenseToEdit.supplier.split(' | ')[1] : expenseToEdit.supplier) : '',
         supplierId: expenseToEdit.supplierId || '',
         amount: expenseToEdit.amount.toString(),
         interest: (expenseToEdit.interest || 0).toString(),
@@ -488,9 +488,10 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
                       placeholder="Busque ou escreva"
                     />
                     <datalist id="supplier-options">
-                      {suppliers.map(sup => (
-                        <option key={sup.id} value={sup.name} />
-                      ))}
+                      {suppliers.map(sup => {
+                        const tradeName = sup.name.includes(" | ") ? sup.name.split(" | ")[1] : sup.name;
+                        return <option key={sup.id} value={tradeName} />;
+                      })}
                     </datalist>
                   </div>
 

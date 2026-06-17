@@ -20,7 +20,7 @@ import {
   Activity,
   Award
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { Sale, Expense, Product, Return, ReturnItem } from '@/lib/types';
 import { 
   PieChart, 
@@ -66,15 +66,26 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     
     const getYear = (dateStr: string | Date | undefined) => {
       if (!dateStr) return currentYear;
-      if (typeof dateStr === 'string' && dateStr.length === 10) {
-        return parseInt(dateStr.split('-')[0], 10);
-      }
-      return new Date(dateStr).getFullYear();
+      const localStr = getLocalDateString(dateStr);
+      if (!localStr) return currentYear;
+      return parseInt(localStr.split('-')[0], 10);
     };
 
-    sales.forEach(s => years.add(getYear(s.date)));
-    expenses.forEach(e => years.add(getYear(e.date)));
-    returns.forEach(r => years.add(getYear(r.date)));
+    sales.forEach(s => {
+      if (s.status?.toLowerCase() !== 'cancelada') {
+        years.add(getYear(s.date));
+      }
+    });
+    expenses.forEach(e => {
+      if (e.status === 'Pago') {
+        years.add(getYear(e.paymentDate || e.date));
+      }
+    });
+    returns.forEach(r => {
+      if (r.status?.toLowerCase() !== 'cancelado') {
+        years.add(getYear(r.date));
+      }
+    });
     
     return Array.from(years).sort((a, b) => b - a);
   }, [sales, expenses, returns]);
@@ -82,37 +93,31 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
   const dreData = useMemo(() => {
     const getMonthYear = (dateStr: string | Date | undefined) => {
       if (!dateStr) return { month: -1, year: -1 };
-      
-      if (typeof dateStr === 'string') {
-        if (dateStr.length === 10 && dateStr.includes('-')) {
-          const [year, month] = dateStr.split('-');
-          return { month: parseInt(month, 10) - 1, year: parseInt(year, 10) };
-        }
-        if (dateStr.length === 10 && dateStr.includes('/')) {
-          const [day, month, year] = dateStr.split('/');
-          return { month: parseInt(month, 10) - 1, year: parseInt(year, 10) };
-        }
-      }
-      
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return { month: -1, year: -1 };
-      return { month: d.getMonth(), year: d.getFullYear() };
+      const localStr = getLocalDateString(dateStr);
+      if (!localStr) return { month: -1, year: -1 };
+      const [year, month] = localStr.split('-').map(Number);
+      return { month: month - 1, year };
     };
 
     const salesMonth = sales.filter(s => {
       const { month, year } = getMonthYear(s.date);
-      return month === selectedMonth && year === selectedYear;
+      return month === selectedMonth && year === selectedYear && s.status?.toLowerCase() !== 'cancelada';
     });
 
     const returnsMonth = returns.filter(r => {
       const { month, year } = getMonthYear(r.date);
-      return month === selectedMonth && year === selectedYear && r.status !== 'CANCELADO';
+      return month === selectedMonth && year === selectedYear && r.status?.toLowerCase() !== 'cancelado';
     });
 
-    const receitaBruta = salesMonth.reduce((acc, s) => acc + (s.subtotal || (s.total + (s.discount || 0))), 0);
+    const receitaBruta = salesMonth.reduce((acc, s) => {
+      const subtotalVal = s.subtotal !== undefined && s.subtotal !== null
+        ? Number(s.subtotal)
+        : (Number(s.total) + Number(s.discount || 0));
+      return acc + (isNaN(subtotalVal) ? 0 : subtotalVal);
+    }, 0);
 
-    const descontos = salesMonth.reduce((acc, s) => acc + (s.discount || 0), 0);
-    const devolucoes = returnsMonth.reduce((acc, r) => acc + (r.total || 0), 0);
+    const descontos = salesMonth.reduce((acc, s) => acc + Number(s.discount || 0), 0);
+    const devolucoes = returnsMonth.reduce((acc, r) => acc + Number(r.total || 0), 0);
     const deducoes = descontos + devolucoes;
 
     const receitaLiquida = receitaBruta - deducoes;
@@ -175,8 +180,8 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     const lucroBruto = receitaLiquida - cmv;
 
     const expensesMonth = expenses.filter(e => {
-      const { month, year } = getMonthYear(e.date);
-      return month === selectedMonth && year === selectedYear && e.category !== 'Compra de Mercadoria';
+      const { month, year } = getMonthYear(e.paymentDate || e.date);
+      return month === selectedMonth && year === selectedYear && e.category !== 'Compra de Mercadoria' && e.status === 'Pago';
     });
 
     const despesasPorCategoria = expensesMonth.reduce((acc, e) => {

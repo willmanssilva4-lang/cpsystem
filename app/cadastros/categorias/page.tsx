@@ -503,7 +503,7 @@ export default function CategoriasPage() {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-brand-bg min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -511,14 +511,14 @@ export default function CategoriasPage() {
                 <ArrowLeft size={24} />
               </Link>
               <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Árvore Mercadológica</h1>
-                <p className="text-brand-blue/60 font-medium">Gerencie departamentos, categorias e subcategorias.</p>
+                <h1 className="text-xl md:text-3xl font-black tracking-tight text-brand-text-main italic uppercase">Árvore Mercadológica</h1>
+                <p className="text-brand-blue/60 font-medium text-xs md:text-sm">Gerencie departamentos, categorias e subcategorias.</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => handleOpenDeptModal()}
-                className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95"
+                className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-text-main transition-all shadow-lg shadow-brand-blue/20 active:scale-95 text-xs md:text-sm w-full md:w-auto justify-center"
               >
                 <Plus size={20} />
                 Novo Departamento
@@ -526,23 +526,23 @@ export default function CategoriasPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <button
               onClick={() => setIsConfirmingSeed(true)}
               disabled={isSeeding}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-blue/20 rounded-xl font-bold uppercase text-xs tracking-tight transition-all active:scale-95",
+                "flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 bg-white text-brand-blue border border-brand-blue/20 rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-tight transition-all active:scale-95",
                 isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-brand-blue/5"
               )}
             >
               <FolderTree size={16} className={cn(isSeeding && "animate-pulse")} />
-              {isSeeding ? 'Carregando...' : 'Carregar Árvore Profissional'}
+              {isSeeding ? 'Carregando...' : 'Carregar Árvore'}
             </button>
             <button
               onClick={() => setIsConfirmingFinanceSeed(true)}
               disabled={isSeeding}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 bg-white text-emerald-600 border border-emerald-600/20 rounded-xl font-bold uppercase text-xs tracking-tight transition-all active:scale-95",
+                "flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 bg-white text-emerald-600 border border-emerald-600/20 rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-tight transition-all active:scale-95",
                 isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-emerald-50"
               )}
             >
@@ -552,7 +552,7 @@ export default function CategoriasPage() {
             
             <button
               onClick={handleDownloadTemplate}
-              className="flex items-center gap-2 px-4 py-3 bg-white text-brand-blue border border-brand-border rounded-xl font-bold uppercase text-xs tracking-tight hover:bg-brand-blue/5 transition-all shadow-sm active:scale-95"
+              className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 bg-white text-brand-blue border border-brand-border rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-tight hover:bg-brand-blue/5 transition-all shadow-sm active:scale-95"
             >
               <Download size={16} />
               Baixar Modelo
@@ -569,7 +569,7 @@ export default function CategoriasPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={isSeeding}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 bg-brand-text-main text-white rounded-xl font-bold uppercase text-xs tracking-tight shadow-sm transition-all active:scale-95",
+                "flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 bg-brand-text-main text-white rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-tight shadow-sm transition-all active:scale-95",
                 isSeeding ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-700"
               )}
             >
@@ -580,18 +580,18 @@ export default function CategoriasPage() {
         </div>
 
       {/* Content */}
-      <div className="bg-white rounded-[32px] border border-brand-border shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-brand-border bg-slate-50/50 flex items-center justify-between">
+      <div className="bg-white rounded-3xl md:rounded-[32px] border border-brand-border shadow-sm overflow-hidden">
+        <div className="p-4 md:p-6 border-b border-brand-border bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-brand-text-main/60">
             <FolderTree size={20} />
             <span className="font-bold uppercase tracking-wide text-xs">Departamentos Cadastrados</span>
           </div>
-          <div className="flex items-center gap-4 text-[10px] uppercase font-black tracking-widest text-slate-400">
-            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{uniqueSegmentos.length} Segmentos</span>
-            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{uniqueSecoes.length} Seções</span>
-            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{departamentos.length} Departamentos</span>
-            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{categorias.length} Categorias</span>
-            <span className="bg-slate-100 px-2.5 py-1 rounded-full">{subcategorias.length} Subcategorias</span>
+          <div className="flex flex-wrap items-center gap-2 text-[9px] md:text-[10px] uppercase font-black tracking-widest text-slate-400">
+            <span className="bg-slate-100 px-2 py-1 rounded-full">{uniqueSegmentos.length} Seg</span>
+            <span className="bg-slate-100 px-2 py-1 rounded-full">{uniqueSecoes.length} Seç</span>
+            <span className="bg-slate-100 px-2 py-1 rounded-full">{departamentos.length} Dept</span>
+            <span className="bg-slate-100 px-2 py-1 rounded-full">{categorias.length} Cat</span>
+            <span className="bg-slate-100 px-2 py-1 rounded-full">{subcategorias.length} Sub</span>
           </div>
         </div>
         
@@ -602,31 +602,28 @@ export default function CategoriasPage() {
             </div>
           ) : (
             sortedDepartamentos.map((dept) => (
-              <div key={dept.id} className="group flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-brand-blue/10 rounded-2xl flex items-center justify-center text-brand-blue font-black text-xl italic">
+              <div key={dept.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-6 hover:bg-slate-50/50 transition-colors gap-4">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-blue/10 rounded-2xl flex items-center justify-center text-brand-blue font-black text-lg md:text-xl italic shrink-0">
                     {dept.codigo}
                   </div>
                   <div>
-                    <h3 className="font-black text-brand-text-main text-xl italic uppercase tracking-tight">
+                    <h3 className="font-black text-brand-text-main text-lg md:text-xl italic uppercase tracking-tight">
                       {dept.nome}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       {(dept.segmento || '').split(',').map(s => s.trim()).filter(Boolean).map((seg, idx) => (
-                        <span key={idx} className="text-[10px] uppercase font-black tracking-widest text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full">
-                          Seg: {seg} ({departamentos.filter(d => (d.segmento || '').includes(seg)).length})
+                        <span key={idx} className="text-[9px] md:text-[10px] uppercase font-black tracking-widest text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {seg}
                         </span>
                       ))}
                       {(dept.secao || '').split(',').map(s => s.trim()).filter(Boolean).map((sec, idx) => (
-                        <span key={idx} className="text-[10px] uppercase font-black tracking-widest text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full">
-                          Seç: {sec} ({departamentos.filter(d => (d.secao || '').includes(sec)).length})
+                        <span key={idx} className="text-[9px] md:text-[10px] uppercase font-black tracking-widest text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {sec}
                         </span>
                       ))}
-                      <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {categorias.filter(c => c.departamento_id === dept.id).length} Categorias
-                      </span>
                       {!dept.ativo && (
-                        <span className="text-[10px] uppercase font-black tracking-widest text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] md:text-[10px] uppercase font-black tracking-widest text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">
                           Inativo
                         </span>
                       )}
@@ -634,13 +631,13 @@ export default function CategoriasPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-center">
                   <button
                     onClick={() => handleOpenDeptModal(dept)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-brand-text-main rounded-xl font-bold uppercase text-xs tracking-tight hover:bg-brand-blue hover:text-white transition-all active:scale-95"
+                    className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-slate-100 text-brand-text-main rounded-xl font-bold uppercase text-[10px] md:text-xs tracking-tight hover:bg-brand-blue hover:text-white transition-all active:scale-95"
                   >
-                    <Edit2 size={16} />
-                    Gerenciar Árvore
+                    <Edit2 size={14} />
+                    Gerenciar
                   </button>
                   <button
                     onClick={() => {
@@ -650,7 +647,7 @@ export default function CategoriasPage() {
                     }}
                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>

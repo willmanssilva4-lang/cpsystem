@@ -841,6 +841,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       setIsAuthReady(true);
     }, 3000);
 
+    console.log('[ERPProvider] Starting initAuth');
     initAuth();
 
     const authResponse = supabase.auth.onAuthStateChange((_event, session) => {

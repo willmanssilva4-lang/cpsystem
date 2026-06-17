@@ -89,24 +89,24 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-brand-card border border-brand-border rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div className="p-8 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
-          <h2 className="text-xl font-black uppercase italic tracking-tight text-brand-text-main flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/20">
-              <User size={20} />
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-brand-card border border-brand-border rounded-3xl sm:rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div className="p-5 sm:p-8 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
+          <h2 className="text-lg sm:text-xl font-black uppercase italic tracking-tight text-brand-text-main flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue border border-brand-blue/20">
+              <User size={16} className="sm:w-5 sm:h-5" />
             </div>
             {customerToEdit ? 'Editar Cliente' : 'Novo Cliente'}
           </h2>
           <button 
             onClick={onClose}
-            className="p-3 text-slate-400 hover:text-brand-blue hover:bg-brand-blue/10 rounded-2xl transition-all"
+            className="p-2 sm:p-3 text-slate-400 hover:text-brand-blue hover:bg-brand-blue/10 rounded-xl sm:rounded-2xl transition-all"
           >
-            <X size={20} />
+            <X size={18} className="sm:w-[20px] sm:h-[20px]" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-4 sm:space-y-6 max-h-[85vh] overflow-y-auto">
           {error && (
             <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl text-xs font-black uppercase italic flex items-center gap-3 border border-rose-100">
               <AlertCircle size={16} />
@@ -215,30 +215,30 @@ export function CustomerModal({ onClose, customerToEdit }: CustomerModalProps) {
             </div>
           </div>
 
-          <div className="pt-6 flex gap-3 border-t border-brand-border">
+          <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row gap-2 sm:gap-3 border-t border-brand-border">
             {customerToEdit && (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={isDeleting || isSubmitting}
-                className="h-14 px-6 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-colors disabled:opacity-50"
+                className="h-12 sm:h-14 px-5 sm:px-6 bg-rose-50 text-rose-600 rounded-xl sm:rounded-2xl hover:bg-rose-100 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
-                <Trash2 size={20} />
+                <Trash2 size={18} className="sm:w-5 sm:h-5" />
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-14 bg-brand-bg text-brand-text-sec rounded-2xl font-black text-xs uppercase tracking-widest italic hover:bg-slate-100 transition-all border border-brand-border"
+              className="flex-1 h-12 sm:h-14 bg-brand-bg text-brand-text-sec rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest italic hover:bg-slate-100 transition-all border border-brand-border"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting || isDeleting}
-              className="flex-2 h-14 px-8 bg-brand-blue text-white rounded-2xl font-black text-xs uppercase tracking-widest italic hover:bg-brand-blue-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-blue/20"
+              className="flex-1 sm:flex-[2] h-12 sm:h-14 px-6 sm:px-8 bg-brand-blue text-white rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest italic hover:bg-brand-blue-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-brand-blue/20"
             >
-              <Save size={18} />
+              <Save size={16} className="sm:w-[18px] sm:h-[18px]" />
               {isSubmitting ? 'Salvando...' : 'Salvar Cadastro'}
             </button>
           </div>

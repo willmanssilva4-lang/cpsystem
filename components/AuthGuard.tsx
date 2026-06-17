@@ -19,6 +19,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     console.log('[AuthGuard] useEffect running. isAuthReady:', isAuthReady, 'user:', effectiveUser, 'pathname:', pathname);
     // Wait for auth to be ready before making decisions
     if (!isAuthReady) {
+      console.log('[AuthGuard] Auth not ready yet.');
       return;
     }
 
@@ -65,12 +66,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // This prevents stuck loading screens on login/price check pages
   const isPublicPage = pathname === '/login' || pathname === '/consulta-preco';
 
-  // Force reload if stuck
+  // Warn if auth seems to take too long (for debugging), but do not trigger reload as it interrupts compiling
   useEffect(() => {
     if (!isAuthReady && !isPublicPage) {
       const timer = setTimeout(() => {
-        window.location.reload();
-      }, 10000);
+        console.warn('[AuthGuard] Auth is taking longer than usual to initialize. This is normal during initial page compilation.');
+      }, 20000);
       return () => clearTimeout(timer);
     }
   }, [isAuthReady, isPublicPage]);
@@ -78,6 +79,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // Show loading state while auth is initializing or when explicitly loading
   // No longer showing it for redirecting state to prevent stuck UI
   if (!isAuthReady && !isPublicPage) {
+    console.log('[AuthGuard] Rendering loading screen');
     return (
       <div 
         id="auth-loading-screen" 
@@ -93,7 +95,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <span id="loading-text" data-id="loading-text" className="text-white font-bold uppercase italic tracking-widest">
               Carregando Sistema...
             </span>
-            <span className="text-white/60 text-xs mt-2">Se demorar mais de 10s, recarregando automaticamente...</span>
+            <span className="text-white/60 text-xs mt-2">Status: {isAuthReady ? 'Pronto' : 'Aguardando'} | {isLoading ? 'Carregando dados' : 'Dados prontos'}</span>
           </div>
         </div>
       </div>

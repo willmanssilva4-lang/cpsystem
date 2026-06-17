@@ -66,6 +66,9 @@ export default function ProductsPage() {
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showDepartamentoMenu, setShowDepartamentoMenu] = useState(false);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [selectedProductsForBulk, setSelectedProductsForBulk] = useState<Record<string, boolean>>({});
+  const [bulkDeactivateLoading, setBulkDeactivateLoading] = useState(false);
+  const [showBulkDeactivateConfirm, setShowBulkDeactivateConfirm] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
@@ -224,6 +227,52 @@ export default function ProductsPage() {
       setCustomAlert({ message: 'Ocorreu um erro ao aplicar o reajuste.', type: 'error' });
     } finally {
       setBulkIsSubmitting(false);
+    }
+  };
+
+  const handleToggleSelectAll = () => {
+    const allSelected = currentProducts.length > 0 && currentProducts.every(p => selectedProductsForBulk[p.id]);
+    const newSelection = { ...selectedProductsForBulk };
+    currentProducts.forEach(p => {
+      newSelection[p.id] = !allSelected;
+    });
+    setSelectedProductsForBulk(newSelection);
+  };
+
+  const handleBulkDeactivate = async () => {
+    const selectedIds = Object.keys(selectedProductsForBulk).filter(id => selectedProductsForBulk[id]);
+    if (selectedIds.length === 0) return;
+    setShowBulkDeactivateConfirm(true);
+  };
+
+  const confirmBulkDeactivate = async () => {
+    const selectedIds = Object.keys(selectedProductsForBulk).filter(id => selectedProductsForBulk[id]);
+    if (selectedIds.length === 0) {
+      setShowBulkDeactivateConfirm(false);
+      return;
+    }
+    
+    setBulkDeactivateLoading(true);
+    setShowBulkDeactivateConfirm(false);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ status: 'Inativo' })
+        .in('id', selectedIds);
+        
+      if (error) {
+        console.error('[BulkDeactivate] error deactivating products:', error);
+        setCustomAlert({ message: `Erro ao inativar produtos: ${error.message}`, type: 'error' });
+      } else {
+        await fetchData();
+        setSelectedProductsForBulk({});
+        setCustomAlert({ message: `Sucesso! ${selectedIds.length} produtos foram inativados em lote.`, type: 'success' });
+      }
+    } catch (err: any) {
+      console.error('[BulkDeactivate] exception:', err);
+      setCustomAlert({ message: 'Ocorreu um erro ao inativar em lote.', type: 'error' });
+    } finally {
+      setBulkDeactivateLoading(false);
     }
   };
 
@@ -597,8 +646,10 @@ export default function ProductsPage() {
   const currentProducts = sortedFilteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalStockValue = products.reduce((acc, p) => {
-    // Opção 1: Excluir produtos tipo KIT ou produtos com base_product_id
-    if (p.product_type === 'KIT' || !!p.base_product_id) return acc;
+    // Excluir produtos tipo KIT, produtos com base_product_id e Inativos
+    const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+    const isActive = p.status !== 'Inativo';
+    if (isVirtual || !isActive) return acc;
 
     const stock = Number(p.stock || 0);
     const cost = Number(p.costPrice || 0);
@@ -608,18 +659,14 @@ export default function ProductsPage() {
     }
     return acc;
   }, 0);
-  const lowStockCount = React.useMemo(() => {
-    const movementsMap = new Map();
-    stockMovements.forEach(m => {
-       const modifier = ['SAIDA', 'SAÍDA', 'VENDA', 'PERDA'].includes((m.type || '').toUpperCase()) ? -1 : 1;
-       movementsMap.set(m.productId, (movementsMap.get(m.productId) || 0) + (m.quantity * modifier));
-    });
 
+  const lowStockCount = React.useMemo(() => {
     return products.filter(p => {
-      const realStock = (p.stock || 0) + (movementsMap.get(p.id) || 0);
-      return p.status === 'Ativo' && realStock <= (p.minStock || 0);
+      const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+      const isActive = p.status !== 'Inativo';
+      return !isVirtual && isActive && (p.stock || 0) <= (p.minStock || 0);
     }).length;
-  }, [products, stockMovements]);
+  }, [products]);
 
   const handleSaveProduct = async (formData: any) => {
     let success: boolean | string = false;
@@ -819,7 +866,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen" onClick={() => { setActiveMenuId(null); setShowCategoryMenu(false); setShowDepartamentoMenu(false); }}>
+    <div className="p-4 md:p-8 space-y-6 bg-brand-bg min-h-screen overflow-x-hidden" onClick={() => { setActiveMenuId(null); setShowCategoryMenu(false); setShowDepartamentoMenu(false); }}>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl md:text-2xl font-black text-brand-text-main uppercase italic tracking-tight">Gestão de Produtos</h1>
@@ -880,7 +927,7 @@ export default function ProductsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <SummaryCard 
               title="Total de Produtos" 
-              value={products.length.toLocaleString('pt-BR')} 
+              value={products.filter(p => p.status !== 'Inativo').length.toLocaleString('pt-BR')} 
               icon={Package} 
               color="green" 
             />
@@ -900,7 +947,9 @@ export default function ProductsPage() {
               title="Quantidade Total" 
               value={products
                 .reduce((acc, p) => {
-                  if (p.product_type === 'KIT' || !!p.base_product_id) return acc;
+                  const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+                  const isActive = p.status !== 'Inativo';
+                  if (isVirtual || !isActive) return acc;
                   return acc + (p.stock || 0);
                 }, 0)
                 .toLocaleString('pt-BR', { maximumFractionDigits: 2 })} 
@@ -924,6 +973,20 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                  {Object.values(selectedProductsForBulk).filter(Boolean).length > 0 && (
+                    <button 
+                      onClick={handleBulkDeactivate} 
+                      disabled={bulkDeactivateLoading}
+                      className="flex items-center gap-2 px-4 h-10 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-rose-100 hover:border-rose-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
+                    >
+                      {bulkDeactivateLoading ? (
+                        <RefreshCw size={14} className="animate-spin stroke-[2.5]" />
+                      ) : (
+                        <AlertTriangle size={14} className="stroke-[2.5]" />
+                      )}
+                      <span>Inativar Selecionados ({Object.values(selectedProductsForBulk).filter(Boolean).length})</span>
+                    </button>
+                  )}
                   <button 
                     onClick={() => setShowImportModal(true)} 
                     className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-xl text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
@@ -1073,10 +1136,18 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            <div className="overflow-visible">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead className="bg-slate-50/80 border-b border-slate-200">
                   <tr>
+                    <th className="px-4 py-4 w-12 text-center">
+                      <input 
+                        type="checkbox" 
+                        checked={currentProducts.length > 0 && currentProducts.every(p => selectedProductsForBulk[p.id])}
+                        onChange={handleToggleSelectAll}
+                        className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue/20 w-4 h-4 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Produto</th>
                     <th className="hidden md:table-cell px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Categoria</th>
                     <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Estoque</th>
@@ -1086,8 +1157,24 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {currentProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-slate-50/50 transition-colors group">
+                  {currentProducts.map((product) => {
+                    const isVirtual = product.product_type === 'KIT' || (product.composition && product.composition.length > 0) || !!product.base_product_id;
+                    
+                    return (
+                      <tr key={product.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-4 py-4 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={!!selectedProductsForBulk[product.id]}
+                          onChange={(e) => {
+                            setSelectedProductsForBulk(prev => ({
+                              ...prev,
+                              [product.id]: e.target.checked
+                            }));
+                          }}
+                          className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue/20 w-4 h-4 cursor-pointer"
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="hidden sm:flex w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 items-center justify-center text-slate-400 shadow-sm group-hover:border-brand-blue/25 group-hover:bg-slate-100/40 transition-colors">
@@ -1171,7 +1258,7 @@ export default function ProductsPage() {
                         </div>
                       </td>
                       <td className="hidden sm:table-cell px-6 py-4">
-                        <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (product.stock <= product.minStock ? 'Estoque Baixo' : 'Ativo')} />
+                        <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (!isVirtual && product.stock <= (product.minStock || 0) ? 'Estoque Baixo' : 'Ativo')} />
                       </td>
                       <td className="px-6 py-4 text-right relative">
                         <button 
@@ -1183,67 +1270,76 @@ export default function ProductsPage() {
                         >
                           <Settings2 size={18} />
                         </button>
-
                         {activeMenuId === product.id && (
-                          <div className="absolute right-full top-0 mr-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-right-2">
-                            <div className="p-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedProductForDetails(product.id);
-                                  setActiveMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                              >
-                                <Info size={14} />
-                                Ver Detalhes
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(product);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
-                              >
-                                <Edit size={14} />
-                                Editar Produto
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDuplicate(product);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
-                              >
-                                <Copy size={14} />
-                                Duplicar Produto
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRegisterLoss(product);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
-                              >
-                                <AlertTriangle size={14} className="text-orange-500" />
-                                Registrar Perda
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(product.id);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors mt-1"
-                              >
-                                <Trash2 size={14} />
-                                Excluir Produto
-                              </button>
+                          <>
+                            {/* Backdrop */}
+                            <div className="fixed inset-0 z-[60] bg-black/20 sm:hidden" onClick={() => setActiveMenuId(null)} />
+                            {/* Menu */}
+                            <div className="fixed sm:absolute z-[70] right-4 sm:right-full top-20 sm:top-0 sm:mr-2 sm:mt-0 w-64 sm:w-48 bg-white rounded-xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+                              <div className="p-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedProductForDetails(product.id);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                                >
+                                  <Info size={16} />
+                                  Ver Detalhes
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(product);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                                >
+                                  <Edit size={16} />
+                                  Editar Produto
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDuplicate(product);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                                >
+                                  <Copy size={16} />
+                                  Duplicar Produto
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRegisterLoss(product);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                                >
+                                  <AlertTriangle size={16} className="text-orange-500" />
+                                  Registrar Perda
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(product.id);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors mt-1"
+                                >
+                                  <Trash2 size={16} />
+                                  Excluir Produto
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          </>
                         )}
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                   {currentProducts.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center">
@@ -2174,6 +2270,40 @@ export default function ProductsPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
                 Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkDeactivateConfirm && (
+        <div id="bulk-deactivate-confirm-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 mb-3 text-rose-500">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
+                <AlertTriangle size={20} className="stroke-[2.5]" />
+              </div>
+              <h3 className="text-lg font-black text-rose-600 uppercase italic tracking-tight font-sans">Inativar em Lote</h3>
+            </div>
+            <p className="text-slate-600 text-sm mb-6 leading-relaxed font-medium">
+              Tem certeza que deseja inativar em lote os{" "}
+              <strong className="text-slate-900 font-extrabold">{Object.values(selectedProductsForBulk).filter(Boolean).length}</strong>{" "}
+              produtos selecionados? Esta ação é totalmente reversível ativando os produtos individualmente ou mudando o filtro de status para "Inativos".
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeactivateConfirm(false)}
+                className="px-4 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 border border-slate-200 rounded-xl transition-all duration-150 font-bold text-xs uppercase tracking-widest active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkDeactivate}
+                className="px-4 py-2.5 bg-rose-650 hover:bg-rose-600 text-rose-600 hover:text-rose-700 bg-rose-100 hover:bg-rose-200 rounded-xl transition-all duration-150 font-bold text-xs uppercase tracking-widest active:scale-95"
+              >
+                Confirmar
               </button>
             </div>
           </div>

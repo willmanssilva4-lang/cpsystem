@@ -64,7 +64,8 @@ import {
   Award,
   HelpCircle,
   UserPlus,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -91,6 +92,8 @@ import { SalesByProductReport } from '@/components/reports/SalesByProductReport'
 import { SalesReport } from '@/components/reports/SalesReport';
 import { SalesMoreLessReport } from '@/components/reports/SalesMoreLessReport';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ReportsPage() {
   return (
@@ -344,6 +347,7 @@ function ReportsContent() {
     { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
     { id: 'relatorio_perdas', category: 'estoque', title: 'Relatório de Perdas e Avarias', description: 'Acompanhamento de produtos vencidos, avariados ou com perdas registradas.', icon: AlertTriangle },
+    { id: 'relatorio_consumo_interno', category: 'estoque', title: 'Relatório de Consumo Interno', description: 'Produtos retirados para uso próprio da empresa ou funcionários.', icon: UserCheck },
     { id: 'dre', category: 'gerencial', title: 'DRE Gerencial', description: 'Demonstrativo de resultados, impostos e lucro líquido.', icon: FileBarChart },
     { id: 'abc_clientes', category: 'gerencial', title: 'Curva ABC de Clientes', description: 'Classificação de clientes por volume de compras e fidelidade.', icon: Target },
     { id: 'abc_produtos', category: 'gerencial', title: 'Curva ABC de Produtos', description: 'Classificação de produtos por volume de vendas e faturamento.', icon: Layers },
@@ -383,6 +387,45 @@ function ReportsContent() {
       </div>
     );
   }
+
+  const exportToExcel = () => {
+    const table = document.querySelector('#report-content table');
+    if (!table) {
+      showToast('Nenhuma tabela encontrada para exportar.', 'info');
+      return;
+    }
+    const wb = XLSX.utils.table_to_book(table as HTMLTableElement);
+    XLSX.writeFile(wb, `${selectedReportView}_${startDate}_${endDate}.xlsx`);
+    showToast('Relatório Excel exportado com sucesso!', 'success');
+  };
+
+  const exportToPDF = () => {
+    const table = document.querySelector('#report-content table');
+    if (!table) {
+      showToast('Nenhuma tabela encontrada para exportar.', 'info');
+      return;
+    }
+    const doc = new jsPDF();
+    
+    // Add UTF-8 support if needed, but standard should work for basics
+    doc.setFont("helvetica", "bold");
+    doc.text(selectedReportView || 'Relatório', 14, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Período: ${startDate} a ${endDate}`, 14, 22);
+    
+    autoTable(doc, { 
+      html: '#report-content table', 
+      startY: 30,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { top: 30 }
+    });
+    
+    doc.save(`${selectedReportView}_${startDate}_${endDate}.pdf`);
+    showToast('Relatório PDF exportado com sucesso!', 'success');
+  };
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
     setNotification({ message, type });
@@ -512,6 +555,28 @@ function ReportsContent() {
                 )}
                 
                 <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                  {selectedReportView !== 'Catálogo' && (
+                    <>
+                      <button 
+                        onClick={exportToExcel}
+                        className="p-1.5 md:p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 flex items-center gap-2 group"
+                        title="Baixar Excel"
+                      >
+                        <FileSpreadsheet className="size-3.5 md:size-[15px]" />
+                        <span className="hidden xl:inline text-[10px] font-black uppercase italic">Excel</span>
+                      </button>
+
+                      <button 
+                        onClick={exportToPDF}
+                        className="p-1.5 md:p-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 flex items-center gap-2 group"
+                        title="Baixar PDF"
+                      >
+                        <FileText className="size-3.5 md:size-[15px]" />
+                        <span className="hidden xl:inline text-[10px] font-black uppercase italic">PDF</span>
+                      </button>
+                    </>
+                  )}
+
                   <button 
                     onClick={() => setIsMaximized(!isMaximized)}
                     className="p-1.5 md:p-3 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0"
@@ -707,7 +772,9 @@ function ReportsContent() {
                   </div>
                 </>
               ) : (
-                <div className={cn(
+                <div 
+                  id="report-content"
+                  className={cn(
                   "flex-1 h-full overflow-y-auto overscroll-contain overflow-x-hidden",
                   selectedReportView === 'Dashboard Executivo' ? "p-0 bg-slate-50/50" : "p-6 md:p-10 bg-slate-50/40"
                 )}>
@@ -728,6 +795,7 @@ function ReportsContent() {
                   {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Perdas e Avarias' && <LossesReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Relatório de Consumo Interno' && <InternalConsumptionReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Meios de Pagamento' && <SalesByPaymentReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Estorno e Devolução' && <EstornoDevolucaoReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Custo' && <CostReport startDate={startDate} endDate={endDate} />}
@@ -1654,13 +1722,29 @@ function AdvancedPerformanceDashboard({
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Stock Metrics
-  const totalProductsInStock = products.reduce((acc, p) => acc + (p.stock > 0 ? 1 : 0), 0);
+  const totalProductsInStock = products.reduce((acc, p) => {
+    const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+    const isActive = p.status !== 'Inativo';
+    return acc + (isActive && !isVirtual && p.stock > 0 ? 1 : 0);
+  }, 0);
+
   const totalStockValue = products.reduce((acc, p) => {
     const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
-    if (isVirtual) return acc;
-    return acc + (p.stock * p.costPrice);
+    const isActive = p.status !== 'Inativo';
+    if (isVirtual || !isActive) return acc;
+
+    const stock = Number(p.stock || 0);
+    const cost = Number(p.costPrice || 0);
+    if (stock > 0 && cost > 0) {
+      return acc + (stock * cost);
+    }
+    return acc;
   }, 0);
-  const lowStockProductsCount = products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length;
+  const lowStockProductsCount = products.filter(p => {
+    const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+    const isActive = p.status?.toLowerCase() === 'ativo' || p.status !== 'Inativo';
+    return !isVirtual && isActive && p.stock <= (p.minStock || 0);
+  }).length;
 
   return (
     <div className="space-y-4 md:space-y-8 bg-slate-50/50 p-3 md:p-10 pb-20 md:pb-32 min-h-full font-sans overflow-x-hidden max-w-full">
@@ -2193,7 +2277,11 @@ function AdvancedPerformanceDashboard({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).slice(0, 6).map((p) => (
+                    {products.filter(p => {
+                      const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+                      const isActive = p.status?.toLowerCase() === 'ativo' || p.status !== 'Inativo';
+                      return !isVirtual && isActive && p.stock <= (p.minStock || 0);
+                    }).slice(0, 6).map((p) => (
                       <tr key={p.id} className="hover:bg-slate-50/60 transition-colors group">
                         <td className="py-3 text-xs font-black text-slate-800 italic uppercase truncate max-w-[180px]">
                           {p.name}
@@ -2215,7 +2303,11 @@ function AdvancedPerformanceDashboard({
                         </td>
                       </tr>
                     ))}
-                    {products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock).length === 0 && (
+                    {products.filter(p => {
+                      const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+                      const isActive = p.status?.toLowerCase() === 'ativo' || p.status !== 'Inativo';
+                      return !isVirtual && isActive && p.stock <= (p.minStock || 0);
+                    }).length === 0 && (
                       <tr>
                         <td colSpan={4} className="py-12 text-center text-xs text-slate-400 italic">Todos os produtos ativos estão saudáveis!</td>
                       </tr>
@@ -3041,9 +3133,10 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
       });
     });
     
-    const imp = filteredExpenses
-      .filter(e => ['Impostos', 'Taxas'].includes(e.category))
-      .reduce((acc, e) => acc + e.amount, 0);
+    const impExpenses = filteredExpenses.filter(e => 
+      ['Impostos', 'Taxas'].some(cat => e.category?.toLowerCase().includes(cat.toLowerCase()))
+    );
+    const imp = impExpenses.reduce((acc, e) => acc + e.amount, 0);
       
     const taxasMaquininha = filteredSales.reduce((acc, s: any) => {
       let saleTax = 0;
@@ -3083,16 +3176,26 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
       return acc + saleTax;
     }, 0);
       
-    const dOp = filteredExpenses
-      .filter(e => ['Operacional', 'Fornecedores', 'Utilidades'].includes(e.category))
-      .reduce((acc, e) => acc + e.amount, 0);
-      
-    const dAdm = filteredExpenses
-      .filter(e => ['Administrativo', 'Infraestrutura', 'Salários'].includes(e.category))
-      .reduce((acc, e) => acc + e.amount, 0);
+    const admKeywords = ['Administrativo', 'Infraestrutura', 'Salários', 'Pessoal', 'Folha', 'Escritório', 'Pro-labore', 'Pró-labore'];
+    const admExpenses = filteredExpenses.filter(e => 
+      admKeywords.some(kw => e.category?.toLowerCase().includes(kw.toLowerCase())) ||
+      e.type === 'Pessoal'
+    );
+    const dAdm = admExpenses.reduce((acc, e) => acc + e.amount, 0);
 
-    const dep = filteredExpenses
-      .filter(e => ['Depreciação', 'Amortização'].includes(e.category))
+    const depExpenses = filteredExpenses.filter(e => 
+      ['Depreciação', 'Amortização'].some(kw => e.category?.toLowerCase().includes(kw.toLowerCase()))
+    );
+    const dep = depExpenses.reduce((acc, e) => acc + e.amount, 0);
+
+    const classifiedIds = new Set([
+      ...impExpenses.map(e => e.id),
+      ...admExpenses.map(e => e.id),
+      ...depExpenses.map(e => e.id)
+    ]);
+
+    const dOp = filteredExpenses
+      .filter(e => !classifiedIds.has(e.id))
       .reduce((acc, e) => acc + e.amount, 0);
 
     return { receitaBruta: rBruta, cmv: costOfGoods, impostos: imp + taxasMaquininha, despesasOp: dOp, despesasAdm: dAdm, depreciacao: dep };
@@ -3118,7 +3221,7 @@ function DreReport({ startDate, endDate }: { startDate: string, endDate: string 
         <DreRow label="(-) Despesas Operacionais (Reais)" value={`(${formatCurrency(despesasOp)})`} negative />
         <DreRow label="(-) Despesas Administrativas (Reais)" value={`(${formatCurrency(despesasAdm)})`} negative />
         <div className="h-px bg-brand-border my-2"></div>
-        <DreRow label="EBITDA" value={formatCurrency(ebitda)} highlight />
+        <DreRow label="LAJIDA (EBITDA)" value={formatCurrency(ebitda)} highlight />
         <DreRow label="(-) Depreciação / Amortização" value={`(${formatCurrency(depreciacao)})`} negative />
         <div className="h-px bg-brand-border my-2"></div>
         <DreRow label="Lucro Líquido do Exercício" value={formatCurrency(lucroLiquido)} final />
@@ -6434,7 +6537,7 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
   const { losses, products, sales } = useERP();
 
   const filteredLosses = losses.filter(l => {
-    if (!l.date) return false;
+    if (!l.date || l.reason === 'Consumo Interno') return false;
     const d = toLocalDateString(l.date);
     return d >= startDate && d <= endDate;
   });
@@ -6491,6 +6594,158 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function InternalConsumptionReport({ startDate, endDate }: { startDate: string, endDate: string }) {
+  const { losses, products, stockMovements } = useERP();
+
+  const consumptionFromLosses = losses.filter(l => {
+    if (!l.date || !l.reason?.toLowerCase().includes('consumo interno')) return false;
+    const d = toLocalDateString(l.date);
+    return d >= startDate && d <= endDate;
+  }).map(l => ({
+    productId: l.productId,
+    quantity: l.quantity,
+    totalValue: l.totalValue,
+    date: l.date
+  }));
+
+  const consumptionFromMovements = stockMovements.filter(m => {
+    if (!m.date || m.quantity >= 0 || !m.origin?.toLowerCase().includes('consumo interno')) return false;
+    const d = toLocalDateString(m.date);
+    return d >= startDate && d <= endDate;
+  }).map(m => {
+    const product = products.find(p => p.id === m.productId);
+    const qty = Math.abs(m.quantity);
+    return {
+      productId: m.productId,
+      quantity: qty,
+      totalValue: qty * (product?.costPrice || 0),
+      date: m.date
+    };
+  });
+
+  const allConsumption = [...consumptionFromLosses, ...consumptionFromMovements];
+
+  // Group by product for a cleaner list
+  const groupedData = allConsumption.reduce((acc: any, curr) => {
+    if (!acc[curr.productId]) {
+      const product = products.find(p => p.id === curr.productId);
+      acc[curr.productId] = {
+        name: product ? product.name : 'Produto Desconhecido',
+        unit: product?.unit || 'UN',
+        totalQty: 0,
+        totalValue: 0,
+        instances: 0
+      };
+    }
+    acc[curr.productId].totalQty += curr.quantity;
+    acc[curr.productId].totalValue += curr.totalValue;
+    acc[curr.productId].instances += 1;
+    return acc;
+  }, {});
+
+  const sortedData = Object.values(groupedData).sort((a: any, b: any) => b.totalValue - a.totalValue);
+  const totalConsumptionValue = sortedData.reduce((acc: number, item: any) => acc + item.totalValue, 0);
+  const totalItemsCount = sortedData.reduce((acc: number, item: any) => acc + item.totalQty, 0);
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Top Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-6 rounded-[2rem] bg-indigo-50 border border-indigo-100 flex items-center gap-5 group hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
+            <UserCheck className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-indigo-900/40 uppercase italic tracking-widest mb-1">Custo Total Consumido</p>
+            <h4 className="text-2xl font-black text-indigo-600 font-mono tracking-tight">{formatCurrency(totalConsumptionValue)}</h4>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-6 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center gap-5 group hover:shadow-xl hover:shadow-slate-500/10 transition-all duration-500"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center text-white shadow-lg shadow-slate-800/20 group-hover:scale-110 transition-transform">
+            <Package className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-1">Volume de Itens</p>
+            <h4 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{totalItemsCount} <span className="text-xs text-slate-400">UNIDADES</span></h4>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Consumption Table */}
+      <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
+        <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+          <h5 className="text-[11px] font-black text-slate-500 uppercase italic tracking-tighter">Detalhamento por Produto</h5>
+          <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-[9px] font-black text-slate-400 uppercase italic">
+            {sortedData.length} Produtos Distintos
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white">
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Produto / Descrição</th>
+                <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Quantidade</th>
+                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Custo Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {sortedData.length > 0 ? sortedData.map((row: any, i) => (
+                <tr key={i} className="group hover:bg-indigo-50/30 transition-all duration-300">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                        {row.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{row.name}</div>
+                        <div className="text-[9px] font-black text-slate-400 uppercase italic mt-0.5">{row.instances} retiradas no período</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-center">
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black font-mono">
+                      {row.totalQty} {row.unit}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="text-sm font-black text-indigo-600 font-mono italic">
+                      {formatCurrency(row.totalValue)}
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={3} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200">
+                        <UserCheck className="w-8 h-8 opacity-20" />
+                      </div>
+                      <p className="text-sm font-black text-slate-300 uppercase italic tracking-widest">Nenhum registro encontrado</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -7576,7 +7831,11 @@ function CriticalStockReport({ startDate, endDate }: { startDate: string, endDat
   
   const lowStockProducts = useMemo(() => {
     return products
-      .filter(p => p.status !== 'Inativo' && (p.stock || 0) <= (p.minStock || 0))
+      .filter(p => {
+        const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+        const isActive = p.status?.toLowerCase() === 'ativo' || p.status !== 'Inativo';
+        return !isVirtual && isActive && (p.stock || 0) <= (p.minStock || 0);
+      })
       .sort((a, b) => (a.stock || 0) - (b.stock || 0));
   }, [products]);
 
@@ -9090,7 +9349,9 @@ function StockProfitReport() {
   }), { cost: 0, sale: 0, profit: 0 });
 
   let totalMargin = 0;
-  if (pricingSettings?.defaultMethod === 'markup') {
+  const isMarkup = pricingSettings?.defaultMethod === 'markup';
+  
+  if (isMarkup) {
     totalMargin = totals.cost > 0 ? (totals.profit / totals.cost) * 100 : 0;
   } else {
     totalMargin = totals.sale > 0 ? (totals.profit / totals.sale) * 100 : 0;
@@ -9174,7 +9435,7 @@ function StockProfitReport() {
               R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </h3>
             <span className="text-[10px] font-black text-emerald-600 uppercase italic mt-1.5 block">
-              Margem Média Projetada: {totalMargin.toFixed(2)}%
+              {isMarkup ? 'Markup' : 'Margem'} Médio Projetado: {totalMargin.toFixed(2).replace('.', ',')}%
             </span>
           </div>
         </motion.div>
@@ -9258,7 +9519,7 @@ function StockProfitReport() {
               <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-right">Custo Total</th>
               <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-right">Venda Total</th>
               <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-right">Lucro Prev.</th>
-              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-center">Margem</th>
+              <th className="px-7 py-4 text-[11px] font-black text-slate-500 uppercase italic tracking-widest border-b border-slate-100 text-center">{isMarkup ? 'Markup' : 'Margem'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -9291,7 +9552,7 @@ function StockProfitReport() {
                   <td className="px-6 py-4 text-right text-sm font-black text-emerald-500">R$ {item.potentialProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="px-6 py-4 text-center">
                     <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
-                      {item.margin.toFixed(2)}%
+                      {item.margin.toFixed(2).replace('.', ',')}%
                     </span>
                   </td>
                 </tr>
@@ -9373,10 +9634,39 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
     };
   }, [sales, expenses, startDate, endDate]);
 
+  // Helper for calculating non-explicit costs (Taxes & CMV)
+  const getSaleCosts = (s: any) => {
+    let tax = 0;
+    if (s.paymentMethod === 'Cartão de Crédito') {
+      const installment = s.installments || 1;
+      if (installment === 1) tax = s.total * 0.034;
+      else if (installment <= 6) tax = s.total * 0.045;
+      else tax = s.total * 0.055;
+    } else if (s.paymentMethod === 'Cartão de Débito') {
+      tax = s.total * 0.019;
+    } else if (s.paymentMethod === 'Pix') {
+      tax = s.total * 0.009;
+    }
+    const cost = s.items?.reduce((acc: number, item: any) => acc + (item.costPrice * item.quantity), 0) || 0;
+    return { tax, cost, total: tax + cost };
+  };
+
   // Compute exact KPI stats
   const stats = useMemo(() => {
     const totalInflows = filteredSales.reduce((acc, s) => acc + s.total, 0);
-    const totalOutflows = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+    
+    // Sum hidden outflows from sales
+    const salesCosts = filteredSales.reduce((acc, s) => {
+      const costs = getSaleCosts(s);
+      return { 
+        tax: acc.tax + costs.tax, 
+        cost: acc.cost + costs.cost 
+      };
+    }, { tax: 0, cost: 0 });
+
+    const baseExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+    const totalOutflows = baseExpenses + salesCosts.tax + salesCosts.cost;
+    
     const balance = totalInflows - totalOutflows;
     const margin = totalInflows > 0 ? (balance / totalInflows) * 100 : 0;
 
@@ -9385,6 +9675,9 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
       totalOutflows,
       balance,
       margin,
+      taxesMaquininha: salesCosts.tax,
+      costOfGoods: salesCosts.cost,
+      baseExpenses,
       formattedInflows: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInflows),
       formattedOutflows: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalOutflows),
       formattedBalance: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balance),
@@ -9435,9 +9728,12 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
         scanDate.setDate(scanDate.getDate() + 1);
       }
 
-      filteredSales.forEach(s => {
+      filteredSales.forEach((s: any) => {
         const key = toLocalDateString(s.date);
-        if (daysMap[key]) daysMap[key].inflows += s.total;
+        if (daysMap[key]) {
+          daysMap[key].inflows += s.total;
+          daysMap[key].outflows += getSaleCosts(s).total;
+        }
       });
 
       filteredExpenses.forEach(e => {
@@ -9464,15 +9760,20 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
       const pStart = new Date(start.getTime() + (i * periodDuration));
       const pEnd = new Date(start.getTime() + ((i + 1) * periodDuration));
 
-      const pSales = filteredSales.filter(s => {
+      const pSalesData = filteredSales.filter(s => {
         const d = new Date(s.date);
         return d >= pStart && d < pEnd;
-      }).reduce((sum, s) => sum + s.total, 0);
+      });
+      
+      const pSales = pSalesData.reduce((sum, s) => sum + s.total, 0);
+      const pSalesCosts = pSalesData.reduce((sum, s) => sum + getSaleCosts(s).total, 0);
 
       const pExpenses = filteredExpenses.filter(e => {
         const d = new Date(e.date);
         return d >= pStart && d < pEnd;
       }).reduce((sum, e) => sum + e.amount, 0);
+
+      const totalPOutflows = pExpenses + pSalesCosts;
 
       let label = `Período ${i + 1}`;
       if (diffDays >= 25 && diffDays <= 35) {
@@ -9485,8 +9786,8 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
       return {
         name: label,
         Entradas: pSales,
-        Saídas: pExpenses,
-        Saldo: pSales - pExpenses,
+        Saídas: totalPOutflows,
+        Saldo: pSales - totalPOutflows,
       };
     });
   }, [filteredSales, filteredExpenses, startDate, endDate]);
@@ -9618,9 +9919,16 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
             <h3 className="text-2xl font-black text-rose-600 font-mono tracking-tight" title={stats.formattedOutflows}>
               {stats.formattedOutflows}
             </h3>
-            <span className="text-[10px] font-black text-slate-400 uppercase italic mt-1.5 block">
-              {filteredExpenses.length} despesas e taxas
-            </span>
+            <div className="flex flex-col gap-0.5 mt-1.5">
+              <span className="text-[9px] font-black text-slate-400 uppercase italic">
+                {filteredExpenses.length} Lançamentos Manuais
+              </span>
+              {(stats.taxesMaquininha > 0 || stats.costOfGoods > 0) && (
+                <span className="text-[9px] font-black text-rose-400 uppercase italic">
+                  + Custos & Taxas de Venda
+                </span>
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -10295,7 +10603,7 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
 
                   {/* Fornecedor */}
                   <td className="p-4 text-xs font-bold text-slate-500 uppercase italic">
-                    {row.supplier || 'N/A'}
+                    {row.supplier ? (row.supplier.includes(' | ') ? row.supplier.split(' | ')[1] : row.supplier) : 'N/A'}
                   </td>
 
                   {/* Category of Inflow/Outflow */}

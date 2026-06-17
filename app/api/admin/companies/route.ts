@@ -336,6 +336,7 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  console.log('DEBUG: Companies API DELETE called');
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

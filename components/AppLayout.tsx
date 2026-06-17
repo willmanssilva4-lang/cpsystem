@@ -49,7 +49,11 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     const notifs: any[] = [];
     
     // Low stock notifications
-    const lowStock = Array.isArray(products) ? products.filter(p => p.status !== 'Inativo' && p.stock <= p.minStock) : [];
+    const lowStock = Array.isArray(products) ? products.filter(p => {
+      const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
+      const isActive = p.status?.toLowerCase() === 'ativo' || p.status !== 'Inativo';
+      return !isVirtual && isActive && (p.stock || 0) <= (p.minStock || 0);
+    }) : [];
     lowStock.forEach(p => {
       notifs.push({
         id: `stock-${p.id}`,
@@ -474,7 +478,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isEstoquePage = pathname === '/produtos';
   const isComprasPage = pathname.startsWith('/compras');
   const isFinanceiroPage = pathname.startsWith('/financeiro');
-  const hideSidebar = isEstoquePage || isComprasPage || isFinanceiroPage;
+  const isCadastrosPage = pathname.startsWith('/cadastros');
+  const hideSidebar = isEstoquePage || isComprasPage || isFinanceiroPage || isCadastrosPage;
 
   return (
     <AuthGuard>

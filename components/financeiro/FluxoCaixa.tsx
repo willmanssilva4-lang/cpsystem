@@ -12,12 +12,14 @@ import {
   ClipboardList,
   Info,
   CircleDollarSign,
+  DollarSign,
+  ArrowDownLeft,
   Tag,
   ShoppingBag,
   ExternalLink
 } from 'lucide-react';
 import { cn, getLocalDateString } from '@/lib/utils';
-import { Sale, Expense, StockMovement, CashMovement } from '@/lib/types';
+import { Sale, Expense, StockMovement, CashMovement, Product } from '@/lib/types';
 import { 
   AreaChart,
   Area,
@@ -36,9 +38,50 @@ interface FluxoCaixaProps {
   expenses: Expense[];
   stockMovements: StockMovement[];
   cashMovements: CashMovement[];
+  products: Product[];
 }
 
-export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: FluxoCaixaProps) {
+// Helper de cálculo robusto e unificado de taxas de vendas
+const calculateSaleTax = (sale: any): number => {
+  if (!sale) return 0;
+  let totalTax = 0;
+  let paymentsArr: any[] = [];
+  
+  if (sale.payments) {
+    if (Array.isArray(sale.payments)) {
+      paymentsArr = sale.payments;
+    } else if (typeof sale.payments === 'string') {
+      try {
+        const parsed = JSON.parse(sale.payments);
+        if (Array.isArray(parsed)) {
+          paymentsArr = parsed;
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          paymentsArr = [parsed];
+        }
+      } catch (e) {
+        console.error('Error parsing payments json string in DRE helper', e);
+      }
+    } else if (typeof sale.payments === 'object') {
+      paymentsArr = [sale.payments];
+    }
+  }
+
+  if (paymentsArr && paymentsArr.length > 0) {
+    totalTax = paymentsArr.reduce((pAcc: number, p: any) => {
+      const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+      return pAcc + (Number(t) || 0);
+    }, 0);
+  }
+  
+  if (totalTax === 0) {
+    const t = sale.taxAmount !== undefined ? sale.taxAmount : (sale.tax_amount !== undefined ? sale.tax_amount : 0);
+    totalTax = Number(t) || 0;
+  }
+  
+  return totalTax;
+};
+
+export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements, products }: FluxoCaixaProps) {
   const [days, setDays] = useState(30);
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -48,6 +91,12 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
   useEffect(() => {
     setNow(new Date());
   }, []);
+
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => map.set(p.id, p));
+    return map;
+  }, [products]);
 
   const dailyData = useMemo(() => {
     if (!now) return [];
@@ -60,13 +109,12 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now.getTime());
       d.setDate(now.getDate() - i);
-      d.setHours(0, 0, 0, 0);
+      d.setHours(12, 0, 0, 0);
       const dateStr = d.toLocaleDateString('pt-BR');
 
       // Inflows (Entradas)
-      const daySales = sales
-        .filter(s => isSameDay(s.date, d))
-        .reduce((acc, s) => acc + s.total, 0);
+      const salesOnDay = sales.filter(s => isSameDay(s.date, d));
+      const daySales = salesOnDay.reduce((acc, s) => acc + s.total, 0);
       
       const daySuprimentos = cashMovements
         .filter(m => m.type === 'suprimento' && isSameDay(m.createdAt, d))
@@ -77,16 +125,26 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
         .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && (e.paymentDate || e.date) && isSameDay((e.paymentDate || e.date) as string, d))
         .reduce((acc, e) => acc + e.amount, 0);
       
-      const dayPurchases = stockMovements
-        .filter(m => m.type === 'COMPRA' && isSameDay(m.date, d))
-        .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+      let cmvDay = 0;
+      let taxasDay = 0;
+      salesOnDay.forEach((sale: any) => {
+        taxasDay += calculateSaleTax(sale);
+        sale.items?.forEach((item: any) => {
+          const product = productMap.get(item.productId);
+          const cost = item.costPrice && item.costPrice > 0 
+            ? item.costPrice 
+            : (product?.costPrice || 0);
+          cmvDay += cost * item.quantity;
+        });
+      });
       
       const daySangrias = cashMovements
         .filter(m => m.type === 'sangria' && isSameDay(m.createdAt, d))
         .reduce((acc, m) => acc + m.amount, 0);
 
       const inflows = daySales + daySuprimentos;
-      const outflows = dayExpenses + dayPurchases + daySangrias;
+      // Agora incluímos Despesas Gerais + CMV + Taxas + Sangrias para alinhar com o Saldo Líquido do DRE
+      const outflows = dayExpenses + cmvDay + taxasDay + daySangrias;
       const balance = inflows - outflows;
 
       data.push({
@@ -99,13 +157,14 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
           sales: daySales,
           suprimentos: daySuprimentos,
           expenses: dayExpenses,
-          purchases: dayPurchases,
+          cmv: cmvDay,
+          taxas: taxasDay,
           sangrias: daySangrias
         }
       });
     }
     return data;
-  }, [sales, expenses, stockMovements, cashMovements, days, now]);
+  }, [sales, expenses, cashMovements, days, now, productMap]);
 
   const totals = useMemo(() => {
     return dailyData.reduce((acc, day) => ({
@@ -115,9 +174,10 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
       sales: acc.sales + day.details.sales,
       suprimentos: acc.suprimentos + day.details.suprimentos,
       expenses: acc.expenses + day.details.expenses,
-      purchases: acc.purchases + day.details.purchases,
+      cmv: (acc.cmv || 0) + day.details.cmv,
+      taxas: (acc.taxas || 0) + day.details.taxas,
       sangrias: acc.sangrias + day.details.sangrias,
-    }), { inflows: 0, outflows: 0, balance: 0, sales: 0, suprimentos: 0, expenses: 0, purchases: 0, sangrias: 0 });
+    }), { inflows: 0, outflows: 0, balance: 0, sales: 0, suprimentos: 0, expenses: 0, cmv: 0, taxas: 0, sangrias: 0 });
   }, [dailyData]);
 
   // Export Daily Cash Flow breakdown to XLSX
@@ -131,7 +191,8 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
       '  - Suprimentos': day.details.suprimentos,
       'Saídas (Total)': day.outflows,
       '  - Despesas Pagas': day.details.expenses,
-      '  - Compras Estoque': day.details.purchases,
+      '  - CMV (Custo)': day.details.cmv,
+      '  - Taxas Financeiras': day.details.taxas,
       '  - Sangrias': day.details.sangrias,
       'Saldo Líquido': day.balance,
       'Resultado Diário': day.balance >= 0 ? 'Positivo' : 'Negativo'
@@ -176,8 +237,12 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
               <span className="text-right">{formatCurrency(data.details.expenses)}</span>
             </div>
             <div className="grid grid-cols-2 text-[10px] text-slate-400 pl-2">
-              <span>• Compras Estoq:</span>
-              <span className="text-right">{formatCurrency(data.details.purchases)}</span>
+              <span>• CMV (Custo):</span>
+              <span className="text-right">{formatCurrency(data.details.cmv)}</span>
+            </div>
+            <div className="grid grid-cols-2 text-[10px] text-slate-400 pl-2">
+              <span>• Taxas Maq.:</span>
+              <span className="text-right">{formatCurrency(data.details.taxas)}</span>
             </div>
             <div className="grid grid-cols-2 text-[10px] text-slate-400 pl-2">
               <span>• Sangrias:</span>
@@ -279,8 +344,16 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
               <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">{formatCurrency(totals.expenses)}</span>
             </div>
             <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-              <span className="flex items-center gap-1.5 uppercase"><ShoppingBag size={10} className="text-slate-400" /> Compras Estoque:</span>
-              <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">{formatCurrency(totals.purchases)}</span>
+              <span className="flex items-center gap-1.5 uppercase"><ShoppingBag size={10} className="text-slate-400" /> CMV (Custo):</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">{formatCurrency(totals.cmv || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+              <span className="flex items-center gap-1.5 uppercase"><ArrowDownLeft size={10} className="text-slate-400" /> Taxas Financeiras:</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">{formatCurrency(totals.taxas || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+              <span className="flex items-center gap-1.5 uppercase"><DollarSign size={10} className="text-slate-400" /> Sangrias de Caixa:</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">{formatCurrency(totals.sangrias || 0)}</span>
             </div>
           </div>
         </div>
@@ -316,14 +389,19 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements }: F
             <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
               <span className="flex items-center gap-1.5 uppercase"><Info size={10} className="text-slate-400" /> Aproveitamento:</span>
               <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">
-                {totals.inflows > 0 ? ((totals.balance / totals.inflows) * 100).toFixed(1) + '%' : '0.0%'}
+                {totals.inflows > 0 ? ((totals.balance / totals.inflows) * 100).toFixed(2).replace('.', ',') : '0,00'}%
               </span>
             </div>
             <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
               <span className="flex items-center gap-1.5 uppercase"><ClipboardList size={10} className="text-slate-400" /> Dias Ativos:</span>
               <span className="font-mono text-slate-700 dark:text-slate-300 font-extrabold">
-                {dailyData.filter(d => d.inflows > 0 || d.outflows > 0).length} dias com fluxo
+                {dailyData.filter(d => d.inflows > 0 || d.outflows > 0).length} {dailyData.filter(d => d.inflows > 0 || d.outflows > 0).length === 1 ? 'dia' : 'dias'} com fluxo
               </span>
+            </div>
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
+              <p className="text-[9px] text-slate-400 italic leading-tight">
+                * Resultado final (Entradas - Saídas), representando o que realmente restou no caixa.
+              </p>
             </div>
           </div>
         </div>

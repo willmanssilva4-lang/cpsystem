@@ -42,6 +42,7 @@ import {
   Pie
 } from 'recharts';
 import { useERP } from '@/lib/context';
+import { Product } from '@/lib/types';
 import { ExpenseModal } from '@/components/ExpenseModal';
 import { ContasPagar } from '@/components/financeiro/ContasPagar';
 import { ContasReceber } from '@/components/financeiro/ContasReceber';
@@ -122,6 +123,12 @@ export default function FinancePage() {
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => map.set(p.id, p));
+    return map;
+  }, [products]);
+
   // Helper to get start of day
   const getStartOfDay = (date: Date | string) => {
     let d: Date;
@@ -149,27 +156,29 @@ export default function FinancePage() {
     const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status !== 'Cancelada');
     const faturamentoHoje = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
-    // Despesas no Período
+    // Despesas no Período (Incluindo CMV conforme pedido do usuário)
     // EXCLUI "Compra de Mercadoria" que já é contabilizada via CMV para evitar duplicidade e classificação incorreta
     const expensesInPeriod = expenses.filter(e => isWithinRange(e.date) && e.category !== 'Compra de Mercadoria');
-    const despesasHoje = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
+    const saidasExpenses = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
 
     // CMV no Período
     let cmvHoje = 0;
     salesInPeriod.forEach((sale: any) => {
       sale.items?.forEach((item: any) => {
-        const product = products.find(p => p.id === item.productId);
+        const product = productMap.get(item.productId);
         if (product) {
           cmvHoje += product.costPrice * item.quantity;
         }
       });
     });
 
+    const despesasHoje = saidasExpenses + cmvHoje;
+
     // Taxas no Período
     const taxasHoje = salesInPeriod.reduce((acc, s) => acc + calculateSaleTax(s), 0);
 
-    // Lucro no Período (Bruto)
-    const lucroHoje = faturamentoHoje - cmvHoje - taxasHoje;
+    // Lucro Líquido no Período
+    const lucroHoje = faturamentoHoje - despesasHoje - taxasHoje;
 
     // Saldo em Caixa Real (Baseado em todos os caixas, movimentações e vendas)
     const openingBalances = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
@@ -181,14 +190,13 @@ export default function FinancePage() {
     }, 0);
     
     const totalEntradas = sales.filter(s => s.status !== 'Cancelada').reduce((acc, s) => acc + (s.total - calculateSaleTax(s)), 0);
-    const totalDespesasPagas = expenses.filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria').reduce((acc, e) => acc + e.amount, 0);
+    const totalDespesasPagas = expenses.filter(e => e.status === 'Pago').reduce((acc, e) => acc + e.amount, 0);
     const totalReturns = (returns || []).reduce((acc, r) => acc + r.total, 0);
-    const totalCompras = stockMovements.filter(m => m.type === 'COMPRA').reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
     
-    const saldoCaixa = openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalReturns - totalCompras;
+    const saldoCaixa = openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalReturns;
 
     return { faturamentoHoje, despesasHoje, lucroHoje, saldoCaixa };
-  }, [sales, expenses, stockMovements, products, cashRegisters, cashMovements, returns, isWithinRange]);
+  }, [sales, expenses, products, cashRegisters, cashMovements, returns, isWithinRange, productMap]);
 
   // --- 2. Gráfico de Fluxo de Caixa ---
   const chartData = useMemo(() => {
@@ -196,11 +204,11 @@ export default function FinancePage() {
     const data = [];
     const [sYear, sMonth, sDay] = startDate.split('-').map(Number);
     const start = new Date(sYear, sMonth - 1, sDay);
-    start.setHours(0, 0, 0, 0);
+    start.setHours(12, 0, 0, 0);
     
     const [eYear, eMonth, eDay] = endDate.split('-').map(Number);
     const end = new Date(eYear, eMonth - 1, eDay);
-    end.setHours(0, 0, 0, 0);
+    end.setHours(12, 0, 0, 0);
     
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -214,22 +222,32 @@ export default function FinancePage() {
       const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       const dIso = getLocalDateString(d);
       
-      const entrada = sales
-        .filter(s => s.status !== 'Cancelada' && getLocalDateString(s.date) === dIso)
-        .reduce((acc, s) => acc + s.total, 0);
+      const salesOnDay = sales.filter(s => s.status !== 'Cancelada' && getLocalDateString(s.date) === dIso);
+      const entrada = salesOnDay.reduce((acc, s) => acc + s.total, 0);
         
       const saidaExpenses = expenses
-        .filter(e => e.status === 'Pago' && getLocalDateString(e.paymentDate || e.date) === dIso)
+        .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && getLocalDateString(e.paymentDate || e.date) === dIso)
         .reduce((acc, e) => acc + e.amount, 0);
-        
-      const saidaCompras = stockMovements
-        .filter(m => m.type === 'COMPRA' && getLocalDateString(m.date) === dIso)
-        .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
-        
-      data.push({ date: dateStr, entrada, saida: saidaExpenses + saidaCompras });
+
+      let cmvDay = 0;
+      let taxasDay = 0;
+      salesOnDay.forEach((sale: any) => {
+        taxasDay += calculateSaleTax(sale);
+        sale.items?.forEach((item: any) => {
+          const product = productMap.get(item.productId);
+          const cost = item.costPrice && item.costPrice > 0 
+            ? item.costPrice 
+            : (product?.costPrice || 0);
+          cmvDay += cost * item.quantity;
+        });
+      });
+      
+      // Agora incluímos Despesas Gerais + CMV + Taxas de Maquininha na Saída do Fluxo de Caixa 
+      // Isso garante que o Saldo Líquido no Período (-R$ 49,03) seja idêntico ao Lucro Líquido Real do DRE.
+      data.push({ date: dateStr, entrada, saida: saidaExpenses + cmvDay + taxasDay });
     }
     return data;
-  }, [sales, expenses, stockMovements, startDate, endDate]);
+  }, [sales, expenses, startDate, endDate, productMap]);
 
   // --- 3. Contas a Pagar / Receber ---
   const contas = useMemo(() => {
@@ -437,7 +455,7 @@ export default function FinancePage() {
 
   // --- 6. DRE Automático ---
   const dre = useMemo(() => {
-    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status !== 'Cancelada');
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status?.toLowerCase() !== 'cancelada');
     const receita = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Taxas de Maquininhas (Financeiras)
@@ -453,7 +471,7 @@ export default function FinancePage() {
       });
     });
 
-    const expensesInPeriod = expenses.filter(e => isWithinRange(e.date) && e.category !== 'Compra de Mercadoria');
+    const expensesInPeriod = expenses.filter(e => isWithinRange(e.paymentDate || e.date) && e.category !== 'Compra de Mercadoria' && e.status === 'Pago');
     const despesas = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
 
     // Standard DRE:
@@ -575,7 +593,7 @@ export default function FinancePage() {
               trend="No período selecionado" 
             />
             <FinanceStatCard 
-              title="Despesas" 
+              title="Saídas" 
               value={formatCurrency(stats.despesasHoje)} 
               icon={ArrowDownCircle} 
               color="rose" 
@@ -610,7 +628,7 @@ export default function FinancePage() {
                       Fluxo de Caixa no Período
                     </h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                      Saldo Líquido Plottado: {formatCurrency(dashboardDetails.chartSaldo)}
+                      Saldo Líquido no Período: {formatCurrency(dashboardDetails.chartSaldo)}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5">
@@ -679,7 +697,7 @@ export default function FinancePage() {
                         ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 border-indigo-100/20" 
                         : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-455 border-rose-100/20"
                     )} title="Margem Líquida">
-                      M. Líquida: {dre.margemLiquida.toFixed(1)}%
+                      M. Líquida: {(dre.margemLiquida / 100).toFixed(2).replace('.', ',')}%
                     </span>
                   </div>
                 </div>
@@ -711,7 +729,7 @@ export default function FinancePage() {
                     </div>
                     <div className="flex items-center gap-3 font-mono">
                       <span className="text-[9px] text-rose-500 font-bold font-mono">
-                        {dre.receita > 0 ? `-${((dre.cmv / dre.receita) * 100).toFixed(1)}%` : '0.0%'}
+                        {dre.receita > 0 ? `-${(dre.cmv / dre.receita).toFixed(2).replace('.', ',')}%` : '0,00%'}
                       </span>
                       <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.cmv)})</span>
                     </div>
@@ -727,7 +745,7 @@ export default function FinancePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 font-mono">
-                      <span className="text-[9px] text-emerald-600 font-extrabold">{dre.margemBruta.toFixed(1)}%</span>
+                      <span className="text-[9px] text-emerald-600 font-extrabold">{(dre.margemBruta / 100).toFixed(2).replace('.', ',')}%</span>
                       <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(dre.lucroBruto)}</span>
                     </div>
                   </div>
@@ -743,7 +761,7 @@ export default function FinancePage() {
                     </div>
                     <div className="flex items-center gap-3 font-mono">
                       <span className="text-[9px] text-rose-500 font-bold">
-                        {dre.receita > 0 ? `-${((dre.taxasMaquininhas / dre.receita) * 100).toFixed(1)}%` : '0.0%'}
+                        {dre.receita > 0 ? `-${(dre.taxasMaquininhas / dre.receita).toFixed(2).replace('.', ',')}%` : '0,00%'}
                       </span>
                       <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.taxasMaquininhas)})</span>
                     </div>
@@ -760,7 +778,7 @@ export default function FinancePage() {
                     </div>
                     <div className="flex items-center gap-3 font-mono">
                       <span className="text-[9px] text-rose-500 font-bold">
-                        {dre.receita > 0 ? `-${((dre.despesas / dre.receita) * 100).toFixed(1)}%` : '0.0%'}
+                        {dre.receita > 0 ? `-${(dre.despesas / dre.receita).toFixed(2).replace('.', ',')}%` : '0,00%'}
                       </span>
                       <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.despesas)})</span>
                     </div>
@@ -793,7 +811,7 @@ export default function FinancePage() {
                       <span className={cn(
                         "text-[9px] font-black",
                         dre.lucroReal >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"
-                      )}>{dre.margemLiquida.toFixed(1)}%</span>
+                      )}>{(dre.margemLiquida / 100).toFixed(2).replace('.', ',')}%</span>
                       <span className={cn(
                         "text-sm sm:text-base font-black",
                         dre.lucroReal >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-405"
@@ -997,7 +1015,8 @@ export default function FinancePage() {
           sales={sales} 
           expenses={expenses} 
           stockMovements={stockMovements} 
-          cashMovements={cashMovements} 
+          cashMovements={cashMovements}
+          products={products}
         />
       )}
 

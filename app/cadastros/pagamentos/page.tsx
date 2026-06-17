@@ -84,7 +84,7 @@ export default function PagamentosPage() {
 
   if (showForm) {
     return (
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-brand-bg min-h-screen overflow-x-hidden">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => { setShowForm(false); setEditingId(null); }}
@@ -100,26 +100,26 @@ export default function PagamentosPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden">
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Nome da Forma de Pagamento</label>
+        <div className="max-w-3xl bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden mx-auto md:mx-0">
+          <div className="p-4 sm:p-6 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Nome da Forma de Pagamento</label>
                 <input 
                   type="text"
                   placeholder="Ex: Cartão de Crédito Master"
                   value={formData.name}
                   onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 />
               </div>
               
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Tipo no Sistema</label>
+                <label className="text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Tipo no Sistema</label>
                 <select 
                   value={formData.type}
                   onChange={e => setFormData({...formData, type: e.target.value as any})}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 >
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="Pix">Pix</option>
@@ -132,11 +132,11 @@ export default function PagamentosPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Status</label>
+                <label className="text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Status</label>
                 <select 
                   value={formData.active ? 'true' : 'false'}
                   onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                  className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                 >
                   <option value="true">Ativo (Visível no PDV)</option>
                   <option value="false">Inativo</option>
@@ -144,7 +144,7 @@ export default function PagamentosPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Percentual (%)</label>
+                <label className="text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Percentual (%)</label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
                   <input 
@@ -153,13 +153,13 @@ export default function PagamentosPage() {
                     placeholder="0.00"
                     value={formData.taxPercentage}
                     onChange={e => setFormData({...formData, taxPercentage: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Fixa (R$)</label>
+                <label className="text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">Taxa Fixa (R$)</label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-main/40" size={16} />
                   <input 
@@ -168,18 +168,18 @@ export default function PagamentosPage() {
                     placeholder="0.00"
                     value={formData.taxFixed}
                     onChange={e => setFormData({...formData, taxFixed: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-6 border-t border-slate-100">
+            <div className="flex justify-end pt-4 sm:pt-6 border-t border-slate-100">
               <button 
                 onClick={handleSave} 
-                className="flex items-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover transition-all"
+                className="flex items-center gap-2 px-6 py-3 bg-brand-green text-white rounded-2xl font-black uppercase italic text-xs sm:text-sm shadow-lg shadow-brand-green/20 hover:bg-brand-green-hover transition-all w-full sm:w-auto justify-center"
               >
-                <Save size={18} />
+                <Save size={16} />
                 Salvar Método
               </button>
             </div>
@@ -190,7 +190,7 @@ export default function PagamentosPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-white min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-white min-h-screen overflow-x-hidden overflow-y-hidden">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/cadastros" className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-brand-blue">
@@ -228,77 +228,77 @@ export default function PagamentosPage() {
       </div>
 
       <div className="bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-hidden sm:overflow-x-auto">
+          <table className="w-full text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Método</th>
-                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Taxas</th>
-                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-right">Ações</th>
+                <th className="px-3 sm:px-6 py-4 text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest w-1/3">Método</th>
+                <th className="px-3 sm:px-6 py-4 text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest w-1/4">Taxas</th>
+                <th className="px-3 sm:px-6 py-4 text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest w-1/6">Status</th>
+                <th className="px-3 sm:px-6 py-4 text-[9px] sm:text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest text-right w-1/4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredMethods.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-sm font-bold text-brand-text-main/40">
+                  <td colSpan={4} className="px-3 sm:px-6 py-8 text-center text-xs font-bold text-brand-text-main/40">
                     Nenhuma forma de pagamento encontrada.
                   </td>
                 </tr>
               ) : (
                 filteredMethods.map(method => (
                   <tr key={method.id} className="hover:bg-slate-50/50 transition-all">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
-                          <CreditCard size={20} />
+                    <td className="px-3 sm:px-6 py-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+                          <CreditCard size={16} />
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-black text-brand-text-main">{method.name}</span>
-                          <span className="text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest">Tipo: {method.type}</span>
+                        <div className="flex flex-col truncate">
+                          <span className="text-xs sm:text-sm font-black text-brand-text-main truncate">{method.name}</span>
+                          <span className="text-[9px] sm:text-[10px] text-brand-text-main/40 font-bold uppercase tracking-widest truncate">Tipo: {method.type}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-4">
                       <div className="flex flex-col gap-1">
                         {(method.taxPercentage || 0) > 0 && (
-                          <span className="text-xs font-bold text-brand-text-main/60">
+                          <span className="text-[10px] sm:text-xs font-bold text-brand-text-main/60">
                             {method.taxPercentage || 0}%
                           </span>
                         )}
                         {(method.taxFixed || 0) > 0 && (
-                          <span className="text-xs font-bold text-brand-text-main/60">
+                          <span className="text-[10px] sm:text-xs font-bold text-brand-text-main/60">
                             R$ {(method.taxFixed || 0).toFixed(2)}
                           </span>
                         )}
                         {method.taxPercentage === 0 && method.taxFixed === 0 && (
-                          <span className="text-xs text-brand-text-main/40 italic">Sem taxas</span>
+                          <span className="text-[10px] sm:text-xs text-brand-text-main/40 italic">Sem taxas</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-4">
                       <span className={cn(
-                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                        "px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest",
                         method.active ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
                       )}>
                         {method.active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 sm:px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1 sm:gap-2">
                         <button 
                           onClick={() => handleEdit(method)} 
-                          className="p-2 text-brand-text-main/40 hover:text-brand-blue bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                          className="p-1.5 sm:p-2 text-brand-text-main/40 hover:text-brand-blue bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-lg transition-all"
                           title="Editar"
                         >
-                          <Edit3 size={16} />
+                          <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
                         <button 
                           onClick={() => handleDelete(method.id)} 
-                          className="p-2 text-brand-text-main/40 hover:text-rose-500 bg-white hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all"
+                          className="p-1.5 sm:p-2 text-brand-text-main/40 hover:text-rose-500 bg-white hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all"
                           title="Excluir"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     </td>

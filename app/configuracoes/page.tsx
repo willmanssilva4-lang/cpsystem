@@ -504,27 +504,50 @@ function SystemSettings() {
   };
 
   const handleExportData = () => {
-    const dataToExport = {
-      products, sales, customers, suppliers, expenses, losses,
-      departamentos, categorias, expenseCategories, subcategorias,
-      stockMovements, inventories, employees, systemUsers,
-      accessProfiles, permissions, pricingSettings, companySettings,
-      systemSettings, paymentMethods, maquininhas, promotions, 
-      discountLogs, cashRegisters, cashMovements, cashClosings, lotes,
-      exportDate: new Date().toISOString()
-    };
+    try {
+      const dataToExport = {
+        products, sales, customers, suppliers, expenses, losses,
+        departamentos, categorias, expenseCategories, subcategorias,
+        stockMovements, inventories, employees, systemUsers,
+        accessProfiles, permissions, pricingSettings, companySettings,
+        systemSettings, paymentMethods, maquininhas, promotions, 
+        discountLogs, cashRegisters, cashMovements, cashClosings, lotes,
+        exportDate: new Date().toISOString()
+      };
 
-    const dataStr = JSON.stringify(dataToExport, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `backup_erp_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const seen = new WeakSet();
+      const dataStr = JSON.stringify(dataToExport, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return undefined; // skip circular reference
+          }
+          seen.add(value);
+        }
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      }, 2);
+
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup_erp_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err: any) {
+      console.error("Erro ao exportar backup:", err);
+      alert(`Não foi possível gerar o backup: ${err.message || err}`);
+    }
   };
 
   const [isImporting, setIsImporting] = useState(false);
@@ -867,6 +890,11 @@ function SystemSettings() {
                     Importando dados, aguarde...
                   </div>
                 )}
+                <div className="text-[10px] rounded-2xl bg-brand-blue/5 border border-brand-border/40 p-3 leading-normal text-brand-blue/80 font-bold space-y-1 mt-1">
+                  <p>💡 <strong>Dica de Download:</strong></p>
+                  <p>Se o download não iniciar, é porque o painel de visualização lateral restringe downloads por motivos de segurança do navegador.</p>
+                  <p>Para baixar normalmente, clique no botão para <strong>abrir o app em uma nova aba</strong> e faça o download por lá!</p>
+                </div>
               </div>
             </div>
             <div className="p-6 rounded-3xl border border-rose-100 bg-rose-50/30 space-y-4">

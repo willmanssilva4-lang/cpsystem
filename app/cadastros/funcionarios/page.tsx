@@ -71,7 +71,7 @@ export default function FuncionariosPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-2xl font-black uppercase italic text-xs transition-all whitespace-nowrap",
+                  "flex items-center gap-3 px-4 py-3 rounded-2xl font-black uppercase italic text-xs transition-all whitespace-nowrap shrink-0",
                   activeTab === tab.id
                     ? "bg-brand-blue text-white shadow-lg shadow-brand-blue/20"
                     : "text-brand-text-main/60 hover:bg-slate-50 hover:text-brand-blue"
@@ -410,31 +410,31 @@ function EmployeesSettings() {
       </div>
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full p-6 text-center space-y-6"
+            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full p-5 sm:p-6 text-center space-y-4 sm:space-y-6"
           >
-            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
-              <Trash2 size={28} />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
+              <Trash2 className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-black text-brand-text-main uppercase italic">Excluir Colaborador</h3>
-              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+            <div className="space-y-1 sm:space-y-2">
+              <h3 className="text-base sm:text-lg font-black text-brand-text-main uppercase italic">Excluir Colaborador</h3>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-relaxed">
                 Tem certeza que deseja excluir o funcionário <strong className="text-brand-text-main font-bold">"{deleteConfirm.name}"</strong>? Esta ação não pode ser desfeita.
               </p>
             </div>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
               <button 
                 onClick={() => setDeleteConfirm(null)} 
-                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black uppercase italic text-xs transition-colors"
+                className="w-full sm:flex-1 px-4 py-2.5 sm:py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl sm:rounded-2xl font-black uppercase italic text-xs transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmDelete} 
-                className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase italic text-xs shadow-lg shadow-rose-500/20 transition-colors"
+                className="w-full sm:flex-1 px-4 py-2.5 sm:py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl sm:rounded-2xl font-black uppercase italic text-xs shadow-lg shadow-rose-500/20 transition-colors"
               >
                 Confirmar Exclusão
               </button>
@@ -782,31 +782,31 @@ function UsersSettings() {
       </div>
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full p-6 text-center space-y-6"
+            className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-md w-full p-5 sm:p-6 text-center space-y-4 sm:space-y-6"
           >
-            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
-              <Trash2 size={28} />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
+              <Trash2 className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-black text-brand-text-main uppercase italic">Excluir Login de Acesso</h3>
-              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+            <div className="space-y-1 sm:space-y-2">
+              <h3 className="text-base sm:text-lg font-black text-brand-text-main uppercase italic">Excluir Login de Acesso</h3>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-relaxed">
                 Tem certeza que deseja excluir o usuário <strong className="text-brand-text-main font-bold">"{deleteConfirm.username}"</strong>? Esta ação removerá permanentemente suas credenciais de acesso.
               </p>
             </div>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
               <button 
                 onClick={() => setDeleteConfirm(null)} 
-                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black uppercase italic text-xs transition-colors"
+                className="w-full sm:flex-1 px-4 py-2.5 sm:py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl sm:rounded-2xl font-black uppercase italic text-xs transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmDelete} 
-                className="flex-1 px-4 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black uppercase italic text-xs shadow-lg shadow-rose-500/20 transition-colors"
+                className="w-full sm:flex-1 px-4 py-2.5 sm:py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl sm:rounded-2xl font-black uppercase italic text-xs shadow-lg shadow-rose-500/20 transition-colors"
               >
                 Confirmar Exclusão
               </button>

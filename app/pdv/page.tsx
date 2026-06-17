@@ -1133,9 +1133,11 @@ export default function PDVPage() {
         const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
         const filtered = products.filter(p => {
           if (p.status === 'Inativo') return false;
+          const stock = parseFloat(String(p.stock));
+          if (isNaN(stock) || stock <= 0) return false;
           const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
           return searchTerms.every(term => searchableText.includes(term));
-        }).slice(0, 50); // Limit results
+        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50); // Limit results
         setSearchResults(filtered);
         setSelectedIndex(filtered.length > 0 ? 0 : -1);
       } else {
@@ -1183,7 +1185,11 @@ export default function PDVPage() {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (searchResults.length === 0 && barcode.length === 0) {
-        setSearchResults(products.filter(p => p.status !== 'Inativo').slice(0, 50));
+        setSearchResults(products.filter(p => {
+          if (p.status === 'Inativo') return false;
+          const stock = parseFloat(String(p.stock));
+          return !isNaN(stock) && stock > 0;
+        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50));
         setSelectedIndex(0);
       } else {
         setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));

@@ -663,9 +663,8 @@ export default function NovaCompraPage() {
       // 4. Gerar Conta a Pagar (expenses)
 
       const totalCompra = items.reduce((acc, item) => acc + item.total, 0);
-      const supplierName =
-        suppliersList.find((s) => s.id === supplierId)?.name ||
-        "Fornecedor Desconhecido";
+      const supplierFull = suppliersList.find((s) => s.id === supplierId)?.name || "Fornecedor Desconhecido";
+      const supplierName = supplierFull.includes(" | ") ? supplierFull.split(" | ")[1] : supplierFull;
 
       // 0. Criar Pedido de Compra (purchase_orders)
       const { data: orderData, error: orderError } = await supabase

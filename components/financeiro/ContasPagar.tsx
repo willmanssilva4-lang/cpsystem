@@ -473,7 +473,7 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
                     {/* Fornecedor */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-xs font-bold text-slate-600 dark:text-slate-350 uppercase select-text">
-                        {e.supplier || '-'}
+                        {e.supplier ? (e.supplier.includes(' | ') ? e.supplier.split(' | ')[1] : e.supplier) : '-'}
                       </span>
                     </td>
 

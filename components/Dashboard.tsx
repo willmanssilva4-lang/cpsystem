@@ -71,6 +71,46 @@ export function Dashboard() {
     );
   }
 
+  // Helper de cálculo robusto de taxas de vendas
+  const calculateSaleTax = (sale: any): number => {
+    if (!sale) return 0;
+    let totalTax = 0;
+    let paymentsArr: any[] = [];
+    
+    if (sale.payments) {
+      if (Array.isArray(sale.payments)) {
+        paymentsArr = sale.payments;
+      } else if (typeof sale.payments === 'string') {
+        try {
+          const parsed = JSON.parse(sale.payments);
+          if (Array.isArray(parsed)) {
+            paymentsArr = parsed;
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            paymentsArr = [parsed];
+          }
+        } catch (e) {
+          console.error('Error parsing payments json string in Dashboard helper', e);
+        }
+      } else if (typeof sale.payments === 'object') {
+        paymentsArr = [sale.payments];
+      }
+    }
+
+    if (paymentsArr && paymentsArr.length > 0) {
+      totalTax = paymentsArr.reduce((pAcc: number, p: any) => {
+        const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+        return pAcc + (Number(t) || 0);
+      }, 0);
+    }
+    
+    if (totalTax === 0) {
+      const t = sale.taxAmount !== undefined ? sale.taxAmount : (sale.tax_amount !== undefined ? sale.tax_amount : 0);
+      totalTax = Number(t) || 0;
+    }
+    
+    return totalTax;
+  };
+
   // Filter data based on date range
   const safeToLocalDateString = (dateInput: string) => {
     return toLocalDateString(dateInput);
@@ -90,22 +130,29 @@ export function Dashboard() {
   });
 
   // Calculate Metrics
+  const productMap = React.useMemo(() => {
+    const map = new Map();
+    products.forEach(p => map.set(p.id, p));
+    return map;
+  }, [products]);
+
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  const totalTax = filteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+  const totalTax = filteredSales.reduce((acc, s) => acc + calculateSaleTax(s), 0);
   const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   
   let totalCost = 0;
   filteredSales.forEach(sale => {
     sale.items?.forEach((item: any) => {
-      const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
+      const product = productMap.get(item.productId);
+      const cost = item.costPrice && item.costPrice > 0 ? item.costPrice : (product ? product.costPrice : 0);
       totalCost += cost * item.quantity;
     });
   });
 
-  const totalProfit = totalSales - totalCost - totalTax;
+  const totalGrossProfit = totalSales - totalCost - totalTax;
+  const totalProfit = totalGrossProfit - totalExpenses;
   const ticketMedio = totalSales / (filteredSales.length || 1);
-  const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+  const profitMargin = totalSales > 0 ? (totalGrossProfit / totalSales) * 100 : 0;
 
   // Vendas em Oferta
   const totalPromoSales = filteredSales.reduce((acc, s) => {
@@ -204,21 +251,26 @@ export function Dashboard() {
   });
 
   const prevTotalSales = prevFilteredSales.reduce((acc, s) => acc + s.total, 0);
-  const prevTotalTax = prevFilteredSales.reduce((acc, s) => acc + (s.taxAmount || 0), 0);
+  const prevTotalTax = prevFilteredSales.reduce((acc, s) => acc + calculateSaleTax(s), 0);
   const prevTotalExpenses = prevFilteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   
   let prevTotalCost = 0;
   prevFilteredSales.forEach(sale => {
     sale.items?.forEach((item: any) => {
-      const product = products.find(p => p.id === item.productId);
-      const cost = product ? product.costPrice : 0;
+      const product = productMap.get(item.productId);
+      const cost = item.costPrice && item.costPrice > 0 ? item.costPrice : (product ? product.costPrice : 0);
       prevTotalCost += cost * item.quantity;
     });
   });
 
   const prevTotalProfit = prevTotalSales - prevTotalCost - prevTotalTax - prevTotalExpenses;
+  const prevTotalGrossProfit = prevTotalSales - prevTotalCost - prevTotalTax;
   const prevTicketMedio = prevFilteredSales.length > 0 ? prevTotalSales / prevFilteredSales.length : 0;
-  const prevProfitMargin = prevTotalSales > 0 ? (prevTotalProfit / prevTotalSales) * 100 : 0;
+  const prevProfitMargin = prevTotalSales > 0 ? (prevTotalGrossProfit / prevTotalSales) * 100 : 0;
+
+  const salesTrend = prevTotalSales !== 0 
+    ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 
+    : (totalSales > 0 ? 100 : 0);
 
   const profitTrend = prevTotalProfit !== 0 
     ? ((totalProfit - prevTotalProfit) / Math.abs(prevTotalProfit)) * 100 
@@ -228,9 +280,11 @@ export function Dashboard() {
     ? ((ticketMedio - prevTicketMedio) / prevTicketMedio) * 100 
     : (ticketMedio > 0 ? 100 : 0);
     
-  const marginTrend = prevProfitMargin !== 0 
-    ? profitMargin - prevProfitMargin 
-    : (profitMargin !== 0 ? profitMargin : 0);
+  const marginTrend = profitMargin - prevProfitMargin;
+
+  const marginTrendPercentage = prevProfitMargin !== 0
+    ? ((profitMargin - prevProfitMargin) / Math.abs(prevProfitMargin)) * 100
+    : (profitMargin > 0 ? 100 : (profitMargin < 0 ? -100 : 0));
 
   // Category Data Calculation
   const categoryTotals: Record<string, number> = {};
@@ -411,8 +465,8 @@ export function Dashboard() {
         <MetricCard 
           label="Faturamento Bruto" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSales)}
-          trend={`${profitTrend >= 0 ? '+' : ''}${profitTrend.toFixed(1)}%`}
-          positive={profitTrend >= 0}
+          trend={`${salesTrend >= 0 ? '+' : ''}${salesTrend.toFixed(1)}%`}
+          positive={salesTrend >= 0}
           icon={DollarSign}
           color="blue"
           subText="Total de vendas brutas"
@@ -437,8 +491,8 @@ export function Dashboard() {
         />
         <MetricCard 
           label="Margem de Lucro" 
-          value={`${profitMargin.toFixed(1)}%`}
-          trend={`${marginTrend >= 0 ? '+' : ''}${marginTrend.toFixed(1)}%`}
+          value={`${profitMargin.toFixed(2).replace('.', ',')}%`}
+          trend={`${marginTrend >= 0 ? '+' : ''}${marginTrend.toFixed(2).replace('.', ',')}%`}
           positive={marginTrend >= 0}
           icon={Percent}
           color="orange"
