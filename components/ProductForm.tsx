@@ -2779,14 +2779,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                             .filter(p => p.id !== initialData?.id)
                             .filter(p => (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.includes(searchTerm)))
                             .map(product => {
-                              const isLowStock = product.stock <= product.minStock;
+                              const isZeroStock = product.stock <= 0;
+                              const isLowStock = !isZeroStock && product.stock <= product.minStock;
                               return (
                                 <div key={product.id} className="p-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 flex justify-between items-center transition-colors">
                                   <div>
                                     <div className="font-bold text-brand-text-main text-xs">{product.name} {product.gramatura && <span className="text-brand-blue-hover/60">({product.gramatura})</span>}</div>
                                     <div className="flex gap-3 text-[10px] font-black uppercase italic mt-1">
-                                      <span className={isLowStock ? "text-rose-500" : "text-brand-blue-hover"}>
-                                        Estoque: {product.stock} {isLowStock && '(Baixo)'}
+                                      <span className={isZeroStock ? "text-rose-600 font-extrabold" : isLowStock ? "text-amber-500 font-extrabold" : "text-brand-blue-hover"}>
+                                        Estoque: {product.stock} {isZeroStock ? '(Sem Estoque)' : isLowStock ? '(Baixo)' : ''}
                                       </span>
                                       <span className="text-brand-blue/60">Custo: R$ {product.costPrice.toFixed(2)}</span>
                                       <span className="text-brand-blue/60">Venda: R$ {product.salePrice.toFixed(2)}</span>
@@ -2838,13 +2839,15 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                         ) : (
                           formData.composition.map((item, index) => {
                             const product = products.find(p => p.id === item.productId);
-                            const isLowStock = product ? product.stock <= product.minStock : false;
+                            const isZeroStock = product ? product.stock <= 0 : false;
+                            const isLowStock = product ? !isZeroStock && product.stock <= product.minStock : false;
                             
                             return (
                               <div key={item.productId} className="px-2 py-3 grid grid-cols-12 gap-4 items-center bg-white border border-slate-50 rounded-xl hover:border-brand-border transition-colors">
-                                <div className="col-span-5">
+                                <div className="col-span-12 md:col-span-5">
                                   <div className="font-bold text-brand-text-main text-xs truncate">{product?.name || 'Item'} {product?.gramatura && <span className="text-brand-blue-hover/60">({product.gramatura})</span>}</div>
-                                  {isLowStock && <div className="text-[9px] text-rose-500 font-black uppercase italic">⚠️ Estoque Baixo</div>}
+                                  {isZeroStock && <div className="text-[9px] text-rose-600 font-black uppercase italic">⚠️ Sem Estoque</div>}
+                                  {isLowStock && <div className="text-[9px] text-amber-500 font-black uppercase italic">⚠️ Estoque Baixo</div>}
                                 </div>
                                 <div className="col-span-2 flex justify-center">
                                   <QuantityInput 

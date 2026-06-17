@@ -1258,7 +1258,7 @@ export default function ProductsPage() {
                         </div>
                       </td>
                       <td className="hidden sm:table-cell px-6 py-4">
-                        <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (!isVirtual && product.stock <= (product.minStock || 0) ? 'Estoque Baixo' : 'Ativo')} />
+                        <StatusBadge status={product.status === 'Inativo' ? 'Inativo' : (!isVirtual && product.stock <= 0 ? 'Sem Estoque' : !isVirtual && product.stock <= (product.minStock || 0) ? 'Estoque Baixo' : 'Ativo')} />
                       </td>
                       <td className="px-6 py-4 text-right relative">
                         <button 
@@ -3075,6 +3075,7 @@ function StatusBadge({ status }: { status: string }) {
   const styles: any = {
     'Disponivel': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'Estoque Baixo': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Sem Estoque': 'bg-rose-50 text-rose-700 border-rose-200',
     'Pago': 'bg-blue-50 text-blue-700 border-blue-200',
     'Indisponivel': 'bg-rose-50 text-rose-700 border-rose-200',
     'Ativo': 'bg-emerald-50 text-emerald-700 border-emerald-200',

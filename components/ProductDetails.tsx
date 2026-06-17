@@ -232,7 +232,12 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:scale-[1.01] transition-transform">
                 <div className="flex items-center justify-between border-b border-slate-50 pb-2 mb-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Estoque Físico</span>
-                  {product.stock <= (product.minStock || 0) ? (
+                  {product.stock <= 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 border border-rose-200/50">
+                      <ShieldAlert size={10} />
+                      SEM ESTOQUE
+                    </span>
+                  ) : product.stock <= (product.minStock || 0) ? (
                     <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 border border-amber-200/50">
                       <ShieldAlert size={10} />
                       BAIXO CONTROLE
