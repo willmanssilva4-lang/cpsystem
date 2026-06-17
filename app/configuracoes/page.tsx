@@ -463,7 +463,8 @@ function SystemSettings() {
     stockMovements, inventories, employees, systemUsers,
     accessProfiles, permissions, pricingSettings, companySettings,
     paymentMethods, maquininhas, promotions, discountLogs,
-    cashRegisters, cashMovements, cashClosings, lotes
+    cashRegisters, cashMovements, cashClosings, lotes,
+    returns, auditLogs, vouchers, advertisements
   } = useERP();
 
   const [isTestingEmail, setIsTestingEmail] = useState(false);
@@ -512,6 +513,7 @@ function SystemSettings() {
         accessProfiles, permissions, pricingSettings, companySettings,
         systemSettings, paymentMethods, maquininhas, promotions, 
         discountLogs, cashRegisters, cashMovements, cashClosings, lotes,
+        returns, auditLogs, vouchers, advertisements,
         exportDate: new Date().toISOString()
       };
 
@@ -552,61 +554,456 @@ function SystemSettings() {
 
   const [isImporting, setIsImporting] = useState(false);
 
-  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
 
-    if (!window.confirm("Atenção! Importar um backup irá SUBSTITUIR os dados no seu navegador. Deseja continuar? (O banco de dados nuvem precisará ser sincronizado separadamente depois se estiver usando Supabase).")) {
-      e.target.value = '';
-      return;
-    }
-
+  const processImport = async () => {
+    if (!importFile) return;
+    
+    console.log("🚀 Iniciando processamento do backup:", importFile.name);
     setIsImporting(true);
+    setShowImportConfirm(false);
+    
     try {
-      const text = await file.text();
-      const importedData = JSON.parse(text);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log("📖 Lendo conteúdo do arquivo...");
+      const text = await importFile.text();
+      
+      if (!text || text.trim() === '') {
+        throw new Error("O arquivo de backup está vazio.");
+      }
 
-      // Define standard keys corresponding to context
-      const keyMap: Record<string, string> = {
-        products: 'erp_products',
-        sales: 'erp_sales',
-        customers: 'erp_customers',
-        suppliers: 'suppliers',
-        expenses: 'erp_expenses',
-        paymentMethods: 'payment_methods',
-        maquininhas: 'maquininhas',
-        promotions: 'promotions',
-        systemSettings: 'system_settings',
-        pricingSettings: 'pricing_settings',
-        companySettings: 'company_settings'
-        // Add others as needed if utilizing LocalStorage exclusively
-      };
+      let importedData: any;
+      try {
+        importedData = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error("O conteúdo do arquivo não é um JSON válido.");
+      }
 
-      let successCount = 0;
-      for (const [key, value] of Object.entries(importedData)) {
-        if (key === 'exportDate') continue;
-        
-        const storageKey = keyMap[key] || key;
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(value));
-          successCount++;
-        } catch (storageError) {
-          console.warn(`Could not save ${key} to local storage:`, storageError);
+      // Reconstrução de sale_items a partir dos items das vendas
+      if (!importedData.sale_items && !importedData.saleItems && importedData.sales && Array.isArray(importedData.sales)) {
+        const itemsList: any[] = [];
+        importedData.sales.forEach((s: any) => {
+          if (s && s.items && Array.isArray(s.items)) {
+            s.items.forEach((item: any) => {
+              itemsList.push({
+                sale_id: s.id,
+                product_id: item.productId || item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                original_price: item.originalPrice !== undefined ? item.originalPrice : (item.original_price ?? item.price),
+                discount: item.discount || 0,
+                promotion_id: item.promotionId || item.promotion_id || null,
+                company_id: s.companyId || s.company_id || null,
+                store_id: s.storeId || s.store_id || null
+              });
+            });
+          }
+        });
+        if (itemsList.length > 0) {
+          importedData.sale_items = itemsList;
         }
       }
 
-      alert(`Backup restaurado com sucesso! ${successCount} conjuntos de dados foram importados.`);
-      
-      // Force reload to apply the new state from Context
+      // Mapeamento alternativo para lotes
+      if (importedData.lotes && !importedData.produto_lotes) {
+        importedData.produto_lotes = importedData.lotes;
+      }
+
+      const isUUID = (str: any) => {
+        if (typeof str !== 'string') return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+      };
+
+      const generateUUID = () => {
+        if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+          return window.crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+
+      const dateFields = [
+        'validade', 'date', 'due_date', 'payment_date', 'issue_date',
+        'opened_at', 'closed_at', 'created_at', 'updated_at',
+        'start_date', 'end_date', 'admission_date'
+      ];
+
+      const uuidFields = [
+        'id', 'company_id', 'category_id', 'department_id', 'departamento_id', 
+        'subcategoria_id', 'supplier_id', 'product_id', 'produto_id', 
+        'sale_id', 'customer_id', 'user_id', 'cash_register_id', 
+        'maquininha_id', 'lote_id', 'fornecedor_id', 'profile_id'
+      ];
+
+      const tableColumns: Record<string, string[]> = {
+        products: [
+          'id', 'name', 'category', 'sku', 'cost_price', 'sale_price', 'stock', 'min_stock', 
+          'image', 'composition', 'status', 'created_at', 'category_id', 'department', 
+          'group', 'subgroup', 'subcategoria_id', 'validade', 'company_id', 'codigo_mercadologico', 
+          'has_had_stock', 'wholesale_price', 'control_stock', 'club_price', 'product_type', 
+          'base_product_id', 'conversion_factor', 'wholesale_min_qty', 'term_price', 'linha', 
+          'sabor', 'gramatura', 'tipo_embalagem', 'segmento', 'supplier', 'section', 'unit', 'barcode', 'brand'
+        ],
+        customers: ['id', 'name', 'email', 'phone', 'document', 'status', 'address', 'notes', 'company_id', 'created_at'],
+        suppliers: ['id', 'name', 'cnpj', 'phone', 'email', 'address', 'status', 'company_id', 'created_at'],
+        expenses: [
+          'id', 'description', 'amount', 'category', 'category_id', 'due_date', 'payment_date', 
+          'status', 'payment_method', 'company_id', 'created_at', 'supplier_id', 'issue_date', 
+          'financial_account', 'store_id', 'is_recurring'
+        ],
+        sales: [
+          'id', 'date', 'total', 'subtotal', 'discount', 'status', 'payments', 'payment_method', 
+          'customer_id', 'user_id', 'cash_register_id', 'maquininha_id', 'tax_amount', 'net_amount', 
+          'company_id', 'store_id', 'created_at'
+        ],
+        sale_items: ['id', 'sale_id', 'product_id', 'quantity', 'price', 'original_price', 'discount', 'promotion_id', 'company_id', 'store_id', 'created_at'],
+        departamentos: ['id', 'nome', 'company_id', 'created_at'],
+        categorias: ['id', 'nome', 'departamento_id', 'department_id', 'company_id', 'created_at'],
+        subcategorias: ['id', 'nome', 'categoria_id', 'category_id', 'company_id', 'created_at'],
+        stock_movements: ['id', 'product_id', 'type', 'quantity', 'origin', 'date', 'user_id', 'user_name', 'company_id', 'created_at', 'cost', 'lote_id'],
+        inventories: ['id', 'date', 'status', 'type', 'responsible', 'notes', 'company_id', 'created_at'],
+        maquininhas: ['id', 'nome', 'credenciadora', 'taxa_debito', 'taxa_credito_vista', 'taxa_credito_parcelado', 'ativo', 'company_id', 'created_at'],
+        payment_methods: [
+          'id', 'name', 'active', 'company_id', 'created_at', 'tax_debt', 'tax_credit_1x', 
+          'tax_credit_2_6x', 'tax_credit_7_12x', 'tax_pix', 'installments_max', 'receive_days_debt', 'receive_days_credit'
+        ],
+        advertisements: ['id', 'title', 'imageUrl', 'image_url', 'link', 'status', 'company_id', 'created_at'],
+        produto_lotes: ['id', 'produto_id', 'numero_lote', 'validade', 'saldo_atual', 'data_entrada', 'custo_unit', 'quantidade_inicial', 'company_id', 'fornecedor_id'],
+        system_settings: ['id', 'company_name', 'company_document', 'address', 'phone', 'email', 'theme', 'logo_url', 'company_id', 'created_at', 'logo', 'receipt_footer_message'],
+        system_users: ['id', 'username', 'email', 'full_name', 'employee_id', 'profile_id', 'store_id', 'active', 'supervisor_code', 'company_id', 'created_at'],
+        promotions: ['id', 'name', 'type', 'status', 'start_date', 'end_date', 'target_type', 'target_id', 'product_prices', 'discount_value', 'company_id', 'created_at'],
+        returns: ['id', 'sale_id', 'date', 'reason', 'total', 'company_id', 'created_at'],
+        employees: ['id', 'name', 'role', 'phone', 'email', 'admission_date', 'salary', 'status', 'company_id', 'created_at'],
+        access_profiles: ['id', 'name', 'description', 'company_id', 'created_at'],
+        permissions: ['id', 'profile_id', 'module', 'action', 'company_id', 'created_at'],
+        expense_categories: ['id', 'name', 'company_id', 'created_at'],
+        losses: ['id', 'product_id', 'lote_id', 'quantity', 'reason', 'date', 'total_value', 'company_id', 'created_at'],
+        discount_logs: ['id', 'sale_id', 'user_id', 'discount_amount', 'reason', 'date', 'company_id', 'created_at'],
+        audit_logs: ['id', 'user_id', 'action', 'details', 'created_at', 'company_id'],
+        vouchers: ['id', 'code', 'type', 'value', 'status', 'min_purchase', 'expiration_date', 'company_id', 'created_at'],
+        cash_registers: ['id', 'status', 'opening_balance', 'closing_balance', 'opened_at', 'closed_at', 'opened_by', 'closed_by', 'company_id', 'created_at'],
+        cash_movements: ['id', 'register_id', 'cash_register_id', 'type', 'amount', 'reason', 'created_by', 'company_id', 'created_at'],
+        cash_closings: ['id', 'cash_register_id', 'payment_method', 'expected_amount', 'informed_amount', 'difference_amount', 'closed_at', 'closed_by', 'company_id', 'created_at']
+      };
+
+      const mapAndCleanItem = (tableName: string, item: any, allowedColumns: string[]) => {
+        if (!item || typeof item !== 'object') return null;
+        
+        const clean: any = {};
+        const mappingRules: Record<string, string> = {
+          companyId: 'company_id',
+          storeId: 'store_id',
+          customerId: 'customer_id',
+          userId: 'user_id',
+          cashRegisterId: 'cash_register_id',
+          registerId: 'cash_register_id',
+          maquininhaId: 'maquininha_id',
+          paymentMethod: 'payment_method',
+          taxAmount: 'tax_amount',
+          netAmount: 'net_amount',
+          originalPrice: 'original_price',
+          promotionId: 'promotion_id',
+          productId: 'product_id',
+          produtoId: 'produto_id',
+          loteId: 'lote_id',
+          categoryId: 'category_id',
+          subcategoryId: 'subcategoria_id',
+          subcategoriaId: 'subcategoria_id',
+          supervisorCode: 'supervisor_code',
+          admissionDate: 'admission_date',
+          costPrice: 'cost_price',
+          salePrice: 'sale_price',
+          wholesalePrice: 'wholesale_price',
+          wholesaleMinQty: 'wholesale_min_qty',
+          clubPrice: 'club_price',
+          termPrice: 'term_price',
+          minStock: 'min_stock',
+          controlStock: 'control_stock',
+          productType: 'product_type',
+          baseProductId: 'base_product_id',
+          conversionFactor: 'conversion_factor',
+          codigoMercadologico: 'codigo_mercadologico',
+          dueDate: 'due_date',
+          paymentDate: 'payment_date',
+          issueDate: 'issue_date',
+          isRecurring: 'is_recurring',
+          paymentType: 'payment_type',
+          financialAccount: 'financial_account',
+          supplierId: 'supplier_id',
+          createdAt: 'created_at',
+          updatedAt: 'updated_at',
+          totalValue: 'total_value',
+          productPrices: 'product_prices',
+          discountValue: 'discount_value',
+          targetType: 'target_type',
+          targetId: 'target_id',
+          startDate: 'start_date',
+          endDate: 'end_date',
+          openingBalance: 'opening_balance',
+          closingBalance: 'closing_balance',
+          informedSum: 'informed_sum',
+          differenceAmount: 'difference_amount',
+          openedAt: 'opened_at',
+          closedAt: 'closed_at',
+          openedBy: 'opened_by',
+          closedBy: 'closed_by',
+          createdBy: 'created_by',
+          movementType: 'movement_type',
+          numeroLote: 'numero_lote',
+          dataEntrada: 'data_entrada',
+          custoUnit: 'custo_unit',
+          quantidadeInicial: 'quantidade_inicial',
+          saldoAtual: 'saldo_atual',
+          fornecedorId: 'fornecedor_id'
+        };
+
+        if (tableName === 'categorias' && item.departamentoId !== undefined && item.department_id === undefined) {
+          clean.departamento_id = item.departamentoId;
+        }
+        if (tableName === 'subcategorias' && item.categoriaId !== undefined && item.category_id === undefined) {
+          clean.categoria_id = item.categoriaId;
+        }
+
+        for (const [key, val] of Object.entries(item)) {
+          const mappedKey = mappingRules[key] || key;
+          clean[mappedKey] = val;
+        }
+
+        const dbPayload: any = {};
+        for (const col of allowedColumns) {
+          let val = clean[col];
+          if (val === undefined) {
+            const camelKey = col.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+            val = item[camelKey] !== undefined ? item[camelKey] : item[col];
+          }
+
+          if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+            val = null;
+          }
+
+          if (col === 'id' && val === null) {
+            val = generateUUID();
+          }
+
+          if (val !== null) {
+            if (uuidFields.includes(col)) {
+              if (typeof val === 'string' && !isUUID(val)) {
+                if (col === 'id') {
+                  val = generateUUID();
+                } else {
+                  val = null;
+                }
+              }
+            }
+
+            if (dateFields.includes(col) && val !== null) {
+              const d = new Date(val);
+              if (isNaN(d.getTime())) {
+                val = null;
+              } else {
+                val = d.toISOString();
+              }
+            }
+
+            if (col === 'payments' && typeof val === 'string') {
+              try { val = JSON.parse(val); } catch (e) {}
+            }
+            if (col === 'composition' && typeof val === 'string') {
+              try { val = JSON.parse(val); } catch (e) {}
+            }
+            if (col === 'product_prices' && typeof val === 'string') {
+              try { val = JSON.parse(val); } catch (e) {}
+            }
+          }
+
+          if (val !== null && val !== undefined) {
+            dbPayload[col] = val;
+          }
+        }
+
+        return dbPayload;
+      };
+
+      // Mapeamento EXATO para o LocalStorage
+      const keyMap: Record<string, string> = {
+        products: 'erp_products',
+        erp_products: 'erp_products',
+        sales: 'erp_sales',
+        erp_sales: 'erp_sales',
+        customers: 'erp_customers',
+        erp_customers: 'erp_customers',
+        suppliers: 'suppliers',
+        erp_suppliers: 'suppliers',
+        expenses: 'erp_expenses',
+        erp_expenses: 'erp_expenses',
+        paymentMethods: 'payment_methods',
+        payment_methods: 'payment_methods',
+        maquininhas: 'maquininhas',
+        promotions: 'promotions',
+        systemSettings: 'system_settings',
+        system_settings: 'system_settings',
+        pricingSettings: 'pricingSettings',
+        pricing_settings: 'pricingSettings',
+        companySettings: 'system_settings',
+        company_settings: 'system_settings',
+        stockMovements: 'stock_movements',
+        stock_movements: 'stock_movements',
+        lotes: 'produto_lotes',
+        produto_lotes: 'produto_lotes',
+        losses: 'losses',
+        inventories: 'inventories',
+        departamentos: 'departamentos',
+        categorias: 'categorias',
+        subcategorias: 'subcategorias',
+        expenseCategories: 'expense_categories',
+        expense_categories: 'expense_categories',
+        employees: 'employees',
+        systemUsers: 'system_users',
+        system_users: 'system_users',
+        accessProfiles: 'access_profiles',
+        access_profiles: 'access_profiles',
+        permissions: 'permissions',
+        discountLogs: 'discount_logs',
+        discount_logs: 'discount_logs',
+        cashRegisters: 'cash_registers',
+        cash_registers: 'cash_registers',
+        cashMovements: 'cash_movements',
+        cash_movements: 'cash_movements',
+        cashClosings: 'cash_closings',
+        cash_closings: 'cash_closings',
+        returns: 'returns',
+        auditLogs: 'audit_logs',
+        audit_logs: 'audit_logs',
+        vouchers: 'vouchers',
+        advertisements: 'advertisements',
+        sale_items: 'sale_items'
+      };
+
+      // 1. Salvar no LocalStorage (fallback offline e cache imediato)
+      let localStorageSuccessCount = 0;
+      const importedKeys: string[] = [];
+
+      for (const [key, value] of Object.entries(importedData)) {
+        const storageKey = keyMap[key] || (key.startsWith('erp_') ? key : null);
+        if (!storageKey) continue;
+
+        try {
+          if (value !== undefined && value !== null) {
+            localStorage.setItem(storageKey, JSON.stringify(value));
+            localStorageSuccessCount++;
+            importedKeys.push(key);
+          }
+        } catch (e) {
+          console.error(`Erro ao salvar no localStorage para a chave ${key}:`, e);
+        }
+      }
+
+      // 2. Salvar no Supabase se configurado e conectado
+      const isSupabaseConnected = !!supabase && !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+      let databaseSuccessCount = 0;
+
+      if (isSupabaseConnected) {
+        console.log("🌐 Conectado ao Supabase - Iniciando sincronização do backup com banco...");
+        
+        const dbTablesOrder = [
+          { key: 'accessProfiles', dbTable: 'access_profiles' },
+          { key: 'permissions', dbTable: 'permissions' },
+          { key: 'expenseCategories', dbTable: 'expense_categories' },
+          { key: 'paymentMethods', dbTable: 'payment_methods' },
+          { key: 'maquininhas', dbTable: 'maquininhas' },
+          { key: 'departamentos', dbTable: 'departamentos' },
+          { key: 'categorias', dbTable: 'categorias' },
+          { key: 'subcategorias', dbTable: 'subcategorias' },
+          { key: 'employees', dbTable: 'employees' },
+          { key: 'suppliers', dbTable: 'suppliers' },
+          { key: 'customers', dbTable: 'customers' },
+          { key: 'advertisements', dbTable: 'advertisements' },
+          { key: 'systemSettings', dbTable: 'system_settings' },
+          { key: 'vouchers', dbTable: 'vouchers' },
+          { key: 'products', dbTable: 'products' },
+          { key: 'systemUsers', dbTable: 'system_users' },
+          { key: 'promotions', dbTable: 'promotions' },
+          { key: 'cashRegisters', dbTable: 'cash_registers' },
+          { key: 'cashMovements', dbTable: 'cash_movements' },
+          { key: 'cashClosings', dbTable: 'cash_closings' },
+          { key: 'sales', dbTable: 'sales' },
+          { key: 'sale_items', dbTable: 'sale_items' },
+          { key: 'returns', dbTable: 'returns' },
+          { key: 'produto_lotes', dbTable: 'produto_lotes' },
+          { key: 'stockMovements', dbTable: 'stock_movements' },
+          { key: 'inventories', dbTable: 'inventories' },
+          { key: 'losses', dbTable: 'losses' },
+          { key: 'expenses', dbTable: 'expenses' },
+          { key: 'discountLogs', dbTable: 'discount_logs' },
+          { key: 'auditLogs', dbTable: 'audit_logs' }
+        ];
+
+        // Limpar tabelas antigas no banco (ordem reversa para chaves estrangeiras)
+        console.log("🧹 Limpando as tabelas existentes no banco...");
+        for (let i = dbTablesOrder.length - 1; i >= 0; i--) {
+          const { dbTable } = dbTablesOrder[i];
+          try {
+            await supabase.from(dbTable).delete().not('id', 'is', null);
+          } catch (e) {
+            console.warn(`Erro de limpeza na tabela ${dbTable}:`, e);
+          }
+        }
+
+        // Inserir os registros no banco na ordem de dependência correta
+        for (const { key, dbTable } of dbTablesOrder) {
+          const arrayData = importedData[key] || importedData[dbTable];
+          if (!arrayData || !Array.isArray(arrayData) || arrayData.length === 0) continue;
+
+          console.log(`📥 Importando para o Supabase: ${arrayData.length} registros para ${dbTable}...`);
+          
+          const allowedCols = tableColumns[dbTable] || [];
+          const cleanedPayloads = arrayData
+            .map(item => mapAndCleanItem(dbTable, item, allowedCols))
+            .filter(Boolean);
+
+          if (cleanedPayloads.length === 0) continue;
+
+          try {
+            const { error } = await supabase.from(dbTable).insert(cleanedPayloads);
+            if (error) {
+              console.warn(`Bulk insert falhou na tabela ${dbTable}. Tentando individualmente...`, error.message);
+              for (const p of cleanedPayloads) {
+                const { error: err2 } = await supabase.from(dbTable).insert([p]);
+                if (err2) {
+                  console.error(`Falha ao inserir linha na tabela ${dbTable}:`, err2.message, p);
+                }
+              }
+            }
+            databaseSuccessCount++;
+          } catch (err: any) {
+            console.error(`Erro inserindo tabela ${dbTable}:`, err);
+          }
+        }
+      }
+
+      const syncResultMsg = isSupabaseConnected
+        ? `Restauração Completa!\n\n${localStorageSuccessCount} módulos salvos localmente.\nSincronizados e carregados com sucesso no banco de dados.`
+        : `${localStorageSuccessCount} módulos restaurados localmente!`;
+
+      alert(`${syncResultMsg}\n\nO sistema será reiniciado.`);
       window.location.reload();
-      
-    } catch (err) {
-      console.error("Erro ao importar base:", err);
-      alert("Erro ao ler o arquivo de backup. Verifique se é um arquivo .json válido (Exportado deste sistema).");
+    } catch (err: any) {
+      alert(`Erro no processo de importação: ${err.message}`);
     } finally {
       setIsImporting(false);
-      e.target.value = '';
+      setImportFile(null);
     }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    setShowImportConfirm(true);
   };
 
   const handleClearData = async () => {
@@ -867,16 +1264,53 @@ function SystemSettings() {
                 <h4 className="text-sm font-black text-brand-text-main uppercase italic">Backup Completo</h4>
                 <p className="text-xs text-brand-blue/60 font-medium">Baixe todos os seus dados.</p>
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 relative">
+                {isImporting && (
+                  <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center border border-brand-border shadow-inner">
+                    <div className="w-6 h-6 border-2 border-brand-blue border-t-transparent rounded-full animate-spin mb-2" />
+                    <span className="text-[10px] text-brand-blue font-black uppercase italic animate-pulse">Restaurando...</span>
+                  </div>
+                )}
+
+                {showImportConfirm && !isImporting && (
+                  <div className="absolute inset-0 z-20 bg-brand-blue text-white rounded-2xl p-4 flex flex-col justify-between border border-brand-blue shadow-xl animate-in zoom-in-95 duration-200">
+                    <div>
+                      <h5 className="text-[10px] font-black uppercase italic mb-1">Confirmar Restauração?</h5>
+                      <p className="text-[9px] font-medium opacity-90 leading-tight">Isso irá substituir seus dados atuais pelos dados do arquivo.</p>
+                      <p className="text-[8px] mt-1 font-mono opacity-70 truncate">{importFile?.name}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={processImport}
+                        className="flex-1 py-2 bg-white text-brand-blue rounded-xl font-black uppercase italic text-[9px] hover:bg-slate-50 transition-all"
+                      >
+                        Sim, Restaurar
+                      </button>
+                      <button 
+                        onClick={() => { setShowImportConfirm(false); setImportFile(null); }}
+                        className="flex-1 py-2 bg-transparent border border-white/30 text-white rounded-xl font-black uppercase italic text-[9px] hover:bg-white/10 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button 
                   onClick={handleExportData}
-                  className="w-full py-3 bg-white border border-brand-border text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-slate-50 transition-all shadow-sm"
+                  disabled={isImporting || showImportConfirm}
+                  className="w-full py-3 bg-white border border-brand-border text-brand-blue rounded-2xl font-black uppercase italic text-xs hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
                 >
                   Exportar Agora
                 </button>
-                <label className="w-full py-3 bg-brand-blue border border-brand-blue text-white rounded-2xl font-black uppercase italic text-xs hover:bg-brand-blue-hover transition-all cursor-pointer text-center flex items-center justify-center shadow-lg relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                  Importar Backup (Restaurar)
+                <label className={cn(
+                  "w-full py-3 border rounded-2xl font-black uppercase italic text-xs transition-all cursor-pointer text-center flex items-center justify-center shadow-lg relative overflow-hidden group",
+                  isImporting 
+                    ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" 
+                    : "bg-brand-blue border-brand-blue text-white hover:bg-brand-blue-hover"
+                )}>
+                  {!isImporting && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />}
+                  {isImporting ? 'Aguarde...' : 'Importar Backup (Restaurar)'}
                   <input 
                     type="file" 
                     accept=".json" 
@@ -885,11 +1319,6 @@ function SystemSettings() {
                     disabled={isImporting}
                   />
                 </label>
-                {isImporting && (
-                  <div className="text-[10px] text-brand-blue text-center font-bold animate-pulse">
-                    Importando dados, aguarde...
-                  </div>
-                )}
                 <div className="text-[10px] rounded-2xl bg-brand-blue/5 border border-brand-border/40 p-3 leading-normal text-brand-blue/80 font-bold space-y-1 mt-1">
                   <p>💡 <strong>Dica de Download:</strong></p>
                   <p>Se o download não iniciar, é porque o painel de visualização lateral restringe downloads por motivos de segurança do navegador.</p>

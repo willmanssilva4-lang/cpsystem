@@ -312,22 +312,47 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       console.log('[ERPProvider] Parallel fetches finished, processing results');
 
-      const getData = (index: number) => {
+      const getLocalFallback = (key: string) => {
+        if (typeof window === 'undefined') return null;
+        try {
+          const saved = localStorage.getItem(key);
+          return saved ? JSON.parse(saved) : null;
+        } catch (e) { return null; }
+      };
+
+      const getData = (index: number, localKey?: string) => {
         const res = results[index];
         if (res.status === 'fulfilled') {
           const val = res.value as any;
           // Supabase responses have a 'data' property
           if (val && typeof val === 'object' && 'data' in val) {
+            // If data is empty array, try local fallback if key provided
+            if (localKey && Array.isArray(val.data) && val.data.length === 0) {
+              const local = getLocalFallback(localKey);
+              if (local) {
+                console.log(`[ERPProvider] Supabase empty for ${localKey}, using local fallback`);
+                return local;
+              }
+            }
             return val.data;
           }
           return val;
         }
+        
+        if (localKey) {
+          const local = getLocalFallback(localKey);
+          if (local) {
+            console.log(`[ERPProvider] Fetch failed for ${localKey}, using local fallback`);
+            return local;
+          }
+        }
+        
         console.warn(`[ERPProvider] Fetch failed at index ${index}:`, (res as any).reason);
         return null;
       };
 
-      const prods = getData(0);
-      let supps_res = getData(1);
+      const prods = getData(0, 'erp_products');
+      let supps_res = getData(1, 'suppliers');
       
       // Fallback check if suppliers is empty - maybe table name is different?
       if (!supps_res || (Array.isArray(supps_res) && supps_res.length === 0)) {
@@ -339,34 +364,34 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const depts_res = getData(2);
-      const cats_res = getData(3);
-      const subs_res = getData(4);
-      const movs_res = getData(5);
-      const invs_res = getData(6);
-      const maqs_res = getData(7);
-      const pays_res = getData(8);
-      const ads_res = getData(9);
-      const custs_res = getData(10);
-      const sls_res = getData(11);
-      const exps_res = getData(12);
-      const lts_res = getData(13);
-      const sysSet = getData(14);
-      const sysUsrs_res = getData(15);
-      const proms_res = getData(16);
-      const rets_res = getData(17);
-      const emps_res = getData(18);
-      const profs_res = getData(19);
-      const perms_res = getData(20);
-      const expCats_res = getData(21);
-      const ls_res = getData(22);
-      const dLogs_res = getData(23);
-      const audLogs_res = getData(24);
-      const vchs_res = getData(25);
-      const cRegs_res = getData(26);
-      const cMovs_res = getData(27);
-      const cClos_res = getData(28);
-      const saleItems_res = getData(29);
+      const depts_res = getData(2, 'departamentos');
+      const cats_res = getData(3, 'categorias');
+      const subs_res = getData(4, 'subcategorias');
+      const movs_res = getData(5, 'stock_movements');
+      const invs_res = getData(6, 'inventories');
+      const maqs_res = getData(7, 'maquininhas');
+      const pays_res = getData(8, 'payment_methods');
+      const ads_res = getData(9, 'advertisements');
+      const custs_res = getData(10, 'erp_customers');
+      const sls_res = getData(11, 'erp_sales');
+      const exps_res = getData(12, 'erp_expenses');
+      const lts_res = getData(13, 'produto_lotes');
+      const sysSet = getData(14, 'system_settings');
+      const sysUsrs_res = getData(15, 'system_users');
+      const proms_res = getData(16, 'promotions');
+      const rets_res = getData(17, 'returns');
+      const emps_res = getData(18, 'employees');
+      const profs_res = getData(19, 'access_profiles');
+      const perms_res = getData(20, 'permissions');
+      const expCats_res = getData(21, 'expense_categories');
+      const ls_res = getData(22, 'losses');
+      const dLogs_res = getData(23, 'discount_logs');
+      const audLogs_res = getData(24, 'audit_logs');
+      const vchs_res = getData(25, 'vouchers');
+      const cRegs_res = getData(26, 'cash_registers');
+      const cMovs_res = getData(27, 'cash_movements');
+      const cClos_res = getData(28, 'cash_closings');
+      const saleItems_res = getData(29, 'sale_items');
 
       if (Array.isArray(prods)) {
         const resolvedBasicProducts = prods.map((p: any) => {

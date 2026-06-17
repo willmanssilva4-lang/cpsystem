@@ -465,8 +465,8 @@ export function Dashboard() {
         <MetricCard 
           label="Faturamento Bruto" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSales)}
-          trend={`${salesTrend >= 0 ? '+' : ''}${salesTrend.toFixed(1)}%`}
-          positive={salesTrend >= 0}
+          trend={prevTotalSales === 0 ? '--' : `${salesTrend >= 0 ? '+' : ''}${salesTrend.toFixed(1)}%`}
+          positive={prevTotalSales === 0 ? true : salesTrend >= 0}
           icon={DollarSign}
           color="blue"
           subText="Total de vendas brutas"
@@ -474,8 +474,8 @@ export function Dashboard() {
         <MetricCard 
           label="Lucro Líquido Estimado" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalProfit)}
-          trend={`${profitTrend >= 0 ? '+' : ''}${profitTrend.toFixed(1)}%`}
-          positive={profitTrend >= 0}
+          trend={prevTotalProfit === 0 ? '--' : `${profitTrend >= 0 ? '+' : ''}${profitTrend.toFixed(1)}%`}
+          positive={prevTotalProfit === 0 ? true : profitTrend >= 0}
           icon={TrendingUp}
           color="green"
           subText="Custos e impostos aplicados"
@@ -483,8 +483,8 @@ export function Dashboard() {
         <MetricCard 
           label="Ticket Médio" 
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ticketMedio)}
-          trend={`${ticketMedioTrend >= 0 ? '+' : ''}${ticketMedioTrend.toFixed(1)}%`}
-          positive={ticketMedioTrend >= 0}
+          trend={prevTicketMedio === 0 ? '--' : `${ticketMedioTrend >= 0 ? '+' : ''}${ticketMedioTrend.toFixed(1)}%`}
+          positive={prevTicketMedio === 0 ? true : ticketMedioTrend >= 0}
           icon={ShoppingCart}
           color="purple"
           subText="Faturamento médio por venda"
@@ -858,9 +858,15 @@ function MetricCard({
         </div>
         <div className={cn(
           "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase italic border border-transparent",
-          positive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/15' : 'bg-rose-500/10 text-rose-500 border-rose-500/15'
+          trend === '--'
+            ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700'
+            : positive
+              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/15'
+              : 'bg-rose-500/10 text-rose-500 border-rose-500/15'
         )}>
-          {positive ? <ArrowUpRight size={11} className="stroke-[3px]" /> : <ArrowDownRight size={11} className="stroke-[3px]" />}
+          {trend !== '--' && (
+            positive ? <ArrowUpRight size={11} className="stroke-[3px]" /> : <ArrowDownRight size={11} className="stroke-[3px]" />
+          )}
           {trend}
         </div>
       </div>

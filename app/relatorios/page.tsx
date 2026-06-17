@@ -336,7 +336,7 @@ function ReportsContent() {
     { id: 'produtos_mais_menos', category: 'vendas', title: 'Vendas Mais/Menos Produtos', description: 'Identificação rápida dos produtos com maior e menor volume de saída.', icon: TrendingUp },
     { id: 'vendas_vendedor', category: 'vendas', title: 'Vendas por Vendedor', description: 'Ranking de performance e comissões da equipe.', icon: Users },
     { id: 'vendas_categoria', category: 'vendas', title: 'Vendas por Categoria', description: 'Análise de mix de produtos e categorias mais vendidas.', icon: PieChartIcon },
-    { id: 'vendas_departamento', category: 'vendas', title: 'Vendas por Departamento', description: 'Análise de faturamento, share de vendas e mix de produtos por departamento.', icon: Layers },
+    { id: 'vendas_departamento', category: 'vendas', title: 'Vendas por Departamento', description: 'Análise de faturamento, participação de vendas e mix de produtos por departamento.', icon: Layers },
     { id: 'vendas_hora', category: 'vendas', title: 'Vendas por Hora', description: 'Identificação de horários de pico e fluxo de clientes.', icon: Clock },
     { id: 'comissoes', category: 'vendas', title: 'Comissões de Vendedores', description: 'Cálculo detalhado de comissões por período.', icon: DollarSign },
     { id: 'fluxo_caixa', category: 'financeiro', title: 'Fluxo de Caixa', description: 'Projeção de entradas e saídas para os próximos meses.', icon: Activity },
@@ -1929,10 +1929,12 @@ function AdvancedPerformanceDashboard({
                 </h3>
                 <div className="flex items-center gap-1.5 mt-2.5">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
-                    profitTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    prevTotalProfit === 0
+                      ? 'bg-slate-100 text-slate-500'
+                      : profitTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                   }`}>
-                    {profitTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {Math.abs(profitTrend).toFixed(1)}%
+                    {prevTotalProfit !== 0 && (profitTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />)}
+                    {prevTotalProfit === 0 ? '--' : `${Math.abs(profitTrend).toFixed(1)}%`}
                   </span>
                   <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
                 </div>
@@ -1959,10 +1961,12 @@ function AdvancedPerformanceDashboard({
                 </h3>
                 <div className="flex items-center gap-1.5 mt-2.5">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase italic ${
-                    ticketMedioTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    prevTicketMedio === 0
+                      ? 'bg-slate-100 text-slate-500'
+                      : ticketMedioTrend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                   }`}>
-                    {ticketMedioTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {Math.abs(ticketMedioTrend).toFixed(1)}%
+                    {prevTicketMedio !== 0 && (ticketMedioTrend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />)}
+                    {prevTicketMedio === 0 ? '--' : `${Math.abs(ticketMedioTrend).toFixed(1)}%`}
                   </span>
                   <span className="text-[10px] font-medium text-slate-400">vs anterior</span>
                 </div>
@@ -2117,7 +2121,7 @@ function AdvancedPerformanceDashboard({
               <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                 <div>
                   <h4 className="text-sm font-bold text-[#1e293b]">Vendas por Categoria / Segmento</h4>
-                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Share de faturamento no período selecionado</p>
+                  <p className="text-[10px] font-medium text-slate-400 mt-0.5">Participação no faturamento no período selecionado</p>
                 </div>
                 <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
                   <PieIcon size={14} />
@@ -6599,31 +6603,39 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
 }
 
 function InternalConsumptionReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { losses, products, stockMovements } = useERP();
+  const { losses, products, stockMovements, setCustomAlert } = useERP();
 
   const consumptionFromLosses = losses.filter(l => {
-    if (!l.date || !l.reason?.toLowerCase().includes('consumo interno')) return false;
+    if (!l.date) return false;
+    const reason = (l.reason || '').toLowerCase();
+    if (!reason.includes('consumo interno')) return false;
     const d = toLocalDateString(l.date);
     return d >= startDate && d <= endDate;
   }).map(l => ({
     productId: l.productId,
-    quantity: l.quantity,
-    totalValue: l.totalValue,
-    date: l.date
+    quantity: Number(l.quantity) || 0,
+    totalValue: Number(l.totalValue) || 0,
+    date: l.date,
+    type: 'Perda/Consumo'
   }));
 
   const consumptionFromMovements = stockMovements.filter(m => {
-    if (!m.date || m.quantity >= 0 || !m.origin?.toLowerCase().includes('consumo interno')) return false;
+    if (!m.date || Number(m.quantity) >= 0) return false;
+    const origin = (m.origin || '').toLowerCase();
+    // Broaden search to ensure we catch variations
+    if (!origin.includes('consumo interno') && !origin.includes('consumo_interno')) return false;
     const d = toLocalDateString(m.date);
     return d >= startDate && d <= endDate;
   }).map(m => {
     const product = products.find(p => p.id === m.productId);
-    const qty = Math.abs(m.quantity);
+    const qty = Math.abs(Number(m.quantity) || 0);
+    const cost = product ? (Number(product.costPrice) || 0) : 0;
     return {
       productId: m.productId,
       quantity: qty,
-      totalValue: qty * (product?.costPrice || 0),
-      date: m.date
+      totalValue: qty * cost,
+      date: m.date,
+      type: 'Ajuste de Saída'
     };
   });
 
@@ -6634,7 +6646,9 @@ function InternalConsumptionReport({ startDate, endDate }: { startDate: string, 
     if (!acc[curr.productId]) {
       const product = products.find(p => p.id === curr.productId);
       acc[curr.productId] = {
+        id: curr.productId,
         name: product ? product.name : 'Produto Desconhecido',
+        sku: product?.sku || 'N/A',
         unit: product?.unit || 'UN',
         totalQty: 0,
         totalValue: 0,
@@ -6653,21 +6667,118 @@ function InternalConsumptionReport({ startDate, endDate }: { startDate: string, 
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  // Debug function to check why data might be missing
+  const checkMovements = () => {
+    const totalOutMovements = stockMovements.filter(m => m.type === 'SAÍDA');
+    const consumingMovements = stockMovements.filter(m => {
+      const origin = String(m.origin || '').toLowerCase();
+      return origin.includes('consumo');
+    });
+    alert(`Diagnóstico: Encontramos ${totalOutMovements.length} saídas totais no sistema. Dessas, ${consumingMovements.length} contêm a palavra "consumo". Se o relatório está vazio, verifique se a data das saídas está entre ${startDate} e ${endDate} e se o tipo é "SAÍDA".`);
+  };
+
+  const handleExportInternalExcel = () => {
+    if (sortedData.length === 0) {
+      setCustomAlert({ message: 'Nenhum dado para exportar.', type: 'warning' });
+      return;
+    }
+
+    const data = sortedData.map((item: any) => ({
+      'Produto': item.name,
+      'SKU': item.sku,
+      'Unidade': item.unit,
+      'Quantidade Total': item.totalQty,
+      'Custo Unitário Médio': item.totalQty > 0 ? (item.totalValue / item.totalQty) : 0,
+      'Valor Total (Custo)': item.totalValue
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Consumo Interno");
+    XLSX.writeFile(workbook, `consumo_interno_${startDate}_${endDate}.xlsx`);
+    setCustomAlert({ message: 'Excel exportado com sucesso!', type: 'success' });
+  };
+
+  const handleExportInternalPDF = () => {
+    if (sortedData.length === 0) {
+      setCustomAlert({ message: 'Nenhum dado para exportar.', type: 'warning' });
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text('Relatório de Consumo Interno', 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Período: ${new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR')} até ${new Date(endDate + 'T12:00:00').toLocaleDateString('pt-BR')}`, 14, 30);
+    doc.text(`Valor Total: ${formatCurrency(totalConsumptionValue)}`, 14, 37);
+
+    const tableData = sortedData.map((item: any) => [
+      item.name,
+      item.sku,
+      item.totalQty,
+      item.unit,
+      formatCurrency(item.totalQty > 0 ? item.totalValue / item.totalQty : 0),
+      formatCurrency(item.totalValue)
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [['Produto', 'SKU', 'Qtd', 'Un', 'Custo Médio', 'Total (Custo)']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [30, 94, 255] }
+    });
+
+    doc.save(`consumo_interno_${startDate}_${endDate}.pdf`);
+    setCustomAlert({ message: 'PDF exportado com sucesso!', type: 'success' });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header with Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-xl font-black text-slate-800 uppercase italic tracking-tight">Consumo Interno</h3>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Produtos retirados para uso próprio no período selecionado</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={checkMovements}
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl transition-all shadow-sm active:scale-95 group"
+            title="Diagnóstico de Dados"
+          >
+            <Activity size={16} className="group-hover:text-brand-blue transition-colors" />
+          </button>
+          <button 
+            onClick={handleExportInternalExcel}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase italic hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
+          >
+            <FileSpreadsheet size={16} />
+            Excel
+          </button>
+          <button 
+            onClick={handleExportInternalPDF}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-[10px] font-black uppercase italic hover:bg-rose-100 transition-all shadow-sm active:scale-95"
+          >
+            <FileDown size={16} />
+            PDF
+          </button>
+        </div>
+      </div>
+
       {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-[2rem] bg-indigo-50 border border-indigo-100 flex items-center gap-5 group hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500"
+          className="p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm flex items-center gap-5 group hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-500"
         >
-          <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-            <UserCheck className="w-7 h-7" />
+          <div className="w-14 h-14 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+            <DollarSign className="w-7 h-7" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-indigo-900/40 uppercase italic tracking-widest mb-1">Custo Total Consumido</p>
-            <h4 className="text-2xl font-black text-indigo-600 font-mono tracking-tight">{formatCurrency(totalConsumptionValue)}</h4>
+            <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-0.5">Custo Total</p>
+            <h4 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{formatCurrency(totalConsumptionValue)}</h4>
           </div>
         </motion.div>
 
@@ -6675,69 +6786,93 @@ function InternalConsumptionReport({ startDate, endDate }: { startDate: string, 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="p-6 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center gap-5 group hover:shadow-xl hover:shadow-slate-500/10 transition-all duration-500"
+          className="p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm flex items-center gap-5 group hover:shadow-xl hover:shadow-slate-500/5 transition-all duration-500"
         >
           <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center text-white shadow-lg shadow-slate-800/20 group-hover:scale-110 transition-transform">
             <Package className="w-7 h-7" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-1">Volume de Itens</p>
-            <h4 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{totalItemsCount} <span className="text-xs text-slate-400">UNIDADES</span></h4>
+            <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-0.5">Volume Total</p>
+            <h4 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{totalItemsCount} <span className="text-[10px] text-slate-300">UN</span></h4>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm flex items-center gap-5 group hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-500"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
+            <Layers className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest mb-0.5">Mix de Produtos</p>
+            <h4 className="text-2xl font-black text-slate-800 font-mono tracking-tight">{sortedData.length} <span className="text-[10px] text-slate-300">ITENS</span></h4>
           </div>
         </motion.div>
       </div>
 
       {/* Consumption Table */}
-      <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
         <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
           <h5 className="text-[11px] font-black text-slate-500 uppercase italic tracking-tighter">Detalhamento por Produto</h5>
-          <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-[9px] font-black text-slate-400 uppercase italic">
-            {sortedData.length} Produtos Distintos
-          </span>
+          <div className="flex items-center gap-2">
+            <Search size={14} className="text-slate-300" />
+            <span className="text-[10px] font-black text-slate-300 uppercase italic tracking-widest">Filtrado por período</span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-white">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Produto / Descrição</th>
-                <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Quantidade</th>
-                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Custo Total</th>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Produto / SKU</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Volume Total</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Unidade</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Custo Médio</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Custo Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {sortedData.length > 0 ? sortedData.map((row: any, i) => (
-                <tr key={i} className="group hover:bg-indigo-50/30 transition-all duration-300">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                        {row.name.charAt(0)}
+              {sortedData.length > 0 ? (
+                sortedData.map((item: any, idx) => (
+                  <tr key={item.id} className="group hover:bg-slate-50/50 transition-all duration-300">
+                    <td className="px-8 py-5">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black text-slate-700 tracking-tight leading-tight group-hover:text-brand-blue transition-colors">{item.name}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">{item.sku}</span>
                       </div>
-                      <div>
-                        <div className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{row.name}</div>
-                        <div className="text-[9px] font-black text-slate-400 uppercase italic mt-0.5">{row.instances} retiradas no período</div>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <div className="inline-flex items-center justify-center px-3 py-1 bg-slate-100 rounded-full text-xs font-black text-slate-600 italic">
+                        {item.totalQty}
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-center">
-                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black font-mono">
-                      {row.totalQty} {row.unit}
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <div className="text-sm font-black text-indigo-600 font-mono italic">
-                      {formatCurrency(row.totalValue)}
-                    </div>
-                  </td>
-                </tr>
-              )) : (
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <span className="text-[10px] font-black text-slate-400 uppercase italic">{item.unit}</span>
+                    </td>
+                    <td className="px-8 py-5 text-center text-sm font-bold text-slate-600 font-mono">
+                      {formatCurrency(item.totalQty > 0 ? item.totalValue / item.totalQty : 0)}
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <span className="text-sm font-black text-brand-blue italic font-mono tracking-tighter">
+                        {formatCurrency(item.totalValue)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
-                  <td colSpan={3} className="px-8 py-20 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200">
-                        <UserCheck className="w-8 h-8 opacity-20" />
+                  <td colSpan={5} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3 opacity-30">
+                      <AlertCircle size={48} className="text-slate-400" />
+                      <div className="space-y-1">
+                        <p className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Nenhum consumo registrado</p>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                          Verifique os filtros ou realize saídas com motivo "Consumo Interno"
+                        </p>
                       </div>
-                      <p className="text-sm font-black text-slate-300 uppercase italic tracking-widest">Nenhum registro encontrado</p>
                     </div>
                   </td>
                 </tr>
@@ -6745,6 +6880,20 @@ function InternalConsumptionReport({ startDate, endDate }: { startDate: string, 
             </tbody>
           </table>
         </div>
+        
+        {sortedData.length > 0 && (
+          <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+            <div className="flex items-center gap-4 text-slate-400">
+              <p className="text-[10px] font-black uppercase italic tracking-widest">Representação no Período:</p>
+              <div className="flex items-center gap-1.5">
+                <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-brand-blue" style={{ width: '100%' }} />
+                </div>
+                <span className="text-[10px] font-black text-slate-600 italic">100%</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -8135,7 +8284,7 @@ function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDat
   return (
     <div className="space-y-8">
       {/* Module Title */}
-      <div className="flex items-center justify-between border-b border-slate-200/60 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200/60 pb-5">
         <div>
           <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[10px] mb-1">
             <Trophy size={11} className="text-brand-blue animate-bounce" />
@@ -8145,6 +8294,36 @@ function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDat
           <p className="text-xs font-semibold text-slate-400 mt-0.5 leading-relaxed">
             Mapeamento analítico e rankings de conversões individuais da equipe de vendas no período selecionado.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              const table = document.querySelector('table');
+              if (!table) return;
+              const wb = XLSX.utils.table_to_book(table);
+              XLSX.writeFile(wb, `Vendas_por_Vendedor.xlsx`);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase italic hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
+          >
+            <FileSpreadsheet size={16} />
+            Excel
+          </button>
+          <button
+            onClick={() => {
+              const doc = new jsPDF('p', 'mm', 'a4');
+              doc.text("Relatório de Vendas por Vendedor", 14, 15);
+              const table = document.querySelector('table');
+              if (table) {
+                autoTable(doc, { html: table, startY: 25 });
+                doc.save(`Vendas_por_Vendedor.pdf`);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-[10px] font-black uppercase italic hover:bg-rose-100 transition-all shadow-sm active:scale-95"
+          >
+            <FileDown size={16} />
+            PDF
+          </button>
         </div>
       </div>
 
@@ -9006,10 +9185,47 @@ function GeneralStockReport() {
 
   return (
     <div className="space-y-6">
-      <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100 text-center">
-        <Package size={48} className="mx-auto text-brand-blue mb-4" />
-        <h4 className="text-xl font-bold text-slate-800">Estoque Geral</h4>
-        <p className="text-sm text-slate-500 mt-2">Listagem completa de todos os produtos e suas quantidades em estoque.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-8 rounded-3xl bg-blue-50 border border-blue-100 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center shadow-sm">
+            <Package size={32} className="text-brand-blue" />
+          </div>
+          <div className="text-center md:text-left">
+            <h4 className="text-xl font-bold text-slate-800">Estoque Geral</h4>
+            <p className="text-sm text-slate-500 mt-1">Listagem completa de todos os produtos e suas quantidades em estoque.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => {
+              const table = document.querySelector('table');
+              if (!table) return;
+              const wb = XLSX.utils.table_to_book(table);
+              XLSX.writeFile(wb, `Estoque_Geral.xlsx`);
+            }}
+            className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-2xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-sm"
+          >
+            <FileSpreadsheet size={14} />
+            Download Excel
+          </button>
+          
+          <button
+            onClick={() => {
+              const doc = new jsPDF('l', 'mm', 'a4');
+              doc.text("Relatório de Estoque Geral", 14, 15);
+              const table = document.querySelector('table');
+              if (table) {
+                autoTable(doc, { html: table, startY: 25, theme: 'grid' });
+                doc.save(`Estoque_Geral.pdf`);
+              }
+            }}
+            className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-sm"
+          >
+            <FileDown size={14} />
+            Download PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -9359,12 +9575,47 @@ function StockProfitReport() {
 
   return (
     <div className="space-y-6">
-      <div className="p-10 rounded-3xl bg-emerald-50 border border-emerald-100/50 text-center shadow-inner">
-        <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-          <TrendingUp size={32} className="text-emerald-600" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-10 rounded-3xl bg-emerald-50 border border-emerald-100/50 shadow-inner">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="w-16 h-16 bg-white/50 rounded-2xl flex items-center justify-center shadow-sm">
+            <TrendingUp size={32} className="text-emerald-600" />
+          </div>
+          <div className="text-center md:text-left">
+            <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Lucro no Estoque</h4>
+            <p className="text-sm text-emerald-800/70 mt-2 font-medium max-w-lg mx-auto md:mx-0">Projeção detalhada de lucro bruto baseada no seu saldo atual de estoque.</p>
+          </div>
         </div>
-        <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Lucro no Estoque</h4>
-        <p className="text-sm text-emerald-800/70 mt-2 font-medium max-w-lg mx-auto">Projeção detalhada de lucro bruto baseada no seu saldo atual de estoque.</p>
+        
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => {
+              const table = document.querySelector('table');
+              if (!table) return;
+              const wb = XLSX.utils.table_to_book(table);
+              XLSX.writeFile(wb, `Relatorio_Lucro_Estoque.xlsx`);
+            }}
+            className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-2xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-sm"
+          >
+            <FileSpreadsheet size={14} />
+            Download Excel
+          </button>
+          
+          <button
+            onClick={() => {
+              const doc = new jsPDF('l', 'mm', 'a4');
+              doc.text("Relatório de Lucro no Estoque", 14, 15);
+              const table = document.querySelector('table');
+              if (table) {
+                autoTable(doc, { html: table, startY: 25, theme: 'striped' });
+                doc.save(`Relatorio_Lucro_Estoque.pdf`);
+              }
+            }}
+            className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-sm"
+          >
+            <FileDown size={14} />
+            Download PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -32,10 +32,14 @@ import {
   UserCheck,
   Download,
   Printer,
-  Layers
+  Layers,
+  FileSpreadsheet
 } from 'lucide-react';
 import { cn, toLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export function SalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
   const { sales, products, customers, systemUsers, paymentMethods, categorias, subcategorias, pricingSettings, returns } = useERP();
@@ -284,7 +288,10 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
         m.id === s.paymentMethod || 
         m.name?.toLowerCase() === s.paymentMethod?.toLowerCase()
       );
-      const name = methodObj ? methodObj.name : (s.paymentMethod || 'Outros');
+      let name = methodObj ? methodObj.name : (s.paymentMethod || 'Outros');
+      if (name && (name.toLowerCase() === 'múltiplo' || name.toLowerCase() === 'multiplo' || name.toLowerCase() === 'múltiplos' || name.toLowerCase() === 'multiplos')) {
+        name = 'MÚLTIPLO';
+      }
       const current = map.get(name) || { name, total: 0, count: 0 };
       current.total += s.total;
       current.count += 1;
@@ -437,6 +444,20 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
           >
             <Download size={13} />
             Exportar CSV
+          </button>
+
+          <button
+            onClick={() => {
+              const table = document.querySelector('#report-content table');
+              if (!table) return;
+              const wb = XLSX.utils.table_to_book(table as HTMLTableElement);
+              XLSX.writeFile(wb, `Relatorio_Vendas_${startDate}_a_${endDate}.xlsx`);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/60 rounded-xl text-[10px] font-black uppercase italic tracking-wider transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
+            title="Exportar dados para Excel (.xlsx)"
+          >
+            <FileSpreadsheet size={13} />
+            Excel (.xlsx)
           </button>
 
           <button
@@ -688,7 +709,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
         </div>
 
         {/* Dynamic breakdown segmented insight ranking card */}
-        <div className="p-6 rounded-[2.2rem] border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
+        <div className="p-6 rounded-[2.2rem] border border-slate-200 bg-white shadow-sm flex flex-col justify-between min-h-[430px]">
           <div>
             <h5 className="text-sm font-bold text-slate-800 uppercase italic tracking-tight flex items-center gap-1.5">
               <Activity size={14} className="text-brand-blue" />
@@ -732,7 +753,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
           </div>
 
           {/* List stats section according to active tab */}
-          <div className="flex-1 overflow-y-auto max-h-56 pr-1 mt-5 space-y-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+          <div className="flex-1 overflow-y-auto max-h-72 pr-1 mt-5 space-y-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
             {activeInsightTab === 'payments' && (
               <>
                 {paymentBreakdown.length > 0 ? paymentBreakdown.map((item, index) => {
