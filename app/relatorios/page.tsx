@@ -1176,14 +1176,59 @@ function AdvancedPerformanceDashboard({
       if (salesToDelete && salesToDelete.length > 0) {
         const ids = salesToDelete.map(s => s.id);
         
+        // Delete related stock movements
         for (const id of ids) {
-          const { error: mErr } = await supabase
-            .from('stock_movements')
-            .delete()
-            .ilike('origin', `%Venda #${id.substring(0, 8)}%`);
-          if (mErr) console.error('Movements delete err:', mErr);
+          try {
+            await supabase
+              .from('stock_movements')
+              .delete()
+              .ilike('origin', `%Venda #${id.substring(0, 8)}%`);
+          } catch (mErr) {
+            console.error('Movements delete err:', mErr);
+          }
         }
         
+        // Delete related sale items
+        try {
+          await supabase
+            .from('sale_items')
+            .delete()
+            .in('sale_id', ids);
+        } catch (siErr) {
+          console.error('Sale items delete err:', siErr);
+        }
+
+        // Delete related discount logs
+        try {
+          await supabase
+            .from('discount_logs')
+            .delete()
+            .in('sale_id', ids);
+        } catch (dlErr) {
+          console.error('Discount logs delete err:', dlErr);
+        }
+
+        // Delete related sales discounts
+        try {
+          await supabase
+            .from('vendas_descontos')
+            .delete()
+            .in('sale_id', ids);
+        } catch (vdErr) {
+          console.error('Vendas descontos delete err:', vdErr);
+        }
+
+        // Delete related returns
+        try {
+          await supabase
+            .from('returns')
+            .delete()
+            .in('sale_id', ids);
+        } catch (rtErr) {
+          console.error('Returns delete err:', rtErr);
+        }
+
+        // Delete the sales
         const { error: delSalesErr } = await supabase
           .from('sales')
           .delete()

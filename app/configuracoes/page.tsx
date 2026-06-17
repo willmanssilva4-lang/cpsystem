@@ -1058,6 +1058,32 @@ function SystemSettings() {
         }
       }
 
+      // Limpar caches do localStorage para que os fallbacks não restaurem as tabelas vazias
+      const localKeysToClear = [
+        'stock_movements',
+        'inventories',
+        'erp_sales',
+        'erp_expenses',
+        'produto_lotes',
+        'promotions',
+        'returns',
+        'losses',
+        'discount_logs',
+        'audit_logs',
+        'vouchers',
+        'cash_registers',
+        'cash_movements',
+        'cash_closings',
+        'sale_items'
+      ];
+      for (const key of localKeysToClear) {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.error(`Erro ao limpar cache local para chave ${key}:`, e);
+        }
+      }
+
       console.log('✅ Limpeza concluída com sucesso');
       setClearStatus('success');
     } catch (error) {
@@ -1426,7 +1452,7 @@ function SystemSettings() {
                   O banco de dados foi limpo com sucesso.
                 </p>
                 <button 
-                  onClick={() => { setShowConfirmClear(false); setClearStatus('idle'); }}
+                  onClick={() => { setShowConfirmClear(false); setClearStatus('idle'); window.location.reload(); }}
                   className="w-full py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase italic text-xs hover:bg-emerald-700 transition-all"
                 >
                   Voltar
