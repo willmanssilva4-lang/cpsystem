@@ -17,6 +17,7 @@ export default function ReturnsPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [generatedVoucher, setGeneratedVoucher] = useState<string | null>(null);
   const [refundValue, setRefundValue] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,48 +51,57 @@ export default function ReturnsPage() {
   };
 
   const handleConfirm = async () => {
+    if (isSubmitting) return;
     if (!selectedSale || selectedItems.length === 0) return;
 
-    const total = selectedItems.reduce((acc, item) => {
-      const saleItem = selectedSale.items.find(si => si.productId === item.productId);
-      return acc + (saleItem ? saleItem.price * item.quantity : 0);
-    }, 0);
-
-    let voucherCode = undefined;
-    if (refundMethod === 'Crédito em Loja') {
-      voucherCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      setGeneratedVoucher(voucherCode);
-    }
-    setRefundValue(total);
-
-    const success = await addReturn({
-      saleId: selectedSale.id,
-      date: new Date().toISOString(),
-      items: selectedItems.map(item => {
+    setIsSubmitting(true);
+    try {
+      const total = selectedItems.reduce((acc, item) => {
         const saleItem = selectedSale.items.find(si => si.productId === item.productId);
-        return {
-          productId: item.productId,
-          quantity: item.quantity,
-          price: saleItem?.price || 0,
-          reason: item.reason
-        };
-      }),
-      total,
-      type: selectedItems.length === selectedSale.items.length ? 'TOTAL' : 'PARCIAL',
-      refundMethod,
-      userId: user?.id || 'Sistema',
-      status: 'CONCLUÍDO',
-      voucherCode
-    });
+        return acc + (saleItem ? saleItem.price * item.quantity : 0);
+      }, 0);
 
-    if (success) {
-      setShowConfirmModal(false);
-      setShowSuccessModal(true);
-      setSelectedSale(null);
-      setSelectedItems([]);
-      setSearchQuery('');
-    } else {
+      let voucherCode = undefined;
+      if (refundMethod === 'Crédito em Loja') {
+        voucherCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        setGeneratedVoucher(voucherCode);
+      }
+      setRefundValue(total);
+
+      const success = await addReturn({
+        saleId: selectedSale.id,
+        date: new Date().toISOString(),
+        items: selectedItems.map(item => {
+          const saleItem = selectedSale.items.find(si => si.productId === item.productId);
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            price: saleItem?.price || 0,
+            reason: item.reason
+          };
+        }),
+        total,
+        type: selectedItems.length === selectedSale.items.length ? 'TOTAL' : 'PARCIAL',
+        refundMethod,
+        userId: user?.id || 'Sistema',
+        status: 'CONCLUÍDO',
+        voucherCode
+      });
+
+      if (success) {
+        setShowConfirmModal(false);
+        setShowSuccessModal(true);
+        setSelectedSale(null);
+        setSelectedItems([]);
+        setSearchQuery('');
+      } else {
+        alert('Erro ao processar devolução!');
+      }
+    } catch (error) {
+      console.error('Erro ao processar devolução:', error);
       alert('Erro ao processar devolução!');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -350,9 +360,10 @@ export default function ReturnsPage() {
               </button>
               <button 
                 onClick={handleConfirm}
-                className="flex-1 py-4 bg-brand-blue hover:bg-brand-blue-hover text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-blue/20"
+                disabled={isSubmitting}
+                className="flex-1 py-4 bg-brand-blue hover:bg-brand-blue-hover text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-blue/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirmar
+                {isSubmitting ? 'Processando...' : 'Confirmar'}
               </button>
             </div>
           </div>

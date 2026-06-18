@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabase';
 import { 
   Product, 
@@ -159,6 +159,7 @@ interface ERPContextType {
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
 
 export function ERPProvider({ children }: { children: React.ReactNode }) {
+  const returnsInProgress = useRef<Set<string>>(new Set());
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -1189,107 +1190,135 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addReturn = async (data: any) => {
-    const parentPayload = {
-      sale_id: data.saleId,
-      date: data.date,
-      total: data.total,
-      type: data.type,
-      refund_method: data.refundMethod,
-      user_id: (user?.id && user.id !== 'Sistema') ? user.id : null,
-      status: data.status,
-      voucher_code: data.voucherCode,
-      company_id: user?.companyId || null
-    };
-
-    const { data: insertedReturn, error: returnError } = await supabase
-      .from('returns')
-      .insert([parentPayload])
-      .select('id')
-      .single();
-
-    if (returnError) {
-      console.error('[addReturn] Error inserting parent return:', returnError);
-      return false;
-    }
-
-    const returnId = insertedReturn?.id;
-
-    if (returnId && data.items && data.items.length > 0) {
-      const itemsPayload = data.items.map((item: any) => ({
-        return_id: returnId,
-        product_id: item.productId,
-        quantity: item.quantity,
-        price: item.price || 0,
-        reason: item.reason || '',
-        company_id: user?.companyId || null
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('return_items')
-        .insert(itemsPayload);
-
-      if (itemsError) {
-        console.error('[addReturn] Error inserting return items:', itemsError);
-        // Clean up parent return to prevent orphans on partial failure
-        await supabase.from('returns').delete().eq('id', returnId);
+    if (data.saleId) {
+      if (returnsInProgress.current.has(data.saleId)) {
+        console.warn(`[addReturn] A return is already in progress for saleId ${data.saleId}. Ignoring duplicate request.`);
         return false;
       }
-
-      // Add stock movements to revert the sale
-      for (const item of data.items) {
-        await addStockMovement({
-          productId: item.productId,
-          type: 'DEVOLUÇÃO',
-          quantity: item.quantity,
-          origin: `Devolução #${returnId}`,
-          date: new Date().toISOString(),
-          userId: user?.email || 'Sistema'
-        }, true);
-      }
+      returnsInProgress.current.add(data.saleId);
     }
 
-    // Se o reembolso for Crédito em Loja e houver um voucherCode gerado, insere o voucher na tabela 'vouchers'
-    if (returnId && data.voucherCode && data.refundMethod === 'Crédito em Loja') {
-      let customerId = data.customerId || null;
-      if (!customerId && data.saleId) {
-        try {
-          const { data: saleObj } = await supabase
-            .from('sales')
-            .select('customer_id')
-            .eq('id', data.saleId)
-            .single();
-          if (saleObj) {
-            customerId = saleObj.customer_id;
-          }
-        } catch (err) {
-          console.error('[addReturn] Could not query sale customer_id:', err);
+    try {
+      // Check if a total return already exists for this sale ID to prevent duplicates
+      if (data.saleId && data.type === 'TOTAL') {
+        const { data: existingReturns } = await supabase
+          .from('returns')
+          .select('id, type')
+          .eq('sale_id', data.saleId)
+          .eq('type', 'TOTAL');
+        
+        if (existingReturns && existingReturns.length > 0) {
+          console.warn(`[addReturn] This sale ID ${data.saleId} has already been fully returned.`);
+          return false;
         }
       }
 
-      const voucherPayload = {
-        code: data.voucherCode,
-        initial_value: data.total,
-        current_value: data.total,
-        customer_id: customerId,
-        sale_id: data.saleId || null,
-        return_id: returnId,
-        status: 'Ativo',
+      const parentPayload = {
+        sale_id: data.saleId,
+        date: data.date,
+        total: data.total,
+        type: data.type,
+        refund_method: data.refundMethod,
+        user_id: (user?.id && user.id !== 'Sistema') ? user.id : null,
+        status: data.status,
+        voucher_code: data.voucherCode,
         company_id: user?.companyId || null
       };
 
-      const { error: voucherInsertError } = await supabase
-        .from('vouchers')
-        .insert([voucherPayload]);
+      const { data: insertedReturn, error: returnError } = await supabase
+        .from('returns')
+        .insert([parentPayload])
+        .select('id')
+        .single();
 
-      if (voucherInsertError) {
-        console.error('[addReturn] Error inserting voucher:', voucherInsertError);
-      } else {
-        console.log('[addReturn] Voucher registered in DB as active:', data.voucherCode);
+      if (returnError) {
+        console.error('[addReturn] Error inserting parent return:', returnError);
+        return false;
+      }
+
+      const returnId = insertedReturn?.id;
+
+      if (returnId && data.items && data.items.length > 0) {
+        const itemsPayload = data.items.map((item: any) => ({
+          return_id: returnId,
+          product_id: item.productId,
+          quantity: item.quantity,
+          price: item.price || 0,
+          reason: item.reason || '',
+          company_id: user?.companyId || null
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('return_items')
+          .insert(itemsPayload);
+
+        if (itemsError) {
+          console.error('[addReturn] Error inserting return items:', itemsError);
+          // Clean up parent return to prevent orphans on partial failure
+          await supabase.from('returns').delete().eq('id', returnId);
+          return false;
+        }
+
+        // Add stock movements to revert the sale
+        for (const item of data.items) {
+          await addStockMovement({
+            productId: item.productId,
+            type: 'DEVOLUÇÃO',
+            quantity: item.quantity,
+            origin: `Devolução #${returnId}`,
+            date: new Date().toISOString(),
+            userId: user?.email || 'Sistema'
+          }, true);
+        }
+      }
+
+      // Se o reembolso for Crédito em Loja e houver um voucherCode gerado, insere o voucher na tabela 'vouchers'
+      if (returnId && data.voucherCode && data.refundMethod === 'Crédito em Loja') {
+        let customerId = data.customerId || null;
+        if (!customerId && data.saleId) {
+          try {
+            const { data: saleObj } = await supabase
+              .from('sales')
+              .select('customer_id')
+              .eq('id', data.saleId)
+              .single();
+            if (saleObj) {
+              customerId = saleObj.customer_id;
+            }
+          } catch (err) {
+            console.error('[addReturn] Could not query sale customer_id:', err);
+          }
+        }
+
+        const voucherPayload = {
+          code: data.voucherCode,
+          initial_value: data.total,
+          current_value: data.total,
+          customer_id: customerId,
+          sale_id: data.saleId || null,
+          return_id: returnId,
+          status: 'Ativo',
+          company_id: user?.companyId || null
+        };
+
+        const { error: voucherInsertError } = await supabase
+          .from('vouchers')
+          .insert([voucherPayload]);
+
+        if (voucherInsertError) {
+          console.error('[addReturn] Error inserting voucher:', voucherInsertError);
+        } else {
+          console.log('[addReturn] Voucher registered in DB as active:', data.voucherCode);
+        }
+      }
+
+      await fetchData();
+      return true;
+    } finally {
+      if (data.saleId) {
+        returnsInProgress.current.delete(data.saleId);
       }
     }
-
-    await fetchData();
-    return true;
   };
 
   const updateVoucher = async (data: any) => {

@@ -18,6 +18,7 @@ export function QuickReturnModal({ onClose }: QuickReturnModalProps) {
   const [step, setStep] = useState<'search' | 'items' | 'confirm' | 'success'>('search');
   const [reason, setReason] = useState('Arrependimento');
   const [refundMethod, setRefundMethod] = useState('Dinheiro');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -52,36 +53,45 @@ export function QuickReturnModal({ onClose }: QuickReturnModalProps) {
   };
 
   const handleConfirm = async () => {
+    if (isSubmitting) return;
     if (!selectedSale || selectedItems.length === 0) return;
 
-    const total = selectedItems.reduce((acc, item) => {
-      const saleItem = selectedSale.items.find(si => si.productId === item.productId);
-      return acc + (saleItem ? saleItem.price * item.quantity : 0);
-    }, 0);
-
-    const success = await addReturn({
-      saleId: selectedSale.id,
-      date: new Date().toISOString(),
-      items: selectedItems.map(item => {
+    setIsSubmitting(true);
+    try {
+      const total = selectedItems.reduce((acc, item) => {
         const saleItem = selectedSale.items.find(si => si.productId === item.productId);
-        return {
-          productId: item.productId,
-          quantity: item.quantity,
-          price: saleItem?.price || 0,
-          reason: item.reason
-        };
-      }),
-      total,
-      type: selectedItems.length === selectedSale.items.length ? 'TOTAL' : 'PARCIAL',
-      refundMethod,
-      userId: user?.id || 'Sistema',
-      status: 'CONCLUÍDO'
-    });
+        return acc + (saleItem ? saleItem.price * item.quantity : 0);
+      }, 0);
 
-    if (success) {
-      setStep('success');
-    } else {
+      const success = await addReturn({
+        saleId: selectedSale.id,
+        date: new Date().toISOString(),
+        items: selectedItems.map(item => {
+          const saleItem = selectedSale.items.find(si => si.productId === item.productId);
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            price: saleItem?.price || 0,
+            reason: item.reason
+          };
+        }),
+        total,
+        type: selectedItems.length === selectedSale.items.length ? 'TOTAL' : 'PARCIAL',
+        refundMethod,
+        userId: user?.id || 'Sistema',
+        status: 'CONCLUÍDO'
+      });
+
+      if (success) {
+        setStep('success');
+      } else {
+        alert('Erro ao processar devolução!');
+      }
+    } catch (error) {
+      console.error('Erro ao processar devolução:', error);
       alert('Erro ao processar devolução!');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -268,9 +278,10 @@ export function QuickReturnModal({ onClose }: QuickReturnModalProps) {
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="px-10 py-3 bg-brand-blue text-white font-bold rounded-xl hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20"
+                  disabled={isSubmitting}
+                  className="px-10 py-3 bg-brand-blue text-white font-bold rounded-xl hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider"
                 >
-                  CONFIRMAR DEVOLUÇÃO
+                  {isSubmitting ? 'Processando...' : 'CONFIRMAR DEVOLUÇÃO'}
                 </button>
               </div>
             </div>
