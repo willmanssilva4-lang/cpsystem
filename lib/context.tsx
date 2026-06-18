@@ -286,7 +286,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         baseQuery('subcategorias'),
         baseQuery('stock_movements').order('date', { ascending: false }).limit(5000),
         baseQuery('inventories'),
-        supabase.from('maquininhas').select('*').eq('ativo', true), // Maquininhas might be shared or filtered later
+        baseQuery('maquininhas'),
         baseQuery('payment_methods'),
         baseQuery('advertisements'),
         baseQuery('customers').order('name'),
