@@ -1604,6 +1604,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         throw updateError; // Force visibility
       }
 
+      // Se o produto for do tipo SALE (venda) com base_product_id e conversion_factor, atualizar o produto base (estoque real)
+      if (product?.product_type === 'SALE' && product?.base_product_id) {
+        const { data: baseProduct, error: baseError } = await supabase.from('products').select('*').eq('id', product.base_product_id).single();
+        if (baseError) {
+          console.error('[addStockMovement] Erro ao buscar produto base:', baseError);
+        } else if (baseProduct) {
+          const convFactor = Number(product.conversion_factor) || 1;
+          const baseQty = Number((moveQty / convFactor).toFixed(4));
+          console.log(`[DEBUG_STOCK] Produto virtual ${product.name} detectado. Base product: ${baseProduct.name}, baseQty calculada: ${baseQty}`);
+          
+          await addStockMovement({
+            productId: product.base_product_id,
+            type: data.type,
+            quantity: baseQty,
+            origin: `${data.origin || 'Venda'} (via Produto Virtual: ${product.name})`,
+            date: dbPayload.date,
+            userId: dbPayload.user_id,
+            userName: dbPayload.user_name,
+            companyId: dbPayload.company_id,
+            cost: baseProduct.cost_price || baseProduct.costPrice || null,
+            loteId: dbPayload.lote_id
+          }, true);
+        }
+      }
+
       // Se o produto for um KIT, registrar movimentação recursiva de estoque e desconto dos componentes
       let parsedComposition = product?.composition;
       console.log(`[DEBUG_STOCK] Product ${product?.name} type ${product?.product_type} comp:`, parsedComposition);

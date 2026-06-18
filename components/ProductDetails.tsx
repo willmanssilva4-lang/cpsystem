@@ -105,17 +105,6 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
     console.log(`[DEBUG_STATS] Total exits calc for ${product?.name || 'Unknown'}:`, exits, 'from', movements.length, 'movements');
 
     let calculatedExits = exits;
-    if (product?.product_type === 'KIT' && product?.composition && product?.composition.length > 0) {
-      const kitSales = movements.filter(m => m.type === 'SAÍDA' || m.type === 'VENDA');
-      let componentExits = 0;
-      for (const m of kitSales) {
-        const saleQty = Math.abs(m.quantity);
-        product.composition.forEach(comp => {
-          componentExits += saleQty * (comp.quantity || 0);
-        });
-      }
-      calculatedExits = componentExits;
-    }
     
     const adjustments = movements
       .filter(m => m.type === 'AJUSTE')
