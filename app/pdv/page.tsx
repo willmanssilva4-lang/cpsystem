@@ -1133,8 +1133,13 @@ export default function PDVPage() {
         const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
         const filtered = products.filter(p => {
           if (p.status === 'Inativo') return false;
-          const stock = parseFloat(String(p.stock));
-          if (isNaN(stock) || stock <= 0) return false;
+          const isControlActive = p.controlStock === undefined || 
+                                  p.controlStock === null || 
+                                  String(p.controlStock).toUpperCase() !== 'NÃO';
+          if (isControlActive) {
+            const stock = parseFloat(String(p.stock));
+            if (isNaN(stock) || stock <= 0) return false;
+          }
           const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
           return searchTerms.every(term => searchableText.includes(term));
         }).sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50); // Limit results
@@ -1187,8 +1192,14 @@ export default function PDVPage() {
       if (searchResults.length === 0 && barcode.length === 0) {
         setSearchResults(products.filter(p => {
           if (p.status === 'Inativo') return false;
-          const stock = parseFloat(String(p.stock));
-          return !isNaN(stock) && stock > 0;
+          const isControlActive = p.controlStock === undefined || 
+                                  p.controlStock === null || 
+                                  String(p.controlStock).toUpperCase() !== 'NÃO';
+          if (isControlActive) {
+            const stock = parseFloat(String(p.stock));
+            return !isNaN(stock) && stock > 0;
+          }
+          return true;
         }).sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50));
         setSelectedIndex(0);
       } else {
