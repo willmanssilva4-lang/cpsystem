@@ -1617,7 +1617,10 @@ function AdvancedPerformanceDashboard({
       m.id === sale.paymentMethod || 
       m.name?.toLowerCase() === sale.paymentMethod?.toLowerCase()
     );
-    const methodName = method ? method.name : (sale.paymentMethod || 'Outros');
+    let methodName = method ? method.name : (sale.paymentMethod || 'Outros');
+    if (methodName?.toLowerCase() === 'múltiplo' || methodName?.toLowerCase() === 'multiplo') {
+      methodName = 'MÚLTIPLO';
+    }
     paymentTotals[methodName] = (paymentTotals[methodName] || 0) + sale.total;
   });
 
@@ -1628,17 +1631,21 @@ function AdvancedPerformanceDashboard({
     'Pix': '#F43F5E',
     'Fiado': '#8B5CF6',
     'Voucher': '#F59E0B',
-    'Outros': '#64748B'
+    'Outros': '#64748B',
+    'MÚLTIPLO': '#8B5CF6'
   };
 
   const paymentData = Object.entries(paymentTotals)
     .sort((a, b) => b[1] - a[1])
-    .map(([name, value], index) => ({
-      name,
-      value: totalSales > 0 ? Number(((value / totalSales) * 100).toFixed(1)) : 0,
-      totalValue: value,
-      color: colors[index % colors.length]
-    }));
+    .map(([name, value], index) => {
+      const displayName = name.toLowerCase() === 'múltiplo' || name.toLowerCase() === 'multiplo' ? 'MÚLTIPLO' : name;
+      return {
+        name: displayName,
+        value: totalSales > 0 ? Number(((value / totalSales) * 100).toFixed(1)) : 0,
+        totalValue: value,
+        color: methodColors[displayName] || colors[index % colors.length]
+      };
+    });
 
   // Sellers Ranking
   const sellerStats: Record<string, { total: number, volume: number, margin: number }> = {};
