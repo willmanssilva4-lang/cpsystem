@@ -107,10 +107,14 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         const prodId = item.productId || item.product_id;
         if (!prodId) return;
 
+        const product = products.find(p => p.id === prodId);
+        if (product && (product.sku === '25' || product.name === 'ADICIONAL')) {
+          return;
+        }
+
         if (!stats[prodId]) {
           stats[prodId] = { qty: 0, total: 0, totalCost: 0, totalTax: 0 };
         }
-        const product = products.find(p => p.id === prodId);
         const cost = product ? (product.costPrice || 0) : 0;
         const itemTotal = (item.price || 0) * (item.quantity || 0);
         
