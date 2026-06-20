@@ -11065,8 +11065,6 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
       gross: number;
       discount: number;
       net: number;
-      canceledCount: number;
-      canceledValue: number;
       paymentMethods: Record<string, { count: number, total: number }>;
     }> = {};
 
