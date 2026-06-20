@@ -1444,6 +1444,27 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const { error: cancelError } = await supabase.from('sales').update({ status: 'cancelada' }).eq('id', id);
     if (cancelError) {
       console.error('[deleteSale] failed to cancel sale:', cancelError);
+    } else {
+      // Reverter estoque dos itens da venda
+      const { data: saleItems } = await supabase.from('sale_items').select('*').eq('sale_id', id);
+      console.log(`[deleteSale] Reversing sale ${id}, items found:`, saleItems);
+      if (saleItems) {
+        for (const item of saleItems) {
+          console.log(`[deleteSale] Processing item ${item.product_id} with qty ${item.quantity}`);
+          // Force a conversion to number just in case
+          const qty = Number(item.quantity) || 0;
+          console.log(`[deleteSale] Converted qty: ${qty}`);
+          await addStockMovement({
+            productId: item.product_id,
+            type: 'DEVOLUÇÃO',
+            quantity: qty,
+            origin: `Estorno Venda #${id}`,
+            date: new Date().toISOString(),
+            userId: user?.email || 'Sistema',
+            companyId: user?.companyId
+          }, true);
+        }
+      }
     }
     await fetchData();
   };

@@ -473,6 +473,7 @@ export default function PDVPage() {
       })),
       subtotal: subtotal,
       discount: totalDiscount,
+      additionalValue: paymentData.additionalValue || 0,
       total: paymentData.total,
       paymentMethod: paymentData.payments.length > 1 ? 'Múltiplo' : paymentData.payments[0]?.method,
       payments: paymentData.payments,
@@ -636,12 +637,22 @@ export default function PDVPage() {
 
   const handleAuthorization = async (password: string) => {
     // Check if any supervisor has this code
-    const supervisor = systemUsers.find(u => 
-      (u.supervisorCode === password || u.supervisor_code === password) && 
-      u.status === 'Ativo' &&
-      ((u.profileId || u.profile_id) ? accessProfiles.find(p => p.id === (u.profileId || u.profile_id))?.name?.toLowerCase() : '')?.match(/administrador|gerente|fiscal de caixa/)
-    );
+    console.log('DEBUG: Attempting authorization with password:', password);
+    const supervisor = systemUsers.find(u => {
+      const match = (u.supervisorCode === password || u.supervisor_code === password);
+      const isAtivo = u.status === 'Ativo';
+      const profileIdForUser = (u.profileId || u.profile_id);
+      const profile = profileIdForUser ? accessProfiles.find(p => p.id === profileIdForUser) : null;
+      const profileName = profile?.name?.toLowerCase() || '';
+      const hasPermission = profileName.match(/administrador|gerente|fiscal de caixa/);
+      
+      console.log('DEBUG: Checking user:', u.username, 'Match PIN:', match, 'Status:', u.status, 'ProfileIdForUser:', profileIdForUser, 'ProfileName:', profileName, 'HasPermission:', !!hasPermission);
+      console.log('DEBUG: AccessProfiles:', JSON.stringify(accessProfiles));
+      
+      return match && isAtivo && hasPermission;
+    });
 
+    console.log('DEBUG: Supervisor found:', supervisor);
     if (supervisor || password === '1234') { // Keep 1234 as fallback for now
       const authorizedBy = supervisor ? supervisor.username : 'Supervisor';
       

@@ -30,7 +30,7 @@ import {
   Award,
   CircleDollarSign
 } from 'lucide-react';
-import { cn, toLocalDateString } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function SalesByProductReport({ startDate, endDate }: { startDate: string, endDate: string }) {
@@ -95,7 +95,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         return false;
       }
       
-      const d = toLocalDateString(s.date);
+      const d = getLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
 
@@ -108,10 +108,8 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         if (!prodId) return;
 
         const product = products.find(p => p.id === prodId);
-        if (product && (product.sku === '25' || product.name === 'ADICIONAL')) {
-          return;
-        }
-
+        const isAdicional = product && product.isAdicional;
+        
         if (!stats[prodId]) {
           stats[prodId] = { qty: 0, total: 0, totalCost: 0, totalTax: 0 };
         }
@@ -121,10 +119,14 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         // Distribution of tax corresponding to items value ratio
         const itemTax = (itemTotal / itemsSum) * saleTax;
 
-        stats[prodId].qty += (item.quantity || 0);
+        if (!isAdicional) {
+          stats[prodId].qty += (item.quantity || 0);
+          stats[prodId].totalCost += cost * (item.quantity || 0);
+        }
         stats[prodId].total += itemTotal;
-        stats[prodId].totalCost += cost * (item.quantity || 0);
-        stats[prodId].totalTax += (itemTax || 0);
+        if (!isAdicional) {
+          stats[prodId].totalTax += (itemTax || 0);
+        }
       });
     });
 
@@ -270,7 +272,7 @@ export function SalesByProductReport({ startDate, endDate }: { startDate: string
         return false;
       }
 
-      const d = toLocalDateString(s.date);
+      const d = getLocalDateString(s.date);
       const isWithinDate = d >= startDate && d <= endDate;
       const hasItem = (s.items || []).some((item: any) => (item.productId || item.product_id) === expandedProductId);
       return isWithinDate && hasItem;

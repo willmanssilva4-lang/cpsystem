@@ -48,7 +48,9 @@ import { useERP } from '@/lib/context';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 
 export function Dashboard() {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission, promotions = [], cashRegisters } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, hasPermission, promotions = [], cashRegisters, returns } = useERP();
+  
+  const returnedSaleIds = React.useMemo(() => new Set(returns.map(r => r.saleId)), [returns]);
   
   const [startDate, setStartDate] = useState(() => {
     const today = new Date();
@@ -117,10 +119,27 @@ export function Dashboard() {
   };
 
   const filteredSales = sales.filter(s => {
+    // Diagnostico de status
+    if (s.status) {
+       console.log(`[Dashboard] Sale ${s.id} status: ${s.status}`);
+    }
     const session = cashRegisters.find(r => r.id === s.cashRegisterId);
     const businessDate = session ? safeToLocalDateString(session.openedAt) : safeToLocalDateString(s.date);
     const inRange = businessDate >= startDate && businessDate <= endDate;
-    return inRange;
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolucao'];
+    const rawStatus = s.status?.toLowerCase().trim() || '';
+    const isCancelledStatus = cancelledStatuses.some(status => rawStatus.includes(status));
+    
+    const sType = s.type?.toLowerCase().trim() || '';
+    const isCancelledType = cancelledStatuses.some(type => sType.includes(type));
+    
+    const isNotCancelled = !isCancelledStatus && !isCancelledType;
+    const isReturned = returnedSaleIds.has(s.id);
+    
+    if (!isNotCancelled || isReturned) {
+      console.log(`[Dashboard] Sale ${s.id} excluded. Status: ${s.status}, Type: ${s.type}, isNotCancelled: ${isNotCancelled}, isReturned: ${isReturned}`);
+    }
+    return inRange && isNotCancelled && !isReturned;
   });
 
   const filteredExpenses = expenses.filter(e => {
@@ -473,9 +492,9 @@ export function Dashboard() {
         />
         <MetricCard 
           label="Lucro Líquido Estimado" 
-          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalProfit)}
-          trend={prevTotalProfit === 0 ? '--' : `${profitTrend >= 0 ? '+' : ''}${profitTrend.toFixed(1)}%`}
-          positive={prevTotalProfit === 0 ? true : profitTrend >= 0}
+          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalGrossProfit)}
+          trend={prevTotalGrossProfit === 0 ? '--' : `${(profitMargin - prevProfitMargin).toFixed(1) >= '0' ? '+' : ''}${(profitMargin - prevProfitMargin).toFixed(1)}%`}
+          positive={prevTotalGrossProfit === 0 ? true : profitMargin >= prevProfitMargin}
           icon={TrendingUp}
           color="green"
           subText="Custos e impostos aplicados"

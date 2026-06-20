@@ -58,6 +58,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const [voucherError, setVoucherError] = useState<string | null>(null);
 
   const [discount, setDiscount] = useState(0);
+  const [additionalValue, setAdditionalValue] = useState(0);
   const [cashAmount, setCashAmount] = useState(0);
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [lastChange, setLastChange] = useState(0);
@@ -66,7 +67,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const voucherInputRef = useRef<HTMLInputElement>(null);
   
   const subtotal = total;
-  const totalToPay = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
+  const totalToPay = Math.max(0, Math.round((subtotal - discount + additionalValue) * 100) / 100);
   const totalPaid = Math.round(payments.reduce((acc, p) => acc + p.amount, 0) * 100) / 100;
   const remainingAmount = Math.max(0, Math.round((totalToPay - totalPaid) * 100) / 100);
   const change = Math.max(0, Math.round((receivedAmount - remainingAmount) * 100) / 100);
@@ -148,6 +149,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     activeMethod,
     receivedAmount,
     discount,
+    additionalValue,
     subtotal,
     totalToPay,
     totalPaid,
@@ -168,6 +170,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     activeMethod,
     receivedAmount,
     discount,
+    additionalValue,
     subtotal,
     totalToPay,
     totalPaid,
@@ -328,6 +331,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     onFinalize({
       payments: current.payments,
       discount: current.discount,
+      additionalValue: current.additionalValue,
       subtotal: current.subtotal,
       total: current.totalToPay,
       totalPaid: current.totalPaid,
@@ -633,6 +637,17 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                 ))}
               </div>
             )}
+            <div className="space-y-1">
+                <label className="text-xs md:text-sm font-black italic text-slate-500">Valor Adicional (R$)</label>
+                <input
+                    type="number"
+                    value={additionalValue || ''}
+                    onChange={(e) => setAdditionalValue(Number(e.target.value))}
+                    className="w-full p-2.5 md:p-4 text-lg font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue font-mono"
+                    placeholder="0.00"
+                />
+            </div>
+
 
             <AnimatePresence mode="wait">
               <motion.div 

@@ -114,6 +114,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     tipo_embalagem?: string;
     segmento?: string;
     section?: string;
+    isAdicional: boolean;
   }>(() => {
     let initialProfit = initialData?.profit ?? '';
     let initialProfitPercentage = initialData?.profitPercentage ?? '';
@@ -196,6 +197,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       tipo_embalagem: initialData?.tipo_embalagem || '',
       segmento: initialData?.segmento || '',
       section: initialData?.section || '',
+      isAdicional: initialData?.isAdicional ?? false,
     };
   });
 
@@ -733,6 +735,18 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                           <option value="Ativo">🟢 ATIVO NO PDV / PEDIDO</option>
                           <option value="Inativo">🔴 INATIVO / SUSPENSO</option>
                         </select>
+                      </div>
+
+                      {/* É Adicional? */}
+                      <div className="md:col-span-12 flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <input 
+                          type="checkbox"
+                          name="isAdicional"
+                          checked={formData.isAdicional}
+                          onChange={(e) => setFormData(prev => ({ ...prev, isAdicional: e.target.checked }))}
+                          className="w-5 h-5 rounded border-slate-300 text-brand-blue focus:ring-brand-blue"
+                        />
+                        <label className="text-xs font-black uppercase text-slate-700 tracking-widest cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, isAdicional: !prev.isAdicional}))}>É um Produto Adicional?</label>
                       </div>
                     </div>
                   </div>

@@ -35,7 +35,7 @@ import {
   Layers,
   FileSpreadsheet
 } from 'lucide-react';
-import { cn, toLocalDateString } from '@/lib/utils';
+import { cn, getLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -88,23 +88,18 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
       });
       if (isReturned) return false;
 
-      const rawStatus = s.status;
-      const status = rawStatus?.toLowerCase().trim();
-      
-      // More robust check
+      const rawStatus = s.status?.toLowerCase().trim() || '';
       const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
-      
-      if (status && cancelledStatuses.includes(status)) {
+      if (cancelledStatuses.some(status => rawStatus.includes(status))) {
         return false;
       }
       
-      // Also filter by type if it indicates reversal
-      const sType = s.type?.toLowerCase().trim();
-      if (sType === 'devolução' || sType === 'estorno' || sType === 'reversão') {
+      const sType = s.type?.toLowerCase().trim() || '';
+      if (cancelledStatuses.some(type => sType.includes(type))) {
         return false;
       }
       
-      const d = toLocalDateString(s.date);
+      const d = getLocalDateString(s.date);
       return d >= startDate && d <= endDate;
     });
 
@@ -215,7 +210,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
 
       const prevPeriodSales = sales.filter(s => {
         if (!s.date) return false;
-        const d = toLocalDateString(s.date);
+        const d = getLocalDateString(s.date);
         return d >= prevStartStr && d <= prevEndStr;
       });
 
@@ -259,7 +254,7 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     const chartDataMap = new Map<string, { date: string, rawDate: string, total: number, orders: number }>();
     
     processedSales.forEach(sale => {
-      const isoYMD = toLocalDateString(sale.date);
+      const isoYMD = getLocalDateString(sale.date);
       if (!isoYMD) return;
       
       const parts = isoYMD.split('-');
@@ -305,6 +300,9 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
     processedSales.forEach(s => {
       s.items.forEach((item: any) => {
         const prod = products.find(p => p.id === item.productId);
+        if (prod && (prod.sku === '25' || prod.name === 'ADICIONAL')) {
+          return;
+        }
         const name = prod ? prod.name : 'Produto Desconhecido';
         const current = map.get(item.productId) || { name, qty: 0, total: 0 };
         current.qty += item.quantity;
@@ -377,7 +375,13 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
         }, 0);
         const saleTax = sale.taxAmount || 0;
         const netProfit = sale.total - saleCost - saleTax;
-        const totalItemQty = sale.items.reduce((acc: number, it: any) => acc + it.quantity, 0);
+        const totalItemQty = sale.items.reduce((acc: number, it: any) => {
+          const product = products.find(p => p.id === it.productId);
+          if (product && (product.sku === '25' || product.name === 'ADICIONAL')) {
+            return acc;
+          }
+          return acc + it.quantity;
+        }, 0);
 
         return [
           new Date(sale.date).toLocaleString('pt-BR'),
@@ -972,7 +976,13 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                 }, 0);
                 const saleTax = sale.taxAmount || 0;
                 const netProfit = sale.total - saleCost - saleTax;
-                const totalItemQty = sale.items.reduce((acc: number, it: any) => acc + it.quantity, 0);
+                const totalItemQty = sale.items.reduce((acc: number, it: any) => {
+                  const product = products.find(p => p.id === it.productId);
+                  if (product && (product.sku === '25' || product.name === 'ADICIONAL')) {
+                    return acc;
+                  }
+                  return acc + it.quantity;
+                }, 0);
 
                 return (
                   <React.Fragment key={sale.id}>
@@ -1187,7 +1197,13 @@ export function SalesReport({ startDate, endDate }: { startDate: string, endDate
                   <td colSpan={4} className="py-5 pl-4 text-left uppercase italic font-black text-slate-700">TOTAIS FILTRADOS DO PERÍODO</td>
                   <td></td>
                   <td className="py-5 text-center text-slate-850">
-                    {processedSales.reduce((acc: number, sale: any) => acc + sale.items.reduce((sc: number, it: any) => sc + it.quantity, 0), 0)} un
+                    {processedSales.reduce((acc: number, sale: any) => acc + sale.items.reduce((sc: number, it: any) => {
+                      const product = products.find(p => p.id === it.productId);
+                      if (product && (product.sku === '25' || product.name === 'ADICIONAL')) {
+                        return sc;
+                      }
+                      return sc + it.quantity;
+                    }, 0), 0)} un
                   </td>
                   <td className="py-5 text-right text-emerald-600 font-black">
                     {formatCurrency(estimatedProfit)}

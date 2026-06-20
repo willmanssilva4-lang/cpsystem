@@ -11005,7 +11005,7 @@ function AccountsPayableReport({ startDate, endDate }: { startDate: string, endD
 // RELATÓRIO RESUMO DE VENDAS POR DIA
 // ==========================================
 function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales } = useERP();
+  const { sales, returns } = useERP();
   const [chartMetric, setChartMetric] = React.useState<'net' | 'count' | 'discount'>('net');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedWeekday, setSelectedWeekday] = React.useState('all');
@@ -11020,11 +11020,32 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
 
   const filteredSales = React.useMemo(() => {
     return sales.filter(s => {
-      if (!s.date) return false;
-      const d = getLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+        if (!s.date) return false;
+        
+        // Filter out returned/cancelled/reversed sales
+        const isReturned = returns.some(r => {
+            const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+            const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+            return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+        });
+        if (isReturned) return false;
+        
+        const rawStatus = s.status?.toLowerCase().trim() || '';
+        const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+        if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+            return false;
+        }
+        
+        // Also filter by type if it indicates reversal
+        const sType = s.type?.toLowerCase().trim() || '';
+        if (cancelledStatuses.some(type => sType.includes(type))) {
+            return false;
+        }
+
+        const d = getLocalDateString(s.date);
+        return d >= startDate && d <= endDate;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, returns, startDate, endDate]);
 
   const weekdaysPT = [
     'Domingo',
@@ -11064,8 +11085,6 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
         gross: 0,
         discount: 0,
         net: 0,
-        canceledCount: 0,
-        canceledValue: 0,
         paymentMethods: {}
       };
       current.setDate(current.getDate() + 1);
@@ -11083,8 +11102,6 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
           gross: 0,
           discount: 0,
           net: 0,
-          canceledCount: 0,
-          canceledValue: 0,
           paymentMethods: {}
         };
       }
@@ -11092,12 +11109,11 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
       const total = Number(sale.total) || 0;
       const discount = Number(sale.discount) || 0;
       const subtotal = Number(sale.subtotal) || (total + discount);
-      const isCanceled = sale.status === 'Cancelada' || sale.status === 'cancelada';
+      
+      // Explicitly check for cancellation, and skip
+      const isCanceled = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'].some(kw => (sale.status?.toLowerCase() || '').includes(kw) || (sale.type?.toLowerCase() || '').includes(kw));
 
-      if (isCanceled) {
-        summaryMap[dateStr].canceledCount += 1;
-        summaryMap[dateStr].canceledValue += total;
-      } else {
+      if (!isCanceled) {
         summaryMap[dateStr].count += 1;
         summaryMap[dateStr].gross += subtotal;
         summaryMap[dateStr].discount += discount;
@@ -11130,8 +11146,6 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
       totalDiscount += day.discount;
       totalNet += day.net;
       totalCount += day.count;
-      totalCanceledCount += day.canceledCount;
-      totalCanceledValue += day.canceledValue;
 
       if (day.net > bestDayValue) {
         bestDayValue = day.net;
@@ -11146,8 +11160,6 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
       totalDiscount,
       totalNet,
       totalCount,
-      totalCanceledCount,
-      totalCanceledValue,
       bestDayDate,
       bestDayValue,
       averageTicket
@@ -11210,9 +11222,7 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
         'Faturamento Bruto (R$)',
         'Descontos Concedidos (R$)',
         'Faturamento Liquido (R$)',
-        'Ticket Medio (R$)',
-        'Transacoes Canceladas',
-        'Valor Cancelado (R$)'
+        'Ticket Medio (R$)'
       ];
 
       const rows = dailySummary.map(day => {
@@ -11224,9 +11234,7 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
           day.gross.toFixed(2),
           day.discount.toFixed(2),
           day.net.toFixed(2),
-          tkt.toFixed(2),
-          day.canceledCount,
-          day.canceledValue.toFixed(2)
+          tkt.toFixed(2)
         ];
       });
 
@@ -11550,11 +11558,6 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
                           )}>
                             {item.count} vendas
                           </span>
-                          {item.canceledCount > 0 && (
-                            <span className="ml-1.5 px-1.5 py-0.5 bg-rose-50 rounded text-rose-500 font-mono text-[9px]">
-                              {item.canceledCount} cancelada(s)
-                            </span>
-                          )}
                         </td>
                         <td className="px-8 py-4 text-right font-mono text-[11px]">
                           {formatCurrency(item.gross)}
