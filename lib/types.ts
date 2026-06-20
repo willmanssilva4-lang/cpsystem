@@ -38,6 +38,7 @@ export interface Product {
   controlStock?: string | boolean | null;
   supplier?: string;
   supplier_id?: string;
+  isAdicional?: boolean;
 }
 
 export interface Supplier {
