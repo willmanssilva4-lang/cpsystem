@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { useERP } from '@/lib/context';
 import { supabase } from '@/lib/supabase';
 import { 
@@ -45,6 +46,21 @@ import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px] text-brand-text-sec">
+        <RefreshCw className="animate-spin text-brand-blue mr-2 text-2xl" />
+        <span>Carregando produtos...</span>
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
+  );
+}
+
+function ProductsContent() {
+  const searchParams = useSearchParams();
+  const productIdParam = searchParams ? searchParams.get('id') : null;
   const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, deleteInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert, fetchData } = useERP();
   const [showModal, setShowModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
@@ -89,6 +105,14 @@ export default function ProductsPage() {
   const [bulkPriceCat, setBulkPriceCat] = useState<string | null>(null);
   const [bulkPriceDep, setBulkPriceDep] = useState<string | null>(null);
   const [bulkPriceSubcat, setBulkPriceSubcat] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (productIdParam) {
+      console.log('[ProductsPage] Automatically opening product details for:', productIdParam);
+      setSelectedProductForDetails(productIdParam);
+      setStatusFilter('Todos');
+    }
+  }, [productIdParam]);
 
   const calculateAdjustedPrice = (
     currentPrice: number,

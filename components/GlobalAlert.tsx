@@ -17,6 +17,22 @@ export function GlobalAlert() {
     }
   }, [customAlert, setCustomAlert]);
 
+  useEffect(() => {
+    if (!customAlert) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        setCustomAlert(null);
+      }
+    };
+
+    // Use capture phase to ensure we intercept Enter before other elements (like forms) can process it.
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [customAlert, setCustomAlert]);
+
   if (!customAlert) return null;
 
   const icons: any = {

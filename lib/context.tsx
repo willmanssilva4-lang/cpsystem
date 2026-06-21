@@ -1654,6 +1654,81 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         throw updateError; // Force visibility
       }
 
+      // --- ATUALIZAÇÃO REAIS DE LOTES E PEPS (FIFO) ---
+      try {
+        const targetLoteId = dbPayload.lote_id;
+        
+        if (modifier === -1) {
+          // Movimento de saída (VENDA, SAIDA, PERDA)
+          if (targetLoteId) {
+            // Decrementar saldo do lote específico selecionado
+            const { data: specificLote, error: sLoteErr } = await supabase
+              .from('produto_lotes')
+              .select('*')
+              .eq('id', targetLoteId)
+              .single();
+            
+            if (!sLoteErr && specificLote) {
+              const currentLoteSaldo = Number(specificLote.saldo_atual ?? specificLote.saldoAtual ?? 0);
+              const newLoteSaldo = Math.max(0, currentLoteSaldo - moveQty);
+              console.log(`[PEPS] Decrementando lote específico ${targetLoteId}: ${currentLoteSaldo} -> ${newLoteSaldo}`);
+              await supabase
+                .from('produto_lotes')
+                .update({ saldo_atual: newLoteSaldo, saldoAtual: newLoteSaldo })
+                .eq('id', targetLoteId);
+            }
+          } else {
+            // Se nenhum lote específico foi definido, segue fila PEPS (automática por data de entrada)
+            const { data: activeLotes, error: actLotesErr } = await supabase
+              .from('produto_lotes')
+              .select('*')
+              .eq('produto_id', productId)
+              .gt('saldo_atual', 0)
+              .order('data_entrada', { ascending: true });
+            
+            if (!actLotesErr && activeLotes && activeLotes.length > 0) {
+              let remainingToDeduct = moveQty;
+              console.log(`[PEPS] Iniciando dedução automática PEPS para o produto ${productId}. Total: ${remainingToDeduct}`);
+              
+              for (const lote of activeLotes) {
+                if (remainingToDeduct <= 0) break;
+                const loteSaldo = Number(lote.saldo_atual ?? lote.saldoAtual ?? 0);
+                if (loteSaldo <= 0) continue;
+                
+                const deduction = Math.min(loteSaldo, remainingToDeduct);
+                const newLoteSaldo = Number((loteSaldo - deduction).toFixed(4));
+                remainingToDeduct = Number((remainingToDeduct - deduction).toFixed(4));
+                
+                console.log(`[PEPS] Deduzindo Lote ${lote.numero_lote || lote.numeroLote || lote.id}: ${loteSaldo} - ${deduction} = ${newLoteSaldo}. Restante: ${remainingToDeduct}`);
+                await supabase
+                  .from('produto_lotes')
+                  .update({ saldo_atual: newLoteSaldo, saldoAtual: newLoteSaldo })
+                  .eq('id', lote.id);
+              }
+            }
+          }
+        } else if (modifier === 1 && targetLoteId) {
+          // Movimento de entrada em lote específico (EX: Estorno/Devolução ou Entrada Manual de lote existente)
+          const { data: specificLote, error: sLoteErr } = await supabase
+            .from('produto_lotes')
+            .select('*')
+            .eq('id', targetLoteId)
+            .single();
+          
+          if (!sLoteErr && specificLote) {
+            const currentLoteSaldo = Number(specificLote.saldo_atual ?? specificLote.saldoAtual ?? 0);
+            const newLoteSaldo = Number((currentLoteSaldo + moveQty).toFixed(4));
+            console.log(`[PEPS] Incrementando lote específico ${targetLoteId}: ${currentLoteSaldo} -> ${newLoteSaldo}`);
+            await supabase
+              .from('produto_lotes')
+              .update({ saldo_atual: newLoteSaldo, saldoAtual: newLoteSaldo })
+              .eq('id', targetLoteId);
+          }
+        }
+      } catch (pepsErr) {
+        console.error('[PEPS] Erro no fluxo automático de atualização de lotes PEPS:', pepsErr);
+      }
+
       // Se o produto for do tipo SALE (venda) com base_product_id e conversion_factor, atualizar o produto base (estoque real)
       if (product?.product_type === 'SALE' && product?.base_product_id) {
         const { data: baseProduct, error: baseError } = await supabase.from('products').select('*').eq('id', product.base_product_id).single();

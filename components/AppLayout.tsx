@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { GlobalAlert } from '@/components/GlobalAlert';
 import { AuthGuard } from '@/components/AuthGuard';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Bell, Settings, MapPin, Calendar, ChevronDown, Menu, X, HelpCircle, AlertTriangle, ArrowRight, TrendingUp, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
@@ -16,7 +16,8 @@ import { getLocalDateString, cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { user: any, onMenuClick: () => void, onHelpClick: () => void, showMenuToggleOnDesktop?: boolean }) {
-  const { products, expenses, lotes, systemSettings, sendEmailNotification, fetchData, isLoading } = useERP();
+  const router = useRouter();
+  const { products, expenses, lotes, stockMovements, systemSettings, sendEmailNotification, fetchData, isLoading } = useERP();
   const isSuperAdmin = user?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -48,11 +49,28 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     if (!mounted || isSuperAdmin) return [];
     const notifs: any[] = [];
     
+    // Create quick-lookup sets for products that have a purchase record
+    const productsWithLots = new Set(
+      Array.isArray(lotes) ? lotes.map(l => l.productId).filter(Boolean) : []
+    );
+    const productsWithCompraMovement = new Set(
+      Array.isArray(stockMovements)
+        ? stockMovements
+            .filter(sm => sm.type === 'COMPRA' || sm.type === 'ENTRADA')
+            .map(sm => sm.productId)
+            .filter(Boolean)
+        : []
+    );
+
+    const hasPurchaseRecord = (pId: string) => {
+      return productsWithLots.has(pId) || productsWithCompraMovement.has(pId);
+    };
+
     // Low stock notifications
     const lowStock = Array.isArray(products) ? products.filter(p => {
       const isVirtual = p.product_type === 'KIT' || (p.composition && p.composition.length > 0) || !!p.base_product_id;
       const isActive = p.status?.toLowerCase() === 'ativo' || p.status !== 'Inativo';
-      return !isVirtual && isActive && (p.stock || 0) <= (p.minStock || 0);
+      return !isVirtual && isActive && (p.stock || 0) <= (p.minStock || 0) && hasPurchaseRecord(p.id);
     }) : [];
     lowStock.forEach(p => {
       notifs.push({
@@ -60,13 +78,14 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
         title: 'Estoque baixo',
         message: `O produto "${p.name}" está com estoque baixo (${p.stock} unidades)`,
         time: 'Sistema',
-        read: (Array.isArray(readNotificationIds) ? readNotificationIds : []).includes(`stock-${p.id}`)
+        read: (Array.isArray(readNotificationIds) ? readNotificationIds : []).includes(`stock-${p.id}`),
+        productId: p.id
       });
     });
 
     // Expired batches
     const today = getLocalDateString();
-    const expiredLotes = Array.isArray(lotes) ? lotes.filter(l => l.validade <= today && l.saldoAtual > 0) : [];
+    const expiredLotes = Array.isArray(lotes) ? lotes.filter(l => l.validade && l.validade <= today && l.saldoAtual > 0 && hasPurchaseRecord(l.productId)) : [];
     expiredLotes.forEach(l => {
       const product = Array.isArray(products) ? products.find(p => p.id === l.productId) : null;
       const isToday = l.validade === today;
@@ -77,12 +96,13 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
           ? `O lote "${l.numeroLote}" do produto "${product?.name || 'Desconhecido'}" vence hoje (${l.validade})`
           : `O lote "${l.numeroLote}" do produto "${product?.name || 'Desconhecido'}" venceu em ${l.validade}`,
         time: 'Estoque',
-        read: (Array.isArray(readNotificationIds) ? readNotificationIds : []).includes(`lote-${l.id}`)
+        read: (Array.isArray(readNotificationIds) ? readNotificationIds : []).includes(`lote-${l.id}`),
+        productId: l.productId
       });
     });
 
     // Expired products
-    const expiredProducts = products.filter(p => p.validade && p.validade <= today && p.stock > 0);
+    const expiredProducts = products.filter(p => p.validade && p.validade <= today && p.stock > 0 && hasPurchaseRecord(p.id));
     expiredProducts.forEach(p => {
       const isToday = p.validade === today;
       notifs.push({
@@ -92,7 +112,8 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
           ? `O produto "${p.name}" vence hoje (${p.validade})`
           : `O produto "${p.name}" venceu em ${p.validade}`,
         time: 'Estoque',
-        read: readNotificationIds.includes(`prod-${p.id}`)
+        read: readNotificationIds.includes(`prod-${p.id}`),
+        productId: p.id
       });
     });
 
@@ -109,7 +130,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
     });
 
     return notifs;
-  }, [products, expenses, lotes, readNotificationIds, mounted, isSuperAdmin]);
+  }, [products, expenses, lotes, stockMovements, readNotificationIds, mounted, isSuperAdmin]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -257,7 +278,13 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
                     <div 
                       key={notification.id} 
                       className={`p-4 border-b border-brand-border hover:bg-slate-50 transition-colors cursor-pointer ${!notification.read ? 'bg-blue-50/50' : ''}`}
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => {
+                        markAsRead(notification.id);
+                        setIsNotificationsOpen(false);
+                        if (notification.productId) {
+                          router.push(`/produtos?id=${notification.productId}`);
+                        }
+                      }}
                     >
                       <div className="flex justify-between items-start mb-1">
                         <h4 className={`text-sm font-medium ${!notification.read ? 'text-brand-text-main' : 'text-brand-text-sec'}`}>
