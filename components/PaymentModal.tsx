@@ -52,6 +52,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const [selectedMaquininhaId, setSelectedMaquininhaId] = useState<string>('');
   const [highlightedMaquininhaIndex, setHighlightedMaquininhaIndex] = useState(0);
   const [payments, setPayments] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [voucherCode, setVoucherCode] = useState('');
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
@@ -157,7 +158,8 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     taxAmount,
     netAmount,
     currentTaxPercentage,
-    activeMethods
+    activeMethods,
+    isSubmitting: false
   });
 
   stateRef.current = {
@@ -178,7 +180,8 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     taxAmount,
     netAmount,
     currentTaxPercentage,
-    activeMethods
+    activeMethods,
+    isSubmitting
   };
 
   const selectMethod = useCallback((method: any) => {
@@ -305,46 +308,56 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
       return;
     }
 
-    // Process voucher updates before finalizing
-    const voucherTotals: Record<string, number> = {};
-    for (const p of current.payments) {
-      if (p.voucherCode) {
-        voucherTotals[p.voucherCode] = (voucherTotals[p.voucherCode] || 0) + p.amount;
+    if (current.isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      // Process voucher updates before finalizing
+      const voucherTotals: Record<string, number> = {};
+      for (const p of current.payments) {
+        if (p.voucherCode) {
+          voucherTotals[p.voucherCode] = (voucherTotals[p.voucherCode] || 0) + p.amount;
+        }
       }
-    }
 
-    for (const [code, amountUsed] of Object.entries(voucherTotals)) {
-      const voucher = getVoucherByCode(code);
-      if (voucher) {
-        const newValue = Math.max(0, voucher.currentValue - amountUsed);
-        await updateVoucher({
-          ...voucher,
-          currentValue: newValue,
-          status: newValue <= 0 ? 'Utilizado' : 'Ativo'
-        });
+      for (const [code, amountUsed] of Object.entries(voucherTotals)) {
+        const voucher = getVoucherByCode(code);
+        if (voucher) {
+          const newValue = Math.max(0, voucher.currentValue - amountUsed);
+          await updateVoucher({
+            ...voucher,
+            currentValue: newValue,
+            status: newValue <= 0 ? 'Utilizado' : 'Ativo'
+          });
+        }
       }
+
+      const totalCashPaid = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
+      const changeAmount = current.change || lastChange;
+
+      await onFinalize({
+        payments: current.payments,
+        discount: current.discount,
+        additionalValue: current.additionalValue,
+        subtotal: current.subtotal,
+        total: current.totalToPay,
+        totalPaid: current.totalPaid,
+        change: changeAmount,
+        cashReceived: totalCashPaid > 0 ? (totalCashPaid + changeAmount) : 0
+      });
+    } catch (error) {
+      console.error('Error in handleFinalize:', error);
+      setIsSubmitting(false);
     }
-
-    const totalCashPaid = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
-    const changeAmount = current.change || lastChange;
-
-    onFinalize({
-      payments: current.payments,
-      discount: current.discount,
-      additionalValue: current.additionalValue,
-      subtotal: current.subtotal,
-      total: current.totalToPay,
-      totalPaid: current.totalPaid,
-      change: changeAmount,
-      cashReceived: totalCashPaid > 0 ? (totalCashPaid + changeAmount) : 0
-    });
   }, [onFinalize, getVoucherByCode, updateVoucher, lastChange, isDinheiroMethod]);
 
-  const confirmAndFinalize = useCallback(() => {
+  const confirmAndFinalize = useCallback(async () => {
     const current = stateRef.current;
     
+    if (current.isSubmitting) return;
+
     if (current.remainingAmount <= 0) {
-      handleFinalize();
+      await handleFinalize();
       return;
     }
 
@@ -365,108 +378,127 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
     const amountToApply = Math.round((inputValue || current.receivedAmount || current.remainingAmount) * 100) / 100;
 
     if (amountToApply >= current.remainingAmount) {
-      // Recalculate tax for this payment part
+      setIsSubmitting(true);
+      try {
+        // Recalculate tax for this payment part
+        let partTaxPercentage = 0;
+        if (current.isCard && maquininhaId) {
+          const maq = activeMaquininhas.find(m => m.id === maquininhaId);
+          if (maq) {
+            if (selectedMethodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
+            else if (selectedMethodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
+            else if (selectedMethodObj?.type === 'Pix' || current.activeMethod === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
+          }
+        } else if (selectedMethodObj) {
+          partTaxPercentage = Number(selectedMethodObj.taxPercentage || 0);
+        }
+
+        const partTaxAmount = Math.round(((current.remainingAmount * partTaxPercentage) / 100) * 100) / 100;
+        const partNetAmount = Math.round((current.remainingAmount - partTaxAmount) * 100) / 100;
+
+        const finalPayment = {
+          method: current.activeMethod,
+          amount: current.remainingAmount,
+          maquininhaId: current.isCard ? maquininhaId : null,
+          taxAmount: partTaxAmount,
+          netAmount: partNetAmount,
+          taxPercentage: partTaxPercentage
+        };
+        
+        const finalChange = Math.max(0, Math.round((amountToApply - current.remainingAmount) * 100) / 100);
+        const prevCash = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
+        const cashReceived = isDinheiroMethod(current.activeMethod) ? (prevCash + amountToApply) : prevCash;
+
+        await onFinalize({
+          payments: [...current.payments, finalPayment],
+          discount: current.discount,
+          subtotal: current.subtotal,
+          total: current.totalToPay,
+          totalPaid: current.totalPaid + current.remainingAmount,
+          change: finalChange,
+          cashReceived: cashReceived > 0 ? cashReceived : 0
+        });
+      } catch (error) {
+        console.error('Error in confirmAndFinalize:', error);
+        setIsSubmitting(false);
+      }
+    } else {
+      addPayment();
+    }
+  }, [handleFinalize, addPayment, onFinalize, activeMaquininhas, selectedMethodObj, isDinheiroMethod]);
+
+  const quickFinalizeWithMethod = useCallback(async (methodName: string) => {
+    const current = stateRef.current;
+    if (current.isSubmitting) return;
+
+    if (current.remainingAmount <= 0) {
+      await handleFinalize();
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Find the requested method from activeMethods
+      const methodObj = current.activeMethods.find(m => m.name.toLowerCase() === methodName.toLowerCase() || m.type?.toLowerCase() === methodName.toLowerCase());
+      const finalMethodName = methodObj ? methodObj.name : methodName;
+
+      // Determine maquininha for card payments if Pix or card
+      let maquininhaId = null;
+      if ((methodObj?.type === 'Pix' || methodObj?.type === 'Crédito' || methodObj?.type === 'Débito' || finalMethodName === 'Pix') && current.filteredMaquininhas.length > 0) {
+        maquininhaId = current.filteredMaquininhas[0].id;
+      }
+
+      // Recalculate tax
       let partTaxPercentage = 0;
-      if (current.isCard && maquininhaId) {
+      if (maquininhaId) {
         const maq = activeMaquininhas.find(m => m.id === maquininhaId);
         if (maq) {
-          if (selectedMethodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
-          else if (selectedMethodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
-          else if (selectedMethodObj?.type === 'Pix' || current.activeMethod === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
+          if (methodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
+          else if (methodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
+          else if (methodObj?.type === 'Pix' || finalMethodName === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
         }
-      } else if (selectedMethodObj) {
-        partTaxPercentage = Number(selectedMethodObj.taxPercentage || 0);
+      } else if (methodObj) {
+        partTaxPercentage = Number(methodObj.taxPercentage || 0);
       }
 
       const partTaxAmount = Math.round(((current.remainingAmount * partTaxPercentage) / 100) * 100) / 100;
       const partNetAmount = Math.round((current.remainingAmount - partTaxAmount) * 100) / 100;
 
       const finalPayment = {
-        method: current.activeMethod,
+        method: finalMethodName,
         amount: current.remainingAmount,
-        maquininhaId: current.isCard ? maquininhaId : null,
+        maquininhaId: maquininhaId,
         taxAmount: partTaxAmount,
         netAmount: partNetAmount,
         taxPercentage: partTaxPercentage
       };
-      
-      const finalChange = Math.max(0, Math.round((amountToApply - current.remainingAmount) * 100) / 100);
-      const prevCash = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
-      const cashReceived = isDinheiroMethod(current.activeMethod) ? (prevCash + amountToApply) : prevCash;
 
-      onFinalize({
+      const prevCash = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
+      const cashReceived = isDinheiroMethod(finalMethodName) ? (prevCash + current.remainingAmount) : prevCash;
+
+      await onFinalize({
         payments: [...current.payments, finalPayment],
         discount: current.discount,
         subtotal: current.subtotal,
         total: current.totalToPay,
         totalPaid: current.totalPaid + current.remainingAmount,
-        change: finalChange,
+        change: 0,
         cashReceived: cashReceived > 0 ? cashReceived : 0
       });
-    } else {
-      addPayment();
+    } catch (error) {
+      console.error('Error in quickFinalizeWithMethod:', error);
+      setIsSubmitting(false);
     }
-  }, [handleFinalize, addPayment, onFinalize, activeMaquininhas, selectedMethodObj, isDinheiroMethod]);
-
-  const quickFinalizeWithMethod = useCallback((methodName: string) => {
-    const current = stateRef.current;
-    if (current.remainingAmount <= 0) {
-      handleFinalize();
-      return;
-    }
-
-    // Find the requested method from activeMethods
-    const methodObj = current.activeMethods.find(m => m.name.toLowerCase() === methodName.toLowerCase() || m.type?.toLowerCase() === methodName.toLowerCase());
-    const finalMethodName = methodObj ? methodObj.name : methodName;
-
-    // Determine maquininha for card payments if Pix or card
-    let maquininhaId = null;
-    if ((methodObj?.type === 'Pix' || methodObj?.type === 'Crédito' || methodObj?.type === 'Débito' || finalMethodName === 'Pix') && current.filteredMaquininhas.length > 0) {
-      maquininhaId = current.filteredMaquininhas[0].id;
-    }
-
-    // Recalculate tax
-    let partTaxPercentage = 0;
-    if (maquininhaId) {
-      const maq = activeMaquininhas.find(m => m.id === maquininhaId);
-      if (maq) {
-        if (methodObj?.type === 'Débito') partTaxPercentage = Number(maq.taxa_debito || 0);
-        else if (methodObj?.type === 'Crédito') partTaxPercentage = Number(maq.taxa_credito || 0);
-        else if (methodObj?.type === 'Pix' || finalMethodName === 'Pix') partTaxPercentage = Number(maq.taxa_pix || 0);
-      }
-    } else if (methodObj) {
-      partTaxPercentage = Number(methodObj.taxPercentage || 0);
-    }
-
-    const partTaxAmount = Math.round(((current.remainingAmount * partTaxPercentage) / 100) * 100) / 100;
-    const partNetAmount = Math.round((current.remainingAmount - partTaxAmount) * 100) / 100;
-
-    const finalPayment = {
-      method: finalMethodName,
-      amount: current.remainingAmount,
-      maquininhaId: maquininhaId,
-      taxAmount: partTaxAmount,
-      netAmount: partNetAmount,
-      taxPercentage: partTaxPercentage
-    };
-
-    const prevCash = current.payments.filter(p => isDinheiroMethod(p.method)).reduce((acc, p) => acc + p.amount, 0);
-    const cashReceived = isDinheiroMethod(finalMethodName) ? (prevCash + current.remainingAmount) : prevCash;
-
-    onFinalize({
-      payments: [...current.payments, finalPayment],
-      discount: current.discount,
-      subtotal: current.subtotal,
-      total: current.totalToPay,
-      totalPaid: current.totalPaid + current.remainingAmount,
-      change: 0,
-      cashReceived: cashReceived > 0 ? cashReceived : 0
-    });
   }, [onFinalize, activeMaquininhas, isDinheiroMethod, handleFinalize]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const current = stateRef.current;
+
+      if (current.isSubmitting) {
+        e.preventDefault();
+        return;
+      }
 
       if (e.key === 'F6') {
         e.preventDefault();
@@ -699,11 +731,12 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                         <input 
                           ref={inputRef}
                           type="number"
+                          disabled={isSubmitting}
                           value={receivedAmount || ''}
                           placeholder={remainingAmount.toFixed(2)}
                           onChange={(e) => setReceivedAmount(Number(e.target.value))}
                           onFocus={(e) => e.target.select()}
-                          className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all font-mono"
+                          className="flex-1 min-w-0 p-2.5 md:p-4 text-lg md:text-2xl font-black border-2 border-slate-200 rounded-xl focus:border-brand-blue focus:ring-0 transition-all font-mono disabled:opacity-50"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === 'F10') {
@@ -716,7 +749,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
                         <button 
                           onClick={addPayment}
                           type="button"
-                          disabled={remainingAmount <= 0}
+                          disabled={remainingAmount <= 0 || isSubmitting}
                           className="shrink-0 px-4 md:px-6 bg-brand-blue text-white rounded-xl font-black italic uppercase text-xs disabled:opacity-50 whitespace-nowrap active:scale-95 transition-all shadow-md"
                         >
                           Adicionar
@@ -766,8 +799,9 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         <div className="p-4 md:p-6 bg-slate-50 flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
           <button 
             type="button"
+            disabled={isSubmitting}
             onClick={onClose} 
-            className="px-4 py-2.5 md:px-8 md:py-4 bg-slate-200 rounded-xl font-black italic uppercase text-xs md:text-sm text-center"
+            className="px-4 py-2.5 md:px-8 md:py-4 bg-slate-200 rounded-xl font-black italic uppercase text-xs md:text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar <span className="hidden md:inline">(ESC)</span>
           </button>
@@ -781,10 +815,23 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             )}
             <button 
               type="button"
+              disabled={isSubmitting}
               onClick={confirmAndFinalize} 
-              className="px-4 py-3 md:px-8 md:py-4 rounded-xl font-black italic uppercase transition-all bg-brand-green text-white hover:bg-emerald-600 shadow-md active:scale-95 text-xs md:text-sm text-center"
+              className="px-4 py-3 md:px-8 md:py-4 rounded-xl font-black italic uppercase transition-all bg-brand-green text-white hover:bg-emerald-600 shadow-md active:scale-95 text-xs md:text-sm text-center flex items-center justify-center gap-2 disabled:bg-emerald-800 disabled:opacity-80 disabled:cursor-not-allowed"
             >
-              Confirmar Venda <span className="hidden md:inline">(F10)</span>
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Processando...
+                </>
+              ) : (
+                <>
+                  Confirmar Venda <span className="hidden md:inline font-mono ml-1">(F10)</span>
+                </>
+              )}
             </button>
           </div>
         </div>

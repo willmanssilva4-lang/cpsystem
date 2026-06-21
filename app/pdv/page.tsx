@@ -81,6 +81,7 @@ export default function PDVPage() {
   const [showProductListModal, setShowProductListModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [pricingMode, setPricingMode] = useState<'retail' | 'wholesale' | 'term'>('retail');
+  const [isFinishingSale, setIsFinishingSale] = useState(false);
   const [showCancelItemModal, setShowCancelItemModal] = useState(false);
   const [showQuickReturnModal, setShowQuickReturnModal] = useState(false);
   const [cancelItemNumber, setCancelItemNumber] = useState('');
@@ -451,54 +452,63 @@ export default function PDVPage() {
   }, [cart]);
 
   const finalizeSale = async (paymentData: any) => {
-    console.log('DEBUG: Finalizando venda, payments:', paymentData.payments);
-    console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
-    
-    // Check stock with unified validation covering kits and virtual/fractioned products
-    const stockCheck = validateCartStock(cart);
-    if (!stockCheck.okay) {
-      setCustomAlert({ message: stockCheck.message || '', type: 'error' });
-      return;
-    }
+    if (isFinishingSale) return;
+    setIsFinishingSale(true);
+    try {
+      console.log('DEBUG: Finalizando venda, payments:', paymentData.payments);
+      console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
+      
+      // Check stock with unified validation covering kits and virtual/fractioned products
+      const stockCheck = validateCartStock(cart);
+      if (!stockCheck.okay) {
+        setCustomAlert({ message: stockCheck.message || '', type: 'error' });
+        return;
+      }
 
-    const success = await addSale({
-      date: new Date().toISOString(),
-      items: cart.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        price: item.product.salePrice,
-        originalPrice: item.originalPrice,
-        discount: item.discount,
-        promotionId: item.promotionId
-      })),
-      subtotal: subtotal,
-      discount: totalDiscount,
-      additionalValue: paymentData.additionalValue || 0,
-      total: paymentData.total,
-      paymentMethod: paymentData.payments.length > 1 ? 'Múltiplo' : paymentData.payments[0]?.method,
-      payments: paymentData.payments,
-      maquininhaId: paymentData.payments[0]?.maquininhaId, // For compatibility
-      taxAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0),
-      netAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.netAmount || 0), 0),
-      userId: user?.email,
-      companyId: user?.companyId || '',
-      customerId: selectedCustomer?.id
-    });
-    console.log('DEBUG: Valor de taxAmount enviado para addSale:', paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0));
-
-    if (success) {
-      setCart([]);
-      setSaleDiscount(0);
-      setSelectedCartIndex(-1);
-      setIsNavigatingCart(false);
-      setShowPaymentModal(false);
-      setCompletedSaleSelection('new_sale');
-      setCompletedSale({
-        ...success,
-        change: paymentData.change,
-        cashReceived: paymentData.cashReceived
+      const success = await addSale({
+        date: new Date().toISOString(),
+        items: cart.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          price: item.product.salePrice,
+          originalPrice: item.originalPrice,
+          discount: item.discount,
+          promotionId: item.promotionId
+        })),
+        subtotal: subtotal,
+        discount: totalDiscount,
+        additionalValue: paymentData.additionalValue || 0,
+        total: paymentData.total,
+        paymentMethod: paymentData.payments.length > 1 ? 'Múltiplo' : paymentData.payments[0]?.method,
+        payments: paymentData.payments,
+        maquininhaId: paymentData.payments[0]?.maquininhaId, // For compatibility
+        taxAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0),
+        netAmount: paymentData.payments.reduce((acc: number, p: any) => acc + (p.netAmount || 0), 0),
+        userId: user?.email,
+        companyId: user?.companyId || '',
+        customerId: selectedCustomer?.id
       });
-      setSelectedCustomer(null);
+      console.log('DEBUG: Valor de taxAmount enviado para addSale:', paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0));
+
+      if (success) {
+        setCart([]);
+        setSaleDiscount(0);
+        setSelectedCartIndex(-1);
+        setIsNavigatingCart(false);
+        setShowPaymentModal(false);
+        setCompletedSaleSelection('new_sale');
+        setCompletedSale({
+          ...success,
+          change: paymentData.change,
+          cashReceived: paymentData.cashReceived
+        });
+        setSelectedCustomer(null);
+      }
+    } catch (err) {
+      console.error('Error during finalizeSale:', err);
+      setCustomAlert({ message: 'Erro ao processar a venda. Tente novamente.', type: 'error' });
+    } finally {
+      setIsFinishingSale(false);
     }
   };
 
