@@ -17,7 +17,7 @@ import {
   Clock
 } from 'lucide-react';
 import { cn, formatDateBR, formatTimeBR } from '@/lib/utils';
-import { Sale, Expense, StockMovement, CashMovement } from '@/lib/types';
+import { Sale, Expense, StockMovement, CashMovement, Return } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -25,9 +25,10 @@ interface Props {
   expenses: Expense[];
   stockMovements: StockMovement[];
   cashMovements: CashMovement[];
+  returns?: Return[];
 }
 
-export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMovements }: Props) {
+export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMovements, returns = [] }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'entrada' | 'saida'>('all');
   const [daysFilter, setDaysFilter] = useState<number>(30);
@@ -81,8 +82,33 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
       };
     });
 
+    const isSaleActive = (s: any) => {
+      if (!s || !s.date) return false;
+
+      // Filter out returned/cancelled/reversed sales (matching Vendas por Período)
+      const isReturned = (returns || []).some(r => {
+        const rId = String(r.saleId || (r as any).sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      if (isReturned) return false;
+
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+        return false;
+      }
+      
+      const sType = (s.type || '').toLowerCase().trim();
+      if (cancelledStatuses.some(type => sType.includes(type))) {
+        return false;
+      }
+
+      return true;
+    };
+
     const all: any[] = [
-      ...sales.map(s => ({
+      ...sales.filter(isSaleActive).map(s => ({
         id: `sale-${s.id}`,
         date: s.date,
         description: `Venda #${s.id.slice(0, 8)}`,
@@ -91,6 +117,16 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         amount: s.total,
         status: 'Pago',
         source: 'sale'
+      })),
+      ...(returns || []).map(r => ({
+        id: `return-${r.id}`,
+        date: r.date,
+        description: `Devolução Ref. Venda #${r.saleId?.slice(0, 8) || ''}`,
+        category: 'Devolução de Venda',
+        type: 'saida',
+        amount: r.total,
+        status: 'Pago',
+        source: 'return'
       })),
       ...expenses.filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria').map(e => ({
         id: `exp-${e.id}`,
@@ -123,7 +159,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         t.category.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, expenses, stockMovements, cashMovements, daysFilter, typeFilter, searchTerm, mounted]);
+  }, [sales, expenses, stockMovements, cashMovements, returns, daysFilter, typeFilter, searchTerm, mounted]);
 
   const totals = useMemo(() => {
     return transactions.reduce((acc, t) => {

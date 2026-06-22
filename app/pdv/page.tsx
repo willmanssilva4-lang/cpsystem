@@ -203,6 +203,17 @@ export default function PDVPage() {
     }
   }, [showReverseModal]);
 
+  const customerSearchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showCustomerSearch) {
+      setTimeout(() => {
+        customerSearchInputRef.current?.focus();
+        customerSearchInputRef.current?.select();
+      }, 50);
+    }
+  }, [showCustomerSearch]);
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
@@ -2408,6 +2419,7 @@ export default function PDVPage() {
             <div className="p-6 space-y-4">
               <div className="relative">
                 <input
+                  ref={customerSearchInputRef}
                   autoFocus
                   type="text"
                   placeholder="Buscar por Nome, CPF ou Telefone..."

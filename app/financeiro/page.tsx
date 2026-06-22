@@ -150,10 +150,35 @@ export default function FinancePage() {
     return d >= startDate && d <= endDate;
   }, [startDate, endDate]);
 
+  const isSaleActive = useCallback((s: any) => {
+    if (!s || !s.date) return false;
+
+    // Filter out returned/cancelled/reversed sales (matching Vendas por Período)
+    const isReturned = (returns || []).some(r => {
+      const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+      const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+      return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    if (isReturned) return false;
+
+    const rawStatus = (s.status || '').toLowerCase().trim();
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+    if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+      return false;
+    }
+    
+    const sType = (s.type || '').toLowerCase().trim();
+    if (cancelledStatuses.some(type => sType.includes(type))) {
+      return false;
+    }
+
+    return true;
+  }, [returns]);
+
   // --- 1. Cards Financeiros ---
   const stats = useMemo(() => {
     // Faturamento no Período
-    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status !== 'Cancelada');
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && isSaleActive(s));
     const faturamentoHoje = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Despesas no Período (Incluindo CMV conforme pedido do usuário)
@@ -177,8 +202,8 @@ export default function FinancePage() {
     // Taxas no Período
     const taxasHoje = salesInPeriod.reduce((acc, s) => acc + calculateSaleTax(s), 0);
 
-    // Lucro Líquido no Período
-    const lucroHoje = faturamentoHoje - despesasHoje - taxasHoje;
+    // Lucro Líquido no Período (Matching Vendas por Período behavior: Faturamento - CMV - Taxas)
+    const lucroHoje = faturamentoHoje - cmvHoje - taxasHoje;
 
     // Saldo em Caixa Real (Baseado em todos os caixas, movimentações e vendas)
     const openingBalances = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
@@ -189,14 +214,14 @@ export default function FinancePage() {
       return acc;
     }, 0);
     
-    const totalEntradas = sales.filter(s => s.status !== 'Cancelada').reduce((acc, s) => acc + (s.total - calculateSaleTax(s)), 0);
+    const totalEntradas = sales.filter(isSaleActive).reduce((acc, s) => acc + (s.total - calculateSaleTax(s)), 0);
     const totalDespesasPagas = expenses.filter(e => e.status === 'Pago').reduce((acc, e) => acc + e.amount, 0);
     const totalReturns = (returns || []).reduce((acc, r) => acc + r.total, 0);
     
     const saldoCaixa = openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalReturns;
 
     return { faturamentoHoje, despesasHoje, lucroHoje, saldoCaixa };
-  }, [sales, expenses, products, cashRegisters, cashMovements, returns, isWithinRange, productMap]);
+  }, [sales, expenses, products, cashRegisters, cashMovements, returns, isWithinRange, isSaleActive, productMap]);
 
   // --- 2. Gráfico de Fluxo de Caixa ---
   const chartData = useMemo(() => {
@@ -217,37 +242,37 @@ export default function FinancePage() {
     const actualDays = Math.min(diffDays, 60);
     
     for (let i = 0; i <= actualDays; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      const dIso = getLocalDateString(d);
-      
-      const salesOnDay = sales.filter(s => s.status !== 'Cancelada' && getLocalDateString(s.date) === dIso);
-      const entrada = salesOnDay.reduce((acc, s) => acc + s.total, 0);
-        
-      const saidaExpenses = expenses
-        .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && getLocalDateString(e.paymentDate || e.date) === dIso)
-        .reduce((acc, e) => acc + e.amount, 0);
-
-      let cmvDay = 0;
-      let taxasDay = 0;
-      salesOnDay.forEach((sale: any) => {
-        taxasDay += calculateSaleTax(sale);
-        sale.items?.forEach((item: any) => {
-          const product = productMap.get(item.productId);
-          const cost = item.costPrice && item.costPrice > 0 
-            ? item.costPrice 
-            : (product?.costPrice || 0);
-          cmvDay += cost * item.quantity;
-        });
-      });
-      
-      // Agora incluímos Despesas Gerais + CMV + Taxas de Maquininha na Saída do Fluxo de Caixa 
-      // Isso garante que o Saldo Líquido no Período (-R$ 49,03) seja idêntico ao Lucro Líquido Real do DRE.
-      data.push({ date: dateStr, entrada, saida: saidaExpenses + cmvDay + taxasDay });
+       const d = new Date(start);
+       d.setDate(d.getDate() + i);
+       const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+       const dIso = getLocalDateString(d);
+       
+       const salesOnDay = sales.filter(s => isSaleActive(s) && getLocalDateString(s.date) === dIso);
+       const entrada = salesOnDay.reduce((acc, s) => acc + s.total, 0);
+         
+       const saidaExpenses = expenses
+         .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && getLocalDateString(e.paymentDate || e.date) === dIso)
+         .reduce((acc, e) => acc + e.amount, 0);
+ 
+       let cmvDay = 0;
+       let taxasDay = 0;
+       salesOnDay.forEach((sale: any) => {
+         taxasDay += calculateSaleTax(sale);
+         sale.items?.forEach((item: any) => {
+           const product = productMap.get(item.productId);
+           const cost = item.costPrice && item.costPrice > 0 
+             ? item.costPrice 
+             : (product?.costPrice || 0);
+           cmvDay += cost * item.quantity;
+         });
+       });
+       
+       // Agora incluímos Despesas Gerais + CMV + Taxas de Maquininha na Saída do Fluxo de Caixa 
+       // Isso garante que o Saldo Líquido no Período (-R$ 49,03) seja idêntico ao Lucro Líquido Real do DRE.
+       data.push({ date: dateStr, entrada, saida: saidaExpenses + cmvDay + taxasDay });
     }
     return data;
-  }, [sales, expenses, startDate, endDate, productMap]);
+  }, [sales, expenses, startDate, endDate, isSaleActive, productMap]);
 
   // --- 3. Contas a Pagar / Receber ---
   const contas = useMemo(() => {
@@ -258,7 +283,7 @@ export default function FinancePage() {
     const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getLocalDateString(e.dueDate || e.date) < todayStr);
     
     // Simulando contas a receber com vendas "Fiado" não pagas (simplificação)
-    const aReceberHoje = sales.filter(s => s.status !== 'Cancelada' && s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
+    const aReceberHoje = sales.filter(s => isSaleActive(s) && s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
 
     return {
       aPagarHoje: aPagarHoje.reduce((acc, e) => acc + e.amount, 0),
@@ -268,12 +293,12 @@ export default function FinancePage() {
       aReceberHoje: aReceberHoje.reduce((acc, s) => acc + s.total, 0),
       aReceberHojeList: aReceberHoje
     };
-  }, [expenses, sales]);
+  }, [expenses, sales, isSaleActive]);
 
   // --- 4. Movimentações Financeiras Recentes ---
   const transactions = useMemo(() => {
     const all = [
-      ...sales.filter(s => s.status !== 'Cancelada').map(s => ({
+      ...sales.filter(isSaleActive).map(s => ({
         id: `sale-${s.id}`,
         type: 'entrada' as const,
         category: 'Venda PDV',
@@ -292,7 +317,7 @@ export default function FinancePage() {
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return all.slice(0, 10);
-  }, [sales, expenses]);
+  }, [sales, expenses, isSaleActive]);
 
   // --- 4.5. Saldos por Conta Financeira ---
   const accountsBalances = useMemo(() => {
@@ -308,7 +333,7 @@ export default function FinancePage() {
     // Vendas em Dinheiro
     let salesCash = 0;
     sales.forEach((s: any) => {
-      if (s.status === 'Cancelada') return;
+      if (!isSaleActive(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           if (p.method === 'Dinheiro') {
@@ -334,7 +359,7 @@ export default function FinancePage() {
     // 2. Mercado Pago
     let salesMercadoPago = 0;
     sales.forEach((s: any) => {
-      if (s.status === 'Cancelada') return;
+      if (!isSaleActive(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
@@ -357,7 +382,7 @@ export default function FinancePage() {
     // 3. Conta Bancária
     let salesBank = 0;
     sales.forEach((s: any) => {
-      if (s.status === 'Cancelada') return;
+      if (!isSaleActive(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
@@ -383,7 +408,7 @@ export default function FinancePage() {
     // 4. Conta PIX
     let salesPix = 0;
     sales.forEach((s: any) => {
-      if (s.status === 'Cancelada') return;
+      if (!isSaleActive(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
@@ -412,13 +437,13 @@ export default function FinancePage() {
       { name: 'Conta Bancária', balance: balanceBank, icon: Landmark, iconBg: 'bg-slate-50 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300' },
       { name: 'Conta PIX', balance: balancePix, icon: Smartphone, iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
     ];
-  }, [sales, expenses, stockMovements, cashRegisters, cashMovements, returns]);
+  }, [sales, expenses, stockMovements, cashRegisters, cashMovements, returns, isSaleActive]);
 
   // --- 5. Resumo de Vendas por Pagamento ---
   const salesByPayment = useMemo(() => {
     const totals: Record<string, { amount: number; maquininhaNames: Set<string> }> = {};
     sales.forEach((s: any) => {
-      if (s.status === 'Cancelada') return;
+      if (!isSaleActive(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const key = p.method;
@@ -451,11 +476,11 @@ export default function FinancePage() {
         maquininhas: Array.from(data.maquininhaNames).join(', ')
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [sales, maquininhas]);
+  }, [sales, maquininhas, isSaleActive]);
 
   // --- 6. DRE Automático ---
   const dre = useMemo(() => {
-    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && s.status?.toLowerCase() !== 'cancelada');
+    const salesInPeriod = sales.filter(s => isWithinRange(s.date) && isSaleActive(s));
     const receita = salesInPeriod.reduce((acc, s) => acc + s.total, 0);
 
     // Taxas de Maquininhas (Financeiras)
@@ -486,7 +511,7 @@ export default function FinancePage() {
     const margemLiquida = receita > 0 ? (lucroReal / receita) * 100 : 0;
 
     return { receita, cmv, taxasMaquininhas, despesas, lucroBruto, lucroReal, margemBruta, margemLiquida };
-  }, [sales, expenses, products, isWithinRange]);
+  }, [sales, expenses, products, isWithinRange, isSaleActive]);
 
   // --- 7. Totais do Dashboard ---
   const dashboardDetails = useMemo(() => {
@@ -1017,6 +1042,7 @@ export default function FinancePage() {
           stockMovements={stockMovements} 
           cashMovements={cashMovements}
           products={products}
+          returns={returns}
         />
       )}
 
@@ -1026,6 +1052,7 @@ export default function FinancePage() {
           expenses={expenses} 
           stockMovements={stockMovements} 
           cashMovements={cashMovements} 
+          returns={returns}
         />
       )}
 

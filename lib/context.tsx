@@ -511,9 +511,36 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         })));
       }
       if (Array.isArray(maqs_res)) setMaquininhas(maqs_res);
-      if (Array.isArray(pays_res)) setPaymentMethods(pays_res);
+      if (Array.isArray(pays_res)) {
+        setPaymentMethods(pays_res.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          type: p.type || 'Dinheiro',
+          active: p.active,
+          taxPercentage: p.tax_percentage ?? p.taxPercentage ?? 0,
+          taxFixed: p.tax_value ?? p.tax_fixed ?? p.taxFixed ?? 0,
+          companyId: p.companyId ?? p.company_id ?? null
+        })));
+      }
       if (Array.isArray(ads_res)) setAdvertisements(ads_res);
-      if (Array.isArray(custs_res)) setCustomers(custs_res);
+      if (Array.isArray(custs_res)) {
+        setCustomers(custs_res.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          document: c.document,
+          email: c.email || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          active: c.active !== undefined ? c.active : (c.status === 'Ativo' || c.status === 'VIP'),
+          status: c.status || 'Ativo',
+          isClubMember: c.is_club_member ?? c.isClubMember ?? false,
+          clubJoinDate: c.club_join_date ?? c.clubJoinDate ?? null,
+          clubPoints: c.club_points ?? c.clubPoints ?? 0,
+          totalSpent: c.total_spent ?? c.totalSpent ?? 0,
+          image: c.image || '',
+          companyId: c.company_id ?? c.companyId ?? null
+        })));
+      }
       if (Array.isArray(sls_res)) {
         const movements = Array.isArray(movs_res) ? movs_res : [];
         const loadedProducts = Array.isArray(prods) ? prods : [];
@@ -1087,12 +1114,47 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   // Customers
   const addCustomer = async (data: any) => {
-    await supabase.from('customers').insert([data]);
+    const rawDate = data.clubJoinDate ?? data.club_join_date ?? null;
+    const dbPayload = {
+      id: data.id,
+      name: data.name,
+      document: data.document,
+      phone: data.phone ?? '',
+      email: data.email ?? '',
+      status: data.status ?? 'Ativo',
+      image: data.image ?? null,
+      company_id: (data.companyId || data.company_id) ? (data.companyId || data.company_id) : null,
+      is_club_member: data.isClubMember ?? data.is_club_member ?? false,
+      club_join_date: rawDate === '' ? null : rawDate,
+      total_spent: data.totalSpent ?? data.total_spent ?? 0
+    };
+    const { error } = await supabase.from('customers').insert([dbPayload]);
+    if (error) {
+      console.error('[addCustomer] Error inserting customer:', error);
+      throw error;
+    }
     await fetchData();
   };
 
   const updateCustomer = async (data: any) => {
-    await supabase.from('customers').update(data).eq('id', data.id);
+    const rawDate = data.clubJoinDate ?? data.club_join_date ?? null;
+    const dbPayload = {
+      name: data.name,
+      document: data.document,
+      phone: data.phone ?? '',
+      email: data.email ?? '',
+      status: data.status ?? 'Ativo',
+      image: data.image ?? null,
+      company_id: (data.companyId || data.company_id) ? (data.companyId || data.company_id) : null,
+      is_club_member: data.isClubMember ?? data.is_club_member ?? false,
+      club_join_date: rawDate === '' ? null : rawDate,
+      total_spent: data.totalSpent ?? data.total_spent ?? 0
+    };
+    const { error } = await supabase.from('customers').update(dbPayload).eq('id', data.id);
+    if (error) {
+      console.error('[updateCustomer] Error updating customer:', error);
+      throw error;
+    }
     await fetchData();
   };
 
@@ -1493,7 +1555,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       productId: data.productId,
       loteId: data.loteId,
       type: 'PERDA',
-      quantity: -data.quantity,
+      quantity: data.quantity,
       origin: `Perda: ${data.reason}`,
       date: data.date,
       userId: user?.name || 'Sistema',
@@ -2138,15 +2200,36 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addPaymentMethod = async (data: any) => {
-    const { error } = await supabase.from('payment_methods').insert([data]);
-    if (error) return false;
+    const dbPayload = {
+      name: data.name,
+      type: data.type,
+      active: data.active,
+      tax_percentage: data.taxPercentage ?? 0,
+      tax_value: data.taxFixed ?? 0,
+      company_id: (data.companyId || data.company_id) ? (data.companyId || data.company_id) : null
+    };
+    const { error } = await supabase.from('payment_methods').insert([dbPayload]);
+    if (error) {
+      console.error('[addPaymentMethod] Error inserting:', error);
+      return false;
+    }
     await fetchData();
     return true;
   };
 
   const updatePaymentMethod = async (data: PaymentMethod) => {
-    const { error } = await supabase.from('payment_methods').update(data).eq('id', data.id);
-    if (error) return false;
+    const dbPayload = {
+      name: data.name,
+      type: data.type,
+      active: data.active,
+      tax_percentage: data.taxPercentage ?? 0,
+      tax_value: data.taxFixed ?? 0,
+    };
+    const { error } = await supabase.from('payment_methods').update(dbPayload).eq('id', data.id);
+    if (error) {
+      console.error('[updatePaymentMethod] Error updating:', error);
+      return false;
+    }
     await fetchData();
     return true;
   };

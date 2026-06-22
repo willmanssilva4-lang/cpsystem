@@ -95,6 +95,41 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Helper function to calculate tax for a sale
+function calculateSaleTax(sale: any): number {
+  let saleTax = 0;
+  let paymentsArr: any[] = [];
+  if (sale.payments) {
+    if (Array.isArray(sale.payments)) {
+      paymentsArr = sale.payments;
+    } else if (typeof sale.payments === 'string') {
+      try {
+        const parsed = JSON.parse(sale.payments);
+        if (Array.isArray(parsed)) {
+          paymentsArr = parsed;
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          paymentsArr = [parsed];
+        }
+      } catch (e) {
+        console.error('Error parsing payments json string', e);
+      }
+    } else if (typeof sale.payments === 'object') {
+      paymentsArr = [sale.payments];
+    }
+  }
+  if (paymentsArr && paymentsArr.length > 0) {
+    saleTax = paymentsArr.reduce((pAcc: number, p: any) => {
+      const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+      return pAcc + (Number(t) || 0);
+    }, 0);
+  }
+  if (saleTax === 0) {
+    const t = sale.taxAmount !== undefined ? sale.taxAmount : (sale.tax_amount !== undefined ? sale.tax_amount : 0);
+    saleTax = Number(t) || 0;
+  }
+  return saleTax;
+}
+
 export default function ReportsPage() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Carregando relatórios...</div>}>
@@ -1286,40 +1321,7 @@ function AdvancedPerformanceDashboard({
   // Calculate Metrics
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
   
-  // Calculate aggregated payment/card machine taxes safely
-  const totalTax = filteredSales.reduce((acc, s) => {
-    let saleTax = 0;
-    let paymentsArr: any[] = [];
-    if (s.payments) {
-      if (Array.isArray(s.payments)) {
-        paymentsArr = s.payments;
-      } else if (typeof s.payments === 'string') {
-        try {
-          const parsed = JSON.parse(s.payments);
-          if (Array.isArray(parsed)) {
-            paymentsArr = parsed;
-          } else if (typeof parsed === 'object' && parsed !== null) {
-            paymentsArr = [parsed];
-          }
-        } catch (e) {
-          console.error('Error parsing payments json string', e);
-        }
-      } else if (typeof s.payments === 'object') {
-        paymentsArr = [s.payments];
-      }
-    }
-    if (paymentsArr && paymentsArr.length > 0) {
-      saleTax = paymentsArr.reduce((pAcc: number, p: any) => {
-        const t = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
-        return pAcc + (Number(t) || 0);
-      }, 0);
-    }
-    if (saleTax === 0) {
-      const t = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
-      saleTax = Number(t) || 0;
-    }
-    return acc + saleTax;
-  }, 0);
+  const totalTax = filteredSales.reduce((acc, s) => acc + calculateSaleTax(s), 0);
 
   // We exclude 'Compra de Mercadoria' category to avoid double-counting with CMV (cost of goods sold, totalCost)
   const totalExpenses = filteredExpenses
@@ -5333,6 +5335,13 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
   let totalRevenue = 0;
 
   filteredSales.forEach(sale => {
+    const saleTax = calculateSaleTax(sale);
+    const saleDiscount = Number(sale.discount) || 0;
+    const netSaleTotal = (sale.total || 0) - saleTax - saleDiscount;
+    
+    const sumItemGross = sale.items.reduce((acc: number, i: any) => acc + (i.price * i.quantity), 0);
+    const netRatio = sumItemGross > 0 ? netSaleTotal / sumItemGross : 1;
+
     sale.items.forEach((item: any) => {
       const product = products.find(p => p.id === item.productId);
       let category = 'Outros';
@@ -5343,9 +5352,10 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
           if (cat) category = cat.nome.trim(); // Trim category name
         }
       }
-      const itemTotal = item.price * item.quantity;
-      categoryTotals[category] = (categoryTotals[category] || 0) + itemTotal;
-      totalRevenue += itemTotal;
+    const itemGross = item.price * item.quantity;
+    const itemNet = itemGross * netRatio;
+
+    categoryTotals[category] = (categoryTotals[category] || 0) + itemNet;
 
       // Track products per category
       if (!categoryProducts[category]) categoryProducts[category] = {};
@@ -5357,9 +5367,11 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
         };
       }
       categoryProducts[category][item.productId].quantity += item.quantity;
-      categoryProducts[category][item.productId].total += itemTotal;
+      categoryProducts[category][item.productId].total += itemNet;
     });
   });
+
+  totalRevenue = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
 
   const colors = ['#1e5eff', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6', '#06b6d4', '#14b8a6'];
   const data = Object.entries(categoryTotals)
@@ -5369,7 +5381,7 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
       value,
       total: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value),
       percentVal: totalRevenue > 0 ? (value / totalRevenue) * 100 : 0,
-      percent: totalRevenue > 0 ? `${((value / totalRevenue) * 100).toFixed(1)}%` : '0%',
+      percent: totalRevenue > 0 ? `${((value / totalRevenue) * 100).toFixed(2)}%` : '0%',
       color: colors[index % colors.length],
       products: Object.values(categoryProducts[name] || {}).sort((a, b) => b.total - a.total)
     }));
@@ -5695,16 +5707,41 @@ function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endD
 }
 
 function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales } = useERP();
+  const { sales, returns = [] } = useERP();
   const [chartMetric, setChartMetric] = React.useState<'vendas' | 'faturamento'>('vendas');
   
+  const isSaleActive = React.useCallback((s: any) => {
+    if (!s || !s.date) return false;
+
+    // Filter out returned/cancelled/reversed sales (matching Vendas por Período)
+    const isReturned = (returns || []).some(r => {
+      const rId = String(r.saleId || (r as any).sale_id || '').toLowerCase().replace('#', '').trim();
+      const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+      return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    if (isReturned) return false;
+
+    const rawStatus = (s.status || '').toLowerCase().trim();
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+    if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+      return false;
+    }
+    
+    const sType = (s.type || '').toLowerCase().trim();
+    if (cancelledStatuses.some(type => sType.includes(type))) {
+      return false;
+    }
+
+    return true;
+  }, [returns]);
+
   const filteredSales = React.useMemo(() => {
     return sales.filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      return d >= startDate && d <= endDate && isSaleActive(s);
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, isSaleActive]);
 
   const hourCounts: Record<number, number> = {};
   const hourRevenues: Record<number, number> = {};
@@ -6144,11 +6181,19 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
     let totalRevenue = 0;
 
     filteredSales.forEach(sale => {
+    const saleTax = calculateSaleTax(sale);
+    const saleDiscount = Number(sale.discount) || 0;
+    const netSaleTotal = (sale.total || 0) - saleTax - saleDiscount;
+    
+    const sumItemGross = sale.items.reduce((acc: number, i: any) => acc + (i.price * i.quantity), 0);
+    const netRatio = sumItemGross > 0 ? netSaleTotal / sumItemGross : 1;
+
       sale.items.forEach((item: any) => {
-        const itemTotal = item.price * item.quantity;
-        productTotals[item.productId] = (productTotals[item.productId] || 0) + itemTotal;
+        const itemGross = item.price * item.quantity;
+        const itemNet = itemGross * netRatio;
+        productTotals[item.productId] = (productTotals[item.productId] || 0) + itemNet;
         productQtys[item.productId] = (productQtys[item.productId] || 0) + item.quantity;
-        totalRevenue += itemTotal;
+        totalRevenue += itemNet;
       });
     });
 
@@ -11115,7 +11160,7 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
         summaryMap[dateStr].count += 1;
         summaryMap[dateStr].gross += subtotal;
         summaryMap[dateStr].discount += discount;
-        summaryMap[dateStr].net += total;
+        summaryMap[dateStr].net += (total - calculateSaleTax(sale));
 
         const pm = (sale.paymentMethod || sale.payment_method || 'Outros').toUpperCase();
         if (!summaryMap[dateStr].paymentMethods[pm]) {

@@ -565,7 +565,15 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
             <h2 className="text-[10px] md:text-sm font-black uppercase italic text-slate-400">Total da Venda</h2>
             <p className="text-2xl md:text-4xl font-black italic">R$ {totalToPay.toFixed(2)}</p>
             {remainingAmount > 0 ? (
-              <p className="text-xs md:text-sm font-bold text-amber-400 mt-0.5 md:mt-1 uppercase italic">Falta Pagar: R$ {remainingAmount.toFixed(2)}</p>
+              receivedAmount < remainingAmount ? (
+                <p className="text-xs md:text-sm font-bold mt-0.5 md:mt-1 uppercase italic text-amber-500">
+                  Falta Pagar: R$ {dynamicRemaining.toFixed(2)}
+                </p>
+              ) : (
+                <p className="text-xs md:text-sm font-bold mt-0.5 md:mt-1 uppercase italic text-brand-green">
+                  Valor Total Selecionado
+                </p>
+              )
             ) : (
               <p className="text-xs md:text-sm font-bold text-brand-green mt-0.5 md:mt-1 uppercase italic">
                 {remainingAmount === 0 ? "Total Pago" : "Total Coberto"}
@@ -807,7 +815,15 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
           </button>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             {remainingAmount > 0 ? (
-              <span className="text-xs md:text-sm font-black italic uppercase text-red-500 text-center sm:text-right">Falta Pagar: R$ {remainingAmount.toFixed(2)}</span>
+              receivedAmount < remainingAmount ? (
+                <span className="text-xs md:text-sm font-black italic uppercase text-center sm:text-right text-red-500">
+                  Falta Pagar: R$ {dynamicRemaining.toFixed(2)}
+                </span>
+              ) : (
+                <span className="text-xs md:text-sm font-black italic uppercase text-center sm:text-right text-brand-green">
+                  Valor Total Selecionado
+                </span>
+              )
             ) : (
               <span className="text-xs md:text-sm font-black italic uppercase text-brand-green text-center sm:text-right">
                 {remainingAmount === 0 ? "Total Pago" : "Total Coberto"}

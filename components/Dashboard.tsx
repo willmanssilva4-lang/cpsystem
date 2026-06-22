@@ -415,7 +415,7 @@ export function Dashboard() {
       };
     })
     .sort((a, b) => b.profit - a.profit)
-    .slice(0, 3);
+    .slice(0, 4);
 
   return (
     <div className="space-y-8 p-6 md:p-8 relative bg-brand-bg/50 overflow-x-hidden max-w-full">
@@ -683,7 +683,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Grid: Sellers and Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
         {/* Top Products */}
         <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-6 md:p-8 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
@@ -695,7 +694,7 @@ export function Dashboard() {
                 </div>
                 <div>
                   <h3 className="text-base font-black uppercase italic tracking-tight text-brand-text-main">Ranking de Produtos</h3>
-                  <p className="text-[10px] font-bold text-brand-text-sec uppercase">Top 3 mais lucrativos do período</p>
+                  <p className="text-[10px] font-bold text-brand-text-sec uppercase">Top 4 mais lucrativos do período</p>
                 </div>
               </div>
               <a 
@@ -711,7 +710,8 @@ export function Dashboard() {
                 const medalColors = [
                   'bg-amber-400 text-amber-950 border-amber-300 shadow-amber-200/50', // Gold
                   'bg-slate-300 text-slate-800 border-slate-200 shadow-slate-100/50', // Silver
-                  'bg-amber-700 text-amber-50 border-amber-600 shadow-amber-800/10'   // Bronze
+                  'bg-amber-700 text-amber-50 border-amber-600 shadow-amber-800/10',  // Bronze
+                  'bg-slate-100 text-slate-600 border-slate-200'                      // 4th Place
                 ];
 
                 return (

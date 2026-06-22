@@ -19,7 +19,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { cn, getLocalDateString } from '@/lib/utils';
-import { Sale, Expense, StockMovement, CashMovement, Product } from '@/lib/types';
+import { Sale, Expense, StockMovement, CashMovement, Product, Return } from '@/lib/types';
 import { 
   AreaChart,
   Area,
@@ -39,6 +39,7 @@ interface FluxoCaixaProps {
   stockMovements: StockMovement[];
   cashMovements: CashMovement[];
   products: Product[];
+  returns?: Return[];
 }
 
 // Helper de cálculo robusto e unificado de taxas de vendas
@@ -81,7 +82,7 @@ const calculateSaleTax = (sale: any): number => {
   return totalTax;
 };
 
-export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements, products }: FluxoCaixaProps) {
+export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements, products, returns = [] }: FluxoCaixaProps) {
   const [days, setDays] = useState(30);
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -105,6 +106,31 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements, pro
     const isSameDay = (date1: string | Date, date2: Date) => {
       return getLocalDateString(date1) === getLocalDateString(date2);
     };
+
+    const isSaleActive = (s: any) => {
+      if (!s || !s.date) return false;
+
+      // Filter out returned/cancelled/reversed sales (matching Vendas por Período)
+      const isReturned = (returns || []).some(r => {
+        const rId = String(r.saleId || (r as any).sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      if (isReturned) return false;
+
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+        return false;
+      }
+      
+      const sType = (s.type || '').toLowerCase().trim();
+      if (cancelledStatuses.some(type => sType.includes(type))) {
+        return false;
+      }
+
+      return true;
+    };
     
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now.getTime());
@@ -113,7 +139,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements, pro
       const dateStr = d.toLocaleDateString('pt-BR');
 
       // Inflows (Entradas)
-      const salesOnDay = sales.filter(s => isSameDay(s.date, d));
+      const salesOnDay = sales.filter(s => isSaleActive(s) && isSameDay(s.date, d));
       const daySales = salesOnDay.reduce((acc, s) => acc + s.total, 0);
       
       const daySuprimentos = cashMovements
@@ -164,7 +190,7 @@ export function FluxoCaixa({ sales, expenses, stockMovements, cashMovements, pro
       });
     }
     return data;
-  }, [sales, expenses, cashMovements, days, now, productMap]);
+  }, [sales, expenses, cashMovements, returns, days, now, productMap]);
 
   const totals = useMemo(() => {
     return dailyData.reduce((acc, day) => ({
