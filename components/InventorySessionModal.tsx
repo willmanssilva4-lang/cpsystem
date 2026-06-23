@@ -26,7 +26,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [scanning, setScanning] = useState(false);
   const html5QrCode = useRef<Html5Qrcode | null>(null);
   const stepRef = useRef<InventoryStep>(step);
-  const sessionProductsRef = useRef<Product[]>(sessionProducts);
+  const sessionProductsRef = useRef<Product[]>([]);
 
   useEffect(() => {
     stepRef.current = step;
@@ -170,7 +170,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [showOnlyDivergences, setShowOnlyDivergences] = useState(false);
 
   const filteredProducts = sessionProducts.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()) || (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()));
     if (!matchesSearch) return false;
     
     if (showOnlyDivergences) {
