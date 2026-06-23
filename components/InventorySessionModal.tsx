@@ -77,7 +77,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           if (stepRef.current === 'counting') {
              const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
              if (product) {
-                setScanning(false);
                 setTimeout(() => {
                     document.getElementById('count-' + product.id)?.focus();
                 }, 200);
@@ -101,7 +100,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             if (stepRef.current === 'counting') {
                const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
                if (product) {
-                  setScanning(false);
                   setTimeout(() => {
                       document.getElementById('count-' + product.id)?.focus();
                   }, 200);
