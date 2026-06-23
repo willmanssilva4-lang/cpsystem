@@ -42,11 +42,40 @@ interface ProductDetailsProps {
 }
 
 export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
-  const { products, stockMovements, categorias, pricingSettings } = useERP();
+  const { products, stockMovements, categorias, subcategorias, departamentos, pricingSettings } = useERP();
   
   // Page logs pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
+
+  const getCodigoMercadologico = (product: Product) => {
+    if (product.codigo_mercadologico) return product.codigo_mercadologico;
+    
+    // Try subcategoria
+    if (product.subcategoria_id) {
+        const sub = subcategorias.find(s => String(s.id) === String(product.subcategoria_id));
+        if (sub) {
+            const cat = categorias.find(c => String(c.id) === String(sub.categoria_id));
+            const dep = cat ? departamentos.find(d => String(d.id) === String(cat.departamento_id)) : undefined;
+            
+            const parts = [dep?.codigo, cat?.codigo, sub?.codigo].filter(p => p !== undefined && p !== null && p !== '');
+            if (parts.length > 0) return parts.join('.');
+        } else {
+             console.log('DEBUG: Subcategoria não encontrada para ID:', product.subcategoria_id, 'Sub Name:', product.name);
+        }
+    }
+    
+    // Fallback to category_id
+    if (product.category_id) {
+        const cat = categorias.find(c => String(c.id) === String(product.category_id));
+        const dep = cat ? departamentos.find(d => String(d.id) === String(cat.departamento_id)) : undefined;
+        
+        const parts = [dep?.codigo, cat?.codigo].filter(p => p !== undefined && p !== null && p !== '');
+        if (parts.length > 0) return parts.join('.');
+    }
+    
+    return null;
+  };
 
   // Filter logs by type state
   const [movementTypeFilter, setMovementTypeFilter] = React.useState<'TODOS' | 'ENTRADA' | 'SAÍDA' | 'AJUSTE'>('TODOS');
@@ -178,6 +207,10 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <Briefcase size={12} className="text-slate-400" />
+                    <span>Cód. Mercadológico: <strong className="text-slate-650">{getCodigoMercadologico(product) || 'N/A'}</strong></span>
+                  </div>
                   <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
                     <Briefcase size={12} className="text-slate-400" />
                     <span>Categoria: <strong className="text-slate-650">{(() => {

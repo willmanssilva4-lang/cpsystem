@@ -358,14 +358,29 @@ function ProductsContent() {
 
   const getCodigoMercadologico = (product: Product) => {
     if (product.codigo_mercadologico) return product.codigo_mercadologico;
-    if (!product.subcategoria_id) return '';
-    const sub = subcategorias.find(s => s.id === product.subcategoria_id);
-    if (!sub) return '';
-    const cat = categorias.find(c => c.id === sub.categoria_id);
-    if (!cat) return sub.codigo || '';
-    const dep = departamentos.find(d => d.id === cat.departamento_id);
-    if (!dep) return `${cat.codigo || ''}.${sub.codigo || ''}`;
-    return `${dep.codigo || ''}.${cat.codigo || ''}.${sub.codigo || ''}`;
+    
+    // Try subcategoria first
+    if (product.subcategoria_id) {
+        const sub = subcategorias.find(s => String(s.id) === String(product.subcategoria_id));
+        if (sub) {
+            const cat = categorias.find(c => String(c.id) === String(sub.categoria_id));
+            const dep = cat ? departamentos.find(d => String(d.id) === String(cat.departamento_id)) : undefined;
+            
+            const parts = [dep?.codigo, cat?.codigo, sub?.codigo].filter(p => p !== undefined && p !== null && p !== '');
+            if (parts.length > 0) return parts.join('.');
+        }
+    }
+    
+    // Fallback to category_id
+    if (product.category_id) {
+        const cat = categorias.find(c => String(c.id) === String(product.category_id));
+        const dep = cat ? departamentos.find(d => String(d.id) === String(cat.departamento_id)) : undefined;
+        
+        const parts = [dep?.codigo, cat?.codigo].filter(p => p !== undefined && p !== null && p !== '');
+        if (parts.length > 0) return parts.join('.');
+    }
+    
+    return null;
   };
 
   const exportProducts = () => {

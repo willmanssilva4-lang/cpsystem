@@ -1,7 +1,7 @@
 {
   "name": "CPSystem",
   "description": "Sistema de Gestão ERP Profissional - PDV, Estoque e Financeiro",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

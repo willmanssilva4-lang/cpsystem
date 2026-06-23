@@ -246,9 +246,9 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      const baseQuery = (table: string) => {
+      const baseQuery = (table: string, skipCompanyFilter: boolean = false) => {
         let q = supabase.from(table).select('*');
-        if (targetCompanyId) {
+        if (targetCompanyId && !skipCompanyFilter) {
           // Standard company field is company_id
           q = q.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
         }
@@ -281,13 +281,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const results = await Promise.allSettled([
         fetchAllProducts(),
         baseQuery('suppliers'),
-        baseQuery('departamentos'),
-        baseQuery('categorias'),
-        baseQuery('subcategorias'),
+        baseQuery('departamentos', true),
+        baseQuery('categorias', true),
+        baseQuery('subcategorias', true),
         baseQuery('stock_movements').order('date', { ascending: false }).limit(5000),
         baseQuery('inventories'),
         baseQuery('maquininhas'),
-        baseQuery('payment_methods'),
+        baseQuery('payment_methods', true),
         baseQuery('advertisements'),
         baseQuery('customers').order('name'),
         baseQuery('sales').order('created_at', { ascending: false }).limit(2000),
@@ -492,7 +492,12 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       if (Array.isArray(depts_res)) setDepartamentos(depts_res);
       if (Array.isArray(cats_res)) setCategorias(cats_res);
-      if (Array.isArray(subs_res)) setSubcategorias(subs_res);
+      console.log('[DEBUG] Subs Result:', subs_res);
+      if (Array.isArray(subs_res)) {
+        setSubcategorias(subs_res);
+      } else {
+        console.log('[DEBUG] Subs Result is NOT an array!');
+      }
       if (Array.isArray(movs_res)) {
         setStockMovements(movs_res.map((m: any) => ({
           ...m,

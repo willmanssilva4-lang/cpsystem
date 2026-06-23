@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus } from 'lucide-react';
+import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus, Camera, CameraOff } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
 interface InventorySessionModalProps {
   onClose: () => void;
@@ -22,7 +23,9 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [expirations, setExpirations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [scanning, setScanning] = useState(false);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
   // Setup state
   const [config, setConfig] = useState({
     location: 'Loja Principal',
@@ -38,6 +41,34 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
 
   const rotativoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (scanning) {
+      const scanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        false
+      );
+      scanner.render((decodedText) => {
+        setSearch(decodedText);
+        setScanning(false);
+        scanner.clear();
+      }, (err) => {
+        console.warn(err);
+      });
+      scannerRef.current = scanner;
+    } else if (scannerRef.current) {
+        scannerRef.current.clear();
+        scannerRef.current = null;
+    }
+    
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+    };
+  }, [scanning]);
 
   const handleCloseRequest = () => {
     if (step === 'counting' || step === 'summary' || (step === 'setup' && selectedRotativoProducts.length > 0)) {
@@ -507,6 +538,15 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   />
                 </div>
                 <button
+                  onClick={() => setScanning(!scanning)}
+                  className={cn(
+                    "p-3 rounded-2xl border transition-all",
+                    scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-white text-slate-400 border-slate-200 hover:text-brand-blue"
+                  )}
+                >
+                  {scanning ? <CameraOff size={20} /> : <Camera size={20} />}
+                </button>
+                <button
                   onClick={() => setShowOnlyDivergences(!showOnlyDivergences)}
                   className={cn(
                     "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border",
@@ -518,6 +558,8 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   {showOnlyDivergences ? 'Mostrar Todos' : 'Só Divergências'}
                 </button>
               </div>
+
+              <div id="reader" className={cn("w-full max-w-sm mx-auto", scanning ? "block" : "hidden")}></div>
 
               <div className="flex items-center gap-8">
                 <div className="text-right">
