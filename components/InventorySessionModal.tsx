@@ -62,6 +62,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   useEffect(() => {
     if (scanning) {
+      lastScannedRef.current = '';
       const qrCode = new Html5Qrcode("reader");
       html5QrCode.current = qrCode;
 
@@ -76,6 +77,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           if (stepRef.current === 'counting') {
              const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
              if (product) {
+                setScanning(false);
                 setTimeout(() => {
                     document.getElementById('count-' + product.id)?.focus();
                 }, 200);
@@ -99,6 +101,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             if (stepRef.current === 'counting') {
                const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
                if (product) {
+                  setScanning(false);
                   setTimeout(() => {
                       document.getElementById('count-' + product.id)?.focus();
                   }, 200);
