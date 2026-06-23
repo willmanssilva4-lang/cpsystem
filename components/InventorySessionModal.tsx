@@ -112,7 +112,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         ).catch((err2) => {
             console.error("Scanner fallback error:", err2);
             setScanning(false); // Stop trying if both fail
-            if (err2.name === 'NotAllowedError') {
+            if (err2.name === 'NotAllowedError' || (err2.toString().includes('NotAllowedError'))) {
                 setScannerError('Permissão da câmera negada. Verifique as configurações do seu navegador e tente novamente.');
             } else {
                 setScannerError('Erro ao acessar a câmera. Tente novamente.');
