@@ -6,7 +6,7 @@ import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardL
 import { Product } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface InventorySessionModalProps {
   onClose: () => void;
@@ -24,7 +24,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [expirations, setExpirations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const html5QrCode = useRef<Html5Qrcode | null>(null);
 
   // Setup state
   const [config, setConfig] = useState({
@@ -44,28 +44,54 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   useEffect(() => {
     if (scanning) {
-      const scanner = new Html5QrcodeScanner(
-        "reader",
+      const qrCode = new Html5Qrcode("reader");
+      html5QrCode.current = qrCode;
+
+      // Try environment first without 'exact' to avoid OverconstrainedError on devices with only one camera
+      qrCode.start(
+        { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        false
-      );
-      scanner.render((decodedText) => {
-        setSearch(decodedText);
-        setScanning(false);
-        scanner.clear();
-      }, (err) => {
-        console.warn(err);
+        (decodedText) => {
+          setSearch(decodedText);
+          setScanning(false);
+          // Let cleanup handle the stop
+        },
+        (err) => {
+          // Suppress frequent scanning errors
+        }
+      ).catch((err) => {
+        console.error("Scanner start error:", err);
+        
+        // If it fails, try 'user' facing camera
+        qrCode.start(
+          { facingMode: "user" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            setSearch(decodedText);
+            setScanning(false);
+            // Let cleanup handle the stop
+          },
+          (err) => {
+            console.warn(err);
+          }
+        ).catch((err2) => {
+            console.error("Scanner fallback error:", err2);
+            setScanning(false); // Stop trying if both fail
+            if (err2.name === 'NotAllowedError') {
+                alert('Permissão da câmera negada. Por favor, permita o acesso para escanear.');
+            }
+        });
       });
-      scannerRef.current = scanner;
-    } else if (scannerRef.current) {
-        scannerRef.current.clear();
-        scannerRef.current = null;
+    } else if (html5QrCode.current && html5QrCode.current.isScanning) {
+        html5QrCode.current.stop().then(() => {
+            html5QrCode.current = null;
+        }).catch(console.error);
     }
     
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear();
-        scannerRef.current = null;
+      if (html5QrCode.current && html5QrCode.current.isScanning) {
+        html5QrCode.current.stop().catch(console.error);
+        html5QrCode.current = null;
       }
     };
   }, [scanning]);
@@ -261,14 +287,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
       <div 
         onKeyDown={handleKeyDownMove}
-        className="bg-white w-full max-w-5xl h-[90vh] rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+        className="bg-white w-full h-[90vh] sm:h-auto sm:max-h-[90vh] sm:max-w-5xl sm:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-slate-200"
       >
         
         {/* Header */}
-        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="p-4 sm:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-brand-blue flex items-center justify-center text-white shadow-lg shadow-brand-blue/20">
               <ClipboardList size={24} />
@@ -432,8 +458,18 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                               }
                             }
                           }}
-                          className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
+                          className="w-full pl-12 pr-16 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setScanning(!scanning)}
+                          className={cn(
+                            "absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl border transition-all",
+                            scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-slate-50 text-slate-400 border-slate-200 hover:text-brand-blue"
+                          )}
+                        >
+                          {scanning ? <CameraOff size={18} /> : <Camera size={18} />}
+                        </button>
                         {rotativoSearch && (
                           <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-10 max-h-48 overflow-y-auto">
                             {products
@@ -472,6 +508,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           </div>
                         )}
                       </div>
+                      <div id="reader" className={cn("w-full max-w-sm mx-auto my-4", scanning ? "block" : "hidden")}></div>
                     </div>
                     
                     {selectedRotativoProducts.length > 0 && (

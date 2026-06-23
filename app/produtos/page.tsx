@@ -937,7 +937,7 @@ function ProductsContent() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-brand-border gap-4 md:gap-8 overflow-x-auto no-scrollbar">
+      <div className="flex flex-col sm:flex-row border-b border-brand-border gap-2 sm:gap-8 overflow-x-auto no-scrollbar">
         {[
           { id: 'produtos', label: 'Produtos', icon: Package },
           { id: 'movimentacoes', label: 'Movimentações', icon: History },
@@ -949,7 +949,7 @@ function ProductsContent() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 py-4 border-b-2 transition-all font-black uppercase italic text-[10px] md:text-xs tracking-widest whitespace-nowrap",
+              "flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-all font-black uppercase italic text-[10px] md:text-xs tracking-widest whitespace-nowrap",
               activeTab === tab.id 
                 ? "border-brand-blue text-brand-blue" 
                 : "border-transparent text-brand-text-main/40 hover:text-brand-text-main/60"
