@@ -32,6 +32,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
   const [rotativoSearch, setRotativoSearch] = useState('');
   const [showRotativoWarning, setShowRotativoWarning] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
 
   const [config, setConfig] = useState({
     location: 'Loja Principal',
@@ -61,6 +62,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   useEffect(() => {
     if (scanning) {
+      setScannerError(null);
       const qrCode = new Html5Qrcode("reader");
       html5QrCode.current = qrCode;
 
@@ -69,9 +71,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
+          console.log("DEBUG: Scanned:", decodedText);
           setSearch(decodedText);
           if (stepRef.current === 'counting') {
              const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
+             console.log("DEBUG: Found product:", product);
              if (product) {
                 setTimeout(() => {
                     document.getElementById('count-' + product.id)?.focus();
@@ -90,9 +94,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           { facingMode: "user" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
+            console.log("DEBUG: Scanned (user):", decodedText);
             setSearch(decodedText);
             if (stepRef.current === 'counting') {
                const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
+               console.log("DEBUG: Found product (user):", product);
                if (product) {
                   setTimeout(() => {
                       document.getElementById('count-' + product.id)?.focus();
@@ -107,7 +113,9 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             console.error("Scanner fallback error:", err2);
             setScanning(false); // Stop trying if both fail
             if (err2.name === 'NotAllowedError') {
-                alert('Permissão da câmera negada. Por favor, permita o acesso para escanear.');
+                setScannerError('Permissão da câmera negada. Verifique as configurações do seu navegador e tente novamente.');
+            } else {
+                setScannerError('Erro ao acessar a câmera. Tente novamente.');
             }
         });
       });
@@ -491,7 +499,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                         />
                         <button
                           type="button"
-                          onClick={() => setScanning(!scanning)}
+                          onClick={() => {
+                            setScannerError(null);
+                            setScanning(!scanning);
+                          }}
                           className={cn(
                             "absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl border transition-all",
                             scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-slate-50 text-slate-400 border-slate-200 hover:text-brand-blue"
@@ -538,6 +549,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                         )}
                       </div>
                       <div id="reader" className={cn("w-full max-w-sm mx-auto my-4", scanning ? "block" : "hidden")}></div>
+                      {scannerError && (
+                        <div className="w-full max-w-sm mx-auto my-4 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-xs font-bold text-center">
+                          {scannerError}
+                        </div>
+                      )}
                     </div>
                     
                     {selectedRotativoProducts.length > 0 && (
@@ -604,7 +620,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   />
                 </div>
                 <button
-                  onClick={() => setScanning(!scanning)}
+                  onClick={() => {
+                    setScannerError(null);
+                    setScanning(!scanning);
+                  }}
                   className={cn(
                     "p-3 rounded-2xl border transition-all",
                     scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-white text-slate-400 border-slate-200 hover:text-brand-blue"
