@@ -32,7 +32,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
   const [rotativoSearch, setRotativoSearch] = useState('');
   const [showRotativoWarning, setShowRotativoWarning] = useState(false);
-  const lastScannedRef = useRef<string>('');
 
   const [config, setConfig] = useState({
     location: 'Loja Principal',
@@ -62,7 +61,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   useEffect(() => {
     if (scanning) {
-      lastScannedRef.current = '';
       const qrCode = new Html5Qrcode("reader");
       html5QrCode.current = qrCode;
 
@@ -71,8 +69,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
-          if (decodedText === lastScannedRef.current) return;
-          lastScannedRef.current = decodedText;
           setSearch(decodedText);
           if (stepRef.current === 'counting') {
              const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
@@ -94,8 +90,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           { facingMode: "user" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
-            if (decodedText === lastScannedRef.current) return;
-            lastScannedRef.current = decodedText;
             setSearch(decodedText);
             if (stepRef.current === 'counting') {
                const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
