@@ -28,15 +28,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const stepRef = useRef<InventoryStep>(step);
   const sessionProductsRef = useRef<Product[]>([]);
 
-  useEffect(() => {
-    stepRef.current = step;
-  }, [step]);
+  const [sessionProducts, setSessionProducts] = useState<Product[]>([]);
+  const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
+  const [rotativoSearch, setRotativoSearch] = useState('');
+  const [showRotativoWarning, setShowRotativoWarning] = useState(false);
 
-  useEffect(() => {
-    sessionProductsRef.current = sessionProducts;
-  }, [sessionProducts]);
-
-  // Setup state
   const [config, setConfig] = useState({
     location: 'Loja Principal',
     type: 'Geral' as InventoryType,
@@ -44,11 +40,22 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     responsible: user?.name || 'Sistema'
   });
 
-  const [sessionProducts, setSessionProducts] = useState<Product[]>([]);
-  const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
-  const [rotativoSearch, setRotativoSearch] = useState('');
-  const [showRotativoWarning, setShowRotativoWarning] = useState(false);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    sessionProductsRef.current = sessionProducts;
+  }, [sessionProducts]);
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const rotativoInputRef = useRef<HTMLInputElement>(null);
 
@@ -650,8 +657,9 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   const diff = physical - product.stock;
                   
                   return (
-                    <div key={product.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center gap-6">
-                      <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100 relative">
+                    <div key={product.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-center gap-4 md:gap-6">
+                      <div className="w-full flex items-center gap-4 md:w-auto">
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100 relative">
                         <Image 
                           src={product.image || 'https://picsum.photos/seed/placeholder/100'} 
                           alt={product.name} 
@@ -665,14 +673,15 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                         <h4 className="text-xs font-black text-slate-700 uppercase italic truncate">{product.name}</h4>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SKU: {product.sku}</p>
                       </div>
+                      </div>
 
-                      <div className="flex items-center gap-12">
+                      <div className="w-full grid grid-cols-4 gap-2 md:flex md:items-center md:gap-12">
                         <div className="text-center">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sistema</p>
                           <p className="text-sm font-black text-slate-600">{product.stock} {product.unit || 'un'}</p>
                         </div>
 
-                        <div className="w-36">
+                        <div className="col-span-1">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Validade</p>
                           <input 
                             type="date"
@@ -682,8 +691,8 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           />
                         </div>
 
-                        <div className="w-32">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Contagem Física</p>
+                        <div className="col-span-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Contagem</p>
                           <input 
                             type="number"
                             id={`count-${product.id}`}
@@ -693,7 +702,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           />
                         </div>
 
-                        <div className="w-24 text-center">
+                        <div className="col-span-1 text-center">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diferença</p>
                           <p className={cn(
                             "text-sm font-black",
