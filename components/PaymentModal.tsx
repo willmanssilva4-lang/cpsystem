@@ -23,14 +23,14 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const activeMethods = [
     ...paymentMethods.filter(m => m.active).map(m => {
       let inferredType = m.type;
-      if (!inferredType && m.name) {
+      if ((!inferredType || inferredType === 'Dinheiro' || inferredType === 'Outros') && m.name) {
         const upperName = m.name.toUpperCase();
-        if (upperName === 'CRÉDITO' || upperName === 'CREDITO') inferredType = 'Crédito';
-        else if (upperName === 'DÉBITO' || upperName === 'DEBITO') inferredType = 'Débito';
-        else if (upperName === 'PIX') inferredType = 'Pix';
-        else if (upperName === 'DINHEIRO') inferredType = 'Dinheiro';
-        else if (upperName === 'FIADO') inferredType = 'Fiado';
-        else if (upperName === 'VOUCHER' || upperName === 'VALE-LOJA' || upperName === 'VALE CRÉDITO') inferredType = 'Voucher';
+        if (upperName === 'CRÉDITO' || upperName === 'CREDITO' || upperName.includes('CRÉDITO') || upperName.includes('CREDITO')) inferredType = 'Crédito';
+        else if (upperName === 'DÉBITO' || upperName === 'DEBITO' || upperName.includes('DÉBITO') || upperName.includes('DEBITO')) inferredType = 'Débito';
+        else if (upperName === 'PIX' || upperName.includes('PIX')) inferredType = 'Pix';
+        else if (upperName === 'DINHEIRO' || upperName.includes('DINHEIRO')) inferredType = 'Dinheiro';
+        else if (upperName === 'FIADO' || upperName.includes('FIADO') || upperName.includes('CREDIAR') || upperName.includes('PRAZO')) inferredType = 'Fiado';
+        else if (upperName === 'VOUCHER' || upperName === 'VALE-LOJA' || upperName === 'VALE CRÉDITO' || upperName.includes('VOUCHER')) inferredType = 'Voucher';
       }
       return {
         ...m,
@@ -75,7 +75,7 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
   const dynamicRemaining = Math.max(0, Math.round((remainingAmount - (receivedAmount || 0)) * 100) / 100);
 
   const selectedMethodObj = activeMethods.find(m => m.name === activeMethod);
-  const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito' || selectedMethodObj?.type === 'Pix';
+  const isCard = selectedMethodObj?.type === 'Crédito' || selectedMethodObj?.type === 'Débito' || selectedMethodObj?.type === 'Pix' || activeMethod?.toUpperCase() === 'CRÉDITO' || activeMethod?.toUpperCase() === 'CREDITO' || activeMethod?.toUpperCase() === 'DÉBITO' || activeMethod?.toUpperCase() === 'DEBITO' || activeMethod?.toUpperCase() === 'PIX';
   const isVoucher = selectedMethodObj?.type === 'Voucher' || activeMethod === 'Voucher';
 
   useEffect(() => {

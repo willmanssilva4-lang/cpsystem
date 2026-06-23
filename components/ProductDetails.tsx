@@ -68,7 +68,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
     return movements.filter(m => {
       if (movementTypeFilter === 'TODOS') return true;
       if (movementTypeFilter === 'ENTRADA') return m.type === 'ENTRADA' || m.type === 'COMPRA';
-      if (movementTypeFilter === 'SAÍDA') return m.type === 'SAÍDA' || m.type === 'VENDA';
+      if (movementTypeFilter === 'SAÍDA') return ['SAÍDA', 'SAIDA', 'VENDA', 'PERDA'].includes((m.type || '').toUpperCase());
       if (movementTypeFilter === 'AJUSTE') return m.type === 'AJUSTE';
       return true;
     });
@@ -96,7 +96,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
     
     const exits = movements
       .filter(m => {
-        const isExit = m.type?.toUpperCase() === 'SAÍDA' || m.type?.toUpperCase() === 'VENDA';
+        const isExit = ['SAÍDA', 'SAIDA', 'VENDA', 'PERDA'].includes((m.type || '').toUpperCase()) || m.quantity < 0;
         if (isExit) console.log(`[DEBUG_STATS] Movement matching exit:`, m);
         return isExit;
       })
@@ -713,7 +713,7 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                               "inline-flex items-center px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border",
                               mov.type === 'ENTRADA' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
                               mov.type === 'COMPRA' ? "bg-indigo-50 text-indigo-600 border-indigo-100" : 
-                              mov.type === 'SAÍDA' ? "bg-rose-50 text-rose-600 border-rose-100" : 
+                              ['SAÍDA', 'SAIDA', 'VENDA', 'PERDA'].includes((mov.type || '').toUpperCase()) ? "bg-rose-50 text-rose-600 border-rose-100" : 
                               "bg-amber-50 text-amber-600 border-amber-100"
                             )}>
                               {mov.type}
@@ -723,12 +723,18 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                             <p className="text-xs font-black text-slate-650 uppercase italic tracking-tight">{mov.origin}</p>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <span className={cn(
-                              "text-xs font-black italic font-mono",
-                              mov.quantity > 0 ? "text-emerald-500" : "text-rose-550"
-                            )}>
-                              {mov.quantity > 0 ? `+${mov.quantity}` : `${mov.quantity}`} {product.unit || 'UN'}
-                            </span>
+                            {(() => {
+                              const isExit = ['SAÍDA', 'SAIDA', 'VENDA', 'PERDA'].includes((mov.type || '').toUpperCase()) || mov.quantity < 0;
+                              const absQty = Math.abs(mov.quantity);
+                              return (
+                                <span className={cn(
+                                  "text-xs font-black italic font-mono",
+                                  !isExit ? "text-emerald-500" : "text-rose-550"
+                                )}>
+                                  {!isExit ? `+${absQty}` : `-${absQty}`} {product.unit || 'UN'}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2 text-slate-400">

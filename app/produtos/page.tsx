@@ -1463,17 +1463,22 @@ function ProductsContent() {
                           <span className={cn(
                             "px-2 py-1 rounded-lg text-[10px] font-black uppercase italic",
                             mov.type === 'ENTRADA' ? "bg-emerald-100 text-emerald-600" : 
-                            mov.type === 'SAÍDA' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                            ['SAÍDA', 'SAIDA', 'VENDA', 'PERDA'].includes((mov.type || '').toUpperCase()) ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
                           )}>
                             {mov.type}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-xs font-bold text-slate-500">{mov.origin}</td>
-                        <td className={cn(
-                          "px-6 py-4 text-xs font-black text-center",
-                          mov.quantity > 0 ? "text-emerald-500" : "text-rose-500"
-                        )}>
-                          {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
+                        <td className="px-6 py-4 text-xs font-black text-center">
+                          {(() => {
+                            const isExit = ['SAÍDA', 'SAIDA', 'VENDA', 'PERDA'].includes((mov.type || '').toUpperCase()) || mov.quantity < 0;
+                            const absQty = Math.abs(mov.quantity);
+                            return (
+                              <span className={!isExit ? "text-emerald-500" : "text-rose-500"}>
+                                {!isExit ? `+${absQty}` : `-${absQty}`}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 text-xs font-bold text-slate-400">{mov.userName || mov.userId}</td>
                       </tr>

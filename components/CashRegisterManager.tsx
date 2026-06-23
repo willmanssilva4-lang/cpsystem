@@ -125,7 +125,7 @@ export function CashRegisterManager({
       if (normName === 'credito' || normName === 'cartao de credito' || normName === 'credit' || normName === 'card' || normName === 'cartao') return 'Crédito';
       if (normName === 'debito' || normName === 'cartao de debito' || normName === 'debit') return 'Débito';
       if (normName === 'voucher' || normName === 'vale' || normName === 'vale credito' || normName === 'vale-credito' || normName === 'cupom') return 'Voucher';
-      if (normName === 'fiado' || normName === 'prazo' || normName === 'conta assinada' || normName === 'caderneta') return 'Fiado';
+      if (normName === 'fiado' || normName === 'prazo' || normName === 'conta assinada' || normName === 'caderneta' || normName === 'crediario' || normName === 'crediário') return 'Fiado';
 
       // Fallback check on normalized type
       if (normType === 'dinheiro') return 'Dinheiro';
@@ -141,7 +141,7 @@ export function CashRegisterManager({
       if (normName.includes('credito') || normName.includes('credit')) return 'Crédito';
       if (normName.includes('debito') || normName.includes('debit')) return 'Débito';
       if (normName.includes('voucher') || normName.includes('vale') || normName.includes('cupom')) return 'Voucher';
-      if (normName.includes('fiado') || normName.includes('prazo') || normName.includes('conta ass') || normName.includes('caderneta') || normName.includes('assina')) return 'Fiado';
+      if (normName.includes('fiado') || normName.includes('prazo') || normName.includes('conta ass') || normName.includes('caderneta') || normName.includes('assina') || normName.includes('crediar')) return 'Fiado';
 
       return 'Dinheiro'; // Standard fallback
     };

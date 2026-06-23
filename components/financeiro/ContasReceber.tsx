@@ -7,25 +7,54 @@ import { Sale, Customer } from '@/lib/types';
 import { useERP } from '@/lib/context';
 
 export function ContasReceber({ sales, customers }: { sales: Sale[], customers: Customer[] }) {
-  const { updateSale, addCashMovement, cashRegisters } = useERP();
+  const { updateSale, addCashMovement, cashRegisters, paymentMethods } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'received'>('pending');
   
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  const isFiadoMethod = (methodName: string) => {
+    if (!methodName) return false;
+    const norm = methodName.toLowerCase();
+    // Check local database payment method types
+    const foundDbMethod = paymentMethods?.find(pm => pm.name?.toLowerCase() === norm);
+    if (foundDbMethod && foundDbMethod.type?.toLowerCase() === 'fiado') {
+      return true;
+    }
+    return (
+      norm === 'fiado' ||
+      norm === 'crediario' ||
+      norm === 'crediário' ||
+      norm === 'prazo' ||
+      norm === 'conta assinada' ||
+      norm === 'caderneta' ||
+      norm.includes('fiado') ||
+      norm.includes('crediar') ||
+      norm.includes('prazo') ||
+      norm.includes('conta ass') ||
+      norm.includes('caderneta') ||
+      norm.includes('assina')
+    );
+  };
+
   const receivables = useMemo(() => {
-    // In this simplified model, we consider 'Fiado' sales as receivables
-    // We can use a custom property or just the paymentMethod
+    // We consider 'Fiado' and equivalent payment methods (like CREDIARIO) with identified customers as receivables
     return sales
-      .filter(s => s.paymentMethod === 'Fiado')
+      .filter(s => {
+        if (!s.customerId) return false;
+        const isMainFiado = s.paymentMethod && isFiadoMethod(s.paymentMethod);
+        const hasFiadoPart = s.payments && s.payments.some((p: any) => isFiadoMethod(p.method));
+        return isMainFiado || hasFiadoPart;
+      })
       .map(s => {
         const customer = customers.find(c => c.id === s.customerId);
         return {
           ...s,
           customerName: customer?.name || 'Cliente não identificado',
-          // For now, let's assume if it's in sales it's "pending" if it was fiado
-          // In a real app we'd have a 'paid' flag on the sale or a linked payment
-          status: s.netAmount && s.netAmount >= s.total ? 'Recebido' : 'Pendente'
+          // If the sale is active but paymentMethod is changed to paid/Dinheiro, it is 'Recebido'
+          status: (s.paymentMethod && !isFiadoMethod(s.paymentMethod) && (!s.payments || !s.payments.some((p: any) => isFiadoMethod(p.method))))
+            ? 'Recebido' 
+            : 'Pendente'
         };
       })
       .filter(r => {
@@ -37,7 +66,7 @@ export function ContasReceber({ sales, customers }: { sales: Sale[], customers: 
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, customers, searchTerm, statusFilter]);
+  }, [sales, customers, searchTerm, statusFilter, paymentMethods]);
 
   const handleReceive = async (sale: any) => {
     const openRegister = cashRegisters.find(r => r.status === 'open');
@@ -47,10 +76,19 @@ export function ContasReceber({ sales, customers }: { sales: Sale[], customers: 
     }
 
     if (confirm(`Confirmar recebimento de ${formatCurrency(sale.total)} de ${sale.customerName}?`)) {
+      // Update subpayments so they don't trigger isFiadoMethod either
+      const updatedPayments = sale.payments?.map((p: any) => {
+        if (isFiadoMethod(p.method)) {
+          return { ...p, method: 'Dinheiro' };
+        }
+        return p;
+      }) || [];
+
       // Update sale to mark as paid
       await updateSale({ 
         ...sale, 
-        paymentMethod: 'Dinheiro' // Change from 'Fiado' to 'Dinheiro' to mark as paid
+        paymentMethod: 'Dinheiro', // Change from 'Fiado' / 'CREDIARIO' to 'Dinheiro' to mark as paid
+        payments: updatedPayments
       });
 
       // Add cash movement

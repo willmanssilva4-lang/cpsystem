@@ -512,15 +512,27 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
       if (Array.isArray(maqs_res)) setMaquininhas(maqs_res);
       if (Array.isArray(pays_res)) {
-        setPaymentMethods(pays_res.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          type: p.type || 'Dinheiro',
-          active: p.active,
-          taxPercentage: p.tax_percentage ?? p.taxPercentage ?? 0,
-          taxFixed: p.tax_value ?? p.tax_fixed ?? p.taxFixed ?? 0,
-          companyId: p.companyId ?? p.company_id ?? null
-        })));
+        setPaymentMethods(pays_res.map((p: any) => {
+          let infType = p.type;
+          if (!infType && p.name) {
+            const up = p.name.toUpperCase();
+            if (up === 'CRÉDITO' || up === 'CREDITO' || up.includes('CRÉDITO') || up.includes('CREDITO')) infType = 'Crédito';
+            else if (up === 'DÉBITO' || up === 'DEBITO' || up.includes('DÉBITO') || up.includes('DEBITO')) infType = 'Débito';
+            else if (up === 'PIX' || up.includes('PIX')) infType = 'Pix';
+            else if (up === 'DINHEIRO' || up.includes('DINHEIRO')) infType = 'Dinheiro';
+            else if (up.includes('FIADO') || up.includes('CREDIAR') || up.includes('PRAZO')) infType = 'Fiado';
+            else if (up.includes('VOUCHER') || up.includes('VALE') || up.includes('CUPOM')) infType = 'Voucher';
+          }
+          return {
+            id: p.id,
+            name: p.name,
+            type: infType || 'Dinheiro',
+            active: p.active,
+            taxPercentage: p.tax_percentage ?? p.taxPercentage ?? 0,
+            taxFixed: p.tax_value ?? p.tax_fixed ?? p.taxFixed ?? 0,
+            companyId: p.companyId ?? p.company_id ?? null
+          };
+        }));
       }
       if (Array.isArray(ads_res)) setAdvertisements(ads_res);
       if (Array.isArray(custs_res)) {

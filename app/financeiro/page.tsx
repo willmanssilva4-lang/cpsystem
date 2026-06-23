@@ -93,7 +93,7 @@ const calculateSaleTax = (sale: any): number => {
 };
 
 export default function FinancePage() {
-  const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns, maquininhas } = useERP();
+  const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns, maquininhas, paymentMethods } = useERP();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'despesas' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
 
   useEffect(() => {
@@ -282,8 +282,39 @@ export default function FinancePage() {
     const aPagarHoje = naoPagas.filter(e => getLocalDateString(e.dueDate || e.date) === todayStr);
     const vencidas = naoPagas.filter(e => e.status === 'Vencido' || getLocalDateString(e.dueDate || e.date) < todayStr);
     
+    const isFiadoMethod = (methodName: string) => {
+      if (!methodName) return false;
+      const norm = methodName.toLowerCase();
+      const foundDbMethod = paymentMethods?.find(pm => pm.name?.toLowerCase() === norm);
+      if (foundDbMethod && foundDbMethod.type?.toLowerCase() === 'fiado') {
+        return true;
+      }
+      return (
+        norm === 'fiado' ||
+        norm === 'crediario' ||
+        norm === 'crediário' ||
+        norm === 'prazo' ||
+        norm === 'conta assinada' ||
+        norm === 'caderneta' ||
+        norm.includes('fiado') ||
+        norm.includes('crediar') ||
+        norm.includes('prazo') ||
+        norm.includes('conta ass') ||
+        norm.includes('caderneta') ||
+        norm.includes('assina')
+      );
+    };
+
     // Simulando contas a receber com vendas "Fiado" não pagas (simplificação)
-    const aReceberHoje = sales.filter(s => isSaleActive(s) && s.paymentMethod === 'Fiado' && getLocalDateString(s.date) === todayStr);
+    const aReceberHoje = sales.filter(s => {
+      if (!isSaleActive(s)) return false;
+      if (!s.customerId) return false; // Must be identified to be a receivable
+      if (getLocalDateString(s.date) !== todayStr) return false;
+      
+      const isMainFiado = s.paymentMethod && isFiadoMethod(s.paymentMethod);
+      const hasFiadoPart = s.payments && s.payments.some((p: any) => isFiadoMethod(p.method));
+      return isMainFiado || hasFiadoPart;
+    });
 
     return {
       aPagarHoje: aPagarHoje.reduce((acc, e) => acc + e.amount, 0),
@@ -293,7 +324,7 @@ export default function FinancePage() {
       aReceberHoje: aReceberHoje.reduce((acc, s) => acc + s.total, 0),
       aReceberHojeList: aReceberHoje
     };
-  }, [expenses, sales, isSaleActive]);
+  }, [expenses, sales, isSaleActive, paymentMethods]);
 
   // --- 4. Movimentações Financeiras Recentes ---
   const transactions = useMemo(() => {
