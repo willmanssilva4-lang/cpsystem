@@ -25,6 +25,16 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [isSaving, setIsSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const html5QrCode = useRef<Html5Qrcode | null>(null);
+  const stepRef = useRef<InventoryStep>(step);
+  const sessionProductsRef = useRef<Product[]>(sessionProducts);
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    sessionProductsRef.current = sessionProducts;
+  }, [sessionProducts]);
 
   // Setup state
   const [config, setConfig] = useState({
@@ -54,7 +64,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         (decodedText) => {
           setSearch(decodedText);
           setScanning(false);
-          // Let cleanup handle the stop
+          if (stepRef.current === 'counting') {
+             const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
+             if (product) {
+                setTimeout(() => {
+                    document.getElementById('count-' + product.id)?.focus();
+                }, 200);
+             }
+          }
         },
         (err) => {
           // Suppress frequent scanning errors
@@ -69,7 +86,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           (decodedText) => {
             setSearch(decodedText);
             setScanning(false);
-            // Let cleanup handle the stop
+            if (stepRef.current === 'counting') {
+               const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
+               if (product) {
+                  setTimeout(() => {
+                      document.getElementById('count-' + product.id)?.focus();
+                  }, 200);
+               }
+            }
           },
           (err) => {
             console.warn(err);
@@ -662,6 +686,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Contagem Física</p>
                           <input 
                             type="number"
+                            id={`count-${product.id}`}
                             value={counts[product.id] ?? ''}
                             onChange={(e) => handleCountChange(product.id, e.target.value)}
                             className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center font-black text-slate-700 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all"
