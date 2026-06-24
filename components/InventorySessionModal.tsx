@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus, Camera, CameraOff } from 'lucide-react';
+import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus, Camera, CameraOff, Check } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -825,37 +825,65 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
                         <div className="col-span-1 bg-slate-50/50 p-2 rounded-2xl md:bg-transparent md:p-0">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Contagem</p>
-                          <div className="flex items-center justify-between bg-white md:bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/5 transition-all">
-                            <button 
-                              type="button"
-                              tabIndex={-1}
-                              onClick={() => {
-                                const current = counts[product.id] ?? product.stock;
-                                handleCountChange(product.id, String(Math.max(0, current - 1)));
-                              }}
-                              className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
-                            >
-                              -
-                            </button>
-                            <input 
-                              type="number"
-                              inputMode="numeric"
-                              id={`count-${product.id}`}
-                              value={counts[product.id] ?? ''}
-                              onChange={(e) => handleCountChange(product.id, e.target.value)}
-                              className="w-full bg-transparent border-0 px-1 py-2 text-center font-black text-slate-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-base md:text-sm"
-                            />
-                            <button 
-                              type="button"
-                              tabIndex={-1}
-                              onClick={() => {
-                                const current = counts[product.id] ?? product.stock;
-                                handleCountChange(product.id, String(current + 1));
-                              }}
-                              className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
-                            >
-                              +
-                            </button>
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex-1 flex items-center justify-between bg-white md:bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/5 transition-all">
+                              <button 
+                                type="button"
+                                tabIndex={-1}
+                                onClick={() => {
+                                  const current = counts[product.id] ?? product.stock;
+                                  handleCountChange(product.id, String(Math.max(0, current - 1)));
+                                }}
+                                className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
+                              >
+                                -
+                              </button>
+                              <input 
+                                type="number"
+                                inputMode="numeric"
+                                id={`count-${product.id}`}
+                                value={counts[product.id] ?? ''}
+                                onChange={(e) => handleCountChange(product.id, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    setSearch('');
+                                    setTimeout(() => {
+                                      searchInputRef.current?.focus();
+                                      searchInputRef.current?.select?.();
+                                    }, 50);
+                                  }
+                                }}
+                                className="w-full bg-transparent border-0 px-1 py-2 text-center font-black text-slate-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-base md:text-sm"
+                              />
+                              <button 
+                                type="button"
+                                tabIndex={-1}
+                                onClick={() => {
+                                  const current = counts[product.id] ?? product.stock;
+                                  handleCountChange(product.id, String(current + 1));
+                                }}
+                                className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
+                              >
+                                +
+                              </button>
+                            </div>
+                            {isQuickMode && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearch('');
+                                  setTimeout(() => {
+                                    searchInputRef.current?.focus();
+                                    searchInputRef.current?.select?.();
+                                  }, 50);
+                                }}
+                                className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer active:scale-95"
+                                title="Confirmar e voltar para a busca"
+                              >
+                                <Check size={18} className="stroke-[3]" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
