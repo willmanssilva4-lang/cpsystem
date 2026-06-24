@@ -20,7 +20,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const { products, addInventory, addStockMovement, updateProduct, user, subcategorias, categorias, fetchData, hasPermission, departamentos } = useERP();
   const [step, setStep] = useState<InventoryStep>('setup');
   const [search, setSearch] = useState('');
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Record<string, number | ''>>({});
   const [expirations, setExpirations] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -31,7 +31,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [sessionProducts, setSessionProducts] = useState<Product[]>([]);
   const [selectedRotativoProducts, setSelectedRotativoProducts] = useState<Product[]>([]);
   const [rotativoSearch, setRotativoSearch] = useState('');
-  const [showRotativoWarning, setShowRotativoWarning] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
 
   const [isQuickMode, setIsQuickMode] = useState(true);
@@ -54,29 +53,65 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     }
   }, [step]);
 
-  const handleSearchSubmit = (queryText: string) => {
+  const handleSearchSubmit = (queryText: string): boolean => {
     const query = queryText.trim().toLowerCase();
     if (!query) return false;
 
-    // Find in session products (exact EAN, SKU, or name)
-    const match = sessionProductsRef.current.find(p => 
+    // 1. Look in current session products
+    let match = sessionProductsRef.current.find(p => 
       (p.barcode && p.barcode.toLowerCase() === query) ||
       (p.sku && p.sku.toLowerCase() === query) ||
       (p.name.toLowerCase() === query)
     );
 
+    // 2. If not found in current session products, lookup globally to add dynamically (Rotative style!)
+    if (!match) {
+      const globalMatch = products.find(p => 
+        (p.barcode && p.barcode.toLowerCase() === query) ||
+        (p.sku && p.sku.toLowerCase() === query) ||
+        (p.name.toLowerCase() === query)
+      );
+      if (globalMatch) {
+        match = globalMatch;
+        // Dynamically add to session products
+        setSessionProducts(prev => {
+          if (!prev.some(p => p.id === globalMatch.id)) {
+            const updated = [...prev, globalMatch];
+            updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+            return updated;
+          }
+          return prev;
+        });
+        // Set initial state
+        setCounts(prev => {
+          if (prev[globalMatch.id] === undefined) {
+            return { ...prev, [globalMatch.id]: globalMatch.stock };
+          }
+          return prev;
+        });
+        setExpirations(prev => {
+          if (prev[globalMatch.id] === undefined) {
+            return { ...prev, [globalMatch.id]: globalMatch.validade || '' };
+          }
+          return prev;
+        });
+      }
+    }
+
     if (match) {
+      setSearch('');
+      const targetId = match.id;
       setTimeout(() => {
-        const input = document.getElementById('count-' + match.id) as HTMLInputElement;
+        const input = document.getElementById('count-' + targetId) as HTMLInputElement;
         if (input) {
           input.focus();
           input.select?.();
         }
-      }, 50);
+      }, 100);
       return true;
     }
 
-    // Fallback: if only one product is filtered
+    // 3. Fallback: partial match in session products if only one fits
     const filtered = sessionProductsRef.current.filter(p => 
       p.name.toLowerCase().includes(query) || 
       p.sku.toLowerCase().includes(query) || 
@@ -85,6 +120,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
     if (filtered.length === 1) {
       const singleMatch = filtered[0];
+      setSearch('');
       setTimeout(() => {
         const input = document.getElementById('count-' + singleMatch.id) as HTMLInputElement;
         if (input) {
@@ -92,6 +128,49 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           input.select?.();
         }
       }, 50);
+      return true;
+    }
+
+    // 4. Fallback: partial match in global products if only one fits
+    const globalFiltered = products.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      p.sku.toLowerCase().includes(query) || 
+      (p.barcode && p.barcode.toLowerCase().includes(query))
+    );
+
+    if (globalFiltered.length === 1) {
+      const singleMatch = globalFiltered[0];
+      // Dynamically add to session products
+      setSessionProducts(prev => {
+        if (!prev.some(p => p.id === singleMatch.id)) {
+          const updated = [...prev, singleMatch];
+          updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+          return updated;
+        }
+        return prev;
+      });
+      // Set initial state
+      setCounts(prev => {
+        if (prev[singleMatch.id] === undefined) {
+          return { ...prev, [singleMatch.id]: singleMatch.stock };
+        }
+        return prev;
+      });
+      setExpirations(prev => {
+        if (prev[singleMatch.id] === undefined) {
+          return { ...prev, [singleMatch.id]: singleMatch.validade || '' };
+        }
+        return prev;
+      });
+
+      setSearch('');
+      setTimeout(() => {
+        const input = document.getElementById('count-' + singleMatch.id) as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.select?.();
+        }
+      }, 100);
       return true;
     }
 
@@ -127,13 +206,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           console.log("DEBUG: Scanned:", decodedText, "Current Step:", stepRef.current, "Products count:", sessionProductsRef.current.length);
           setSearch(decodedText);
           if (stepRef.current === 'counting') {
-             const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
-             console.log("DEBUG: Found product:", product);
-             if (product) {
-                setTimeout(() => {
-                    document.getElementById('count-' + product.id)?.focus();
-                }, 200);
-             }
+             handleSearchSubmit(decodedText);
           }
         },
         (err) => {
@@ -150,13 +223,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             console.log("DEBUG: Scanned (user):", decodedText, "Current Step:", stepRef.current, "Products count:", sessionProductsRef.current.length);
             setSearch(decodedText);
             if (stepRef.current === 'counting') {
-               const product = sessionProductsRef.current.find(p => (p.barcode && p.barcode === decodedText) || (p.sku && p.sku === decodedText));
-               console.log("DEBUG: Found product (user):", product);
-               if (product) {
-                  setTimeout(() => {
-                      document.getElementById('count-' + product.id)?.focus();
-                  }, 200);
-               }
+               handleSearchSubmit(decodedText);
             }
           },
           (err) => {
@@ -210,10 +277,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       const subIds = subcategorias.filter(s => catIds.includes(s.categoria_id)).map(s => s.id);
       filtered = filtered.filter(p => p.subcategoria_id && subIds.includes(p.subcategoria_id));
     } else if (config.type === 'Rotativo') {
-      if (selectedRotativoProducts.length === 0) {
-        setShowRotativoWarning(true);
-        return;
-      }
       filtered = [...selectedRotativoProducts];
     }
 
@@ -222,7 +285,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
     setSessionProducts(filtered);
     
-    const initialCounts: Record<string, number> = {};
+    const initialCounts: Record<string, number | ''> = {};
     const initialExpirations: Record<string, string> = {};
     filtered.forEach(p => {
       initialCounts[p.id] = p.stock;
@@ -240,7 +303,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     if (!matchesSearch) return false;
     
     if (showOnlyDivergences) {
-      const physical = counts[p.id] ?? p.stock;
+      const physical = (counts[p.id] === undefined || counts[p.id] === '') ? p.stock : Number(counts[p.id]);
       return physical !== p.stock;
     }
     
@@ -252,8 +315,12 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       alert('Você não tem permissão para editar inventário.');
       return;
     }
-    const numValue = parseInt(value) || 0;
-    setCounts(prev => ({ ...prev, [productId]: numValue }));
+    if (value === '') {
+      setCounts(prev => ({ ...prev, [productId]: '' }));
+      return;
+    }
+    const numValue = parseInt(value);
+    setCounts(prev => ({ ...prev, [productId]: isNaN(numValue) ? '' : numValue }));
   };
 
   const handleExpirationChange = (productId: string, value: string) => {
@@ -270,7 +337,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     let itemsWithDivergence = 0;
 
     sessionProducts.forEach(p => {
-      const physical = counts[p.id] ?? p.stock;
+      const physical = (counts[p.id] === undefined || counts[p.id] === '') ? p.stock : Number(counts[p.id]);
       if (physical !== p.stock) {
         const diff = physical - p.stock;
         const cost = typeof p.costPrice === 'number' && !isNaN(p.costPrice) ? p.costPrice : 0;
@@ -310,7 +377,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
       // 2. Create Stock Movements for divergences and update validades
       for (const p of sessionProducts) {
-        const physical = counts[p.id] ?? p.stock;
+        const physical = (counts[p.id] === undefined || counts[p.id] === '') ? p.stock : Number(counts[p.id]);
         const currentValidade = expirations[p.id] || '';
         
         const stockChanged = physical !== p.stock;
@@ -462,9 +529,18 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
                 {config.type === 'Rotativo' && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                      <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                        <span className="text-brand-blue font-black">Inventário Rotativo:</span> Você pode clicar diretamente em <strong>Iniciar Contagem</strong> e adicionar os produtos um a um à medida que bipar/pesquisar por eles.
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1">
+                        (Opcional): Se preferir, pesquise ou bipe abaixo para montar uma lista prévia antes de iniciar.
+                      </p>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                        Adicionar Produtos
+                        Adicionar Produtos Prévios (Opcional)
                         <span className="text-[9px] lowercase font-semibold text-brand-blue">(bipar código ou pesquisar)</span>
                       </label>
                       <div className="relative">
@@ -659,7 +735,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
               </div>
 
               <button 
-                onClick={handleStartSession}
+                onClick={() => handleStartSession()}
                 className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white py-5 rounded-[24px] font-black uppercase italic tracking-widest shadow-xl shadow-brand-blue/20 transition-all active:scale-95 flex items-center justify-center gap-3"
               >
                 Iniciar Contagem
@@ -685,20 +761,8 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     onChange={(e) => {
                       const val = e.target.value;
                       setSearch(val);
-                      if (isQuickMode && val.trim().length >= 6) {
-                        const matched = sessionProductsRef.current.find(p => 
-                          (p.barcode && p.barcode.toLowerCase() === val.trim().toLowerCase()) ||
-                          (p.sku && p.sku.toLowerCase() === val.trim().toLowerCase())
-                        );
-                        if (matched) {
-                          setTimeout(() => {
-                            const input = document.getElementById('count-' + matched.id) as HTMLInputElement;
-                            if (input) {
-                              input.focus();
-                              input.select?.();
-                            }
-                          }, 50);
-                        }
+                      if (isQuickMode && val.trim().length >= 4) {
+                        handleSearchSubmit(val);
                       }
                     }}
                     onKeyDown={(e) => {
@@ -784,7 +848,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
               <div className="grid grid-cols-1 gap-4">
                 {filteredProducts.map(product => {
-                  const physical = counts[product.id] ?? product.stock;
+                  const physical = (counts[product.id] === undefined || counts[product.id] === '') ? product.stock : Number(counts[product.id]);
                   const diff = physical - product.stock;
                   
                   return (
@@ -826,48 +890,26 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                         <div className="col-span-1 bg-slate-50/50 p-2 rounded-2xl md:bg-transparent md:p-0">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Contagem</p>
                           <div className="flex items-center gap-1.5">
-                            <div className="flex-1 flex items-center justify-between bg-white md:bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/5 transition-all">
-                              <button 
-                                type="button"
-                                tabIndex={-1}
-                                onClick={() => {
-                                  const current = counts[product.id] ?? product.stock;
-                                  handleCountChange(product.id, String(Math.max(0, current - 1)));
-                                }}
-                                className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
-                              >
-                                -
-                              </button>
-                              <input 
-                                type="number"
-                                inputMode="numeric"
-                                id={`count-${product.id}`}
-                                value={counts[product.id] ?? ''}
-                                onChange={(e) => handleCountChange(product.id, e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    setSearch('');
-                                    setTimeout(() => {
-                                      searchInputRef.current?.focus();
-                                      searchInputRef.current?.select?.();
-                                    }, 50);
-                                  }
-                                }}
-                                className="w-full bg-transparent border-0 px-1 py-2 text-center font-black text-slate-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-base md:text-sm"
-                              />
-                              <button 
-                                type="button"
-                                tabIndex={-1}
-                                onClick={() => {
-                                  const current = counts[product.id] ?? product.stock;
-                                  handleCountChange(product.id, String(current + 1));
-                                }}
-                                className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
-                              >
-                                +
-                              </button>
-                            </div>
+                            <input 
+                              type="number"
+                              inputMode="numeric"
+                              id={`count-${product.id}`}
+                              value={counts[product.id] ?? ''}
+                              placeholder={String(product.stock)}
+                              onChange={(e) => handleCountChange(product.id, e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  setSearch('');
+                                  setTimeout(() => {
+                                    searchInputRef.current?.focus();
+                                    searchInputRef.current?.select?.();
+                                  }, 50);
+                                }
+                              }}
+                              className="flex-1 w-full bg-white md:bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center font-black text-slate-900 placeholder-slate-400 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all text-base md:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
                             {isQuickMode && (
                               <button
                                 type="button"
@@ -989,28 +1031,6 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           </div>
         )}
       </div>
-
-      {showRotativoWarning && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[32px] p-8 max-w-sm w-full border border-slate-200 shadow-2xl space-y-6 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
-              <AlertCircle size={32} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-black text-slate-800 uppercase italic tracking-tight">Aviso de Configuração</h3>
-              <p className="text-sm font-bold text-slate-500 leading-relaxed">
-                Selecione pelo menos um produto para o inventário rotativo.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowRotativoWarning(false)}
-              className="w-full bg-brand-blue hover:bg-brand-blue/95 text-white py-3 rounded-2xl font-black uppercase italic text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
-      )}
 
       {showCloseConfirmation && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
