@@ -34,6 +34,9 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [showRotativoWarning, setShowRotativoWarning] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
 
+  const [isQuickMode, setIsQuickMode] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const [config, setConfig] = useState({
     location: 'Loja Principal',
     type: 'Geral' as InventoryType,
@@ -43,7 +46,57 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   useEffect(() => {
     stepRef.current = step;
+    if (step === 'counting') {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select?.();
+      }, 150);
+    }
   }, [step]);
+
+  const handleSearchSubmit = (queryText: string) => {
+    const query = queryText.trim().toLowerCase();
+    if (!query) return false;
+
+    // Find in session products (exact EAN, SKU, or name)
+    const match = sessionProductsRef.current.find(p => 
+      (p.barcode && p.barcode.toLowerCase() === query) ||
+      (p.sku && p.sku.toLowerCase() === query) ||
+      (p.name.toLowerCase() === query)
+    );
+
+    if (match) {
+      setTimeout(() => {
+        const input = document.getElementById('count-' + match.id) as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.select?.();
+        }
+      }, 50);
+      return true;
+    }
+
+    // Fallback: if only one product is filtered
+    const filtered = sessionProductsRef.current.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      p.sku.toLowerCase().includes(query) || 
+      (p.barcode && p.barcode.toLowerCase().includes(query))
+    );
+
+    if (filtered.length === 1) {
+      const singleMatch = filtered[0];
+      setTimeout(() => {
+        const input = document.getElementById('count-' + singleMatch.id) as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.select?.();
+        }
+      }, 50);
+      return true;
+    }
+
+    return false;
+  };
 
   useEffect(() => {
     sessionProductsRef.current = sessionProducts;
@@ -303,6 +356,18 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     if (e.key === 'Enter') {
       const activeEl = document.activeElement;
       if (activeEl instanceof HTMLInputElement) {
+        if (isQuickMode && step === 'counting') {
+          if (activeEl.id.startsWith('count-') || activeEl.id.startsWith('exp-')) {
+            e.preventDefault();
+            setSearch('');
+            setTimeout(() => {
+              searchInputRef.current?.focus();
+              searchInputRef.current?.select?.();
+            }, 50);
+            return;
+          }
+        }
+
         const container = e.currentTarget;
         const inputs = Array.from(
           container.querySelectorAll('input:not([type="hidden"]):not([disabled])')
@@ -608,39 +673,88 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           <>
             {/* Search and Stats */}
             <div className="p-6 bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-6">
-              <div className="flex-1 max-w-xl flex items-center gap-4">
-                <div className="relative flex-1">
+              <div className="flex-1 max-w-[700px] flex items-center gap-2 sm:gap-4 flex-wrap">
+                <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input 
+                    ref={searchInputRef}
+                    id="inventory-search-input"
                     type="text"
-                    placeholder="Buscar produto por nome ou SKU..."
+                    placeholder={isQuickMode ? "Bipe o código ou busque para focar..." : "Buscar produto por nome ou SKU..."}
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearch(val);
+                      if (isQuickMode && val.trim().length >= 6) {
+                        const matched = sessionProductsRef.current.find(p => 
+                          (p.barcode && p.barcode.toLowerCase() === val.trim().toLowerCase()) ||
+                          (p.sku && p.sku.toLowerCase() === val.trim().toLowerCase())
+                        );
+                        if (matched) {
+                          setTimeout(() => {
+                            const input = document.getElementById('count-' + matched.id) as HTMLInputElement;
+                            if (input) {
+                              input.focus();
+                              input.select?.();
+                            }
+                          }, 50);
+                        }
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (isQuickMode) {
+                          handleSearchSubmit(search);
+                        }
+                      }
+                    }}
                     className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                   />
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     setScannerError(null);
                     setScanning(!scanning);
                   }}
                   className={cn(
-                    "p-3 rounded-2xl border transition-all",
+                    "p-3 rounded-2xl border transition-all cursor-pointer",
                     scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-white text-slate-400 border-slate-200 hover:text-brand-blue"
                   )}
                 >
                   {scanning ? <CameraOff size={20} /> : <Camera size={20} />}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowOnlyDivergences(!showOnlyDivergences)}
                   className={cn(
-                    "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border",
+                    "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border cursor-pointer",
                     showOnlyDivergences 
                       ? "bg-rose-50 text-rose-600 border-rose-200" 
                       : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
                   )}
                 >
                   {showOnlyDivergences ? 'Mostrar Todos' : 'Só Divergências'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsQuickMode(!isQuickMode);
+                    setTimeout(() => {
+                      searchInputRef.current?.focus();
+                      searchInputRef.current?.select?.();
+                    }, 50);
+                  }}
+                  className={cn(
+                    "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border flex items-center gap-2 cursor-pointer",
+                    isQuickMode 
+                      ? "bg-brand-blue/10 text-brand-blue border-brand-blue/20" 
+                      : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <span className={cn("w-2 h-2 rounded-full", isQuickMode ? "bg-brand-blue animate-pulse" : "bg-slate-300")} />
+                  Modo Rápido: {isQuickMode ? 'ON' : 'OFF'}
                 </button>
               </div>
 
@@ -692,34 +806,60 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                       </div>
                       </div>
 
-                      <div className="w-full grid grid-cols-4 gap-2 md:flex md:items-center md:gap-12">
-                        <div className="text-center">
+                      <div className="w-full grid grid-cols-2 sm:grid-cols-4 md:flex md:items-center md:gap-12 gap-4">
+                        <div className="text-center bg-slate-50/50 p-2 rounded-2xl md:bg-transparent md:p-0 col-span-1">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sistema</p>
                           <p className="text-sm font-black text-slate-600">{product.stock} {product.unit || 'un'}</p>
                         </div>
 
-                        <div className="col-span-1">
+                        <div className="col-span-1 bg-slate-50/50 p-2 rounded-2xl md:bg-transparent md:p-0">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Validade</p>
                           <input 
                             type="date"
+                            id={`exp-${product.id}`}
                             value={expirations[product.id] || ''}
                             onChange={(e) => handleExpirationChange(product.id, e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center text-xs font-bold text-slate-700 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all"
+                            className="w-full bg-white md:bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center text-xs font-bold text-slate-700 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all"
                           />
                         </div>
 
-                        <div className="col-span-1">
+                        <div className="col-span-1 bg-slate-50/50 p-2 rounded-2xl md:bg-transparent md:p-0">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Contagem</p>
-                          <input 
-                            type="number"
-                            id={`count-${product.id}`}
-                            value={counts[product.id] ?? ''}
-                            onChange={(e) => handleCountChange(product.id, e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center font-black text-slate-700 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all"
-                          />
+                          <div className="flex items-center justify-between bg-white md:bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/5 transition-all">
+                            <button 
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => {
+                                const current = counts[product.id] ?? product.stock;
+                                handleCountChange(product.id, String(Math.max(0, current - 1)));
+                              }}
+                              className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
+                            >
+                              -
+                            </button>
+                            <input 
+                              type="number"
+                              inputMode="numeric"
+                              id={`count-${product.id}`}
+                              value={counts[product.id] ?? ''}
+                              onChange={(e) => handleCountChange(product.id, e.target.value)}
+                              className="w-full bg-transparent border-0 px-1 py-2 text-center font-black text-slate-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-base md:text-sm"
+                            />
+                            <button 
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => {
+                                const current = counts[product.id] ?? product.stock;
+                                handleCountChange(product.id, String(current + 1));
+                              }}
+                              className="px-3 py-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer select-none font-bold text-base md:text-sm"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="col-span-1 text-center">
+                        <div className="col-span-1 text-center bg-slate-50/50 p-2 rounded-2xl md:bg-transparent md:p-0">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diferença</p>
                           <p className={cn(
                             "text-sm font-black",

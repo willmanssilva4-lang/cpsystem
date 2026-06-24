@@ -21,7 +21,7 @@ import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor 
 export default function PDVPage() {
   const router = useRouter();
   const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale } = useERP();
-  const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string }[]>([]);
+  const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string, canceled?: boolean }[]>([]);
   const [barcode, setBarcode] = useState('');
 
   const [quantity, setQuantity] = useState(1);
@@ -251,7 +251,7 @@ export default function PDVPage() {
       let minSets = Infinity;
       
       for (const productId of combo.comboItems) {
-        const cartItems = cart.filter(item => item.product.id === productId);
+        const cartItems = cart.filter(item => !item.canceled && item.product.id === productId);
         const totalQty = cartItems.reduce((sum, item) => sum + item.quantity, 0);
         
         const requiredQty = combo.comboItems.filter((id: any) => id === productId).length;
@@ -450,13 +450,13 @@ export default function PDVPage() {
     return { okay: true };
   }, [products]);
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
-  const totalItemsDiscount = cart.reduce((acc, item) => acc + (item.discount * item.quantity), 0);
+  const subtotal = cart.filter(item => !item.canceled).reduce((acc, item) => acc + (item.originalPrice * item.quantity), 0);
+  const totalItemsDiscount = cart.filter(item => !item.canceled).reduce((acc, item) => acc + (item.discount * item.quantity), 0);
   const totalDiscount = totalItemsDiscount + saleDiscount + comboDiscount;
   const total = Math.max(0, subtotal - totalDiscount);
 
   const handleCheckout = useCallback(() => {
-    if (cart.length === 0) return;
+    if (!cart.some(item => !item.canceled)) return;
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
     setShowPaymentModal(true);
@@ -470,7 +470,7 @@ export default function PDVPage() {
       console.log('DEBUG: Taxas nos pagamentos:', paymentData.payments.map((p: any) => ({ method: p.method, taxAmount: p.taxAmount, taxPercentage: p.taxPercentage })));
       
       // Check stock with unified validation covering kits and virtual/fractioned products
-      const stockCheck = validateCartStock(cart);
+      const stockCheck = validateCartStock(cart.filter(item => !item.canceled));
       if (!stockCheck.okay) {
         setCustomAlert({ message: stockCheck.message || '', type: 'error' });
         return;
@@ -478,7 +478,7 @@ export default function PDVPage() {
 
       const success = await addSale({
         date: new Date().toISOString(),
-        items: cart.map(item => ({
+        items: cart.filter(item => !item.canceled).map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
           price: item.product.salePrice,
@@ -684,7 +684,7 @@ export default function PDVPage() {
       } else if (pendingAction) {
         if (pendingAction.type === 'cancel_item') {
           const targetIndex = pendingAction.data.index;
-          setCart(prev => prev.filter((_, i) => i !== targetIndex));
+          setCart(prev => prev.map((item, i) => i === targetIndex ? { ...item, canceled: true } : item));
           setSelectedCartIndex(-1);
           setIsNavigatingCart(false);
         } else if (pendingAction.type === 'cancel_sale') {
@@ -938,7 +938,7 @@ export default function PDVPage() {
             message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
             onConfirm: () => {
               if (checkActionPermission()) {
-                setCart(prev => prev.filter((_, i) => i !== targetIndex));
+                setCart(prev => prev.map((item, i) => i === targetIndex ? { ...item, canceled: true } : item));
                 setSelectedCartIndex(-1);
                 setIsNavigatingCart(false);
               } else {
@@ -1039,7 +1039,7 @@ export default function PDVPage() {
               message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
               onConfirm: () => {
                 if (checkActionPermission()) {
-                  setCart(prev => prev.filter((_, i) => i !== selectedCartIndex));
+                  setCart(prev => prev.map((item, i) => i === selectedCartIndex ? { ...item, canceled: true } : item));
                   setSelectedCartIndex(-1);
                   setIsNavigatingCart(false);
                 } else {
@@ -1305,13 +1305,13 @@ export default function PDVPage() {
 
     // Calculate total quantity of this product already in cart
     const qtyInCart = cart
-      .filter(item => item.product.id === product.id)
+      .filter(item => !item.canceled && item.product.id === product.id)
       .reduce((sum, item) => sum + item.quantity, 0);
     
     const totalQty = qtyInCart + qty;
 
     // Simulate proposed cart state to validate against overall stock limits
-    let proposedCart = [...cart];
+    let proposedCart = cart.filter(item => !item.canceled);
     const existingCartItem = proposedCart.find(item => item.product.id === product.id);
     if (existingCartItem) {
       proposedCart = proposedCart.map(item =>
@@ -1402,7 +1402,7 @@ export default function PDVPage() {
       }
     }
 
-    const existingIndex = currentCartState.findIndex(item => item.product.id === product.id && item.discount === promoDiscount && item.originalPrice === basePrice);
+    const existingIndex = currentCartState.findIndex(item => !item.canceled && item.product.id === product.id && item.discount === promoDiscount && item.originalPrice === basePrice);
     
     if (existingIndex >= 0) {
       const newCart = [...currentCartState];
@@ -1743,22 +1743,31 @@ export default function PDVPage() {
                       }}
                       className={cn(
                         "hover:bg-slate-50/50 transition-colors cursor-pointer",
-                        idx === selectedCartIndex ? "bg-brand-blue/20 ring-2 ring-brand-blue ring-inset" : ""
+                        idx === selectedCartIndex ? "bg-brand-blue/20 ring-2 ring-brand-blue ring-inset" : "",
+                        item.canceled ? "bg-rose-50/30" : ""
                       )}
                     >
-                      <td className="px-2 py-1 text-center font-mono text-slate-500">{idx + 1}</td>
-                      <td className="px-2 py-1 text-brand-text-main">{item.product.sku}</td>
-                      <td className="px-2 py-1 uppercase text-brand-text-main">
+                      <td className={cn("px-2 py-1 text-center font-mono text-slate-500", item.canceled && "line-through decoration-rose-500")}>{idx + 1}</td>
+                      <td className={cn("px-2 py-1", item.canceled ? "text-rose-500 line-through decoration-rose-500 font-bold" : "text-brand-text-main")}>{item.product.sku}</td>
+                      <td className={cn(
+                        "px-2 py-1 uppercase",
+                        item.canceled ? "text-rose-600 line-through decoration-rose-600 font-bold" : "text-brand-text-main"
+                      )}>
                         {item.product.name}
-                        {item.discount > 0 && (
+                        {item.canceled && (
+                          <span className="ml-2 text-[8px] text-rose-600 font-black italic uppercase tracking-wider">
+                            (CANCELADO)
+                          </span>
+                        )}
+                        {item.discount > 0 && !item.canceled && (
                           <span className="ml-2 text-[8px] text-rose-600 font-black italic">
                             (DESC: -{formatCurrency(item.discount * item.quantity)})
                           </span>
                         )}
                       </td>
-                      <td className="px-2 py-1 text-center text-brand-text-main">{item.quantity.toFixed(3)}</td>
-                      <td className="px-2 py-1 text-right text-brand-text-main">{formatCurrency(item.product.salePrice)}</td>
-                      <td className="px-2 py-1 text-right text-brand-text-main font-black">{formatCurrency(item.product.salePrice * item.quantity)}</td>
+                      <td className={cn("px-2 py-1 text-center", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{item.quantity.toFixed(3)}</td>
+                      <td className={cn("px-2 py-1 text-right", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{formatCurrency(item.product.salePrice)}</td>
+                      <td className={cn("px-2 py-1 text-right font-black", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{formatCurrency(item.product.salePrice * item.quantity)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1868,7 +1877,7 @@ export default function PDVPage() {
                 message: `Deseja cancelar o item: ${cart[selectedCartIndex].product.name}?`,
                 onConfirm: () => {
                   if (checkActionPermission()) {
-                    setCart(prev => prev.filter((_, i) => i !== selectedCartIndex));
+                    setCart(prev => prev.map((item, i) => i === selectedCartIndex ? { ...item, canceled: true } : item));
                     setSelectedCartIndex(-1);
                     setIsNavigatingCart(false);
                   } else {
@@ -1878,14 +1887,17 @@ export default function PDVPage() {
                 }
               });
             } else if (cart.length > 0) {
-              const lastIdx = cart.length - 1;
-              if (checkActionPermission()) {
-                setCart(prev => prev.slice(0, -1));
-                setSelectedCartIndex(-1);
-                setIsNavigatingCart(false);
-              } else {
-                setPendingAction({ type: 'cancel_item', data: { index: lastIdx } });
-                setShowAuthModal(true);
+              const lastActiveIdx = [...cart].reverse().findIndex(item => !item.canceled);
+              const lastIdx = lastActiveIdx !== -1 ? cart.length - 1 - lastActiveIdx : -1;
+              if (lastIdx !== -1) {
+                if (checkActionPermission()) {
+                  setCart(prev => prev.map((item, i) => i === lastIdx ? { ...item, canceled: true } : item));
+                  setSelectedCartIndex(-1);
+                  setIsNavigatingCart(false);
+                } else {
+                  setPendingAction({ type: 'cancel_item', data: { index: lastIdx } });
+                  setShowAuthModal(true);
+                }
               }
             }
           }} className="hover:text-white transition-colors">F8 - Canc. Item</button>
@@ -2038,7 +2050,8 @@ export default function PDVPage() {
                     if (e.key === 'Enter') {
                       let targetIndex = -1;
                       if (cancelItemNumber === '') {
-                        targetIndex = cart.length - 1;
+                        const lastActiveIdx = [...cart].reverse().findIndex(item => !item.canceled);
+                        targetIndex = lastActiveIdx !== -1 ? cart.length - 1 - lastActiveIdx : -1;
                       } else {
                         targetIndex = parseInt(cancelItemNumber) - 1;
                       }
@@ -2050,7 +2063,7 @@ export default function PDVPage() {
                           message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
                           onConfirm: () => {
                             if (checkActionPermission()) {
-                              setCart(prev => prev.filter((_, i) => i !== targetIndex));
+                              setCart(prev => prev.map((item, i) => i === targetIndex ? { ...item, canceled: true } : item));
                               setSelectedCartIndex(-1);
                               setIsNavigatingCart(false);
                             } else {
@@ -2079,7 +2092,8 @@ export default function PDVPage() {
                   onClick={() => {
                     let targetIndex = -1;
                     if (cancelItemNumber === '') {
-                      targetIndex = cart.length - 1;
+                      const lastActiveIdx = [...cart].reverse().findIndex(item => !item.canceled);
+                      targetIndex = lastActiveIdx !== -1 ? cart.length - 1 - lastActiveIdx : -1;
                     } else {
                       targetIndex = parseInt(cancelItemNumber) - 1;
                     }
@@ -2091,7 +2105,7 @@ export default function PDVPage() {
                         message: `Deseja cancelar o item: ${itemToRemove.product.name}?`,
                         onConfirm: () => {
                           if (checkActionPermission()) {
-                            setCart(prev => prev.filter((_, i) => i !== targetIndex));
+                            setCart(prev => prev.map((item, i) => i === targetIndex ? { ...item, canceled: true } : item));
                             setSelectedCartIndex(-1);
                             setIsNavigatingCart(false);
                           } else {
