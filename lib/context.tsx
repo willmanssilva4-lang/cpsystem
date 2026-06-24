@@ -1845,7 +1845,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if ((product?.product_type === 'KIT' || (product?.product_type === 'SALE' && product?.base_product_id)) && parsedComposition && Array.isArray(parsedComposition)) {
+      if (product?.product_type === 'KIT' && parsedComposition && Array.isArray(parsedComposition)) {
         console.log(`[DEBUG_STOCK] Recursively updating ${parsedComposition.length} components`);
         for (const comp of parsedComposition) {
           const compQty = (Number(comp.quantity) || 0) * moveQty;

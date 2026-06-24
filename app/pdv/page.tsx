@@ -364,7 +364,7 @@ export default function PDVPage() {
       const currentProduct = products.find(prod => prod.id === p.id);
       if (!currentProduct) return;
 
-      if (currentProduct.composition && currentProduct.composition.length > 0) {
+      if (currentProduct.product_type === 'KIT' && currentProduct.composition && currentProduct.composition.length > 0) {
         // It's a Kit! We need to add demands for all its composition items
         currentProduct.composition.forEach((comp: any) => {
           stockDemand[comp.productId] = (stockDemand[comp.productId] || 0) + (comp.quantity * qty);

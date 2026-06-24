@@ -534,7 +534,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       wholesalePrice: parseCommaNumber(formData.wholesalePrice),
       clubPrice: parseCommaNumber(formData.clubPrice),
       profit: parseCommaNumber(formData.profit),
-      profitPercentage: parseCommaNumber(formData.profitPercentage)
+      profitPercentage: parseCommaNumber(formData.profitPercentage),
+      // Garantir consistência limpando campos mutuamente exclusivos com base no tipo
+      base_product_id: formData.product_type === 'SALE' ? formData.base_product_id : '',
+      conversion_factor: formData.product_type === 'SALE' ? formData.conversion_factor : 1,
+      composition: formData.product_type === 'KIT' ? formData.composition : []
     };
     onSave(finalData);
   };
