@@ -194,8 +194,12 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
                   )}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400">
-                      <Package size={24} />
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 overflow-hidden shrink-0">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <Package size={24} />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-medium text-sm text-slate-800 dark:text-slate-100">{product.name}</h3>

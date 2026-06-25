@@ -190,8 +190,12 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
           {/* Header */}
           <div className="px-6 md:px-8 py-5 border-b border-slate-200/80 flex items-center justify-between bg-white">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 border border-brand-blue/15 flex items-center justify-center text-brand-blue shadow-inner flex-shrink-0">
-                <Package size={22} className="stroke-[2.5]" />
+              <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 border border-brand-blue/15 flex items-center justify-center text-brand-blue shadow-inner flex-shrink-0 overflow-hidden">
+                {product.image ? (
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <Package size={22} className="stroke-[2.5]" />
+                )}
               </div>
               <div>
                 <div className="flex items-center flex-wrap gap-2.5">

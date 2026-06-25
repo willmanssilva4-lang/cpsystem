@@ -267,12 +267,11 @@ function CompanySettings() {
                 }} 
               />
               {formData?.logo ? (
-                <div className="relative w-full h-full p-2">
-                  <Image 
+                <div className="relative w-full h-full p-2 flex items-center justify-center">
+                  <img 
                     src={formData.logo} 
                     alt="Logo" 
-                    fill 
-                    className="object-contain" 
+                    className="max-w-full max-h-full object-contain" 
                     referrerPolicy="no-referrer"
                   />
                 </div>

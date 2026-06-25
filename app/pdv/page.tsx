@@ -1723,12 +1723,11 @@ export default function PDVPage() {
             {cart.length === 0 ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
                 {companySettings?.logo ? (
-                  <div className="relative w-80 h-80 mb-8">
-                    <Image 
+                  <div className="relative w-80 h-80 mb-8 flex items-center justify-center">
+                    <img 
                       src={companySettings?.logo || ''} 
                       alt="Logo da Empresa" 
-                      fill 
-                      className="object-contain" 
+                      className="max-w-full max-h-full object-contain" 
                       referrerPolicy="no-referrer"
                     />
                   </div>

@@ -581,8 +581,12 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-50 to-white px-6 md:px-8 py-5 flex justify-between items-center border-b border-slate-100/80">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shadow-inner flex-shrink-0">
-              <Package size={22} className="stroke-[2.5]" />
+            <div className="w-12 h-12 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shadow-inner flex-shrink-0 overflow-hidden">
+              {initialData?.image ? (
+                <img src={initialData.image} alt={formData.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <Package size={22} className="stroke-[2.5]" />
+              )}
             </div>
             <div>
               <h2 className="text-lg md:text-2xl font-sans font-black text-slate-800 tracking-tight uppercase italic flex flex-wrap items-center gap-2">
@@ -1483,12 +1487,11 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                   onClick={triggerFileUpload}
                   className="aspect-square bg-slate-50 rounded-[32px] flex items-center justify-center overflow-hidden relative border-4 border-slate-100 shadow-inner cursor-pointer group"
                 >
-                  {!imageError ? (
-                    <Image 
+                  {!imageError && formData.image ? (
+                    <img 
                       src={formData.image} 
                       alt="Preview" 
-                      fill
-                      className="object-contain p-6 group-hover:scale-110 transition-transform"
+                      className="absolute inset-0 w-full h-full object-contain p-6 group-hover:scale-110 transition-transform"
                       referrerPolicy="no-referrer"
                       onError={() => setImageError(true)}
                     />

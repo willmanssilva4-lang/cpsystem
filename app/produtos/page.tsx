@@ -1217,8 +1217,12 @@ function ProductsContent() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="hidden sm:flex w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 items-center justify-center text-slate-400 shadow-sm group-hover:border-brand-blue/25 group-hover:bg-slate-100/40 transition-colors">
-                            <Package size={18} className="text-slate-400 group-hover:text-brand-blue/70 transition-colors" />
+                          <div className="hidden sm:flex w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 items-center justify-center text-slate-400 shadow-sm overflow-hidden group-hover:border-brand-blue/25 group-hover:bg-slate-100/40 transition-colors shrink-0">
+                            {product.image ? (
+                              <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              <Package size={18} className="text-slate-400 group-hover:text-brand-blue/70 transition-colors" />
+                            )}
                           </div>
                           <div className="flex flex-col max-w-[180px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[500px]">
                             <span className="font-bold text-slate-800 text-xs md:text-sm truncate group-hover:text-brand-blue transition-colors" title={product.name}>{product.name}</span>

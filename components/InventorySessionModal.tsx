@@ -854,12 +854,11 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   return (
                     <div key={product.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-center gap-4 md:gap-6">
                       <div className="w-full flex items-center gap-4 md:w-auto">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100 relative">
-                        <Image 
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100 relative flex items-center justify-center">
+                        <img 
                           src={product.image || 'https://picsum.photos/seed/placeholder/100'} 
                           alt={product.name} 
-                          fill 
-                          className="object-cover" 
+                          className="w-full h-full object-cover" 
                           referrerPolicy="no-referrer"
                         />
                       </div>

@@ -351,7 +351,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
           </div>
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-brand-blue/10 overflow-hidden border border-brand-border flex items-center justify-center">
             {user?.image ? (
-              <Image src={user.image} alt={user.name || 'User'} width={40} height={40} className="object-cover" referrerPolicy="no-referrer" />
+              <img src={user.image} alt={user.name || 'User'} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm">
                 {(user?.name || 'U').charAt(0).toUpperCase()}
