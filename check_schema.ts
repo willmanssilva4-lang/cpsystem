@@ -23,20 +23,27 @@ async function check() {
     console.log('Promotions columns:', Object.keys(promoData[0]));
   }
 
-  console.log('\nChecking sale_items table schema...');
-  const { data: saleItemData, error: saleItemError } = await supabase.from('sale_items').select('*').limit(1);
+  console.log('\nChecking system_settings table columns from information_schema...');
+  const { data: colsData, error: colsError } = await supabase.rpc('get_table_columns', { table_name: 'system_settings' });
   
-  if (saleItemError) {
-    console.error('Error fetching from sale_items:', saleItemError);
-  } else if (saleItemData && saleItemData.length > 0) {
-    console.log('Sale Items columns:', Object.keys(saleItemData[0]));
+  if (colsError) {
+    console.log('RPC get_table_columns failed, trying custom select from pg_attribute/information_schema via a postgrest query if possible, or trying to fetch a dummy select to inspect properties...');
+    // Since we don't have SQL endpoint, let's try a regular query on system_settings but with some mock insert to see if we get column errors
+    const { error: insertError } = await supabase.from('system_settings').insert([{ non_existent_column_abc: 123 }]);
+    console.log('Dummy insert error (contains column info):', insertError?.message);
   } else {
-    console.log('No data in sale_items, trying to check for promotion_id column...');
-    const { error: testError } = await supabase.from('sale_items').select('promotion_id').limit(1);
-    if (testError) {
-      console.log('Column "promotion_id" likely missing in sale_items:', testError.message);
-    } else {
-      console.log('Column "promotion_id" exists in sale_items.');
+    console.log('Columns:', colsData);
+  }
+
+  console.log('\nChecking company_settings table schema...');
+  const { data: compData, error: compError } = await supabase.from('company_settings').select('*').limit(5);
+  if (compError) {
+    console.error('Error fetching from company_settings:', compError);
+  } else if (compData) {
+    console.log('Company settings count:', compData.length);
+    if (compData.length > 0) {
+      console.log('Company settings columns:', Object.keys(compData[0]));
+      console.log('Company settings record:', compData[0]);
     }
   }
 }

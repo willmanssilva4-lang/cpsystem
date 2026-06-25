@@ -105,7 +105,7 @@ function SectionHeader({ title, description, action }: { title: string, descript
   );
 }
 
-function InputGroup({ label, placeholder, type = "text", defaultValue, value, onChange }: { label: string, placeholder?: string, type?: string, defaultValue?: string, value?: string, onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+function InputGroup({ label, placeholder, type = "text", defaultValue, value, onChange, className }: { label: string, placeholder?: string, type?: string, defaultValue?: string, value?: string, onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void, className?: string }) {
   return (
     <div className="space-y-1.5">
       <label className="text-[10px] font-black text-brand-text-main/40 uppercase tracking-widest italic ml-1">{label}</label>
@@ -115,7 +115,7 @@ function InputGroup({ label, placeholder, type = "text", defaultValue, value, on
         defaultValue={defaultValue}
         value={value}
         onChange={onChange}
-        className="w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all placeholder:text-brand-text-main/20"
+        className={cn("w-full px-4 py-3 rounded-2xl bg-slate-50/50 border border-brand-border text-brand-text-main font-bold text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue-hover/20 transition-all placeholder:text-brand-text-main/20", className)}
       />
     </div>
   );
@@ -185,35 +185,41 @@ function CompanySettings() {
             <InputGroup 
               label="Nome Fantasia" 
               value={formData?.tradeName || ''} 
-              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), tradeName: e.target.value }))} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), tradeName: e.target.value.toUpperCase() }))} 
+              className="uppercase"
             />
             <InputGroup 
               label="Razão Social" 
               value={formData?.legalName || ''} 
-              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), legalName: e.target.value }))} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), legalName: e.target.value.toUpperCase() }))} 
+              className="uppercase"
             />
             <div className="grid grid-cols-2 gap-4">
               <InputGroup 
                 label="CNPJ" 
                 value={formData?.cnpj || ''} 
-                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), cnpj: e.target.value }))} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), cnpj: e.target.value.toUpperCase() }))} 
+                className="uppercase"
               />
               <InputGroup 
                 label="Inscrição Estadual" 
                 value={formData?.stateRegistration || ''} 
-                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), stateRegistration: e.target.value }))} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), stateRegistration: e.target.value.toUpperCase() }))} 
+                className="uppercase"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <InputGroup 
                 label="E-mail" 
                 value={formData?.email || ''} 
-                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), email: e.target.value }))} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), email: e.target.value.toUpperCase() }))} 
+                className="uppercase"
               />
               <InputGroup 
                 label="Telefone" 
                 value={formData?.phone || ''} 
-                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), phone: e.target.value }))} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), phone: e.target.value.toUpperCase() }))} 
+                className="uppercase"
               />
             </div>
           </div>
@@ -292,30 +298,35 @@ function CompanySettings() {
               <InputGroup 
                 label="Logradouro" 
                 value={formData?.address?.street || ''} 
-                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), street: e.target.value } }))} 
+                onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), street: e.target.value.toUpperCase() } }))} 
+                className="uppercase"
               />
             </div>
             <InputGroup 
               label="Número" 
               value={formData?.address?.number || ''} 
-              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), number: e.target.value } }))} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), number: e.target.value.toUpperCase() } }))} 
+              className="uppercase"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InputGroup 
               label="Bairro" 
               value={formData?.address?.neighborhood || ''} 
-              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), neighborhood: e.target.value } }))} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), neighborhood: e.target.value.toUpperCase() } }))} 
+              className="uppercase"
             />
             <InputGroup 
               label="Cidade" 
               value={formData?.address?.city || ''} 
-              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), city: e.target.value } }))} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), city: e.target.value.toUpperCase() } }))} 
+              className="uppercase"
             />
             <InputGroup 
               label="Estado" 
               value={formData?.address?.state || ''} 
-              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), state: e.target.value } }))} 
+              onChange={(e) => setFormData((prev: any) => ({ ...(prev || {}), address: { ...(prev?.address || {}), state: e.target.value.toUpperCase() } }))} 
+              className="uppercase"
             />
           </div>
         </div>

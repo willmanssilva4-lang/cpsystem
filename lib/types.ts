@@ -134,6 +134,9 @@ export interface PricingSettings {
 }
 
 export interface SystemSettings {
+  id?: string;
+  company_id?: string | null;
+  companyId?: string | null;
   theme?: 'light' | 'dark' | 'system';
   tradeName?: string;
   notifications?: {

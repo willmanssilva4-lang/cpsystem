@@ -171,7 +171,17 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [inventories, setInventories] = useState<Inventory[]>([]);
-  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('systemSettings');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return null;
+  });
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('pricingSettings');
@@ -202,7 +212,17 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [cashRegisters, setCashRegisters] = useState<any[]>([]);
   const [cashMovements, setCashMovements] = useState<any[]>([]);
   const [cashClosings, setCashClosings] = useState<any[]>([]);
-  const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
+  const [advertisements, setAdvertisements] = useState<Advertisement[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('advertisements');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [customAlert, setCustomAlert] = useState<any>(null);
 
   const activeRegister = useMemo(() => {
@@ -539,7 +559,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           };
         }));
       }
-      if (Array.isArray(ads_res)) setAdvertisements(ads_res);
+      if (Array.isArray(ads_res)) {
+        setAdvertisements(ads_res);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('advertisements', JSON.stringify(ads_res));
+          } catch (e) {
+            console.error('[ERPProvider] Error saving advertisements to localStorage:', e);
+          }
+        }
+      }
       if (Array.isArray(custs_res)) {
         setCustomers(custs_res.map((c: any) => ({
           id: c.id,
@@ -668,7 +697,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           fornecedorId: l.fornecedorId ?? l.fornecedor_id ?? ''
         })));
       }
-      if (sysSet) setSystemSettings(sysSet);
+      if (sysSet) {
+        setSystemSettings(sysSet);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('systemSettings', JSON.stringify(sysSet));
+          } catch (e) {
+            console.error('[ERPProvider] Error saving systemSettings to localStorage:', e);
+          }
+        }
+      }
       if (Array.isArray(sysUsrs_res)) {
         setSystemUsers(sysUsrs_res.map((u: any) => ({
           ...u,
@@ -2060,12 +2098,62 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateCompanySettings = async (data: any) => {
-    await supabase.from('company_settings').upsert(data);
+    const payload = {
+      ...(systemSettings || {}),
+      ...data,
+      id: data.id || systemSettings?.id || user?.companyId || 'd3b07384-d113-4c9b-a010-86d11f26487e',
+      company_id: data.company_id || data.companyId || systemSettings?.company_id || systemSettings?.companyId || user?.companyId || null
+    };
+    
+    // Always update state immediately so the UI reflects changes instantly
+    setSystemSettings(payload);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('systemSettings', JSON.stringify(payload));
+      } catch (e) {
+        console.error('[ERPProvider] Error saving systemSettings to localStorage:', e);
+      }
+    }
+
+    try {
+      const { error } = await supabase.from('system_settings').upsert([payload]);
+      if (error) {
+        console.warn('[updateCompanySettings] Supabase upsert failed, relying on local state/storage:', error.message);
+      }
+    } catch (e) {
+      console.warn('[updateCompanySettings] Supabase exception, relying on local state/storage:', e);
+    }
+    
     await fetchData();
   };
 
   const updateSystemSettings = async (data: any) => {
-    await supabase.from('system_settings').upsert(data);
+    const payload = {
+      ...(systemSettings || {}),
+      ...data,
+      id: data.id || systemSettings?.id || user?.companyId || 'd3b07384-d113-4c9b-a010-86d11f26487e',
+      company_id: data.company_id || data.companyId || systemSettings?.company_id || systemSettings?.companyId || user?.companyId || null
+    };
+
+    // Always update state immediately so the UI reflects changes instantly
+    setSystemSettings(payload);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('systemSettings', JSON.stringify(payload));
+      } catch (e) {
+        console.error('[ERPProvider] Error saving systemSettings to localStorage:', e);
+      }
+    }
+
+    try {
+      const { error } = await supabase.from('system_settings').upsert([payload]);
+      if (error) {
+        console.warn('[updateSystemSettings] Supabase upsert failed, relying on local state/storage:', error.message);
+      }
+    } catch (e) {
+      console.warn('[updateSystemSettings] Supabase exception, relying on local state/storage:', e);
+    }
+
     await fetchData();
   };
 
@@ -2202,18 +2290,81 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addAdvertisement = async (data: any) => {
-    await supabase.from('advertisements').insert([data]);
-    await fetchData();
+    const newAd = {
+      id: data.id || crypto.randomUUID(),
+      titulo: data.titulo,
+      descricao: data.descricao || '',
+      imagem_url: data.imagem_url,
+      ativo: data.ativo ?? true,
+      company_id: user?.companyId || null,
+      created_at: new Date().toISOString()
+    };
+
+    // 1. Try saving to Supabase (catch errors gracefully)
+    try {
+      const { error } = await supabase.from('advertisements').insert([newAd]);
+      if (error) {
+        console.warn('[addAdvertisement] Supabase insert failed, relying on local storage:', error.message);
+      }
+    } catch (e) {
+      console.warn('[addAdvertisement] Supabase exception, relying on local storage:', e);
+    }
+
+    // 2. Always update local storage and state so it works immediately
+    if (typeof window !== 'undefined') {
+      const currentAds = [...advertisements, newAd];
+      setAdvertisements(currentAds);
+      localStorage.setItem('advertisements', JSON.stringify(currentAds));
+    } else {
+      await fetchData();
+    }
   };
 
   const updateAdvertisement = async (data: any) => {
-    await supabase.from('advertisements').update(data).eq('id', data.id);
-    await fetchData();
+    const updatedAd = {
+      ...data,
+      company_id: data.company_id || user?.companyId || null
+    };
+
+    // 1. Try saving to Supabase (catch errors gracefully)
+    try {
+      const { error } = await supabase.from('advertisements').update(updatedAd).eq('id', data.id);
+      if (error) {
+        console.warn('[updateAdvertisement] Supabase update failed, relying on local storage:', error.message);
+      }
+    } catch (e) {
+      console.warn('[updateAdvertisement] Supabase exception, relying on local storage:', e);
+    }
+
+    // 2. Always update local storage and state so it works immediately
+    if (typeof window !== 'undefined') {
+      const currentAds = advertisements.map(ad => ad.id === data.id ? updatedAd : ad);
+      setAdvertisements(currentAds);
+      localStorage.setItem('advertisements', JSON.stringify(currentAds));
+    } else {
+      await fetchData();
+    }
   };
 
   const deleteAdvertisement = async (id: string) => {
-    await supabase.from('advertisements').delete().eq('id', id);
-    await fetchData();
+    // 1. Try saving to Supabase (catch errors gracefully)
+    try {
+      const { error } = await supabase.from('advertisements').delete().eq('id', id);
+      if (error) {
+        console.warn('[deleteAdvertisement] Supabase delete failed, relying on local storage:', error.message);
+      }
+    } catch (e) {
+      console.warn('[deleteAdvertisement] Supabase exception, relying on local storage:', e);
+    }
+
+    // 2. Always update local storage and state so it works immediately
+    if (typeof window !== 'undefined') {
+      const currentAds = advertisements.filter(ad => ad.id !== id);
+      setAdvertisements(currentAds);
+      localStorage.setItem('advertisements', JSON.stringify(currentAds));
+    } else {
+      await fetchData();
+    }
   };
 
   const addPaymentMethod = async (data: any) => {

@@ -16,19 +16,32 @@ import { PriceCheckModal } from '@/components/PriceCheckModal';
 import { ProductListModal } from '@/components/ProductListModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
-import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor } from 'lucide-react';
+import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor, Image as ImageIcon } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale } = useERP();
+  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [] } = useERP();
   const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string, canceled?: boolean }[]>([]);
   const [barcode, setBarcode] = useState('');
   const [lastBeepedProduct, setLastBeepedProduct] = useState<string | null>(null);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+  useEffect(() => {
+    const activeAds = advertisements?.filter(ad => ad.ativo) || [];
+    if (activeAds.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentAdIndex(prev => (prev + 1) % activeAds.length);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [advertisements]);
 
   useEffect(() => {
     const activeItems = cart.filter(item => !item.canceled);
     if (activeItems.length === 0) {
       setLastBeepedProduct(null);
+      setCurrentAdIndex(0);
     }
   }, [cart]);
 
@@ -1507,7 +1520,11 @@ export default function PDVPage() {
             <Logo size="sm" hideText theme="dark" />
           </div>
           <div className="text-left min-w-0 flex-1">
-            <h1 className="text-xs md:text-xl font-bold md:tracking-widest uppercase leading-tight break-words sm:truncate">{companySettings?.tradeName || 'MERCADINHO SUPERNICE'}</h1>
+            {companySettings?.tradeName && (
+              <h1 className="text-xs md:text-xl font-bold md:tracking-widest uppercase leading-tight break-words sm:truncate">
+                {companySettings.tradeName}
+              </h1>
+            )}
           </div>
         </div>
         
@@ -1610,8 +1627,8 @@ export default function PDVPage() {
       <main className="flex-1 pt-0 md:pt-1 px-3 md:px-6 pb-3 md:pb-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-y-auto lg:overflow-hidden">
         {/* Middle: Inputs */}
         <div className="w-full lg:w-[50%] flex flex-col gap-2 shrink-0">
-          <div className="space-y-0.5 md:space-y-1 relative">
-            <label id="pdv-barcode-label" className="text-base md:text-xl font-bold italic text-brand-text-main">Código de Barras</label>
+          <div className="space-y-0.5 relative">
+            <label id="pdv-barcode-label" className="text-xs md:text-sm font-bold italic text-brand-text-main">Código de Barras</label>
             <input 
               id="pdv-barcode-input"
               ref={barcodeInputRef}
@@ -1619,7 +1636,7 @@ export default function PDVPage() {
               onChange={handleBarcodeChange}
               onKeyDown={handleKeyDown}
               disabled={!activeRegister}
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-1.5 md:py-2 text-xl md:text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
+              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
             />
             
             {/* Search Results Dropdown */}
@@ -1639,8 +1656,8 @@ export default function PDVPage() {
                         )}
                       >
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold uppercase">{product.name}</span>
-                          <span className="text-[10px] opacity-60">SKU: {product.sku}</span>
+                           <span className="text-sm font-bold uppercase">{product.name}</span>
+                           <span className="text-[10px] opacity-60">SKU: {product.sku}</span>
                         </div>
                         {isPromoActive ? (
                           <div className="text-right flex flex-col items-end">
@@ -1671,9 +1688,9 @@ export default function PDVPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Quantidade</label>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-0.5">
+              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Quantidade</label>
               <input 
                 ref={quantityInputRef}
                 type="number" 
@@ -1681,13 +1698,13 @@ export default function PDVPage() {
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
                 onKeyDown={handleQuantityKeyDown}
-                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-xl md:text-3xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Valor Unitário</label>
-              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right flex flex-col justify-center min-h-[52px]">
+            <div className="space-y-0.5">
+              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Valor Unitário</label>
+              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-right flex flex-col justify-center min-h-[32px] md:min-h-[38px]">
                 {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
                   <div className="flex flex-col items-end leading-none">
                     <div className="flex items-center gap-1.5 justify-end">
@@ -1696,34 +1713,119 @@ export default function PDVPage() {
                         {currentProductPromo.badge}
                       </span>
                     </div>
-                    <span className="text-xl md:text-3xl font-black text-rose-600 leading-tight">R$ {formatCurrency(currentProductPromo.promoPrice)}</span>
+                    <span className="text-base md:text-xl font-black text-rose-600 leading-tight">R$ {formatCurrency(currentProductPromo.promoPrice)}</span>
                   </div>
                 ) : currentProduct && currentProductPromo?.badge ? (
                   <div className="flex flex-col items-end leading-none">
                     <span className="bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase mb-0.5">
                       {currentProductPromo.badge}
                     </span>
-                    <span className="text-xl md:text-3xl font-black text-brand-text-main leading-tight">R$ {formatCurrency(currentProduct.salePrice)}</span>
+                    <span className="text-base md:text-xl font-black text-brand-text-main leading-tight">R$ {formatCurrency(currentProduct.salePrice)}</span>
                   </div>
                 ) : (
-                  <span className="text-xl md:text-3xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+                  <span className="text-base md:text-xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Valor Total</label>
+              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-right flex flex-col justify-center min-h-[32px] md:min-h-[38px]">
+                {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
+                  <div className="flex flex-col items-end leading-none">
+                    <span className="text-[8px] opacity-65 leading-none mb-0.5">Sem Promo: R$ {formatCurrency(currentProduct.salePrice * quantity)}</span>
+                    <span className="text-base md:text-xl font-black text-rose-600">R$ {formatCurrency(currentProductPromo.promoPrice * quantity)}</span>
+                  </div>
+                ) : (
+                  <span className="text-base md:text-xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Valor Total</label>
-            <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-2 text-right flex flex-col justify-center min-h-[58px]">
-              {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
-                <div className="flex flex-col items-end leading-none">
-                  <span className="text-[10px] opacity-65 leading-none mb-0.5">Sem Promoção: R$ {formatCurrency(currentProduct.salePrice * quantity)}</span>
-                  <span className="text-2xl md:text-4xl font-black text-rose-600">R$ {formatCurrency(currentProductPromo.promoPrice * quantity)}</span>
-                </div>
-              ) : (
-                <span className="text-2xl md:text-4xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
-              )}
-            </div>
+          {/* Imagem do Produto ou Totem */}
+          <div className="h-64 sm:h-80 lg:h-[360px] xl:h-[480px] w-full relative bg-slate-50 border border-brand-border rounded-xl overflow-hidden flex flex-col items-center justify-center shadow-inner mt-1">
+            {/* If the cart has no active items (caixa livre) */}
+            {cart.filter(item => !item.canceled).length === 0 ? (
+              // Show images from "Gestão do Totem" (advertisements)
+              <div className="w-full h-full relative flex items-center justify-center">
+                {advertisements && advertisements.filter(ad => ad.ativo).length > 0 ? (
+                  (() => {
+                    const activeAds = advertisements.filter(ad => ad.ativo);
+                    const currentAd = activeAds[currentAdIndex % activeAds.length];
+                    return (
+                      <div className="w-full h-full relative flex flex-col items-center justify-center bg-black/5 p-1.5 md:p-2">
+                        <img 
+                          src={currentAd.imagem_url} 
+                          alt={currentAd.titulo} 
+                          className="w-full h-full object-contain rounded-lg"
+                        />
+                        <div className="absolute bottom-1.5 left-1.5 right-1.5 bg-black/60 text-white px-2.5 py-1 rounded-lg backdrop-blur-sm text-center">
+                          <h4 className="font-bold text-[10px] md:text-xs uppercase tracking-wider line-clamp-1">{currentAd.titulo}</h4>
+                          {currentAd.descricao && (
+                            <p className="text-[8px] md:text-[10px] text-white/80 line-clamp-1 mt-0.5">{currentAd.descricao}</p>
+                          )}
+                        </div>
+                        {/* Slide dots indicators if more than 1 ad */}
+                        {activeAds.length > 1 && (
+                          <div className="absolute top-1.5 right-1.5 flex gap-1 bg-black/40 px-1.5 py-0.5 rounded-full">
+                            {activeAds.map((_, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`w-1 h-1 rounded-full transition-all ${idx === (currentAdIndex % activeAds.length) ? 'bg-white scale-125' : 'bg-white/40'}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-3 text-center text-slate-400">
+                    <ImageIcon size={40} className="stroke-1.5 mb-1.5 text-slate-300" />
+                    <span className="text-xs font-black uppercase text-brand-text-main">CAIXA LIVRE</span>
+                    <span className="text-[10px] opacity-60 mt-0.5">Anúncios do Totem aparecerão aqui</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // If cart has active items (caixa ocupada)
+              <div className="w-full h-full relative flex items-center justify-center p-3 md:p-4">
+                {(() => {
+                  const activeCartItems = cart.filter(item => !item.canceled);
+                  const lastActiveItem = activeCartItems[activeCartItems.length - 1];
+                  const productToShow = currentProduct || lastActiveItem?.product;
+                  const imageToShow = productToShow?.image;
+
+                  if (imageToShow) {
+                    return (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-1.5">
+                        <div className="w-full h-full max-h-[calc(100%-24px)] flex items-center justify-center bg-white rounded-lg p-1.5 shadow-sm border border-brand-border">
+                          <img 
+                            src={imageToShow} 
+                            alt={productToShow?.name} 
+                            className="max-w-full max-h-full object-contain rounded-md"
+                          />
+                        </div>
+                        <span className="text-[10px] md:text-xs font-black uppercase text-brand-text-main line-clamp-1 text-center bg-white px-2 py-0.5 rounded-full shadow-sm border border-brand-border">
+                          {productToShow?.name}
+                        </span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="flex flex-col items-center justify-center p-3 text-center text-slate-400">
+                        <ImageIcon size={40} className="stroke-1.5 mb-1.5 text-slate-300" />
+                        <span className="text-xs font-bold uppercase text-brand-text-main line-clamp-1">
+                          {productToShow?.name || "Mercadoria"}
+                        </span>
+                        <span className="text-[10px] opacity-60 mt-0.5">Sem imagem cadastrada</span>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            )}
           </div>
         </div>
 
