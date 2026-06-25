@@ -831,6 +831,19 @@ export default function PDVPage() {
         return;
       }
 
+      // * - Atalho de multiplicação global
+      if (e.key === '*') {
+        const active = document.activeElement;
+        const isOtherInputFocused = active instanceof HTMLInputElement && active !== barcodeInputRef.current && active !== quantityInputRef.current;
+        if (!isOtherInputFocused) {
+          e.preventDefault();
+          e.stopPropagation();
+          quantityInputRef.current?.focus();
+          quantityInputRef.current?.select();
+          return;
+        }
+      }
+
       // If help is open, only allow Esc and F1 (to toggle)
       if (showHelp && e.key !== 'Escape' && e.key !== 'F1') {
         return;
@@ -1199,14 +1212,18 @@ export default function PDVPage() {
       e.stopPropagation();
       return;
     }
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === '*') {
       e.preventDefault();
+      e.stopPropagation();
       if (currentProduct) {
         addToCart(currentProduct, quantity);
         setBarcode('');
         setQuantity(1);
         setCurrentProduct(null);
         barcodeInputRef.current?.focus();
+      } else {
+        barcodeInputRef.current?.focus();
+        barcodeInputRef.current?.select();
       }
     }
   };
@@ -1258,7 +1275,13 @@ export default function PDVPage() {
       }
     } else if (e.key === '*') {
       e.preventDefault();
-      if (currentProduct) {
+      e.stopPropagation();
+      const num = Number(barcode);
+      if (barcode.trim() !== '' && !isNaN(num) && num > 0) {
+        setQuantity(num);
+        setBarcode('');
+        barcodeInputRef.current?.focus();
+      } else {
         quantityInputRef.current?.focus();
         quantityInputRef.current?.select();
       }

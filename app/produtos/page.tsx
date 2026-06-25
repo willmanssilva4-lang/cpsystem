@@ -937,26 +937,27 @@ function ProductsContent() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex flex-col sm:flex-row border-b border-brand-border gap-2 sm:gap-8 overflow-x-auto no-scrollbar">
+      <div className="grid grid-cols-2 gap-3 max-w-3xl">
         {[
-          { id: 'produtos', label: 'Produtos', icon: Package },
-          { id: 'movimentacoes', label: 'Movimentações', icon: History },
-          { id: 'ajustes', label: 'Ajustes', icon: ArrowLeftRight },
-          { id: 'inventario', label: 'Inventário', icon: ClipboardList },
-          { id: 'alterar-precos', label: 'Reajuste de Preços', icon: Coins },
+          { id: 'produtos', label: 'Produtos', icon: Package, span: false },
+          { id: 'movimentacoes', label: 'Movimentações', icon: History, span: false },
+          { id: 'ajustes', label: 'Ajustes', icon: ArrowLeftRight, span: false },
+          { id: 'inventario', label: 'Inventário', icon: ClipboardList, span: false },
+          { id: 'alterar-precos', label: 'Reajuste de Preços', icon: Coins, span: true },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-all font-black uppercase italic text-[10px] md:text-xs tracking-widest whitespace-nowrap",
+              "flex items-center justify-center gap-2.5 py-4 px-4 rounded-2xl border transition-all font-black uppercase italic text-xs tracking-widest cursor-pointer select-none",
+              tab.span ? "col-span-2" : "col-span-1",
               activeTab === tab.id 
-                ? "border-brand-blue text-brand-blue" 
-                : "border-transparent text-brand-text-main/40 hover:text-brand-text-main/60"
+                ? "bg-brand-blue border-brand-blue text-white shadow-lg shadow-brand-blue/15 scale-[1.01]" 
+                : "bg-white border-brand-border text-brand-text-sec hover:bg-slate-50 hover:text-brand-text-main shadow-sm"
             )}
           >
-            <tab.icon size={16} />
-            {tab.label}
+            <tab.icon size={18} className={cn(activeTab === tab.id ? "text-white" : "text-brand-text-sec")} />
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
