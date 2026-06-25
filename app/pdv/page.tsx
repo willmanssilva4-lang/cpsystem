@@ -23,6 +23,14 @@ export default function PDVPage() {
   const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale } = useERP();
   const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string, canceled?: boolean }[]>([]);
   const [barcode, setBarcode] = useState('');
+  const [lastBeepedProduct, setLastBeepedProduct] = useState<string | null>(null);
+
+  useEffect(() => {
+    const activeItems = cart.filter(item => !item.canceled);
+    if (activeItems.length === 0) {
+      setLastBeepedProduct(null);
+    }
+  }, [cart]);
 
   const [quantity, setQuantity] = useState(1);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
@@ -76,6 +84,7 @@ export default function PDVPage() {
   const [showSangriaModal, setShowSangriaModal] = useState(false);
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
   const [showClosureModal, setShowClosureModal] = useState(false);
+  const [isNavigatingAway, setIsNavigatingAway] = useState(false);
   const [showReverseModal, setShowReverseModal] = useState(false);
   const [showPriceCheckModal, setShowPriceCheckModal] = useState(false);
   const [showProductListModal, setShowProductListModal] = useState(false);
@@ -1354,6 +1363,7 @@ export default function PDVPage() {
     }
     setIsNavigatingCart(false);
     setSelectedCartIndex(-1);
+    setLastBeepedProduct(product.name);
 
     let basePrice = product.salePrice;
     if (pricingMode === 'wholesale' && product.wholesalePrice) {
@@ -1585,27 +1595,31 @@ export default function PDVPage() {
 
       {/* Status Bar */}
       <div className={cn(
-        "py-2 text-center shadow-inner transition-colors duration-300",
-        cart.length > 0 ? "bg-brand-blue" : "bg-brand-blue-hover"
+        "py-1.5 md:py-2 text-center shadow-inner transition-colors duration-300",
+        cart.filter(item => !item.canceled).length > 0 ? "bg-brand-blue" : "bg-brand-blue-hover"
       )}>
-        <h2 className="text-4xl font-black tracking-[0.2em] uppercase italic text-white">
-          {cart.length > 0 ? "CAIXA OCUPADO" : "CAIXA DISPONIVEL"}
+        <h2 className="text-2xl md:text-4xl font-black tracking-normal uppercase italic text-white px-4 truncate">
+          {cart.filter(item => !item.canceled).length > 0 
+            ? (lastBeepedProduct || cart.filter(item => !item.canceled).slice(-1)[0]?.product.name || "CAIXA OCUPADO") 
+            : "CAIXA LIVRE"
+          }
         </h2>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-3 md:p-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-y-auto lg:overflow-hidden">
+      <main className="flex-1 pt-0 md:pt-1 px-3 md:px-6 pb-3 md:pb-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-y-auto lg:overflow-hidden">
         {/* Middle: Inputs */}
-        <div className="w-full lg:w-[50%] flex flex-col gap-3 shrink-0">
-          <div className="space-y-1 relative">
-            <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Código de Barras</label>
+        <div className="w-full lg:w-[50%] flex flex-col gap-2 shrink-0">
+          <div className="space-y-0.5 md:space-y-1 relative">
+            <label id="pdv-barcode-label" className="text-base md:text-xl font-bold italic text-brand-text-main">Código de Barras</label>
             <input 
+              id="pdv-barcode-input"
               ref={barcodeInputRef}
               value={barcode}
               onChange={handleBarcodeChange}
               onKeyDown={handleKeyDown}
               disabled={!activeRegister}
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-2 text-xl md:text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
+              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-1.5 md:py-2 text-xl md:text-3xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
             />
             
             {/* Search Results Dropdown */}
@@ -1657,7 +1671,7 @@ export default function PDVPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-lg md:text-2xl font-bold italic text-brand-text-main">Quantidade</label>
               <input 
@@ -2357,7 +2371,7 @@ export default function PDVPage() {
       )}
 
       {/* Cash Register Manager Overlay (Force Open) */}
-      {!activeRegister && !isLoading && !showClosureModal && (
+      {!activeRegister && !isLoading && !showClosureModal && !isNavigatingAway && (
         <div className="fixed inset-0 bg-brand-text-main/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
           <div className="max-w-md w-full">
             <div className="text-center mb-8">
@@ -2367,7 +2381,10 @@ export default function PDVPage() {
             </div>
             <CashRegisterManager />
             <button 
-              onClick={() => router.push('/')}
+              onClick={() => {
+                setIsNavigatingAway(true);
+                router.push('/');
+              }}
               className="w-full mt-4 py-3 text-slate-400 hover:text-white transition-colors font-bold uppercase text-sm tracking-widest"
             >
               Voltar ao Início
@@ -2388,6 +2405,7 @@ export default function PDVPage() {
                 setShowClosureModal(false);
               }}
               onSuccess={() => {
+                setIsNavigatingAway(true);
                 router.push('/');
               }}
             />

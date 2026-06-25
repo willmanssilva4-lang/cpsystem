@@ -38,6 +38,21 @@ export function CashRegisterManager({
     paymentMethods
   } = useERP();
 
+  const isCancelledSale = (sale: any): boolean => {
+    if (!sale) return false;
+    const rawStatus = (sale.status || '').toLowerCase();
+    const sType = (sale.type || '').toLowerCase();
+    const cancelledStatuses = [
+      'cancelada', 'estornada', 'cancelado', 'reversão', 'reversao', 
+      'estorno', 'cancelar', 'reverter', 'devolução', 'devolucao', 
+      'devolvida', 'excluída', 'excluida', 'excluido', 'excluído'
+    ];
+    return (
+      cancelledStatuses.some(status => rawStatus.includes(status)) ||
+      cancelledStatuses.some(type => sType.includes(type))
+    );
+  };
+
   const [isOpening, setIsOpening] = useState(false);
   const [isClosing, setIsClosing] = useState(initialMode === 'fechamento');
   const [isTransaction, setIsTransaction] = useState(initialMode === 'sangria' || initialMode === 'suprimento');
@@ -146,14 +161,8 @@ export function CashRegisterManager({
       return 'Dinheiro'; // Standard fallback
     };
 
-    const isCancelledSale = (status?: string): boolean => {
-      if (!status) return false;
-      const s = status.toUpperCase();
-      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
-    };
-
-    // Filter active (non-cancelled) sales linked to the current cash session
-    const registerSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s.status));
+    // Filter active (non-cancelled/non-returned) sales linked to the current cash session
+    const registerSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s));
     
     const totals: Record<string, number> = {
       'Dinheiro': 0,
@@ -227,14 +236,8 @@ export function CashRegisterManager({
     setErrorMsg(null);
 
     // Capture snapshot of cash movements and sales before the activeRegister is closed/fetchData is called
-    const isCancelledSale = (status?: string): boolean => {
-      if (!status) return false;
-      const s = status.toUpperCase();
-      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
-    };
-
     const snapshotMovements = cashMovements.filter(m => m.cashRegisterId === activeRegister.id);
-    const snapshotSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s.status));
+    const snapshotSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s));
 
     const reportSnapshot = {
       registerId: activeRegister.id,
@@ -272,14 +275,8 @@ export function CashRegisterManager({
     if (!activeRegister) return;
     setErrorMsg(null);
 
-    const isCancelledSale = (status?: string): boolean => {
-      if (!status) return false;
-      const s = status.toUpperCase();
-      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
-    };
-
     const snapshotMovements = cashMovements.filter(m => m.cashRegisterId === activeRegister.id);
-    const snapshotSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s.status));
+    const snapshotSales = sales.filter(s => s.cashRegisterId === activeRegister.id && !isCancelledSale(s));
 
     const autoInformedValues = { ...systemTotals };
 
@@ -357,6 +354,231 @@ export function CashRegisterManager({
   }, [isClosing]);
 
   if (!activeRegister) {
+    if (showSuccessMessage && finalReportData) {
+      return (
+        <div className="relative w-full max-w-xl mx-auto">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              #printable-closing-report, #printable-closing-report * {
+                visibility: visible;
+              }
+              #printable-closing-report {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                background: white !important;
+                color: black !important;
+                padding: 10px 0;
+                margin: 0;
+                overflow: visible;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+              }
+              .print-hidden {
+                display: none !important;
+              }
+            }
+          `}} />
+
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            id="printable-closing-report"
+            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white max-w-xl w-full rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto print:max-h-none print:overflow-visible print:bg-white print:text-black print:shadow-none print:border-none print:rounded-none"
+          >
+            {/* Report Header */}
+            <div className="text-center space-y-2 pb-4 border-b border-dashed border-slate-300 dark:border-slate-800 print:border-black">
+              <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto print:hidden">
+                <CheckCircle2 size={24} />
+              </div>
+              <h3 className="text-xl font-black uppercase italic tracking-wider text-slate-900 dark:text-white print:text-black pt-1">
+                Fechamento de Caixa
+              </h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">
+                Comprovante Fiscal PDV
+              </p>
+              <div className="text-xs font-mono text-slate-500 space-y-0.5 pt-1">
+                <div>ID Caixa: <span className="font-bold">{finalReportData.registerId}</span></div>
+                <div>Operador: <span className="font-bold uppercase">{finalReportData.operatorName}</span></div>
+              </div>
+            </div>
+
+            {/* Period Info Grid */}
+            <div className="grid grid-cols-2 gap-4 text-xs font-mono py-2.5 bg-slate-50 dark:bg-slate-850 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/50 print:bg-slate-100 print:text-black print:border-black">
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase">Abertura:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black">
+                  {new Date(finalReportData.openedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase">Fechamento:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black">
+                  {new Date(finalReportData.closedAt).toLocaleString('pt-BR')}
+                </span>
+              </div>
+            </div>
+
+            {/* Cash Movement Stream */}
+            <div className="space-y-2 border-b border-dashed border-slate-300 dark:border-slate-800 pb-4 print:border-black">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                Resumo das Movimentações
+              </h4>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-slate-50 dark:bg-slate-800/20 p-2 text-center rounded-xl border border-slate-100 dark:border-slate-800/50 print:bg-slate-100 print:text-black">
+                  <span className="text-[9px] uppercase font-bold text-slate-400">Fundo Inicial</span>
+                  <div className="text-xs font-black text-slate-700 dark:text-slate-300 print:text-black mt-0.5">
+                    R$ {finalReportData.openingBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-500/10 p-2 text-center rounded-xl border border-emerald-100/20 print:bg-slate-100 print:text-black">
+                  <span className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 print:text-slate-500">Suprimentos</span>
+                  <div className="text-xs font-black text-emerald-700 dark:text-emerald-400 print:text-black mt-0.5">
+                    R$ {finalReportData.movements.filter(m => m.type === 'suprimento').reduce((acc, m) => acc + Number(m.amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-rose-50 dark:bg-rose-500/10 p-2 text-center rounded-xl border border-rose-100/20 print:bg-slate-100 print:text-black">
+                  <span className="text-[9px] uppercase font-bold text-rose-600 dark:text-rose-400 print:text-slate-500">Sangrias</span>
+                  <div className="text-xs font-black text-rose-700 dark:text-rose-400 print:text-black mt-0.5">
+                    R$ {finalReportData.movements.filter(m => m.type === 'sangria').reduce((acc, m) => acc + Number(m.amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payments Break down Table */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                Conferência por Forma de Pagamento
+              </h4>
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 print:border-black">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 print:bg-slate-100 print:text-black print:border-black">
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500">Forma</th>
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500 text-right">Esperado</th>
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500 text-right">Informado</th>
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500 text-right">Diferença</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-black">
+                    {Object.keys(finalReportData.informedValues).map(method => {
+                      const system = finalReportData.systemTotals[method] || 0;
+                      const informed = finalReportData.informedValues[method] || 0;
+                      const diff = informed - system;
+                      return (
+                        <tr key={method} className="hover:bg-slate-50/50 print:text-black">
+                          <td className="p-2 font-semibold text-slate-900 dark:text-white print:text-black">{method}</td>
+                          <td className="p-2 text-right text-slate-500 dark:text-slate-400 print:text-black">
+                            R$ {system.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-2 text-right font-bold text-slate-700 dark:text-slate-300 print:text-black">
+                            R$ {informed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className={`p-2 text-right font-black ${
+                            diff === 0 
+                              ? 'text-emerald-500' 
+                              : diff > 0 
+                                ? 'text-blue-500' 
+                                : 'text-rose-500'
+                          } print:text-black`}>
+                            {diff > 0 ? '+' : ''} R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Total Summary */}
+            <div className="bg-slate-50 dark:bg-slate-800/10 p-4 rounded-xl border border-slate-100 dark:border-slate-800/50 print:bg-white print:text-black print:border-black space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500 uppercase font-bold">Total Sistema (Vendas + Fundo):</span>
+                <span className="font-bold font-mono">
+                  R$ {Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500 uppercase font-bold">Total Informado (Físico):</span>
+                <span className="font-bold font-mono text-brand-blue print:text-black">
+                  R$ {Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-850 print:border-black font-black">
+                <span>Diferença Consolidada:</span>
+                <span className={
+                  Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0) - Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0) === 0 
+                    ? 'text-emerald-500' 
+                    : 'text-rose-500'
+                }>
+                  R$ {(Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0) - Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Audit justifications / notes */}
+            {Object.keys(finalReportData.justifications).length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Observações e Justificativas
+                </h4>
+                <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 font-mono print:text-black print:border-black space-y-1">
+                  {Object.entries(finalReportData.justifications).map(([key, value]) => value && (
+                    <div key={key}>
+                      <span className="font-bold">{key}:</span> {value}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Signature block helper for print spool */}
+            <div className="hidden print:block pt-12 space-y-8">
+              <div className="flex justify-between gap-8 text-center text-xs font-mono">
+                <div className="flex-1 border-t border-slate-900 pt-2 shrink-0">
+                  <p className="font-bold uppercase leading-none">{finalReportData.operatorName}</p>
+                  <p className="text-[10px] text-slate-500 pt-1">Assinatura do Operador</p>
+                </div>
+                <div className="flex-1 border-t border-slate-900 pt-2 shrink-0">
+                  <p className="font-bold uppercase leading-none">Supervisor autorizado</p>
+                  <p className="text-[10px] text-slate-500 pt-1">Assinatura de Auditoria</p>
+                </div>
+              </div>
+            </div>
+
+            {/* UI CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
+              <button 
+                onClick={() => window.print()}
+                className="flex-1 py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
+              >
+                <Printer size={18} />
+                Imprimir Relatório
+              </button>
+              <button 
+                onClick={() => {
+                  onSuccess?.();
+                  onClose?.();
+                }}
+                className="flex-1 py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
+              >
+                Concluir e Voltar ao Início
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-8 bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 shadow-2xl">
         <div className="flex items-center gap-4 mb-8">

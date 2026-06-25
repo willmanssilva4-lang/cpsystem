@@ -2736,13 +2736,22 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
       return 'Dinheiro';
     };
 
-    const isCancelledSale = (status?: string): boolean => {
-      if (!status) return false;
-      const s = status.toUpperCase();
-      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
+    const isCancelledSale = (sale: any): boolean => {
+      if (!sale) return false;
+      const rawStatus = (sale.status || '').toLowerCase();
+      const sType = (sale.type || '').toLowerCase();
+      const cancelledStatuses = [
+        'cancelada', 'estornada', 'cancelado', 'reversão', 'reversao', 
+        'estorno', 'cancelar', 'reverter', 'devolução', 'devolucao', 
+        'devolvida', 'excluída', 'excluida', 'excluido', 'excluído'
+      ];
+      return (
+        cancelledStatuses.some(status => rawStatus.includes(status)) ||
+        cancelledStatuses.some(type => sType.includes(type))
+      );
     };
 
-    const registerSales = (sales || []).filter(s => s.cashRegisterId === r.id && !isCancelledSale(s.status));
+    const registerSales = (sales || []).filter(s => s.cashRegisterId === r.id && !isCancelledSale(s));
     
     const totals: Record<string, number> = {
       'Dinheiro': 0,
@@ -2786,13 +2795,22 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
   };
 
   const getRegisterCurrentBalance = (r: any) => {
-    const isCancelledSale = (status?: string): boolean => {
-      if (!status) return false;
-      const s = status.toUpperCase();
-      return s === 'CANCELADA' || s === 'CANCELADO' || s === 'CANCEL_PEDIDO';
+    const isCancelledSale = (sale: any): boolean => {
+      if (!sale) return false;
+      const rawStatus = (sale.status || '').toLowerCase();
+      const sType = (sale.type || '').toLowerCase();
+      const cancelledStatuses = [
+        'cancelada', 'estornada', 'cancelado', 'reversão', 'reversao', 
+        'estorno', 'cancelar', 'reverter', 'devolução', 'devolucao', 
+        'devolvida', 'excluída', 'excluida', 'excluido', 'excluído'
+      ];
+      return (
+        cancelledStatuses.some(status => rawStatus.includes(status)) ||
+        cancelledStatuses.some(type => sType.includes(type))
+      );
     };
 
-    const registerSales = (sales || []).filter(s => s.cashRegisterId === r.id && !isCancelledSale(s.status));
+    const registerSales = (sales || []).filter(s => s.cashRegisterId === r.id && !isCancelledSale(s));
     
     let total = r.openingBalance || 0;
 
