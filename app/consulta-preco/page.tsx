@@ -251,9 +251,26 @@ export default function PriceCheckPage() {
     }
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   const isIdle = !searchTerm && !result;
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-4">
+        <div className="text-center space-y-2 animate-pulse">
+          <h1 className="text-5xl md:text-7xl font-black text-brand-blue/30 uppercase italic tracking-tighter leading-none">
+            Terminal de Consulta
+          </h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-start p-4 md:p-8 overflow-y-auto pt-2 md:pt-4">
