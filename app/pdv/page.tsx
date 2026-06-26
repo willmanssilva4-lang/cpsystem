@@ -773,15 +773,6 @@ export default function PDVPage() {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Robust fast-path interception for Alt+E (Stock & Price check) anywhere in the POS
-      const isAltE = e.altKey && (e.key.toLowerCase() === 'e' || e.code === 'KeyE');
-      if (isAltE) {
-        e.preventDefault();
-        e.stopPropagation();
-        setShowPriceCheckModal(true);
-        return;
-      }
-
       // Check if user is typing in an input field
       const isInputFocused = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
 
@@ -1108,7 +1099,6 @@ export default function PDVPage() {
           setShowReverseModal(true);
         }
         if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Alt+H)'); }
-        if (key === 'e') { e.preventDefault(); setShowPriceCheckModal(true); }
         if (key === 'z') { e.preventDefault(); toggleFullScreen(); }
       }
 
@@ -1830,7 +1820,7 @@ export default function PDVPage() {
             
             {/* Search Results Dropdown */}
             {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mt-2 shadow-2xl z-[100] overflow-y-auto">
+              <div className="absolute bottom-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mb-2 shadow-2xl z-[100] overflow-y-auto">
                  {searchResults.map((product, index) => {
                     const promoInfo = getProductPromoInfo(product);
                     const isPromoActive = promoInfo && promoInfo.promoPrice !== null;
@@ -2367,7 +2357,6 @@ export default function PDVPage() {
                 <p><span className="font-bold">Ctrl + S</span> - Sangria</p>
                 <p><span className="font-bold">Ctrl + U</span> - Suprimento</p>
                 <p><span className="font-bold">Ctrl + F</span> - Fechamento de caixa</p>
-                <p><span className="font-bold">Alt + E</span> - Consultar estoque</p>
                 <p><span className="font-bold">Ctrl + P</span> - Consultar preço</p>
                 <a href="/consulta-preco" target="_blank" className="block mt-2 p-2 bg-brand-blue/10 text-brand-blue rounded-lg text-[10px] font-black uppercase italic hover:bg-brand-blue hover:text-white transition-all text-center border border-brand-blue/20">
                   Abrir Terminal em Nova Aba
