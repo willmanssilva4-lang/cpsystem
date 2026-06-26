@@ -110,24 +110,35 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
     }
   }, [selectedIndex]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex(prev => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (filteredProducts.length > 0 && selectedIndex >= 0) {
-        onSelectProduct(filteredProducts[selectedIndex]);
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedIndex(prev => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (filteredProducts.length > 0 && selectedIndex >= 0) {
+          onSelectProduct(filteredProducts[selectedIndex]);
+          onClose();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
-    }
-  };
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    };
+  }, [filteredProducts, selectedIndex, onClose, onSelectProduct]);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -158,12 +169,12 @@ export function ProductListModal({ onClose, onSelectProduct }: ProductListModalP
             <input
               ref={inputRef}
               type="text"
+              autoFocus
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setSelectedIndex(0);
               }}
-              onKeyDown={handleKeyDown}
               placeholder="Buscar por código, SKU ou nome..."
               className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-lg font-medium focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-colors"
             />

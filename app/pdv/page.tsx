@@ -743,7 +743,10 @@ export default function PDVPage() {
       barcodeInputRef.current?.focus();
     } else {
       if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
+        const active = document.activeElement;
+        if (active === barcodeInputRef.current || active === quantityInputRef.current) {
+          active.blur();
+        }
       }
     }
 
@@ -888,22 +891,15 @@ export default function PDVPage() {
       // F3 - Buscar Produto Manual
       if (e.key === 'F3') {
         e.preventDefault();
-        setIsNavigatingCart(false);
-        setSelectedCartIndex(-1);
-        barcodeInputRef.current?.focus();
+        setShowProductListModal(prev => !prev);
         setNumericBuffer('');
       }
 
       // F4 - Alterar Quantidade
       if (e.key === 'F4') {
         e.preventDefault();
-        if (isNavigatingCart && selectedCartIndex >= 0) {
-          quantityInputRef.current?.focus();
-          quantityInputRef.current?.select();
-        } else if (currentProduct) {
-          quantityInputRef.current?.focus();
-          quantityInputRef.current?.select();
-        }
+        quantityInputRef.current?.focus();
+        quantityInputRef.current?.select();
         setNumericBuffer('');
       }
 
@@ -1247,6 +1243,11 @@ export default function PDVPage() {
         barcodeInputRef.current?.focus();
         barcodeInputRef.current?.select();
       }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      barcodeInputRef.current?.focus();
+      barcodeInputRef.current?.select();
     }
   };
 
@@ -1514,22 +1515,32 @@ export default function PDVPage() {
   return (
     <div className="h-screen flex flex-col bg-white text-slate-900 font-sans overflow-hidden select-none">
       {/* Top Header */}
-      <header className="bg-brand-text-main text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-brand-text-main gap-2">
-        <div className="flex items-center gap-1.5 md:gap-4 min-w-0 flex-1 md:flex-initial">
+      <header className="bg-brand-text-main text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-brand-text-main gap-2 relative">
+        <div className="flex items-center gap-1.5 md:gap-4 min-w-0 z-10">
           <div className="hidden sm:block shrink-0">
-            <Logo size="sm" hideText theme="dark" />
-          </div>
-          <div className="text-left min-w-0 flex-1">
-            {companySettings?.tradeName && (
-              <h1 className="text-xs md:text-xl font-bold md:tracking-widest uppercase leading-tight break-words sm:truncate">
-                {companySettings.tradeName}
-              </h1>
-            )}
+            <Logo size="md" hideText theme="dark" />
           </div>
         </div>
         
-        <div className="flex flex-col items-end">
+        <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none z-0">
+          {companySettings?.tradeName && (
+            <h1 className="text-xs md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate max-w-[120px] xs:max-w-[180px] sm:max-w-[320px] md:max-w-[500px] lg:max-w-[700px] pointer-events-auto">
+              {companySettings.tradeName}
+            </h1>
+          )}
+        </div>
+        
+        <div className="flex flex-col items-end z-10">
           <div className="flex gap-2 mb-1 items-center">
+            <button
+              type="button"
+              onClick={() => setShowHelp(true)}
+              title="Instruções dos Atalhos (F1)"
+              className="px-2.5 py-1 rounded-lg text-xs font-black transition-colors border shrink-0 bg-amber-500/20 text-amber-500 border-amber-500/30 hover:bg-amber-500/35 flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span className="text-sm font-black">?</span>
+              <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">Atalhos (F1)</span>
+            </button>
             <button
               onClick={() => {
                 setPricingMode(prev => {
@@ -1571,30 +1582,7 @@ export default function PDVPage() {
                 </>
               )}
             </button>
-            <a 
-              href="/consulta-preco" 
-              target="_blank"
-              title="Abrir Terminal de Consulta em nova aba"
-              className="size-6 bg-brand-blue-hover hover:bg-brand-text-sec flex items-center justify-center font-bold text-xs transition-colors"
-            >
-              <Monitor size={14} />
-            </a>
-            <button 
-              onClick={toggleFullScreen}
-              title={isFullScreen ? "Sair da Tela Cheia" : "Tela Cheia"}
-              className="size-6 bg-brand-blue-hover hover:bg-brand-text-sec flex items-center justify-center font-bold text-xs transition-colors"
-            >
-              {isFullScreen ? <Minimize size={14} /> : <Maximize size={14} />}
-            </button>
-            <button 
-              onClick={() => setConfirmDialog({
-                message: 'Deseja sair do PDV?',
-                onConfirm: () => router.push('/')
-              })}
-              className="size-6 bg-rose-600 hover:bg-rose-500 flex items-center justify-center font-bold text-xs transition-colors"
-            >
-              X
-            </button>
+            {/* Removed: Terminal de Consulta, Full Screen, and Sair buttons */}
           </div>
           <div className="bg-brand-text-main px-4 py-1 border border-brand-text-main rounded">
             <span className="text-sm font-bold text-slate-50">{formatDate(currentTime)}</span>
@@ -1625,126 +1613,10 @@ export default function PDVPage() {
 
       {/* Main Content */}
       <main className="flex-1 pt-0 md:pt-1 px-3 md:px-6 pb-3 md:pb-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-y-auto lg:overflow-hidden">
-        {/* Middle: Inputs */}
-        <div className="w-full lg:w-[50%] flex flex-col gap-2 shrink-0">
-          <div className="space-y-0.5 relative">
-            <label id="pdv-barcode-label" className="text-xs md:text-sm font-bold italic text-brand-text-main">Código de Barras</label>
-            <input 
-              id="pdv-barcode-input"
-              ref={barcodeInputRef}
-              value={barcode}
-              onChange={handleBarcodeChange}
-              onKeyDown={handleKeyDown}
-              disabled={!activeRegister}
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
-            />
-            
-            {/* Search Results Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mt-2 shadow-2xl z-[100] overflow-y-auto">
-                 {searchResults.map((product, index) => {
-                    const promoInfo = getProductPromoInfo(product);
-                    const isPromoActive = promoInfo && promoInfo.promoPrice !== null;
-                    return (
-                      <div 
-                        key={product.id}
-                        id={`search-result-${index}`}
-                        onClick={() => selectProduct(product)}
-                        className={cn(
-                          "px-4 py-2 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors",
-                          index === selectedIndex ? "bg-brand-blue text-white" : "hover:bg-slate-50 text-brand-text-main"
-                        )}
-                      >
-                        <div className="flex flex-col">
-                           <span className="text-sm font-bold uppercase">{product.name}</span>
-                           <span className="text-[10px] opacity-60">SKU: {product.sku}</span>
-                        </div>
-                        {isPromoActive ? (
-                          <div className="text-right flex flex-col items-end">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] line-through opacity-65">R$ {formatCurrency(product.salePrice)}</span>
-                              <span className="bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase">
-                                {promoInfo.badge}
-                              </span>
-                            </div>
-                            <span className={cn("font-black text-sm", index === selectedIndex ? "text-white" : "text-rose-600 dark:text-rose-450")}>
-                              R$ {formatCurrency(promoInfo.promoPrice)}
-                            </span>
-                          </div>
-                        ) : promoInfo?.badge ? (
-                          <div className="text-right flex flex-col items-end">
-                            <span className="bg-amber-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase mb-0.5">
-                              {promoInfo.badge}
-                            </span>
-                            <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
-                          </div>
-                        ) : (
-                          <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-0.5">
-              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Quantidade</label>
-              <input 
-                ref={quantityInputRef}
-                type="number" 
-                step="0.001"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                onKeyDown={handleQuantityKeyDown}
-                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
-              />
-            </div>
-
-            <div className="space-y-0.5">
-              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Valor Unitário</label>
-              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-right flex flex-col justify-center min-h-[32px] md:min-h-[38px]">
-                {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
-                  <div className="flex flex-col items-end leading-none">
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <span className="text-[10px] line-through opacity-60">R$ {formatCurrency(currentProduct.salePrice)}</span>
-                      <span className="bg-rose-600 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase">
-                        {currentProductPromo.badge}
-                      </span>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-rose-600 leading-tight">R$ {formatCurrency(currentProductPromo.promoPrice)}</span>
-                  </div>
-                ) : currentProduct && currentProductPromo?.badge ? (
-                  <div className="flex flex-col items-end leading-none">
-                    <span className="bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase mb-0.5">
-                      {currentProductPromo.badge}
-                    </span>
-                    <span className="text-base md:text-xl font-black text-brand-text-main leading-tight">R$ {formatCurrency(currentProduct.salePrice)}</span>
-                  </div>
-                ) : (
-                  <span className="text-base md:text-xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-0.5">
-              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Valor Total</label>
-              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-right flex flex-col justify-center min-h-[32px] md:min-h-[38px]">
-                {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
-                  <div className="flex flex-col items-end leading-none">
-                    <span className="text-[8px] opacity-65 leading-none mb-0.5">Sem Promo: R$ {formatCurrency(currentProduct.salePrice * quantity)}</span>
-                    <span className="text-base md:text-xl font-black text-rose-600">R$ {formatCurrency(currentProductPromo.promoPrice * quantity)}</span>
-                  </div>
-                ) : (
-                  <span className="text-base md:text-xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
-                )}
-              </div>
-            </div>
-          </div>
-
+        {/* Middle: Product Image */}
+        <div className="w-full lg:w-[50%] flex flex-col shrink-0 lg:h-full">
           {/* Imagem do Produto ou Totem */}
-          <div className="h-64 sm:h-80 lg:h-[360px] xl:h-[480px] w-full relative bg-slate-50 border border-brand-border rounded-xl overflow-hidden flex flex-col items-center justify-center shadow-inner mt-1">
+          <div className="flex-1 min-h-[350px] lg:h-full w-full relative bg-slate-50 border border-brand-border rounded-xl overflow-hidden flex flex-col items-center justify-center shadow-inner mt-1">
             {/* If the cart has no active items (caixa livre) */}
             {cart.filter(item => !item.canceled).length === 0 ? (
               // Show images from "Gestão do Totem" (advertisements)
@@ -1940,17 +1812,130 @@ export default function PDVPage() {
       </main>
 
       {/* Footer */}
-      <footer className="px-4 md:px-6 py-4 flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end">
-        <div className={cn(
-          "flex-1 py-4 text-center rounded-xl border-2 border-brand-border shadow-lg transition-colors duration-300",
-          cart.length > 0 ? "bg-brand-blue" : "bg-brand-blue-hover"
-        )}>
-          <h3 className="text-3xl md:text-5xl font-black italic tracking-[0.1em] uppercase text-white">
-            {cart.length > 0 ? "CAIXA OCUPADO" : "CAIXA LIVRE"}
-          </h3>
+      <footer className="px-4 md:px-6 py-4 flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end justify-between">
+        {/* Left Side: Product Inputs aligned with Total a Pagar */}
+        <div className="w-full md:w-[58%] flex flex-col gap-2">
+          {/* Barcode input */}
+          <div className="space-y-0.5 relative">
+            <label id="pdv-barcode-label" className="text-xs md:text-sm font-bold italic text-brand-text-main">Código de Barras</label>
+            <input 
+              id="pdv-barcode-input"
+              ref={barcodeInputRef}
+              value={barcode}
+              onChange={handleBarcodeChange}
+              onKeyDown={handleKeyDown}
+              disabled={!activeRegister}
+              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
+            />
+            
+            {/* Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mt-2 shadow-2xl z-[100] overflow-y-auto">
+                 {searchResults.map((product, index) => {
+                    const promoInfo = getProductPromoInfo(product);
+                    const isPromoActive = promoInfo && promoInfo.promoPrice !== null;
+                    return (
+                      <div 
+                        key={product.id}
+                        id={`search-result-${index}`}
+                        onClick={() => selectProduct(product)}
+                        className={cn(
+                          "px-4 py-2 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center transition-colors",
+                          index === selectedIndex ? "bg-brand-blue text-white" : "hover:bg-slate-50 text-brand-text-main"
+                        )}
+                      >
+                        <div className="flex flex-col">
+                           <span className="text-sm font-bold uppercase">{product.name}</span>
+                           <span className="text-[10px] opacity-60">SKU: {product.sku}</span>
+                        </div>
+                        {isPromoActive ? (
+                          <div className="text-right flex flex-col items-end">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] line-through opacity-65">R$ {formatCurrency(product.salePrice)}</span>
+                              <span className="bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase">
+                                {promoInfo.badge}
+                              </span>
+                            </div>
+                            <span className={cn("font-black text-sm", index === selectedIndex ? "text-white" : "text-rose-600 dark:text-rose-450")}>
+                              R$ {formatCurrency(promoInfo.promoPrice)}
+                            </span>
+                          </div>
+                        ) : promoInfo?.badge ? (
+                          <div className="text-right flex flex-col items-end">
+                            <span className="bg-amber-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase mb-0.5">
+                              {promoInfo.badge}
+                            </span>
+                            <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
+                          </div>
+                        ) : (
+                          <span className="font-black text-sm">R$ {formatCurrency(product.salePrice)}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+
+          {/* Quantity, Unit Price and Total Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-0.5">
+              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Quantidade</label>
+              <input 
+                ref={quantityInputRef}
+                type="number" 
+                step="0.001"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+                onKeyDown={handleQuantityKeyDown}
+                className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-right text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Valor Unitário</label>
+              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-right flex flex-col justify-center min-h-[32px] md:min-h-[38px]">
+                {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
+                  <div className="flex flex-col items-end leading-none">
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className="text-[10px] line-through opacity-60">R$ {formatCurrency(currentProduct.salePrice)}</span>
+                      <span className="bg-rose-600 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase">
+                        {currentProductPromo.badge}
+                      </span>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-rose-600 leading-tight">R$ {formatCurrency(currentProductPromo.promoPrice)}</span>
+                  </div>
+                ) : currentProduct && currentProductPromo?.badge ? (
+                  <div className="flex flex-col items-end leading-none">
+                    <span className="bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded tracking-wide uppercase mb-0.5">
+                      {currentProductPromo.badge}
+                    </span>
+                    <span className="text-base md:text-xl font-black text-brand-text-main leading-tight">R$ {formatCurrency(currentProduct.salePrice)}</span>
+                  </div>
+                ) : (
+                  <span className="text-base md:text-xl font-black text-brand-text-main">{formatCurrency(currentProduct?.salePrice || 0)}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <label className="text-xs md:text-sm font-bold italic text-brand-text-main">Valor Total</label>
+              <div className="bg-slate-50 border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-right flex flex-col justify-center min-h-[32px] md:min-h-[38px]">
+                {currentProduct && currentProductPromo?.promoPrice !== null && currentProductPromo?.promoPrice !== undefined ? (
+                  <div className="flex flex-col items-end leading-none">
+                    <span className="text-[8px] opacity-65 leading-none mb-0.5">Sem Promo: R$ {formatCurrency(currentProduct.salePrice * quantity)}</span>
+                    <span className="text-base md:text-xl font-black text-rose-600">R$ {formatCurrency(currentProductPromo.promoPrice * quantity)}</span>
+                  </div>
+                ) : (
+                  <span className="text-base md:text-xl font-black text-brand-text-main">{formatCurrency((currentProduct?.salePrice || 0) * quantity)}</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <div className="w-full md:w-[40%] flex flex-col gap-1.5">
+
+        {/* Right Side: Total a Pagar */}
+        <div className="w-full md:w-[38%] flex flex-col gap-1.5 justify-end">
           <h3 className="text-xs md:text-sm font-black italic uppercase tracking-wider text-brand-text-main">Total a Pagar</h3>
           <button
             type="button"
@@ -1985,11 +1970,11 @@ export default function PDVPage() {
       {/* Shortcuts Bar */}
       <div className="hidden lg:block bg-brand-text-main py-1 px-4 text-[9px] font-bold border-t border-brand-text-main overflow-x-auto whitespace-nowrap text-brand-border">
         <div className="flex gap-4 justify-center opacity-80">
-          <span>F1 - Ajuda</span>
+          <button onClick={() => setShowHelp(prev => !prev)} className="hover:text-white transition-colors">F1 - Ajuda</button>
           <span>|</span>
           <span>F2 - Navegar</span>
           <span>|</span>
-          <span>F3 - Buscar</span>
+          <button onClick={() => setShowProductListModal(prev => !prev)} className="hover:text-white transition-colors">F3 - Buscar</button>
           <span>|</span>
           <span>F4 - Qtd</span>
           <span>|</span>
@@ -2415,6 +2400,7 @@ export default function PDVPage() {
           onClose={() => setShowProductListModal(false)} 
           onSelectProduct={(product) => {
             selectProduct(product);
+            setShowProductListModal(false);
           }}
         />
       )}
