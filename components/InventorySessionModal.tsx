@@ -43,6 +43,125 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     responsible: user?.name || 'Sistema'
   });
 
+  // Direct count prompt modal states for Rotative Inventory
+  const [activePromptProduct, setActivePromptProduct] = useState<Product | null>(null);
+  const [promptCount, setPromptCount] = useState<string>('');
+  const [promptExpiration, setPromptExpiration] = useState<string>('');
+  const promptInputRef = useRef<HTMLInputElement>(null);
+
+  const activePromptProductRef = useRef<Product | null>(null);
+  useEffect(() => {
+    activePromptProductRef.current = activePromptProduct;
+  }, [activePromptProduct]);
+
+  const promptCountRef = useRef<string>('');
+  useEffect(() => {
+    promptCountRef.current = promptCount;
+  }, [promptCount]);
+
+  const promptExpirationRef = useRef<string>('');
+  useEffect(() => {
+    promptExpirationRef.current = promptExpiration;
+  }, [promptExpiration]);
+
+  const configRef = useRef(config);
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
+
+  const countsRef = useRef(counts);
+  useEffect(() => {
+    countsRef.current = counts;
+  }, [counts]);
+
+  const expirationsRef = useRef(expirations);
+  useEffect(() => {
+    expirationsRef.current = expirations;
+  }, [expirations]);
+
+  const playBeep = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800Hz beep
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime); // volume
+      
+      oscillator.start();
+      setTimeout(() => {
+        oscillator.stop();
+        audioCtx.close();
+      }, 80); // 80ms beep
+    } catch (err) {
+      console.warn('Audio Context not allowed or failed:', err);
+    }
+  };
+
+  const handleAutoSaveAndOpenNext = (newBarcode: string) => {
+    if (activePromptProductRef.current) {
+      const p = activePromptProductRef.current;
+      const countVal = promptCountRef.current;
+      const expVal = promptExpirationRef.current;
+      
+      const numValue = countVal === '' ? '' : parseInt(countVal);
+      setCounts(prev => ({ ...prev, [p.id]: isNaN(Number(numValue)) ? '' : Number(numValue) }));
+      setExpirations(prev => ({ ...prev, [p.id]: expVal }));
+      
+      // Ensure product is in sessionProducts
+      setSessionProducts(prev => {
+        if (!prev.some(sp => sp.id === p.id)) {
+          const updated = [...prev, p];
+          updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+          return updated;
+        }
+        return prev;
+      });
+      
+      playBeep();
+    }
+    
+    // Now trigger search for the new barcode
+    setSearch(newBarcode);
+    handleSearchSubmit(newBarcode);
+  };
+
+  const handleSavePromptCount = () => {
+    if (!activePromptProductRef.current) return;
+    
+    const p = activePromptProductRef.current;
+    const countVal = promptCountRef.current;
+    const expVal = promptExpirationRef.current;
+    
+    const numValue = countVal === '' ? '' : parseInt(countVal);
+    setCounts(prev => ({ ...prev, [p.id]: isNaN(Number(numValue)) ? '' : Number(numValue) }));
+    setExpirations(prev => ({ ...prev, [p.id]: expVal }));
+    
+    // Ensure product is in sessionProducts
+    setSessionProducts(prev => {
+      if (!prev.some(sp => sp.id === p.id)) {
+        const updated = [...prev, p];
+        updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+        return updated;
+      }
+      return prev;
+    });
+
+    playBeep();
+    setActivePromptProduct(null);
+    setPromptCount('');
+    setPromptExpiration('');
+    
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select?.();
+    }, 150);
+  };
+
   useEffect(() => {
     stepRef.current = step;
     if (step === 'counting') {
@@ -101,6 +220,27 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     if (match) {
       setSearch('');
       const targetId = match.id;
+      
+      if (configRef.current?.type === 'Rotativo') {
+        const currentVal = countsRef.current[match.id];
+        let initialVal = '1';
+        if (currentVal !== undefined && currentVal !== '') {
+          initialVal = String(Number(currentVal) + 1);
+        }
+        
+        setActivePromptProduct(match);
+        setPromptCount(initialVal);
+        setPromptExpiration(expirationsRef.current[match.id] || '');
+        
+        setTimeout(() => {
+          promptInputRef.current?.focus();
+          promptInputRef.current?.select?.();
+        }, 150);
+        
+        playBeep();
+        return true;
+      }
+      
       setTimeout(() => {
         const input = document.getElementById('count-' + targetId) as HTMLInputElement;
         if (input) {
@@ -121,6 +261,26 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     if (filtered.length === 1) {
       const singleMatch = filtered[0];
       setSearch('');
+      
+      if (configRef.current?.type === 'Rotativo') {
+        const currentVal = countsRef.current[singleMatch.id];
+        let initialVal = '1';
+        if (currentVal !== undefined && currentVal !== '') {
+          initialVal = String(Number(currentVal) + 1);
+        }
+        setActivePromptProduct(singleMatch);
+        setPromptCount(initialVal);
+        setPromptExpiration(expirationsRef.current[singleMatch.id] || '');
+        
+        setTimeout(() => {
+          promptInputRef.current?.focus();
+          promptInputRef.current?.select?.();
+        }, 150);
+        
+        playBeep();
+        return true;
+      }
+      
       setTimeout(() => {
         const input = document.getElementById('count-' + singleMatch.id) as HTMLInputElement;
         if (input) {
@@ -164,6 +324,26 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       });
 
       setSearch('');
+      
+      if (configRef.current?.type === 'Rotativo') {
+        const currentVal = countsRef.current[singleMatch.id];
+        let initialVal = '1';
+        if (currentVal !== undefined && currentVal !== '') {
+          initialVal = String(Number(currentVal) + 1);
+        }
+        setActivePromptProduct(singleMatch);
+        setPromptCount(initialVal);
+        setPromptExpiration(expirationsRef.current[singleMatch.id] || '');
+        
+        setTimeout(() => {
+          promptInputRef.current?.focus();
+          promptInputRef.current?.select?.();
+        }, 150);
+        
+        playBeep();
+        return true;
+      }
+      
       setTimeout(() => {
         const input = document.getElementById('count-' + singleMatch.id) as HTMLInputElement;
         if (input) {
@@ -275,8 +455,12 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         (decodedText) => {
           console.log("DEBUG: Scanned:", decodedText, "Current Step:", stepRef.current, "Products count:", sessionProductsRef.current.length);
           if (stepRef.current === 'counting') {
-             setSearch(decodedText);
-             handleSearchSubmit(decodedText);
+             if (configRef.current?.type === 'Rotativo') {
+                handleAutoSaveAndOpenNext(decodedText);
+             } else {
+                setSearch(decodedText);
+                handleSearchSubmit(decodedText);
+             }
           } else if (stepRef.current === 'setup') {
              setRotativoSearch(decodedText);
              handleRotativoSearchSubmit(decodedText);
@@ -295,8 +479,12 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           (decodedText) => {
             console.log("DEBUG: Scanned (user):", decodedText, "Current Step:", stepRef.current, "Products count:", sessionProductsRef.current.length);
             if (stepRef.current === 'counting') {
-               setSearch(decodedText);
-               handleSearchSubmit(decodedText);
+               if (configRef.current?.type === 'Rotativo') {
+                  handleAutoSaveAndOpenNext(decodedText);
+               } else {
+                  setSearch(decodedText);
+                  handleSearchSubmit(decodedText);
+               }
             } else if (stepRef.current === 'setup') {
                setRotativoSearch(decodedText);
                handleRotativoSearchSubmit(decodedText);
@@ -605,109 +793,114 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
                 {config.type === 'Rotativo' && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                      <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                        <span className="text-brand-blue font-black">Inventário Rotativo:</span> Você pode clicar diretamente em <strong>Iniciar Contagem</strong> e adicionar os produtos um a um à medida que bipar/pesquisar por eles.
+                    <div className="p-5 bg-blue-50/60 border border-blue-100 rounded-[24px] space-y-2">
+                      <p className="text-xs font-black text-brand-blue uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className="stroke-[3]" /> Modo Mobile Direct Ativo
                       </p>
-                      <p className="text-[10px] text-slate-400 font-bold mt-1">
-                        (Opcional): Se preferir, pesquise ou bipe abaixo para montar uma lista prévia antes de iniciar.
+                      <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                        Neste modo, você inicia a contagem diretamente sem precisar montar uma lista prévia de produtos.
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                        Ao iniciar, basta bipar ou pesquisar o produto: uma tela abrirá na hora para você digitar a quantidade e salvar de forma instantânea!
                       </p>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                        Adicionar Produtos Prévios (Opcional)
-                        <span className="text-[9px] lowercase font-semibold text-brand-blue">(bipar código ou pesquisar)</span>
-                      </label>
-                      <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
-                          ref={rotativoInputRef}
-                          type="text"
-                          placeholder="Bipe o código ou busque por nome/SKU..."
-                          value={rotativoSearch}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setRotativoSearch(val);
-                            const query = val.trim().toLowerCase();
-                            if (query.length >= 6) {
-                              const match = products.find(p => 
-                                (p.barcode && p.barcode.toLowerCase() === query) ||
-                                (p.sku && p.sku.toLowerCase() === query)
-                              );
-                              if (match) {
-                                handleRotativoSearchSubmit(query);
+                    {!isMobile && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                          Adicionar Produtos Prévios (Opcional)
+                          <span className="text-[9px] lowercase font-semibold text-brand-blue">(bipar código ou pesquisar)</span>
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                          <input 
+                            ref={rotativoInputRef}
+                            type="text"
+                            placeholder="Bipe o código ou busque por nome/SKU..."
+                            value={rotativoSearch}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setRotativoSearch(val);
+                              const query = val.trim().toLowerCase();
+                              if (query.length >= 6) {
+                                const match = products.find(p => 
+                                  (p.barcode && p.barcode.toLowerCase() === query) ||
+                                  (p.sku && p.sku.toLowerCase() === query)
+                                );
+                                if (match) {
+                                  handleRotativoSearchSubmit(query);
+                                }
                               }
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleRotativoSearchSubmit(rotativoSearch);
-                            }
-                          }}
-                          className="w-full pl-12 pr-16 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setScannerError(null);
-                            setScanning(!scanning);
-                          }}
-                          className={cn(
-                            "absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl border transition-all",
-                            scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-slate-50 text-slate-400 border-slate-200 hover:text-brand-blue"
-                          )}
-                        >
-                          {scanning ? <CameraOff size={18} /> : <Camera size={18} />}
-                        </button>
-                        {rotativoSearch && (
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-10 max-h-48 overflow-y-auto">
-                            {products
-                              .filter(p => !selectedRotativoProducts.find(sp => sp.id === p.id))
-                              .filter(p => 
-                                p.name.toLowerCase().includes(rotativoSearch.toLowerCase()) || 
-                                p.sku.toLowerCase().includes(rotativoSearch.toLowerCase()) ||
-                                (p.barcode && p.barcode.toLowerCase().includes(rotativoSearch.toLowerCase()))
-                              )
-                              .slice(0, 10)
-                              .map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedRotativoProducts(prev => [...prev, p]);
-                                    setRotativoSearch('');
-                                    setTimeout(() => {
-                                      rotativoInputRef.current?.focus();
-                                    }, 30);
-                                  }}
-                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
-                                >
-                                  <div>
-                                    <div className="text-sm font-bold text-slate-700">{p.name}</div>
-                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex gap-2">
-                                      <span>SKU: {p.sku}</span>
-                                      {p.barcode && <span>• EAN: {p.barcode}</span>}
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleRotativoSearchSubmit(rotativoSearch);
+                              }
+                            }}
+                            className="w-full pl-12 pr-16 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setScannerError(null);
+                              setScanning(!scanning);
+                            }}
+                            className={cn(
+                              "absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl border transition-all",
+                              scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-slate-50 text-slate-400 border-slate-200 hover:text-brand-blue"
+                            )}
+                          >
+                            {scanning ? <CameraOff size={18} /> : <Camera size={18} />}
+                          </button>
+                          {rotativoSearch && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-10 max-h-48 overflow-y-auto">
+                              {products
+                                .filter(p => !selectedRotativoProducts.find(sp => sp.id === p.id))
+                                .filter(p => 
+                                  p.name.toLowerCase().includes(rotativoSearch.toLowerCase()) || 
+                                  p.sku.toLowerCase().includes(rotativoSearch.toLowerCase()) ||
+                                  (p.barcode && p.barcode.toLowerCase().includes(rotativoSearch.toLowerCase()))
+                                )
+                                .slice(0, 10)
+                                .map(p => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRotativoProducts(prev => [...prev, p]);
+                                      setRotativoSearch('');
+                                      setTimeout(() => {
+                                        rotativoInputRef.current?.focus();
+                                      }, 30);
+                                    }}
+                                    className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center"
+                                  >
+                                    <div>
+                                      <div className="text-sm font-bold text-slate-700">{p.name}</div>
+                                      <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex gap-2">
+                                        <span>SKU: {p.sku}</span>
+                                        {p.barcode && <span>• EAN: {p.barcode}</span>}
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div className="text-brand-blue">
-                                    <Plus size={16} />
-                                  </div>
-                                </button>
-                              ))}
+                                    <div className="text-brand-blue">
+                                      <Plus size={16} />
+                                    </div>
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                        <div id="reader" className={cn("w-full max-w-sm mx-auto my-4", scanning ? "block" : "hidden")}></div>
+                        {scannerError && (
+                          <div className="w-full max-w-sm mx-auto my-4 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-xs font-bold text-center">
+                            {scannerError}
                           </div>
                         )}
                       </div>
-                      <div id="reader" className={cn("w-full max-w-sm mx-auto my-4", scanning ? "block" : "hidden")}></div>
-                      {scannerError && (
-                        <div className="w-full max-w-sm mx-auto my-4 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-xs font-bold text-center">
-                          {scannerError}
-                        </div>
-                      )}
-                    </div>
+                    )}
                     
-                    {selectedRotativoProducts.length > 0 && (
+                    {!isMobile && selectedRotativoProducts.length > 0 && (
                       <div className="bg-white border border-slate-200 rounded-2xl p-2 max-h-40 overflow-y-auto space-y-1">
                         {selectedRotativoProducts.map(p => (
                           <div key={p.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl">
@@ -863,20 +1056,43 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   
                   return (
                     <div key={product.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-center gap-4 md:gap-6">
-                      <div className="w-full flex items-center gap-4 md:w-auto">
+                      <div 
+                        onClick={() => {
+                          if (config.type === 'Rotativo') {
+                            const currentVal = counts[product.id];
+                            setActivePromptProduct(product);
+                            setPromptCount(currentVal !== undefined && currentVal !== '' ? String(currentVal) : '');
+                            setPromptExpiration(expirations[product.id] || '');
+                            setTimeout(() => {
+                              promptInputRef.current?.focus();
+                              promptInputRef.current?.select?.();
+                            }, 150);
+                          }
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-4 md:w-auto select-none",
+                          config.type === 'Rotativo' ? "cursor-pointer active:scale-98 hover:opacity-80" : ""
+                        )}
+                        title={config.type === 'Rotativo' ? "Clique para editar contagem" : undefined}
+                      >
                         <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100 relative flex items-center justify-center">
-                        <img 
-                          src={product.image || 'https://picsum.photos/seed/placeholder/100'} 
-                          alt={product.name} 
-                          className="w-full h-full object-cover" 
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-black text-slate-700 uppercase italic truncate">{product.name}</h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SKU: {product.sku}</p>
-                      </div>
+                          <img 
+                            src={product.image || 'https://picsum.photos/seed/placeholder/100'} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-black text-slate-700 uppercase italic truncate">{product.name}</h4>
+                            {config.type === 'Rotativo' && (
+                              <span className="px-2 py-0.5 text-[8px] bg-brand-blue/10 text-brand-blue font-black rounded-full uppercase">Toque p/ Contar</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SKU: {product.sku}</p>
+                        </div>
                       </div>
 
                       <div className="w-full grid grid-cols-2 sm:grid-cols-4 md:flex md:items-center md:gap-12 gap-4">
@@ -1070,6 +1286,147 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                 Voltar à Contagem
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {activePromptProduct && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[32px] p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-100 flex flex-col">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start">
+              <div className="flex gap-4 items-center">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200/50 flex-shrink-0 relative flex items-center justify-center">
+                  <img 
+                    src={activePromptProduct.image || 'https://picsum.photos/seed/placeholder/100'} 
+                    alt={activePromptProduct.name} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-800 uppercase italic line-clamp-2 leading-tight">{activePromptProduct.name}</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">SKU: {activePromptProduct.sku}</p>
+                  {activePromptProduct.barcode && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">EAN: {activePromptProduct.barcode}</p>}
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setActivePromptProduct(null);
+                  setTimeout(() => {
+                    searchInputRef.current?.focus();
+                  }, 150);
+                }}
+                className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3 bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
+              <div className="text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Estoque Sistema</p>
+                <p className="text-sm font-black text-slate-700">{activePromptProduct.stock} {activePromptProduct.unit || 'un'}</p>
+              </div>
+              <div className="text-center border-l border-slate-200/60">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Contagem Atual</p>
+                <p className="text-sm font-black text-brand-blue">
+                  {counts[activePromptProduct.id] !== undefined && counts[activePromptProduct.id] !== '' 
+                    ? `${counts[activePromptProduct.id]} ${activePromptProduct.unit || 'un'}`
+                    : 'Não contado'
+                  }
+                </p>
+              </div>
+            </div>
+
+            {/* Input Quantidade */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-center block">Digite a Quantidade Física</label>
+              <div className="flex items-center gap-3">
+                <input 
+                  ref={promptInputRef}
+                  type="number"
+                  inputMode="numeric"
+                  value={promptCount}
+                  onChange={(e) => setPromptCount(e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSavePromptCount();
+                    }
+                  }}
+                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-4 text-center text-3xl font-black text-slate-900 focus:border-brand-blue focus:bg-white outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="0"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Expiration date (Optional) */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Validade (Opcional)</label>
+              <input 
+                type="date"
+                value={promptExpiration}
+                onChange={(e) => setPromptExpiration(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-center text-xs font-bold text-slate-700 focus:border-brand-blue focus:bg-white outline-none transition-all"
+              />
+            </div>
+
+            {/* Quick Adjust Buttons */}
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { label: '0', val: 0, isSet: true },
+                { label: '+1', val: 1 },
+                { label: '+5', val: 5 },
+                { label: '+10', val: 10 },
+                { label: '+50', val: 50 },
+              ].map((btn, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    if (btn.isSet) {
+                      setPromptCount('0');
+                    } else {
+                      const current = parseInt(promptCount) || 0;
+                      setPromptCount(String(current + btn.val));
+                    }
+                  }}
+                  className="py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-black text-slate-600 transition-all active:scale-95"
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  setActivePromptProduct(null);
+                  setTimeout(() => {
+                    searchInputRef.current?.focus();
+                  }, 150);
+                }}
+                className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-wider transition-all active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                onClick={handleSavePromptCount}
+                className="flex-[2] py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-wider transition-all active:scale-95 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+              >
+                <Check size={16} className="stroke-[3]" />
+                Salvar Contagem
+              </button>
+            </div>
+
           </div>
         </div>
       )}
