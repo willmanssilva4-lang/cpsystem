@@ -1507,14 +1507,15 @@ export default function PDVPage() {
       {/* Top Header */}
       <header className="bg-brand-text-main text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-brand-text-main gap-2 relative">
         <div className="flex items-center gap-1.5 md:gap-4 min-w-0 z-10">
-          <div className="hidden sm:block shrink-0">
-            <Logo size="md" hideText theme="dark" />
+          <div className="shrink-0">
+            <Logo size="sm" hideText theme="dark" className="md:hidden" />
+            <Logo size="md" hideText theme="dark" className="hidden md:block" />
           </div>
         </div>
         
-        <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none z-0">
+        <div className="absolute top-2.5 md:top-1/2 -translate-y-0 md:-translate-y-1/2 left-[90px] right-[115px] md:right-auto md:left-1/2 md:-translate-x-1/2 text-left md:text-center pointer-events-none z-0">
           {companySettings?.tradeName && (
-            <h1 className="text-xs md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate max-w-[120px] xs:max-w-[180px] sm:max-w-[320px] md:max-w-[500px] lg:max-w-[700px] pointer-events-auto">
+            <h1 className="text-xs xs:text-sm md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate w-full pointer-events-auto">
               {companySettings.tradeName}
             </h1>
           )}
@@ -1604,7 +1605,7 @@ export default function PDVPage() {
       {/* Main Content */}
       <main className="flex-1 pt-0 md:pt-1 px-3 md:px-6 pb-3 md:pb-6 flex flex-col lg:flex-row gap-4 md:gap-6 overflow-y-auto lg:overflow-hidden">
         {/* Middle: Product Image */}
-        <div className="w-full lg:w-[50%] flex flex-col shrink-0 lg:h-full">
+        <div className="hidden lg:flex lg:w-[50%] flex-col shrink-0 lg:h-full">
           {/* Imagem do Produto ou Totem */}
           <div className="flex-1 min-h-[350px] lg:h-full w-full relative bg-slate-50 border border-brand-border rounded-xl overflow-hidden flex flex-col items-center justify-center shadow-inner mt-1">
             {/* If the cart has no active items (caixa livre) */}
@@ -1815,6 +1816,7 @@ export default function PDVPage() {
               onChange={handleBarcodeChange}
               onKeyDown={handleKeyDown}
               disabled={!activeRegister}
+              autoComplete="off"
               className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
             />
             
