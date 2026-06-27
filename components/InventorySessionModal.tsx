@@ -991,10 +991,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         {step === 'counting' && (
           <>
             {/* Search and Stats */}
-            <div className="p-6 bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-6">
-              <div className="flex-1 max-w-[700px] flex items-center gap-2 sm:gap-4 flex-wrap">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="p-3 md:p-6 bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5 md:gap-6">
+              <div className="flex-1 max-w-[700px] flex items-center gap-1 md:gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[150px] md:min-w-[200px]">
+                  <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-slate-400" size={isMobile ? 15 : 18} />
                   <input 
                     ref={searchInputRef}
                     id="inventory-search-input"
@@ -1003,7 +1003,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    placeholder={isQuickMode ? "Bipe o código ou busque para focar..." : "Buscar produto por nome ou SKU..."}
+                    placeholder={isQuickMode ? (isMobile ? "Bipe ou busque..." : "Bipe o código ou busque para focar...") : "Buscar produto por nome ou SKU..."}
                     value={search}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -1020,7 +1020,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                         }
                       }
                     }}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
+                    className="w-full pl-9 md:pl-12 pr-3 py-1.5 md:py-3 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                   />
                 </div>
                 <button
@@ -1030,23 +1030,23 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     setScanning(!scanning);
                   }}
                   className={cn(
-                    "p-3 rounded-2xl border transition-all cursor-pointer",
+                    "p-1.5 md:p-3 rounded-lg md:rounded-2xl border transition-all cursor-pointer shrink-0",
                     scanning ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-white text-slate-400 border-slate-200 hover:text-brand-blue"
                   )}
                 >
-                  {scanning ? <CameraOff size={20} /> : <Camera size={20} />}
+                  {scanning ? <CameraOff size={isMobile ? 15 : 20} /> : <Camera size={isMobile ? 15 : 20} />}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowOnlyDivergences(!showOnlyDivergences)}
                   className={cn(
-                    "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border cursor-pointer",
+                    "px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-2xl text-[9px] md:text-xs font-bold md:font-black uppercase tracking-normal md:tracking-widest transition-all whitespace-nowrap border cursor-pointer shrink-0",
                     showOnlyDivergences 
                       ? "bg-rose-50 text-rose-600 border-rose-200" 
                       : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  {showOnlyDivergences ? 'Mostrar Todos' : 'Só Divergências'}
+                  {showOnlyDivergences ? (isMobile ? 'Todos' : 'Mostrar Todos') : (isMobile ? 'Divergências' : 'Só Divergências')}
                 </button>
                 <button
                   type="button"
@@ -1060,14 +1060,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     }
                   }}
                   className={cn(
-                    "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border flex items-center gap-2 cursor-pointer",
+                    "px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-2xl text-[9px] md:text-xs font-bold md:font-black uppercase tracking-normal md:tracking-widest transition-all whitespace-nowrap border flex items-center gap-1 md:gap-2 cursor-pointer shrink-0",
                     isQuickMode 
                       ? "bg-brand-blue/10 text-brand-blue border-brand-blue/20" 
                       : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  <span className={cn("w-2 h-2 rounded-full", isQuickMode ? "bg-brand-blue animate-pulse" : "bg-slate-300")} />
-                  Modo Rápido: {isQuickMode ? 'ON' : 'OFF'}
+                  <span className={cn("w-1 h-1 md:w-2 md:h-2 rounded-full", isQuickMode ? "bg-brand-blue animate-pulse" : "bg-slate-300")} />
+                  {isMobile ? `Rápido: ${isQuickMode ? 'ON' : 'OFF'}` : `Modo Rápido: ${isQuickMode ? 'ON' : 'OFF'}`}
                 </button>
               </div>
 
