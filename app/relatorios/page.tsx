@@ -480,7 +480,6 @@ function ReportsContent() {
   };
 
   const handleReportClick = (reportName: string) => {
-    showToast(`Gerando relatório: ${reportName}...`, 'info');
     setIsLoading(true);
     setTimeout(() => {
       setSelectedReportView(reportName);

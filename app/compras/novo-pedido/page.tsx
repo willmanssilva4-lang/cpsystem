@@ -1538,12 +1538,49 @@ export default function NovaCompraPage() {
                           className="text-sm font-bold text-brand-text-main"
                         >
                           <td className="px-6 py-4">{item.productName}</td>
-                          <td className="px-6 py-4 text-center">{item.qty}</td>
-                          <td className="px-6 py-4 text-right text-slate-600">
-                            R$ {item.cost.toFixed(4)}
+                          <td className="px-6 py-4 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                handleUpdateItem(item.id, { qty: val });
+                              }}
+                              className="w-20 px-2 py-1 text-center font-bold border border-brand-border rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-brand-blue outline-none"
+                            />
                           </td>
-                          <td className="px-6 py-4 text-right text-emerald-600 font-extrabold italic">
-                            R$ {(item.salePrice || 0).toFixed(2)}
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-slate-400 text-xs font-normal">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.0001"
+                                value={item.cost}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  handleUpdateItem(item.id, { cost: val });
+                                }}
+                                className="w-28 px-2 py-1 text-right font-mono font-bold border border-brand-border rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-brand-blue outline-none"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-slate-400 text-xs font-normal">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.salePrice || 0}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  handleUpdateItem(item.id, { salePrice: val });
+                                }}
+                                className="w-28 px-2 py-1 text-right font-mono font-bold border border-brand-border rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-brand-blue text-emerald-600 outline-none"
+                              />
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-right text-brand-blue">
                             R$ {item.total.toFixed(2)}
