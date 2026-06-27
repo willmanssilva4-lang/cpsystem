@@ -13,6 +13,7 @@ import {
   Package,
   DollarSign,
   Trash2,
+  Edit2,
   FileText,
   CheckCircle2,
   Plus,
@@ -645,6 +646,24 @@ export default function NovaCompraPage() {
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 10);
+  };
+
+  const handleEditItem = (item: PurchaseItem) => {
+    const prod = products.find((p) => p.id === item.productId);
+    setSelectedProduct(prod || { id: item.productId, name: item.productName });
+    setSearchTerm(item.productName);
+    setItemQty(item.qty);
+    setItemCost(item.cost);
+    setItemSalePrice(item.salePrice || 0);
+    setItemExpiration(item.expirationDate || "");
+    
+    // Remove from active list so they can adjust and add again
+    setItems(items.filter((i) => i.id !== item.id));
+
+    setTimeout(() => {
+      qtyInputRef.current?.focus();
+      qtyInputRef.current?.select();
+    }, 50);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -1586,12 +1605,22 @@ export default function NovaCompraPage() {
                             R$ {item.total.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <button
-                              onClick={() => handleRemoveItem(item.id)}
-                              className="text-rose-500 hover:text-rose-700"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                            <div className="flex items-center justify-center gap-3">
+                              <button
+                                onClick={() => handleEditItem(item)}
+                                className="text-brand-blue hover:text-blue-700 transition-colors"
+                                title="Editar item"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="text-rose-500 hover:text-rose-700 transition-colors"
+                                title="Remover item"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1803,11 +1832,11 @@ export default function NovaCompraPage() {
                             key={item.id}
                             className="flex justify-between items-center p-3 bg-white rounded-xl border border-brand-border/50"
                           >
-                            <div>
-                              <div className="font-bold text-brand-text-main text-sm">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-brand-text-main text-sm truncate">
                                 {item.productName}
                               </div>
-                              <div className="flex gap-4 text-xs text-slate-500 mt-1">
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
                                 <span>
                                   {item.qty} un × R$ {item.cost.toFixed(4)}{" "}
                                   (Custo)
@@ -1817,8 +1846,20 @@ export default function NovaCompraPage() {
                                 </span>
                               </div>
                             </div>
-                            <div className="font-black text-brand-blue">
-                              R$ {item.total.toFixed(2)}
+                            <div className="flex items-center gap-3 ml-4 shrink-0">
+                              <div className="font-black text-brand-blue">
+                                R$ {item.total.toFixed(2)}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  handleEditItem(item);
+                                  setActiveTab(2);
+                                }}
+                                className="p-1.5 text-brand-blue hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Editar item"
+                              >
+                                <Edit2 size={16} />
+                              </button>
                             </div>
                           </div>
                         ))}

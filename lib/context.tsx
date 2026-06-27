@@ -443,10 +443,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           };
         });
 
-        const resolvedProducts = resolvedBasicProducts.map((p: any) => {
+        const resolvedWithVirtual = resolvedBasicProducts.map((p: any) => {
+          if (p.base_product_id && p.conversion_factor) {
+            const baseProduct = resolvedBasicProducts.find(bp => bp.id === p.base_product_id);
+            if (baseProduct) {
+              const baseStock = Number(baseProduct.stock || 0);
+              const convFactor = Number(p.conversion_factor) || 1;
+              const virtualStock = Math.floor(baseStock * convFactor);
+              
+              const baseCost = Number(baseProduct.costPrice || baseProduct.cost_price || 0);
+              const virtualCost = Number((baseCost / convFactor).toFixed(3));
+              
+              return {
+                ...p,
+                stock: virtualStock,
+                costPrice: virtualCost
+              };
+            }
+          }
+          return p;
+        });
+
+        const resolvedProducts = resolvedWithVirtual.map((p: any) => {
           if (p.product_type === 'KIT' && p.composition && Array.isArray(p.composition)) {
             const updatedComposition = p.composition.map((item: any) => {
-              const compProd = resolvedBasicProducts.find(bp => bp.id === item.productId);
+              const compProd = resolvedWithVirtual.find(bp => bp.id === item.productId);
               return {
                 ...item,
                 price: compProd ? compProd.costPrice : (item.price || 0)
@@ -454,11 +475,11 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             });
             const dynamicCostPrice = Number(updatedComposition.reduce((acc: number, item: any) => acc + ((item.price || 0) * item.quantity), 0).toFixed(3));
             
-            // Calculate Stock for KIT dynamically based on components
+            // Calculate Stock for KIT dynamically based on components (with pre-resolved virtual stocks)
             let kitStock = Infinity;
             if (updatedComposition.length > 0) {
               updatedComposition.forEach((item: any) => {
-                const component = resolvedBasicProducts.find(bp => bp.id === item.productId);
+                const component = resolvedWithVirtual.find(bp => bp.id === item.productId);
                 if (component) {
                   const compStock = Number(component.stock || 0);
                   const qtyNeeded = Number(item.quantity) || 1;
@@ -479,24 +500,6 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
               costPrice: dynamicCostPrice,
               stock: kitStock
             };
-          }
-          
-          if (p.base_product_id && p.conversion_factor) {
-            const baseProduct = resolvedBasicProducts.find(bp => bp.id === p.base_product_id);
-            if (baseProduct) {
-              const baseStock = Number(baseProduct.stock || 0);
-              const convFactor = Number(p.conversion_factor) || 1;
-              const virtualStock = Math.floor(baseStock * convFactor);
-              
-              const baseCost = Number(baseProduct.costPrice || baseProduct.cost_price || 0);
-              const virtualCost = Number((baseCost / convFactor).toFixed(3));
-              
-              return {
-                ...p,
-                stock: virtualStock,
-                costPrice: virtualCost
-              };
-            }
           }
           
           return p;

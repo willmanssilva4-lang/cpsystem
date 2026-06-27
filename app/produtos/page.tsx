@@ -972,9 +972,15 @@ function ProductsContent() {
               color="green" 
             />
             <div
+              onClick={() => {
+                setShowLowStockOnly(!showLowStockOnly);
+                setCurrentPage(1);
+              }}
               className={cn(
-                "text-left transition-all"
+                "text-left transition-all cursor-pointer select-none",
+                showLowStockOnly && "ring-4 ring-rose-500/30 rounded-2xl scale-[0.98] border border-rose-200"
               )}
+              title={showLowStockOnly ? "Clique para mostrar todos os produtos" : "Clique para filtrar apenas produtos com estoque baixo"}
             >
               <SummaryCard 
                 title="Estoque Baixo" 
@@ -1173,6 +1179,21 @@ function ProductsContent() {
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
+
+                {/* Filtro Estoque Baixo Ativo */}
+                {showLowStockOnly && (
+                  <button
+                    onClick={() => {
+                      setShowLowStockOnly(false);
+                      setCurrentPage(1);
+                    }}
+                    className="flex items-center gap-2 px-3 h-10 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors active:scale-95 shadow-sm"
+                    title="Remover filtro de Estoque Baixo"
+                  >
+                    <span>⚠️ Estoque Baixo Ativo</span>
+                    <span className="text-amber-500 hover:text-amber-700 font-extrabold ml-1">×</span>
+                  </button>
+                )}
               </div>
             </div>
 
