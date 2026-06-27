@@ -180,6 +180,76 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   useEffect(() => {
     sessionProductsRef.current = sessionProducts;
   }, [sessionProducts]);
+
+  const selectedRotativoProductsRef = useRef<Product[]>([]);
+  useEffect(() => {
+    selectedRotativoProductsRef.current = selectedRotativoProducts;
+  }, [selectedRotativoProducts]);
+
+  const handleRotativoSearchSubmit = (queryText: string): boolean => {
+    const query = queryText.trim().toLowerCase();
+    if (!query) return false;
+
+    // 1. Try exact barcode or SKU match
+    const exactMatch = products.find(p => 
+      (p.barcode && p.barcode.toLowerCase() === query) ||
+      (p.sku && p.sku.toLowerCase() === query)
+    );
+    if (exactMatch) {
+      setSelectedRotativoProducts(prev => {
+        if (!prev.some(sp => sp.id === exactMatch.id)) {
+          return [...prev, exactMatch];
+        }
+        return prev;
+      });
+      setRotativoSearch('');
+      setTimeout(() => {
+        rotativoInputRef.current?.focus();
+      }, 30);
+      return true;
+    }
+
+    // 2. Try exact name match
+    const nameMatch = products.find(p => p.name.toLowerCase() === query);
+    if (nameMatch) {
+      setSelectedRotativoProducts(prev => {
+        if (!prev.some(sp => sp.id === nameMatch.id)) {
+          return [...prev, nameMatch];
+        }
+        return prev;
+      });
+      setRotativoSearch('');
+      setTimeout(() => {
+        rotativoInputRef.current?.focus();
+      }, 30);
+      return true;
+    }
+
+    // 3. Match the first filtered item
+    const filtered = products
+      .filter(p => !selectedRotativoProductsRef.current.find(sp => sp.id === p.id))
+      .filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        p.sku.toLowerCase().includes(query) ||
+        (p.barcode && p.barcode.toLowerCase().includes(query))
+      );
+    if (filtered.length > 0) {
+      setSelectedRotativoProducts(prev => {
+        if (!prev.some(sp => sp.id === filtered[0].id)) {
+          return [...prev, filtered[0]];
+        }
+        return prev;
+      });
+      setRotativoSearch('');
+      setTimeout(() => {
+        rotativoInputRef.current?.focus();
+      }, 30);
+      return true;
+    }
+
+    return false;
+  };
+
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -204,9 +274,12 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           console.log("DEBUG: Scanned:", decodedText, "Current Step:", stepRef.current, "Products count:", sessionProductsRef.current.length);
-          setSearch(decodedText);
           if (stepRef.current === 'counting') {
+             setSearch(decodedText);
              handleSearchSubmit(decodedText);
+          } else if (stepRef.current === 'setup') {
+             setRotativoSearch(decodedText);
+             handleRotativoSearchSubmit(decodedText);
           }
         },
         (err) => {
@@ -221,9 +294,12 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
             console.log("DEBUG: Scanned (user):", decodedText, "Current Step:", stepRef.current, "Products count:", sessionProductsRef.current.length);
-            setSearch(decodedText);
             if (stepRef.current === 'counting') {
+               setSearch(decodedText);
                handleSearchSubmit(decodedText);
+            } else if (stepRef.current === 'setup') {
+               setRotativoSearch(decodedText);
+               handleRotativoSearchSubmit(decodedText);
             }
           },
           (err) => {
@@ -560,80 +636,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                                 (p.sku && p.sku.toLowerCase() === query)
                               );
                               if (match) {
-                                setSelectedRotativoProducts(prev => {
-                                  if (!prev.some(sp => sp.id === match.id)) {
-                                    return [...prev, match];
-                                  }
-                                  return prev;
-                                });
-                                setRotativoSearch('');
-                                setTimeout(() => {
-                                  rotativoInputRef.current?.focus();
-                                }, 30);
+                                handleRotativoSearchSubmit(query);
                               }
                             }
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              const query = rotativoSearch.trim().toLowerCase();
-                              if (!query) return;
-
-                              // 1. Try exact barcode or SKU match
-                              const exactMatch = products.find(p => 
-                                (p.barcode && p.barcode.toLowerCase() === query) ||
-                                (p.sku && p.sku.toLowerCase() === query)
-                              );
-                              if (exactMatch) {
-                                setSelectedRotativoProducts(prev => {
-                                  if (!prev.some(sp => sp.id === exactMatch.id)) {
-                                    return [...prev, exactMatch];
-                                  }
-                                  return prev;
-                                });
-                                setRotativoSearch('');
-                                setTimeout(() => {
-                                  rotativoInputRef.current?.focus();
-                                }, 30);
-                                return;
-                              }
-
-                              // 2. Try exact name match
-                              const nameMatch = products.find(p => p.name.toLowerCase() === query);
-                              if (nameMatch) {
-                                setSelectedRotativoProducts(prev => {
-                                  if (!prev.some(sp => sp.id === nameMatch.id)) {
-                                    return [...prev, nameMatch];
-                                  }
-                                  return prev;
-                                });
-                                setRotativoSearch('');
-                                setTimeout(() => {
-                                  rotativoInputRef.current?.focus();
-                                }, 30);
-                                return;
-                              }
-
-                              // 3. Match the first filtered item
-                              const filtered = products
-                                .filter(p => !selectedRotativoProducts.find(sp => sp.id === p.id))
-                                .filter(p => 
-                                  p.name.toLowerCase().includes(query) || 
-                                  p.sku.toLowerCase().includes(query) ||
-                                  (p.barcode && p.barcode.toLowerCase().includes(query))
-                                );
-                              if (filtered.length > 0) {
-                                setSelectedRotativoProducts(prev => {
-                                  if (!prev.some(sp => sp.id === filtered[0].id)) {
-                                    return [...prev, filtered[0]];
-                                  }
-                                  return prev;
-                                });
-                                setRotativoSearch('');
-                                setTimeout(() => {
-                                  rotativoInputRef.current?.focus();
-                                }, 30);
-                              }
+                              handleRotativoSearchSubmit(rotativoSearch);
                             }
                           }}
                           className="w-full pl-12 pr-16 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:border-brand-blue outline-none transition-all shadow-sm"

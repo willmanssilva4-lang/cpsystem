@@ -53,3 +53,9 @@ body {
   scrollbar-width: none !important;  /* Firefox */
 }
 
+@media (max-width: 768px) and (orientation: landscape) {
+  .mobile-landscape-block {
+    display: flex !important;
+  }
+}
+
