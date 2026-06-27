@@ -34,6 +34,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [scannerError, setScannerError] = useState<string | null>(null);
 
   const [isQuickMode, setIsQuickMode] = useState(true);
+  const [countedOrder, setCountedOrder] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [config, setConfig] = useState({
@@ -112,11 +113,16 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       setCounts(prev => ({ ...prev, [p.id]: isNaN(Number(numValue)) ? '' : Number(numValue) }));
       setExpirations(prev => ({ ...prev, [p.id]: expVal }));
       
+      // Update countedOrder
+      setCountedOrder(prev => [p.id, ...prev.filter(id => id !== p.id)]);
+      
       // Ensure product is in sessionProducts
       setSessionProducts(prev => {
         if (!prev.some(sp => sp.id === p.id)) {
           const updated = [...prev, p];
-          updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+          if (configRef.current?.type !== 'Rotativo') {
+            updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+          }
           return updated;
         }
         return prev;
@@ -141,11 +147,16 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     setCounts(prev => ({ ...prev, [p.id]: isNaN(Number(numValue)) ? '' : Number(numValue) }));
     setExpirations(prev => ({ ...prev, [p.id]: expVal }));
     
+    // Update countedOrder
+    setCountedOrder(prev => [p.id, ...prev.filter(id => id !== p.id)]);
+    
     // Ensure product is in sessionProducts
     setSessionProducts(prev => {
       if (!prev.some(sp => sp.id === p.id)) {
         const updated = [...prev, p];
-        updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+        if (configRef.current?.type !== 'Rotativo') {
+          updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+        }
         return updated;
       }
       return prev;
@@ -574,11 +585,26 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     return true;
   });
 
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => {
+    if (config.type === 'Rotativo') {
+      const idxA = countedOrder.indexOf(a.id);
+      const idxB = countedOrder.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+    }
+    return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+  });
+
   const handleCountChange = (productId: string, value: string) => {
     if (!hasPermission('Gestão de Produtos', 'edit')) {
       alert('Você não tem permissão para editar inventário.');
       return;
     }
+    
+    // Update countedOrder
+    setCountedOrder(prev => [productId, ...prev.filter(id => id !== productId)]);
+
     if (value === '') {
       setCounts(prev => ({ ...prev, [productId]: '' }));
       return;
@@ -1050,7 +1076,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
             {/* Product List */}
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
               <div className="grid grid-cols-1 gap-4">
-                {filteredProducts.map(product => {
+                {sortedFilteredProducts.map(product => {
                   const physical = (counts[product.id] === undefined || counts[product.id] === '') ? product.stock : Number(counts[product.id]);
                   const diff = physical - product.stock;
                   
@@ -1168,7 +1194,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   );
                 })}
 
-                {filteredProducts.length === 0 && (
+                {sortedFilteredProducts.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
                     <Package size={48} className="opacity-20" />
                     <p className="font-bold uppercase tracking-widest text-sm">Nenhum produto encontrado</p>
