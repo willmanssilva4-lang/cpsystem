@@ -842,6 +842,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           <input 
                             ref={rotativoInputRef}
                             type="text"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="none"
+                            spellCheck={false}
                             placeholder="Bipe o código ou busque por nome/SKU..."
                             value={rotativoSearch}
                             onChange={(e) => {
@@ -985,6 +989,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     ref={searchInputRef}
                     id="inventory-search-input"
                     type="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     placeholder={isQuickMode ? "Bipe o código ou busque para focar..." : "Buscar produto por nome ou SKU..."}
                     value={search}
                     onChange={(e) => {
@@ -1144,6 +1152,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                             <input 
                               type="number"
                               inputMode="numeric"
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="none"
+                              spellCheck={false}
                               id={`count-${product.id}`}
                               value={counts[product.id] ?? ''}
                               placeholder={String(product.stock)}
@@ -1375,6 +1387,10 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   ref={promptInputRef}
                   type="number"
                   inputMode="numeric"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={promptCount}
                   onChange={(e) => setPromptCount(e.target.value)}
                   onFocus={(e) => e.target.select()}
