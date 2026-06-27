@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus, Camera, CameraOff, Check } from 'lucide-react';
+import { X, Search, Package, AlertCircle, CheckCircle2, Save, Trash2, ClipboardList, ChevronRight, Tag, ListChecks, Plus, Camera, CameraOff, Check, History, RotateCcw } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useERP } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,38 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
   const [isQuickMode, setIsQuickMode] = useState(true);
   const [countedOrder, setCountedOrder] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [savedSession, setSavedSession] = useState<any | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('erp_active_inventory_session');
+    if (saved) {
+      try {
+        setSavedSession(JSON.parse(saved));
+      } catch (e) {
+        console.error('Error parsing saved inventory session:', e);
+      }
+    }
+  }, []);
+
+  const handleRestoreSession = () => {
+    if (!savedSession) return;
+    
+    if (savedSession.config) setConfig(savedSession.config);
+    if (savedSession.counts) setCounts(savedSession.counts);
+    if (savedSession.expirations) setExpirations(savedSession.expirations);
+    if (savedSession.sessionProducts) setSessionProducts(savedSession.sessionProducts);
+    if (savedSession.countedOrder) setCountedOrder(savedSession.countedOrder);
+    if (savedSession.isQuickMode !== undefined) setIsQuickMode(savedSession.isQuickMode);
+    
+    setStep(savedSession.step || 'counting');
+    setSavedSession(null);
+  };
+
+  const handleDiscardSavedSession = () => {
+    localStorage.removeItem('erp_active_inventory_session');
+    setSavedSession(null);
+  };
 
   const [config, setConfig] = useState({
     location: 'Loja Principal',
@@ -188,6 +220,22 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       }, 150);
     }
   }, [step]);
+
+  useEffect(() => {
+    if (step === 'counting') {
+      const stateToSave = {
+        step,
+        config,
+        counts,
+        expirations,
+        sessionProducts,
+        countedOrder,
+        isQuickMode,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('erp_active_inventory_session', JSON.stringify(stateToSave));
+    }
+  }, [step, config, counts, expirations, sessionProducts, countedOrder, isQuickMode]);
 
   const handleSearchSubmit = (queryText: string): boolean => {
     const query = queryText.trim().toLowerCase();
@@ -704,6 +752,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       }
 
       await fetchData();
+      localStorage.removeItem('erp_active_inventory_session');
       onComplete();
     } catch (error) {
       console.error('Error finalizing inventory:', error);
@@ -788,6 +837,41 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         {step === 'setup' && (
           <div className="flex-1 overflow-y-auto p-12 flex flex-col items-center justify-center bg-slate-50/30">
             <div className="w-full max-w-md space-y-8">
+              {savedSession && (
+                <div className="p-5 bg-amber-50 border border-amber-200 rounded-[24px] space-y-4 shadow-md animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 rounded-xl text-amber-600 mt-0.5 shrink-0">
+                      <History size={20} className="stroke-[2.5]" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">
+                        Inventário Não Finalizado
+                      </h4>
+                      <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
+                        Detectamos um progresso anterior ({savedSession.config?.type || 'Geral'}) com {Object.keys(savedSession.counts || {}).length} produtos contados por {savedSession.config?.responsible || 'Sistema'}.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRestoreSession}
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-amber-500/15"
+                    >
+                      <RotateCcw size={12} className="stroke-[3]" />
+                      Recuperar Progresso
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDiscardSavedSession}
+                      className="bg-white border border-amber-200 hover:bg-amber-100 text-amber-700 py-2 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
@@ -1333,6 +1417,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
               <button 
                 onClick={() => {
                   setShowCloseConfirmation(false);
+                  localStorage.removeItem('erp_active_inventory_session');
                   onClose();
                 }}
                 className="w-full bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-2xl font-black uppercase italic text-sm transition-all active:scale-95"
