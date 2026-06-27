@@ -167,15 +167,21 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     setPromptCount('');
     setPromptExpiration('');
     
-    setTimeout(() => {
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select?.();
-    }, 150);
+    if (window.innerWidth < 768) {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    } else {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select?.();
+      }, 150);
+    }
   };
 
   useEffect(() => {
     stepRef.current = step;
-    if (step === 'counting') {
+    if (step === 'counting' && window.innerWidth >= 768) {
       setTimeout(() => {
         searchInputRef.current?.focus();
         searchInputRef.current?.select?.();
@@ -717,10 +723,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
           if (activeEl.id.startsWith('count-') || activeEl.id.startsWith('exp-')) {
             e.preventDefault();
             setSearch('');
-            setTimeout(() => {
-              searchInputRef.current?.focus();
-              searchInputRef.current?.select?.();
-            }, 50);
+            if (window.innerWidth < 768) {
+              activeEl.blur();
+            } else {
+              setTimeout(() => {
+                searchInputRef.current?.focus();
+                searchInputRef.current?.select?.();
+              }, 50);
+            }
             return;
           }
         }
@@ -1042,10 +1052,12 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   type="button"
                   onClick={() => {
                     setIsQuickMode(!isQuickMode);
-                    setTimeout(() => {
-                      searchInputRef.current?.focus();
-                      searchInputRef.current?.select?.();
-                    }, 50);
+                    if (window.innerWidth >= 768) {
+                      setTimeout(() => {
+                        searchInputRef.current?.focus();
+                        searchInputRef.current?.select?.();
+                      }, 50);
+                    }
                   }}
                   className={cn(
                     "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border flex items-center gap-2 cursor-pointer",
@@ -1165,10 +1177,14 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                                 if (e.key === 'Enter') {
                                   e.preventDefault();
                                   setSearch('');
-                                  setTimeout(() => {
-                                    searchInputRef.current?.focus();
-                                    searchInputRef.current?.select?.();
-                                  }, 50);
+                                  if (window.innerWidth < 768) {
+                                    e.currentTarget.blur();
+                                  } else {
+                                    setTimeout(() => {
+                                      searchInputRef.current?.focus();
+                                      searchInputRef.current?.select?.();
+                                    }, 50);
+                                  }
                                 }
                               }}
                               className="flex-1 w-full bg-white md:bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-center font-black text-slate-900 placeholder-slate-400 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/5 outline-none transition-all text-base md:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1178,10 +1194,16 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                                 type="button"
                                 onClick={() => {
                                   setSearch('');
-                                  setTimeout(() => {
-                                    searchInputRef.current?.focus();
-                                    searchInputRef.current?.select?.();
-                                  }, 50);
+                                  if (window.innerWidth < 768) {
+                                    if (document.activeElement instanceof HTMLElement) {
+                                      document.activeElement.blur();
+                                    }
+                                  } else {
+                                    setTimeout(() => {
+                                      searchInputRef.current?.focus();
+                                      searchInputRef.current?.select?.();
+                                    }, 50);
+                                  }
                                 }}
                                 className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer active:scale-95"
                                 title="Confirmar e voltar para a busca"
@@ -1352,9 +1374,15 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                 type="button"
                 onClick={() => {
                   setActivePromptProduct(null);
-                  setTimeout(() => {
-                    searchInputRef.current?.focus();
-                  }, 150);
+                  if (window.innerWidth < 768) {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur();
+                    }
+                  } else {
+                    setTimeout(() => {
+                      searchInputRef.current?.focus();
+                    }, 150);
+                  }
                 }}
                 className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all"
               >
@@ -1451,9 +1479,15 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                 type="button"
                 onClick={() => {
                   setActivePromptProduct(null);
-                  setTimeout(() => {
-                    searchInputRef.current?.focus();
-                  }, 150);
+                  if (window.innerWidth < 768) {
+                    if (document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur();
+                    }
+                  } else {
+                    setTimeout(() => {
+                      searchInputRef.current?.focus();
+                    }, 150);
+                  }
                 }}
                 className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-wider transition-all active:scale-95"
               >
