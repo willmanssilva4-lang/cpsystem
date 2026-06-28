@@ -69,7 +69,50 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
 
     const consolidatedPurchases = Object.values(groupedPurchases).map(movements => {
       const first = movements[0];
-      const amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
+      
+      // Try to find matching paid expense of category "Compra de Mercadoria"
+      let amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
+      
+      if (first) {
+        const origin = (first.origin || '').toLowerCase().trim();
+        const nfMatch = origin.match(/nf:\s*([a-z0-9]+)/i);
+        const nfNumber = nfMatch ? nfMatch[1] : null;
+        
+        const compraExpenses = expenses.filter(e => 
+          e.status === 'Pago' && 
+          (e.category === 'Compra de Mercadoria' || (e.category || '').toLowerCase().includes('compra'))
+        );
+        
+        let foundMatch = false;
+        
+        // 1. Match by NF number
+        if (nfNumber) {
+          const matchingExpenses = compraExpenses.filter(e => {
+            const desc = (e.description || '').toLowerCase();
+            const expNfMatch = desc.match(/nf:\s*([a-z0-9]+)/i);
+            return expNfMatch && expNfMatch[1] === nfNumber;
+          });
+          
+          if (matchingExpenses.length > 0) {
+            amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
+            foundMatch = true;
+          }
+        }
+        
+        // 2. Match by exact date proximity if no NF match
+        if (!foundMatch) {
+          const firstTime = new Date(first.date).getTime();
+          const matchingExpenses = compraExpenses.filter(e => {
+            const expTime = new Date(e.paymentDate || e.date).getTime();
+            return Math.abs(firstTime - expTime) <= 120000; // within 2 minutes
+          });
+          
+          if (matchingExpenses.length > 0) {
+            amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
+          }
+        }
+      }
+
       return {
         id: `stk-group-${first.id}`,
         date: first.date,

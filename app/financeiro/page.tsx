@@ -376,13 +376,76 @@ export default function FinancePage() {
       }
     });
 
+    // Helper to calculate precise purchase amount matching real expense records
+    const getAccountPurchases = (
+      fallbackFilter: (m: any) => boolean,
+      expenseFilter: (e: any) => boolean
+    ) => {
+      const accMovements = stockMovements.filter(fallbackFilter);
+      const grouped: Record<string, typeof accMovements> = {};
+      accMovements.forEach(m => {
+        const key = m.origin || m.date;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(m);
+      });
+      
+      let totalAmount = 0;
+      const compraExpenses = expenses.filter(e => 
+        e.status === 'Pago' && 
+        (e.category === 'Compra de Mercadoria' || (e.category || '').toLowerCase().includes('compra')) &&
+        expenseFilter(e)
+      );
+      
+      Object.values(grouped).forEach(movements => {
+        const first = movements[0];
+        let amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
+        
+        if (first) {
+          const origin = (first.origin || '').toLowerCase().trim();
+          const nfMatch = origin.match(/nf:\s*([a-z0-9]+)/i);
+          const nfNumber = nfMatch ? nfMatch[1] : null;
+          
+          let foundMatch = false;
+          
+          if (nfNumber) {
+            const matchingExpenses = compraExpenses.filter(e => {
+              const desc = (e.description || '').toLowerCase();
+              const expNfMatch = desc.match(/nf:\s*([a-z0-9]+)/i);
+              return expNfMatch && expNfMatch[1] === nfNumber;
+            });
+            
+            if (matchingExpenses.length > 0) {
+              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
+              foundMatch = true;
+            }
+          }
+          
+          if (!foundMatch) {
+            const firstTime = new Date(first.date).getTime();
+            const matchingExpenses = compraExpenses.filter(e => {
+              const expTime = new Date(e.paymentDate || e.date).getTime();
+              return Math.abs(firstTime - expTime) <= 120000;
+            });
+            
+            if (matchingExpenses.length > 0) {
+              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
+            }
+          }
+        }
+        totalAmount += amount;
+      });
+      
+      return totalAmount;
+    };
+
     // Despesas e Compras pagas pelo Caixa
     const expensesCaixa = expenses
       .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && (e.financialAccount === 'Caixa' || !e.financialAccount))
       .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesCaixa = stockMovements
-      .filter(m => m.type === 'COMPRA' && (m.financialAccount === 'Caixa' || !m.financialAccount))
-      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const purchasesCaixa = getAccountPurchases(
+      m => m.type === 'COMPRA' && (m.financialAccount === 'Caixa' || !m.financialAccount),
+      e => e.financialAccount === 'Caixa' || !e.financialAccount
+    );
     const returnsCash = (returns || []).reduce((acc, r) => acc + r.total, 0);
     
     const balanceCaixa = regOpening + regMovements + salesCash - expensesCaixa - purchasesCaixa - returnsCash;
@@ -405,9 +468,10 @@ export default function FinancePage() {
     const expensesMercadoPago = expenses
       .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Mercado Pago')
       .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesMercadoPago = stockMovements
-      .filter(m => m.type === 'COMPRA' && m.financialAccount === 'Mercado Pago')
-      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const purchasesMercadoPago = getAccountPurchases(
+      m => m.type === 'COMPRA' && m.financialAccount === 'Mercado Pago',
+      e => e.financialAccount === 'Mercado Pago'
+    );
     const balanceMercadoPago = salesMercadoPago - expensesMercadoPago - purchasesMercadoPago;
 
     // 3. Conta Bancária
@@ -431,9 +495,10 @@ export default function FinancePage() {
     const expensesBank = expenses
       .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta Bancária')
       .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesBank = stockMovements
-      .filter(m => m.type === 'COMPRA' && m.financialAccount === 'Conta Bancária')
-      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const purchasesBank = getAccountPurchases(
+      m => m.type === 'COMPRA' && m.financialAccount === 'Conta Bancária',
+      e => e.financialAccount === 'Conta Bancária'
+    );
     const balanceBank = salesBank - expensesBank - purchasesBank;
 
     // 4. Conta PIX
@@ -457,9 +522,10 @@ export default function FinancePage() {
     const expensesPix = expenses
       .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta PIX')
       .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesPix = stockMovements
-      .filter(m => m.type === 'COMPRA' && m.financialAccount === 'Conta PIX')
-      .reduce((acc, m) => acc + (m.quantity * (m.cost || 0)), 0);
+    const purchasesPix = getAccountPurchases(
+      m => m.type === 'COMPRA' && m.financialAccount === 'Conta PIX',
+      e => e.financialAccount === 'Conta PIX'
+    );
     const balancePix = salesPix - expensesPix - purchasesPix;
 
     return [
