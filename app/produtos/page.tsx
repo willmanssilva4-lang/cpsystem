@@ -114,6 +114,13 @@ function ProductsContent() {
     }
   }, [productIdParam]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('erp_active_inventory_session');
+    if (saved) {
+      setShowInventorySession(true);
+    }
+  }, []);
+
   const calculateAdjustedPrice = (
     currentPrice: number,
     operation: 'pct_inc' | 'pct_dec' | 'val_inc' | 'val_dec' | 'fixed',
