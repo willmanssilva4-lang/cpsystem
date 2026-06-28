@@ -56,7 +56,16 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     if (savedSession.config) setConfig(savedSession.config);
     if (savedSession.counts) setCounts(savedSession.counts);
     if (savedSession.expirations) setExpirations(savedSession.expirations);
-    if (savedSession.sessionProducts) setSessionProducts(savedSession.sessionProducts);
+    
+    if (savedSession.sessionProductIds) {
+      const restoredProducts = savedSession.sessionProductIds
+        .map((id: string) => products.find((p) => p.id === id))
+        .filter(Boolean) as Product[];
+      setSessionProducts(restoredProducts);
+    } else if (savedSession.sessionProducts) {
+      setSessionProducts(savedSession.sessionProducts);
+    }
+    
     if (savedSession.countedOrder) setCountedOrder(savedSession.countedOrder);
     if (savedSession.isQuickMode !== undefined) setIsQuickMode(savedSession.isQuickMode);
     
@@ -223,19 +232,87 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
 
   useEffect(() => {
     if (step === 'counting') {
-      const stateToSave = {
-        step,
-        config,
-        counts,
-        expirations,
-        sessionProducts,
-        countedOrder,
-        isQuickMode,
-        timestamp: Date.now()
-      };
-      localStorage.setItem('erp_active_inventory_session', JSON.stringify(stateToSave));
+      try {
+        const stateToSave = {
+          step,
+          config,
+          counts,
+          expirations,
+          sessionProductIds: sessionProducts.map(p => p.id),
+          countedOrder,
+          isQuickMode,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('erp_active_inventory_session', JSON.stringify(stateToSave));
+      } catch (e) {
+        console.error('Error saving inventory session to localStorage:', e);
+      }
     }
   }, [step, config, counts, expirations, sessionProducts, countedOrder, isQuickMode]);
+
+  const handleAddProductToRotativo = (product: Product) => {
+    // 1. Add to session products
+    setSessionProducts(prev => {
+      if (!prev.some(p => p.id === product.id)) {
+        const updated = [...prev, product];
+        updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+        return updated;
+      }
+      return prev;
+    });
+
+    // 2. Set counts and expirations
+    setCounts(prev => {
+      if (prev[product.id] === undefined) {
+        return { ...prev, [product.id]: product.stock };
+      }
+      return prev;
+    });
+    setExpirations(prev => {
+      if (prev[product.id] === undefined) {
+        return { ...prev, [product.id]: product.validade || '' };
+      }
+      return prev;
+    });
+
+    // Update countedOrder
+    setCountedOrder(prev => [product.id, ...prev.filter(id => id !== product.id)]);
+
+    // 3. Clear search and open prompt count
+    setSearch('');
+    
+    const currentVal = counts[product.id];
+    let initialVal = '1';
+    if (currentVal !== undefined && currentVal !== '') {
+      initialVal = String(Number(currentVal) + 1);
+    }
+    
+    setActivePromptProduct(product);
+    setPromptCount(initialVal);
+    setPromptExpiration(expirations[product.id] || product.validade || '');
+    
+    setTimeout(() => {
+      promptInputRef.current?.focus();
+      promptInputRef.current?.select?.();
+    }, 150);
+    
+    playBeep();
+  };
+
+  const handleRemoveProductFromSession = (productId: string) => {
+    setSessionProducts(prev => prev.filter(p => p.id !== productId));
+    setCounts(prev => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
+    setExpirations(prev => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
+    setCountedOrder(prev => prev.filter(id => id !== productId));
+  };
 
   const handleSearchSubmit = (queryText: string): boolean => {
     const query = queryText.trim().toLowerCase();
@@ -1106,6 +1183,57 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                     }}
                     className="w-full pl-9 md:pl-12 pr-3 py-1.5 md:py-3 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold text-slate-700 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/5 outline-none transition-all"
                   />
+                  {config.type === 'Rotativo' && search && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto">
+                      {products
+                        .filter(p => 
+                          p.name.toLowerCase().includes(search.toLowerCase()) || 
+                          p.sku.toLowerCase().includes(search.toLowerCase()) ||
+                          (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()))
+                        )
+                        .slice(0, 10)
+                        .map(p => {
+                          const isAlreadyInSession = sessionProducts.some(sp => sp.id === p.id);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                handleAddProductToRotativo(p);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center cursor-pointer animate-in fade-in"
+                            >
+                              <div className="truncate pr-4">
+                                <div className="text-sm font-bold text-slate-700 truncate">{p.name}</div>
+                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex gap-2">
+                                  <span>SKU: {p.sku}</span>
+                                  {p.barcode && <span>• EAN: {p.barcode}</span>}
+                                </div>
+                              </div>
+                              <div className="text-brand-blue flex items-center gap-1 shrink-0">
+                                {isAlreadyInSession ? (
+                                  <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Na Lista</span>
+                                ) : (
+                                  <>
+                                    <span className="text-[9px] bg-blue-50 text-brand-blue font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Adicionar</span>
+                                    <Plus size={16} />
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      {products.filter(p => 
+                        p.name.toLowerCase().includes(search.toLowerCase()) || 
+                        p.sku.toLowerCase().includes(search.toLowerCase()) ||
+                        (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()))
+                      ).length === 0 && (
+                        <div className="p-4 text-center text-xs font-bold text-slate-400">
+                          Nenhum produto encontrado globalmente
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1185,7 +1313,17 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                   const diff = physical - product.stock;
                   
                   return (
-                    <div key={product.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-center gap-4 md:gap-6">
+                    <div key={product.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-center gap-4 md:gap-6 relative">
+                      {config.type === 'Rotativo' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveProductFromSession(product.id)}
+                          className="absolute top-3 right-3 md:top-4 md:right-4 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all cursor-pointer active:scale-90 z-10"
+                          title="Remover produto do inventário"
+                        >
+                          <Trash2 size={16} className="stroke-[2.5]" />
+                        </button>
+                      )}
                       <div 
                         onClick={() => {
                           if (config.type === 'Rotativo') {
@@ -1214,7 +1352,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
                           />
                         </div>
                         
-                        <div className="flex-1 min-w-0">
+                        <div className={cn("flex-1 min-w-0", config.type === 'Rotativo' ? "pr-8" : "")}>
                           <div className="flex items-center gap-2">
                             <h4 className="text-xs font-black text-slate-700 uppercase italic truncate">{product.name}</h4>
                             {config.type === 'Rotativo' && (
