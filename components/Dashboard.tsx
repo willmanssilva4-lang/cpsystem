@@ -61,6 +61,13 @@ export function Dashboard() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
 
+  // Calculate Metrics
+  const productMap = React.useMemo(() => {
+    const map = new Map();
+    products.forEach(p => map.set(p.id, p));
+    return map;
+  }, [products]);
+
   if (!startDate || !endDate) return null;
 
   if (!hasPermission('Dashboard', 'view')) {
@@ -147,13 +154,6 @@ export function Dashboard() {
     const inRange = d >= startDate && d <= endDate;
     return inRange;
   });
-
-  // Calculate Metrics
-  const productMap = React.useMemo(() => {
-    const map = new Map();
-    products.forEach(p => map.set(p.id, p));
-    return map;
-  }, [products]);
 
   const totalSales = filteredSales.reduce((acc, s) => acc + s.total, 0);
   const totalTax = filteredSales.reduce((acc, s) => acc + calculateSaleTax(s), 0);

@@ -103,7 +103,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
         if (!foundMatch) {
           const firstTime = new Date(first.date).getTime();
           const matchingExpenses = compraExpenses.filter(e => {
-            const expTime = new Date(e.paymentDate || e.date).getTime();
+            const expTime = new Date(e.paymentDate || e.date || '').getTime();
             return Math.abs(firstTime - expTime) <= 120000; // within 2 minutes
           });
           

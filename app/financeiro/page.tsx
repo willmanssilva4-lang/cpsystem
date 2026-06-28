@@ -423,7 +423,7 @@ export default function FinancePage() {
           if (!foundMatch) {
             const firstTime = new Date(first.date).getTime();
             const matchingExpenses = compraExpenses.filter(e => {
-              const expTime = new Date(e.paymentDate || e.date).getTime();
+              const expTime = new Date(e.paymentDate || e.date || '').getTime();
               return Math.abs(firstTime - expTime) <= 120000;
             });
             
