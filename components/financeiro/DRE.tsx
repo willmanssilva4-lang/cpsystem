@@ -72,12 +72,15 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     };
 
     sales.forEach(s => {
-      if (s.status?.toLowerCase() !== 'cancelada') {
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'reversao', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status));
+      if (!isCancelled) {
         years.add(getYear(s.date));
       }
     });
     expenses.forEach(e => {
-      if (e.status === 'Pago') {
+      if ((e.status || '').toLowerCase().trim() === 'pago') {
         years.add(getYear(e.paymentDate || e.date));
       }
     });
@@ -101,7 +104,18 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
     const salesMonth = sales.filter(s => {
       const { month, year } = getMonthYear(s.date);
-      return month === selectedMonth && year === selectedYear && s.status?.toLowerCase() !== 'cancelada';
+      if (month !== selectedMonth || year !== selectedYear) return false;
+
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'reversao', 'estorno', 'cancelar', 'reverter'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status));
+      if (isCancelled) return false;
+
+      const sType = ((s as any).type || '').toLowerCase().trim();
+      const isTypeCancelled = cancelledStatuses.some(type => sType.includes(type));
+      if (isTypeCancelled) return false;
+
+      return true;
     });
 
     const returnsMonth = returns.filter(r => {
@@ -181,11 +195,18 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
     const expensesMonth = expenses.filter(e => {
       const { month, year } = getMonthYear(e.paymentDate || e.date);
-      return month === selectedMonth && year === selectedYear && e.category !== 'Compra de Mercadoria' && e.status === 'Pago';
+      if (month !== selectedMonth || year !== selectedYear) return false;
+
+      const categoryLower = (e.category || '').toLowerCase().trim();
+      const isPurchase = categoryLower === 'compra de mercadoria' || categoryLower === 'compra de mercadorias' || categoryLower.includes('compra de mercadoria');
+      if (isPurchase) return false;
+
+      const isPaid = (e.status || '').toLowerCase().trim() === 'pago';
+      return isPaid;
     });
 
     const despesasPorCategoria = expensesMonth.reduce((acc, e) => {
-      const label = e.description || e.category || 'Outros';
+      const label = e.category || e.description || 'Outros';
       acc[label] = (acc[label] || 0) + Number(e.amount || 0);
       return acc;
     }, {} as Record<string, number>);

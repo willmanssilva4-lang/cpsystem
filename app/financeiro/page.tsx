@@ -50,6 +50,7 @@ import { Despesas } from '@/components/financeiro/Despesas';
 import { FluxoCaixa } from '@/components/financeiro/FluxoCaixa';
 import { MovimentacaoFinanceira } from '@/components/financeiro/MovimentacaoFinanceira';
 import { DRE } from '@/components/financeiro/DRE';
+import { CashRegisterManager } from '@/components/CashRegisterManager';
 
 // Helper de cálculo robusto e unificado de taxas de vendas (maquininhas/PIX/cartões)
 const calculateSaleTax = (sale: any): number => {
@@ -94,13 +95,13 @@ const calculateSaleTax = (sale: any): number => {
 
 export default function FinancePage() {
   const { sales, expenses, stockMovements, products, hasPermission, cashRegisters, cashMovements, customers, returns, maquininhas, paymentMethods } = useERP();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'despesas' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'despesas' | 'pagar' | 'receber' | 'fluxo' | 'movimentacao' | 'dre' | 'caixa'>('dashboard');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const tab = searchParams.get('tab');
-      if (tab && ['dashboard', 'despesas', 'pagar', 'receber', 'fluxo', 'movimentacao', 'dre'].includes(tab)) {
+      if (tab && ['dashboard', 'despesas', 'pagar', 'receber', 'fluxo', 'movimentacao', 'dre', 'caixa'].includes(tab)) {
         setActiveTab(tab as any);
       }
     }
@@ -177,187 +178,173 @@ export default function FinancePage() {
 
   // --- 4.5. Saldos por Conta Financeira ---
   const accountsBalances = useMemo(() => {
-    // 1. Caixa
-    const regOpening = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
+    // Helper to smart-resolve empty financialAccount using paymentMethod
+    const getExpenseAccount = (e: any): string => {
+      const acc = e.financialAccount || e.financial_account;
+      if (acc && acc.trim() !== '') {
+        if (acc === 'Caixa' || acc === 'Caixa (Dinheiro)') return 'Caixa';
+        return acc;
+      }
+      // Look at paymentMethod/payment_method
+      const method = (e.paymentMethod || e.payment_method || '').toLowerCase();
+      if (method.includes('pix')) return 'Conta PIX';
+      if (method.includes('cart') || method.includes('deb') || method.includes('cred') || method.includes('boleto') || method.includes('banc') || method.includes('transf')) {
+        return 'Conta Bancária';
+      }
+      if (method.includes('mercado')) return 'Mercado Pago';
+      return 'Caixa';
+    };
+
+    // Helper to calculate total paid expenses of all types for an account
+    const getPaidExpensesForAccount = (accountName: string) => {
+      return expenses
+        .filter(e => e.status === 'Pago' && getExpenseAccount(e) === accountName)
+        .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+    };
+
+    // Helper to smart-calculate returns/refunds belonging to each financial account
+    const getReturnsForAccount = (accountName: string) => {
+      return (returns || [])
+        .filter(r => {
+          const method = (r.refundMethod || r.refund_method || '').toLowerCase();
+          if (accountName === 'Caixa') {
+            return method === '' || method.includes('dinheiro') || method.includes('caixa');
+          }
+          if (accountName === 'Conta PIX') {
+            return method.includes('pix');
+          }
+          if (accountName === 'Conta Bancária') {
+            return method.includes('cart') || method.includes('deb') || method.includes('cred') || method.includes('boleto') || method.includes('banc') || method.includes('transf');
+          }
+          if (accountName === 'Mercado Pago') {
+            return method.includes('mercado');
+          }
+          return false;
+        })
+        .reduce((acc, r) => acc + Number(r.total || 0), 0);
+    };
+
+    const isSaleValidForBalance = (s: any) => {
+      if (!s || !s.date) return false;
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
+      if (cancelledStatuses.some(status => rawStatus.includes(status))) {
+        return false;
+      }
+      const sType = (s.type || '').toLowerCase().trim();
+      if (cancelledStatuses.some(type => sType.includes(type))) {
+        return false;
+      }
+      return true;
+    };
+
+    // 1. Caixa Starting/Opening balance:
+    // To prevent double-counting carry-over opening balances of daily cash registers,
+    // we use the opening balance of the oldest register (initial injection) as our starting point.
+    const firstRegister = cashRegisters.length > 0 
+      ? [...cashRegisters].sort((a, b) => new Date(a.openedAt || a.opened_at || 0).getTime() - new Date(b.openedAt || b.opened_at || 0).getTime())[0]
+      : null;
+    const regOpening = firstRegister ? Number(firstRegister.openingBalance || 0) : 0;
+
     const regMovements = cashMovements.reduce((acc, m) => {
-      if (m.type === 'suprimento') return acc + m.amount;
-      if (m.type === 'sangria') return acc - m.amount;
-      if (m.type === 'ajuste') return acc + m.amount;
+      const amt = Number(m.amount || 0);
+      if (m.type === 'suprimento') return acc + amt;
+      if (m.type === 'sangria') return acc - amt;
+      if (m.type === 'ajuste') return acc + amt;
       return acc;
     }, 0);
     
     // Vendas em Dinheiro
     let salesCash = 0;
     sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
+      if (!isSaleValidForBalance(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           if (p.method === 'Dinheiro') {
-            salesCash += p.amount;
+            salesCash += Number(p.amount || 0);
           }
         });
       } else if (s.paymentMethod === 'Dinheiro') {
-        salesCash += s.total;
+        salesCash += Number(s.total || 0);
       }
     });
 
-    // Helper to calculate precise purchase amount matching real expense records
-    const getAccountPurchases = (
-      fallbackFilter: (m: any) => boolean,
-      expenseFilter: (e: any) => boolean
-    ) => {
-      const accMovements = stockMovements.filter(fallbackFilter);
-      const grouped: Record<string, typeof accMovements> = {};
-      accMovements.forEach(m => {
-        const key = m.origin || m.date;
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(m);
-      });
-      
-      let totalAmount = 0;
-      const compraExpenses = expenses.filter(e => 
-        e.status === 'Pago' && 
-        (e.category === 'Compra de Mercadoria' || (e.category || '').toLowerCase().includes('compra')) &&
-        expenseFilter(e)
-      );
-      
-      Object.values(grouped).forEach(movements => {
-        const first = movements[0];
-        let amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
-        
-        if (first) {
-          const origin = (first.origin || '').toLowerCase().trim();
-          const nfMatch = origin.match(/nf:\s*([a-z0-9]+)/i);
-          const nfNumber = nfMatch ? nfMatch[1] : null;
-          
-          let foundMatch = false;
-          
-          if (nfNumber) {
-            const matchingExpenses = compraExpenses.filter(e => {
-              const desc = (e.description || '').toLowerCase();
-              const expNfMatch = desc.match(/nf:\s*([a-z0-9]+)/i);
-              return expNfMatch && expNfMatch[1] === nfNumber;
-            });
-            
-            if (matchingExpenses.length > 0) {
-              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
-              foundMatch = true;
-            }
-          }
-          
-          if (!foundMatch) {
-            const firstTime = new Date(first.date).getTime();
-            const matchingExpenses = compraExpenses.filter(e => {
-              const expTime = new Date(e.paymentDate || e.date || '').getTime();
-              return Math.abs(firstTime - expTime) <= 120000;
-            });
-            
-            if (matchingExpenses.length > 0) {
-              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
-            }
-          }
-        }
-        totalAmount += amount;
-      });
-      
-      return totalAmount;
-    };
-
-    // Despesas e Compras pagas pelo Caixa
-    const expensesCaixa = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && (e.financialAccount === 'Caixa' || !e.financialAccount))
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesCaixa = getAccountPurchases(
-      m => m.type === 'COMPRA' && (m.financialAccount === 'Caixa' || !m.financialAccount),
-      e => e.financialAccount === 'Caixa' || !e.financialAccount
-    );
-    const returnsCash = (returns || []).reduce((acc, r) => acc + r.total, 0);
+    const expensesCaixa = getPaidExpensesForAccount('Caixa');
+    const returnsCaixa = getReturnsForAccount('Caixa');
     
-    const balanceCaixa = regOpening + regMovements + salesCash - expensesCaixa - purchasesCaixa - returnsCash;
+    const balanceCaixa = regOpening + regMovements + salesCash - expensesCaixa - returnsCaixa;
 
     // 2. Mercado Pago
     let salesMercadoPago = 0;
     sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
+      if (!isSaleValidForBalance(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
           if (name.includes('mercado') || name.includes('mercadopago')) {
             const tax = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
-            salesMercadoPago += (p.amount - Number(tax || 0));
+            salesMercadoPago += (Number(p.amount || 0) - Number(tax || 0));
           }
         });
       } else if ((s.paymentMethod || '').toLowerCase().includes('mercado')) {
         const tax = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
-        salesMercadoPago += (s.total - Number(tax || 0));
+        salesMercadoPago += (Number(s.total || 0) - Number(tax || 0));
       }
     });
-    const expensesMercadoPago = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Mercado Pago')
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesMercadoPago = getAccountPurchases(
-      m => m.type === 'COMPRA' && m.financialAccount === 'Mercado Pago',
-      e => e.financialAccount === 'Mercado Pago'
-    );
-    const balanceMercadoPago = salesMercadoPago - expensesMercadoPago - purchasesMercadoPago;
+
+    const expensesMercadoPago = getPaidExpensesForAccount('Mercado Pago');
+    const returnsMercadoPago = getReturnsForAccount('Mercado Pago');
+    const balanceMercadoPago = salesMercadoPago - expensesMercadoPago - returnsMercadoPago;
 
     // 3. Conta Bancária
     let salesBank = 0;
     sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
+      if (!isSaleValidForBalance(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
           if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
             const tax = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
-            salesBank += (p.amount - Number(tax || 0));
+            salesBank += (Number(p.amount || 0) - Number(tax || 0));
           }
         });
       } else {
         const name = (s.paymentMethod || '').toLowerCase();
         if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
           const tax = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
-          salesBank += (s.total - Number(tax || 0));
+          salesBank += (Number(s.total || 0) - Number(tax || 0));
         }
       }
     });
-    const expensesBank = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta Bancária')
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesBank = getAccountPurchases(
-      m => m.type === 'COMPRA' && m.financialAccount === 'Conta Bancária',
-      e => e.financialAccount === 'Conta Bancária'
-    );
-    const balanceBank = salesBank - expensesBank - purchasesBank;
+
+    const expensesBank = getPaidExpensesForAccount('Conta Bancária');
+    const returnsBank = getReturnsForAccount('Conta Bancária');
+    const balanceBank = salesBank - expensesBank - returnsBank;
 
     // 4. Conta PIX
     let salesPix = 0;
     sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
+      if (!isSaleValidForBalance(s)) return;
       if (s.payments && s.payments.length > 0) {
         s.payments.forEach((p: any) => {
           const name = (p.method || '').toLowerCase();
           if (name.includes('pix') && !name.includes('mercado')) {
             const tax = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
-            salesPix += (p.amount - Number(tax || 0));
+            salesPix += (Number(p.amount || 0) - Number(tax || 0));
           }
         });
       } else {
         const name = (s.paymentMethod || '').toLowerCase();
         if (name.includes('pix') && !name.includes('mercado')) {
           const tax = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
-          salesPix += (s.total - Number(tax || 0));
+          salesPix += (Number(s.total || 0) - Number(tax || 0));
         }
       }
     });
-    const expensesPix = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta PIX')
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesPix = getAccountPurchases(
-      m => m.type === 'COMPRA' && m.financialAccount === 'Conta PIX',
-      e => e.financialAccount === 'Conta PIX'
-    );
-    const balancePix = salesPix - expensesPix - purchasesPix;
+
+    const expensesPix = getPaidExpensesForAccount('Conta PIX');
+    const returnsPix = getReturnsForAccount('Conta PIX');
+    const balancePix = salesPix - expensesPix - returnsPix;
 
     return [
       { name: 'Caixa (Dinheiro)', balance: balanceCaixa, icon: Wallet, iconBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' },
@@ -365,7 +352,7 @@ export default function FinancePage() {
       { name: 'Conta Bancária', balance: balanceBank, icon: Landmark, iconBg: 'bg-slate-50 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300' },
       { name: 'Conta PIX', balance: balancePix, icon: Smartphone, iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
     ];
-  }, [sales, expenses, stockMovements, cashRegisters, cashMovements, returns, isSaleActive]);
+  }, [sales, expenses, cashRegisters, cashMovements, returns]);
 
   // --- 1. Cards Financeiros ---
   const stats = useMemo(() => {
@@ -587,7 +574,14 @@ export default function FinancePage() {
       });
     });
 
-    const expensesInPeriod = expenses.filter(e => isWithinRange(e.paymentDate || e.date) && e.category !== 'Compra de Mercadoria' && e.status === 'Pago');
+    const expensesInPeriod = expenses.filter(e => {
+      if (!isWithinRange(e.paymentDate || e.date)) return false;
+      if ((e.status || '').toLowerCase().trim() !== 'pago') return false;
+
+      const categoryLower = (e.category || '').toLowerCase().trim();
+      const isPurchase = categoryLower === 'compra de mercadoria' || categoryLower === 'compra de mercadorias' || categoryLower.includes('compra de mercadoria');
+      return !isPurchase;
+    });
     const despesas = expensesInPeriod.reduce((acc, e) => acc + Number(e.amount || 0), 0);
 
     // Standard DRE:
@@ -683,6 +677,7 @@ export default function FinancePage() {
           { id: 'fluxo', label: 'Fluxo de Caixa' },
           { id: 'movimentacao', label: 'Movimentação' },
           { id: 'dre', label: 'DRE' },
+          { id: 'caixa', label: 'Controle de Caixa' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1156,7 +1151,13 @@ export default function FinancePage() {
         />
       )}
 
-      {activeTab !== 'dashboard' && activeTab !== 'despesas' && activeTab !== 'pagar' && activeTab !== 'receber' && activeTab !== 'fluxo' && activeTab !== 'movimentacao' && activeTab !== 'dre' && (
+      {activeTab === 'caixa' && (
+        <div className="max-w-4xl mx-auto">
+          <CashRegisterManager />
+        </div>
+      )}
+
+      {activeTab !== 'dashboard' && activeTab !== 'despesas' && activeTab !== 'pagar' && activeTab !== 'receber' && activeTab !== 'fluxo' && activeTab !== 'movimentacao' && activeTab !== 'dre' && activeTab !== 'caixa' && (
         <div className="bg-brand-card p-12 rounded-2xl border border-brand-border shadow-sm text-center">
           <h2 className="text-xl font-black uppercase italic text-slate-700">Tela em construção: {activeTab}</h2>
           <p className="text-slate-500 mt-2">Esta funcionalidade será implementada em breve.</p>

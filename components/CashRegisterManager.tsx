@@ -600,19 +600,19 @@ export function CashRegisterManager({
     }
 
     return (
-      <div className="p-8 bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 shadow-2xl">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 flex items-center justify-center">
-            <Wallet className="w-8 h-8 text-brand-blue" />
+      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+        <div className="flex items-center gap-3.5 mb-5">
+          <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center">
+            <Wallet className="w-6 h-6 text-brand-blue" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white italic uppercase tracking-tight">Abertura de Caixa</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Informe o saldo inicial para começar</p>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white italic uppercase tracking-tight">Abertura de Caixa</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Informe o saldo inicial para começar</p>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="space-y-2">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
             <label className="block text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
               Fundo de Troco (R$)
             </label>
@@ -630,7 +630,7 @@ export function CashRegisterManager({
                   }
                 }}
                 onFocus={(e) => e.target.select()}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-2xl font-black transition-all"
+                className="w-full pl-12 pr-4 py-2.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-lg font-black transition-all"
                 placeholder="0,00"
                 autoFocus
               />
@@ -639,13 +639,13 @@ export function CashRegisterManager({
 
           <button 
             onClick={handleOpen}
-            className="w-full py-5 bg-brand-blue text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-xl shadow-brand-blue/20 flex items-center justify-center gap-3"
+            className="w-full py-3 bg-brand-blue text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-md shadow-brand-blue/10 flex items-center justify-center gap-2"
           >
-            <CheckCircle2 className="w-6 h-6" />
+            <CheckCircle2 className="w-5 h-5" />
             Confirmar Abertura (F10 / Enter)
           </button>
           
-          <p className="text-[10px] text-center text-slate-400 uppercase font-bold tracking-tighter">
+          <p className="text-[9px] text-center text-slate-400 uppercase font-bold tracking-tighter">
             O sistema registrará o horário e o usuário responsável pela abertura.
           </p>
         </div>

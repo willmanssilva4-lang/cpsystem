@@ -548,6 +548,63 @@ export default function NovaCompraPage() {
     }
   };
 
+  const fetchProductHistory = async (productId: string, initialCost: number, shouldSetItemCost = true) => {
+    try {
+      const { data, error } = await supabase
+        .from("purchase_order_items")
+        .select("quantity, unit_price, created_at")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        // The first item in descending order is the latest purchase
+        const lastCost = Number(data[0].unit_price) || initialCost;
+        
+        // If the database-rounded lastCost is close to the precise initialCost, prefer initialCost (high precision)
+        if (shouldSetItemCost) {
+          if (Math.abs(lastCost - initialCost) < 0.01) {
+            setItemCost(initialCost);
+          } else {
+            setItemCost(lastCost);
+          }
+        }
+
+        let totalVal = 0;
+        let totalQty = 0;
+        for (const item of data) {
+          const q = Number(item.quantity) || 0;
+          const price = Number(item.unit_price) || 0;
+          if (q > 0) {
+            totalVal += q * price;
+            totalQty += q;
+          }
+        }
+        if (totalQty > 0) {
+          let avgCost = totalVal / totalQty;
+          // If the database-rounded average cost is very close to the high-precision initialCost, prefer the initialCost
+          if (Math.abs(avgCost - initialCost) < 0.01) {
+            avgCost = initialCost;
+          }
+          console.log(`[NovaCompra] Average cost: R$ ${avgCost}, Last purchase cost: R$ ${lastCost}`);
+          setAverageCost(avgCost);
+        } else {
+          setAverageCost(null);
+        }
+      } else {
+        setAverageCost(null);
+        if (shouldSetItemCost) {
+          setItemCost(initialCost);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching purchase history:", err);
+      setAverageCost(null);
+      if (shouldSetItemCost) {
+        setItemCost(initialCost);
+      }
+    }
+  };
+
   const selectProduct = async (product: any) => {
     setSelectedProduct(product);
     setSearchTerm(product.name);
@@ -564,39 +621,7 @@ export default function NovaCompraPage() {
       qtyInputRef.current?.select();
     }, 10);
 
-    // Fetch average cost from purchase_order_items for this product
-    try {
-      const { data, error } = await supabase
-        .from("purchase_order_items")
-        .select("quantity, unit_price")
-        .eq("product_id", product.id);
-
-      if (!error && data && data.length > 0) {
-        let totalVal = 0;
-        let totalQty = 0;
-        for (const item of data) {
-          const q = Number(item.quantity) || 0;
-          const price = Number(item.unit_price) || 0;
-          if (q > 0) {
-            totalVal += q * price;
-            totalQty += q;
-          }
-        }
-        if (totalQty > 0) {
-          const avgCost = totalVal / totalQty;
-          console.log(`[NovaCompra] Average cost found: R$ ${avgCost}`);
-          setAverageCost(avgCost);
-          setItemCost(avgCost);
-        } else {
-          setAverageCost(initialCost);
-        }
-      } else {
-        setAverageCost(initialCost);
-      }
-    } catch (err) {
-      console.error("Error fetching average cost:", err);
-      setAverageCost(initialCost);
-    }
+    await fetchProductHistory(product.id, initialCost, true);
   };
 
   const handleNextToProducts = () => {
@@ -664,6 +689,9 @@ export default function NovaCompraPage() {
       qtyInputRef.current?.focus();
       qtyInputRef.current?.select();
     }, 50);
+
+    const initialCost = Number(prod?.costPrice) || item.cost;
+    fetchProductHistory(item.productId, initialCost, false);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -1493,8 +1521,8 @@ export default function NovaCompraPage() {
                           </div>
                           <div className="text-xl font-black text-emerald-700 font-mono mt-1">
                             R$ {averageCost !== null 
-                              ? averageCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
-                              : Number(selectedProduct.costPrice ?? selectedProduct.cost_price ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                              ? averageCost.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+                              : Number(selectedProduct.costPrice ?? selectedProduct.cost_price ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })
                             }
                           </div>
                         </div>
@@ -1515,7 +1543,7 @@ export default function NovaCompraPage() {
                             Custo Registrado
                           </div>
                           <div className="text-xl font-black text-slate-700 font-mono mt-1">
-                            R$ {Number(selectedProduct.costPrice ?? selectedProduct.cost_price ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                            R$ {Number(selectedProduct.costPrice ?? selectedProduct.cost_price ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                           </div>
                         </div>
                       </div>

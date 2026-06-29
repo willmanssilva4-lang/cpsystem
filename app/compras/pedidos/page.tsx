@@ -75,7 +75,7 @@ export default function TodosPedidosPage() {
       const productIds = [...new Set(items.map(item => item.product_id))];
       const { data: products, error: productsError } = await supabase
         .from('products')
-        .select('id, name')
+        .select('id, name, image')
         .eq('company_id', user?.companyId || null)
         .in('id', productIds);
         
@@ -125,12 +125,18 @@ export default function TodosPedidosPage() {
           loteId = loteData.id;
         }
 
-        // 2. Update Product (last cost and supplier)
+        // 2. Update Product (last cost, supplier, and precise cost metadata)
+        const currentProd = (item as any).products;
+        const rawImage = currentProd?.image ?? 'https://i.imgur.com/jGU5BUa.png';
+        const cleanImage = String(rawImage).split('#cost:')[0];
+        const costVal = Number(item.unit_price) || 0;
+
         await supabase.from('products')
           .update({ 
-            cost_price: Number(item.unit_price) || 0,
+            cost_price: costVal,
             supplier: supplierName,
-            has_had_stock: true
+            has_had_stock: true,
+            image: `${cleanImage}#cost:${costVal}`
           })
           .eq('id', item.product_id); // Removed company_id filter to be safer since ID is unique
 

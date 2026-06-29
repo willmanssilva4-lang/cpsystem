@@ -1174,7 +1174,7 @@ export default function PDVPage() {
     setBarcode(value);
     
     // Search by barcode (exact match)
-    const product = products.find(p => p.sku === value && p.status !== 'Inativo');
+    const product = products.find(p => (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
     if (product) {
       setCurrentProduct(product);
       setSearchResults([]);
@@ -1283,6 +1283,14 @@ export default function PDVPage() {
         setBarcode('');
         setQuantity(1);
         setCurrentProduct(null);
+        setSearchResults([]);
+        setSelectedIndex(-1);
+      } else if (barcode.trim() !== '') {
+        setCustomAlert?.({
+          message: `Código ou produto "${barcode}" não cadastrado ou não encontrado!`,
+          type: 'error'
+        });
+        setBarcode('');
         setSearchResults([]);
         setSelectedIndex(-1);
       }

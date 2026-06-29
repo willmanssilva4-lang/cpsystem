@@ -128,14 +128,6 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
     const isSaleActive = (s: any) => {
       if (!s || !s.date) return false;
 
-      // Filter out returned/cancelled/reversed sales (matching Vendas por Período)
-      const isReturned = (returns || []).some(r => {
-        const rId = String(r.saleId || (r as any).sale_id || '').toLowerCase().replace('#', '').trim();
-        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
-        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
-      });
-      if (isReturned) return false;
-
       const rawStatus = (s.status || '').toLowerCase().trim();
       const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
       if (cancelledStatuses.some(status => rawStatus.includes(status))) {
