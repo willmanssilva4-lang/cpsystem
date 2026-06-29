@@ -119,15 +119,24 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
     let initialProfit = initialData?.profit ?? '';
     let initialProfitPercentage = initialData?.profitPercentage ?? '';
 
+    if (typeof initialProfitPercentage === 'number') {
+      initialProfitPercentage = Math.round(initialProfitPercentage * 100) / 100;
+    } else if (typeof initialProfitPercentage === 'string' && initialProfitPercentage !== '') {
+      const parsed = parseFloat(initialProfitPercentage);
+      if (!isNaN(parsed)) {
+        initialProfitPercentage = Math.round(parsed * 100) / 100;
+      }
+    }
+
     if (initialData && initialData.costPrice !== undefined && initialData.salePrice !== undefined && initialProfit === '') {
       const cost = Number(initialData.costPrice);
       const sale = Number(initialData.salePrice);
       initialProfit = Math.round((sale - cost) * 100) / 100;
       
       if (pricingSettings.defaultMethod === 'markup') {
-        initialProfitPercentage = cost > 0 ? Math.round((initialProfit / cost) * 100) / 100 * 100 : 0;
+        initialProfitPercentage = cost > 0 ? Math.round((initialProfit / cost) * 10000) / 100 : 0;
       } else {
-        initialProfitPercentage = sale > 0 ? Math.round((initialProfit / sale) * 100) / 100 * 100 : 0;
+        initialProfitPercentage = sale > 0 ? Math.round((initialProfit / sale) * 10000) / 100 : 0;
       }
     } else if (initialProfitPercentage === '') {
       initialProfitPercentage = (pricingSettings.defaultMethod === 'markup' ? pricingSettings.defaultMarkup : pricingSettings.defaultMargin) ?? '';
@@ -1114,7 +1123,18 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                               type="text"
                               inputMode="decimal"
                               name="profitPercentage"
-                              value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage.toString().replace('.', ',')}
+                              value={(() => {
+                                if ((formData.profitPercentage as any) === '') return '';
+                                const str = formData.profitPercentage.toString();
+                                const num = Number(formData.profitPercentage);
+                                if (!isNaN(num)) {
+                                  const dotIndex = str.indexOf('.');
+                                  if (dotIndex !== -1 && str.length - dotIndex - 1 > 4) {
+                                    return (Math.round(num * 100) / 100).toString().replace('.', ',');
+                                  }
+                                }
+                                return str.replace('.', ',');
+                              })()}
                               readOnly={!pricingSettings.allowEditOnProduct}
                               onChange={(e) => {
                                 const val = e.target.value.replace('.', ',');
@@ -1601,10 +1621,30 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                 const currentStock = initialData?.stock ?? 0;
                 const minStock = initialData?.minStock ?? 0;
                 const minReached = currentStock <= minStock;
+                const initialStock = currentStock - (totalEntradas - totalSaidas);
 
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Card 1: Estoque de Segurança */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Card 1: Saldo Inicial */}
+                    <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
+                      <div className="space-y-1.5 z-10">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Saldo Inicial</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-black text-slate-700 italic tracking-tighter leading-none shrink-0">
+                            {Number.isInteger(initialStock) ? initialStock : initialStock.toFixed(3)}
+                          </span>
+                          <span className="text-xs text-slate-400 font-extrabold uppercase">{initialData?.unit || 'UN'}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wide">
+                          Estoque antes das movimentações
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-slate-200/60 bg-slate-100/60 text-slate-500 z-10 group-hover:bg-slate-100 transition-colors duration-250">
+                        <History size={22} className="stroke-[2.2]" />
+                      </div>
+                    </div>
+
+                    {/* Card 2: Estoque Disponível */}
                     <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
                       <div className="space-y-1.5 z-10">
                         <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Estoque Disponível</span>
@@ -1631,7 +1671,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       </div>
                     </div>
 
-                    {/* Card 2: Entradas Acumuladas */}
+                    {/* Card 3: Entradas Acumuladas */}
                     <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
                       <div className="space-y-1.5 z-10">
                         <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Total de Entradas</span>
@@ -1650,7 +1690,7 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                       </div>
                     </div>
 
-                    {/* Card 3: Saídas Acumuladas */}
+                    {/* Card 4: Saídas Acumuladas */}
                     <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-200/80 transition-all duration-300 relative overflow-hidden">
                       <div className="space-y-1.5 z-10">
                         <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">Total de Saídas</span>
@@ -2980,7 +3020,18 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
                                 type="text" 
                                 inputMode="decimal"
                                 name="profitPercentage"
-                                value={(formData.profitPercentage as any) === '' ? '' : formData.profitPercentage.toString().replace('.', ',')}
+                                value={(() => {
+                                  if ((formData.profitPercentage as any) === '') return '';
+                                  const str = formData.profitPercentage.toString();
+                                  const num = Number(formData.profitPercentage);
+                                  if (!isNaN(num)) {
+                                    const dotIndex = str.indexOf('.');
+                                    if (dotIndex !== -1 && str.length - dotIndex - 1 > 4) {
+                                      return (Math.round(num * 100) / 100).toString().replace('.', ',');
+                                    }
+                                  }
+                                  return str.replace('.', ',');
+                                })()}
                                 readOnly={!pricingSettings.allowEditOnProduct}
                                 onChange={(e) => {
                                   const val = e.target.value.replace('.', ',');

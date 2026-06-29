@@ -175,6 +175,198 @@ export default function FinancePage() {
     return true;
   }, [returns]);
 
+  // --- 4.5. Saldos por Conta Financeira ---
+  const accountsBalances = useMemo(() => {
+    // 1. Caixa
+    const regOpening = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
+    const regMovements = cashMovements.reduce((acc, m) => {
+      if (m.type === 'suprimento') return acc + m.amount;
+      if (m.type === 'sangria') return acc - m.amount;
+      if (m.type === 'ajuste') return acc + m.amount;
+      return acc;
+    }, 0);
+    
+    // Vendas em Dinheiro
+    let salesCash = 0;
+    sales.forEach((s: any) => {
+      if (!isSaleActive(s)) return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach((p: any) => {
+          if (p.method === 'Dinheiro') {
+            salesCash += p.amount;
+          }
+        });
+      } else if (s.paymentMethod === 'Dinheiro') {
+        salesCash += s.total;
+      }
+    });
+
+    // Helper to calculate precise purchase amount matching real expense records
+    const getAccountPurchases = (
+      fallbackFilter: (m: any) => boolean,
+      expenseFilter: (e: any) => boolean
+    ) => {
+      const accMovements = stockMovements.filter(fallbackFilter);
+      const grouped: Record<string, typeof accMovements> = {};
+      accMovements.forEach(m => {
+        const key = m.origin || m.date;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(m);
+      });
+      
+      let totalAmount = 0;
+      const compraExpenses = expenses.filter(e => 
+        e.status === 'Pago' && 
+        (e.category === 'Compra de Mercadoria' || (e.category || '').toLowerCase().includes('compra')) &&
+        expenseFilter(e)
+      );
+      
+      Object.values(grouped).forEach(movements => {
+        const first = movements[0];
+        let amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
+        
+        if (first) {
+          const origin = (first.origin || '').toLowerCase().trim();
+          const nfMatch = origin.match(/nf:\s*([a-z0-9]+)/i);
+          const nfNumber = nfMatch ? nfMatch[1] : null;
+          
+          let foundMatch = false;
+          
+          if (nfNumber) {
+            const matchingExpenses = compraExpenses.filter(e => {
+              const desc = (e.description || '').toLowerCase();
+              const expNfMatch = desc.match(/nf:\s*([a-z0-9]+)/i);
+              return expNfMatch && expNfMatch[1] === nfNumber;
+            });
+            
+            if (matchingExpenses.length > 0) {
+              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
+              foundMatch = true;
+            }
+          }
+          
+          if (!foundMatch) {
+            const firstTime = new Date(first.date).getTime();
+            const matchingExpenses = compraExpenses.filter(e => {
+              const expTime = new Date(e.paymentDate || e.date || '').getTime();
+              return Math.abs(firstTime - expTime) <= 120000;
+            });
+            
+            if (matchingExpenses.length > 0) {
+              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
+            }
+          }
+        }
+        totalAmount += amount;
+      });
+      
+      return totalAmount;
+    };
+
+    // Despesas e Compras pagas pelo Caixa
+    const expensesCaixa = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && (e.financialAccount === 'Caixa' || !e.financialAccount))
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesCaixa = getAccountPurchases(
+      m => m.type === 'COMPRA' && (m.financialAccount === 'Caixa' || !m.financialAccount),
+      e => e.financialAccount === 'Caixa' || !e.financialAccount
+    );
+    const returnsCash = (returns || []).reduce((acc, r) => acc + r.total, 0);
+    
+    const balanceCaixa = regOpening + regMovements + salesCash - expensesCaixa - purchasesCaixa - returnsCash;
+
+    // 2. Mercado Pago
+    let salesMercadoPago = 0;
+    sales.forEach((s: any) => {
+      if (!isSaleActive(s)) return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach((p: any) => {
+          const name = (p.method || '').toLowerCase();
+          if (name.includes('mercado') || name.includes('mercadopago')) {
+            const tax = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+            salesMercadoPago += (p.amount - Number(tax || 0));
+          }
+        });
+      } else if ((s.paymentMethod || '').toLowerCase().includes('mercado')) {
+        const tax = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+        salesMercadoPago += (s.total - Number(tax || 0));
+      }
+    });
+    const expensesMercadoPago = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Mercado Pago')
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesMercadoPago = getAccountPurchases(
+      m => m.type === 'COMPRA' && m.financialAccount === 'Mercado Pago',
+      e => e.financialAccount === 'Mercado Pago'
+    );
+    const balanceMercadoPago = salesMercadoPago - expensesMercadoPago - purchasesMercadoPago;
+
+    // 3. Conta Bancária
+    let salesBank = 0;
+    sales.forEach((s: any) => {
+      if (!isSaleActive(s)) return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach((p: any) => {
+          const name = (p.method || '').toLowerCase();
+          if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
+            const tax = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+            salesBank += (p.amount - Number(tax || 0));
+          }
+        });
+      } else {
+        const name = (s.paymentMethod || '').toLowerCase();
+        if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
+          const tax = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+          salesBank += (s.total - Number(tax || 0));
+        }
+      }
+    });
+    const expensesBank = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta Bancária')
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesBank = getAccountPurchases(
+      m => m.type === 'COMPRA' && m.financialAccount === 'Conta Bancária',
+      e => e.financialAccount === 'Conta Bancária'
+    );
+    const balanceBank = salesBank - expensesBank - purchasesBank;
+
+    // 4. Conta PIX
+    let salesPix = 0;
+    sales.forEach((s: any) => {
+      if (!isSaleActive(s)) return;
+      if (s.payments && s.payments.length > 0) {
+        s.payments.forEach((p: any) => {
+          const name = (p.method || '').toLowerCase();
+          if (name.includes('pix') && !name.includes('mercado')) {
+            const tax = p.taxAmount !== undefined ? p.taxAmount : (p.tax_amount !== undefined ? p.tax_amount : 0);
+            salesPix += (p.amount - Number(tax || 0));
+          }
+        });
+      } else {
+        const name = (s.paymentMethod || '').toLowerCase();
+        if (name.includes('pix') && !name.includes('mercado')) {
+          const tax = s.taxAmount !== undefined ? s.taxAmount : (s.tax_amount !== undefined ? s.tax_amount : 0);
+          salesPix += (s.total - Number(tax || 0));
+        }
+      }
+    });
+    const expensesPix = expenses
+      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta PIX')
+      .reduce((acc, e) => acc + e.amount, 0);
+    const purchasesPix = getAccountPurchases(
+      m => m.type === 'COMPRA' && m.financialAccount === 'Conta PIX',
+      e => e.financialAccount === 'Conta PIX'
+    );
+    const balancePix = salesPix - expensesPix - purchasesPix;
+
+    return [
+      { name: 'Caixa (Dinheiro)', balance: balanceCaixa, icon: Wallet, iconBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' },
+      { name: 'Mercado Pago', balance: balanceMercadoPago, icon: Smartphone, iconBg: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
+      { name: 'Conta Bancária', balance: balanceBank, icon: Landmark, iconBg: 'bg-slate-50 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300' },
+      { name: 'Conta PIX', balance: balancePix, icon: Smartphone, iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
+    ];
+  }, [sales, expenses, stockMovements, cashRegisters, cashMovements, returns, isSaleActive]);
+
   // --- 1. Cards Financeiros ---
   const stats = useMemo(() => {
     // Faturamento no Período
@@ -205,23 +397,11 @@ export default function FinancePage() {
     // Lucro Líquido no Período (Matching Vendas por Período behavior: Faturamento - CMV - Taxas)
     const lucroHoje = faturamentoHoje - cmvHoje - taxasHoje;
 
-    // Saldo em Caixa Real (Baseado em todos os caixas, movimentações e vendas)
-    const openingBalances = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
-    const movementsTotal = cashMovements.reduce((acc, m) => {
-      if (m.type === 'suprimento') return acc + m.amount;
-      if (m.type === 'sangria') return acc - m.amount;
-      if (m.type === 'ajuste') return acc + m.amount;
-      return acc;
-    }, 0);
-    
-    const totalEntradas = sales.filter(isSaleActive).reduce((acc, s) => acc + (s.total - calculateSaleTax(s)), 0);
-    const totalDespesasPagas = expenses.filter(e => e.status === 'Pago').reduce((acc, e) => acc + e.amount, 0);
-    const totalReturns = (returns || []).reduce((acc, r) => acc + r.total, 0);
-    
-    const saldoCaixa = openingBalances + movementsTotal + totalEntradas - totalDespesasPagas - totalReturns;
+    // Saldo em Caixa Real (Total dos saldos de todas as contas financeiras para consistência de 100%)
+    const saldoCaixa = accountsBalances.reduce((sum, item) => sum + item.balance, 0);
 
     return { faturamentoHoje, despesasHoje, lucroHoje, saldoCaixa };
-  }, [sales, expenses, products, cashRegisters, cashMovements, returns, isWithinRange, isSaleActive, productMap]);
+  }, [sales, expenses, products, accountsBalances, isWithinRange, isSaleActive, productMap]);
 
   // --- 2. Gráfico de Fluxo de Caixa ---
   const chartData = useMemo(() => {
@@ -350,192 +530,6 @@ export default function FinancePage() {
     return all.slice(0, 10);
   }, [sales, expenses, isSaleActive]);
 
-  // --- 4.5. Saldos por Conta Financeira ---
-  const accountsBalances = useMemo(() => {
-    // 1. Caixa
-    const regOpening = cashRegisters.reduce((acc, r) => acc + r.openingBalance, 0);
-    const regMovements = cashMovements.reduce((acc, m) => {
-      if (m.type === 'suprimento') return acc + m.amount;
-      if (m.type === 'sangria') return acc - m.amount;
-      if (m.type === 'ajuste') return acc + m.amount;
-      return acc;
-    }, 0);
-    
-    // Vendas em Dinheiro
-    let salesCash = 0;
-    sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
-      if (s.payments && s.payments.length > 0) {
-        s.payments.forEach((p: any) => {
-          if (p.method === 'Dinheiro') {
-            salesCash += p.amount;
-          }
-        });
-      } else if (s.paymentMethod === 'Dinheiro') {
-        salesCash += s.total;
-      }
-    });
-
-    // Helper to calculate precise purchase amount matching real expense records
-    const getAccountPurchases = (
-      fallbackFilter: (m: any) => boolean,
-      expenseFilter: (e: any) => boolean
-    ) => {
-      const accMovements = stockMovements.filter(fallbackFilter);
-      const grouped: Record<string, typeof accMovements> = {};
-      accMovements.forEach(m => {
-        const key = m.origin || m.date;
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(m);
-      });
-      
-      let totalAmount = 0;
-      const compraExpenses = expenses.filter(e => 
-        e.status === 'Pago' && 
-        (e.category === 'Compra de Mercadoria' || (e.category || '').toLowerCase().includes('compra')) &&
-        expenseFilter(e)
-      );
-      
-      Object.values(grouped).forEach(movements => {
-        const first = movements[0];
-        let amount = movements.reduce((sum, m) => sum + (m.quantity * (m.cost || 0)), 0);
-        
-        if (first) {
-          const origin = (first.origin || '').toLowerCase().trim();
-          const nfMatch = origin.match(/nf:\s*([a-z0-9]+)/i);
-          const nfNumber = nfMatch ? nfMatch[1] : null;
-          
-          let foundMatch = false;
-          
-          if (nfNumber) {
-            const matchingExpenses = compraExpenses.filter(e => {
-              const desc = (e.description || '').toLowerCase();
-              const expNfMatch = desc.match(/nf:\s*([a-z0-9]+)/i);
-              return expNfMatch && expNfMatch[1] === nfNumber;
-            });
-            
-            if (matchingExpenses.length > 0) {
-              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
-              foundMatch = true;
-            }
-          }
-          
-          if (!foundMatch) {
-            const firstTime = new Date(first.date).getTime();
-            const matchingExpenses = compraExpenses.filter(e => {
-              const expTime = new Date(e.paymentDate || e.date || '').getTime();
-              return Math.abs(firstTime - expTime) <= 120000;
-            });
-            
-            if (matchingExpenses.length > 0) {
-              amount = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
-            }
-          }
-        }
-        totalAmount += amount;
-      });
-      
-      return totalAmount;
-    };
-
-    // Despesas e Compras pagas pelo Caixa
-    const expensesCaixa = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && (e.financialAccount === 'Caixa' || !e.financialAccount))
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesCaixa = getAccountPurchases(
-      m => m.type === 'COMPRA' && (m.financialAccount === 'Caixa' || !m.financialAccount),
-      e => e.financialAccount === 'Caixa' || !e.financialAccount
-    );
-    const returnsCash = (returns || []).reduce((acc, r) => acc + r.total, 0);
-    
-    const balanceCaixa = regOpening + regMovements + salesCash - expensesCaixa - purchasesCaixa - returnsCash;
-
-    // 2. Mercado Pago
-    let salesMercadoPago = 0;
-    sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
-      if (s.payments && s.payments.length > 0) {
-        s.payments.forEach((p: any) => {
-          const name = (p.method || '').toLowerCase();
-          if (name.includes('mercado') || name.includes('mercadopago')) {
-            salesMercadoPago += p.amount;
-          }
-        });
-      } else if ((s.paymentMethod || '').toLowerCase().includes('mercado')) {
-        salesMercadoPago += s.total;
-      }
-    });
-    const expensesMercadoPago = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Mercado Pago')
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesMercadoPago = getAccountPurchases(
-      m => m.type === 'COMPRA' && m.financialAccount === 'Mercado Pago',
-      e => e.financialAccount === 'Mercado Pago'
-    );
-    const balanceMercadoPago = salesMercadoPago - expensesMercadoPago - purchasesMercadoPago;
-
-    // 3. Conta Bancária
-    let salesBank = 0;
-    sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
-      if (s.payments && s.payments.length > 0) {
-        s.payments.forEach((p: any) => {
-          const name = (p.method || '').toLowerCase();
-          if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
-            salesBank += p.amount;
-          }
-        });
-      } else {
-        const name = (s.paymentMethod || '').toLowerCase();
-        if (name.includes('cart') || name.includes('deb') || name.includes('cred') || name.includes('boleto') || name.includes('banc')) {
-          salesBank += s.total;
-        }
-      }
-    });
-    const expensesBank = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta Bancária')
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesBank = getAccountPurchases(
-      m => m.type === 'COMPRA' && m.financialAccount === 'Conta Bancária',
-      e => e.financialAccount === 'Conta Bancária'
-    );
-    const balanceBank = salesBank - expensesBank - purchasesBank;
-
-    // 4. Conta PIX
-    let salesPix = 0;
-    sales.forEach((s: any) => {
-      if (!isSaleActive(s)) return;
-      if (s.payments && s.payments.length > 0) {
-        s.payments.forEach((p: any) => {
-          const name = (p.method || '').toLowerCase();
-          if (name.includes('pix') && !name.includes('mercado')) {
-            salesPix += p.amount;
-          }
-        });
-      } else {
-        const name = (s.paymentMethod || '').toLowerCase();
-        if (name.includes('pix') && !name.includes('mercado')) {
-          salesPix += s.total;
-        }
-      }
-    });
-    const expensesPix = expenses
-      .filter(e => e.status === 'Pago' && e.category !== 'Compra de Mercadoria' && e.financialAccount === 'Conta PIX')
-      .reduce((acc, e) => acc + e.amount, 0);
-    const purchasesPix = getAccountPurchases(
-      m => m.type === 'COMPRA' && m.financialAccount === 'Conta PIX',
-      e => e.financialAccount === 'Conta PIX'
-    );
-    const balancePix = salesPix - expensesPix - purchasesPix;
-
-    return [
-      { name: 'Caixa (Dinheiro)', balance: balanceCaixa, icon: Wallet, iconBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' },
-      { name: 'Mercado Pago', balance: balanceMercadoPago, icon: Smartphone, iconBg: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
-      { name: 'Conta Bancária', balance: balanceBank, icon: Landmark, iconBg: 'bg-slate-50 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300' },
-      { name: 'Conta PIX', balance: balancePix, icon: Smartphone, iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
-    ];
-  }, [sales, expenses, stockMovements, cashRegisters, cashMovements, returns, isSaleActive]);
-
   // --- 5. Resumo de Vendas por Pagamento ---
   const salesByPayment = useMemo(() => {
     const totals: Record<string, { amount: number; maquininhaNames: Set<string> }> = {};
@@ -586,15 +580,15 @@ export default function FinancePage() {
     let cmv = 0;
     salesInPeriod.forEach((sale: any) => {
       sale.items?.forEach((item: any) => {
-        const cost = item.costPrice && item.costPrice > 0 
+        const cost = Number(item.costPrice && item.costPrice > 0 
           ? item.costPrice 
-          : (products.find(p => p.id === item.productId)?.costPrice || 0);
-        cmv += cost * item.quantity;
+          : (products.find(p => p.id === item.productId)?.costPrice || 0));
+        cmv += cost * Number(item.quantity || 0);
       });
     });
 
     const expensesInPeriod = expenses.filter(e => isWithinRange(e.paymentDate || e.date) && e.category !== 'Compra de Mercadoria' && e.status === 'Pago');
-    const despesas = expensesInPeriod.reduce((acc, e) => acc + e.amount, 0);
+    const despesas = expensesInPeriod.reduce((acc, e) => acc + Number(e.amount || 0), 0);
 
     // Standard DRE:
     // Lucro Bruto = Receita - CMV
@@ -819,7 +813,7 @@ export default function FinancePage() {
                         ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 border-indigo-100/20" 
                         : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-455 border-rose-100/20"
                     )} title="Margem Líquida">
-                      M. Líquida: {(dre.margemLiquida / 100).toFixed(2).replace('.', ',')}%
+                      M. Líquida: {dre.margemLiquida.toFixed(2).replace('.', ',')}%
                     </span>
                   </div>
                 </div>
@@ -851,7 +845,7 @@ export default function FinancePage() {
                     </div>
                     <div className="flex items-center gap-3 font-mono">
                       <span className="text-[9px] text-rose-500 font-bold font-mono">
-                        {dre.receita > 0 ? `-${(dre.cmv / dre.receita).toFixed(2).replace('.', ',')}%` : '0,00%'}
+                        {dre.receita > 0 ? `-${((dre.cmv / dre.receita) * 100).toFixed(2).replace('.', ',')}%` : '0,00%'}
                       </span>
                       <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.cmv)})</span>
                     </div>
@@ -867,7 +861,7 @@ export default function FinancePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 font-mono">
-                      <span className="text-[9px] text-emerald-600 font-extrabold">{(dre.margemBruta / 100).toFixed(2).replace('.', ',')}%</span>
+                      <span className="text-[9px] text-emerald-600 font-extrabold">{dre.margemBruta.toFixed(2).replace('.', ',')}%</span>
                       <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(dre.lucroBruto)}</span>
                     </div>
                   </div>
@@ -883,7 +877,7 @@ export default function FinancePage() {
                     </div>
                     <div className="flex items-center gap-3 font-mono">
                       <span className="text-[9px] text-rose-500 font-bold">
-                        {dre.receita > 0 ? `-${(dre.taxasMaquininhas / dre.receita).toFixed(2).replace('.', ',')}%` : '0,00%'}
+                        {dre.receita > 0 ? `-${((dre.taxasMaquininhas / dre.receita) * 100).toFixed(2).replace('.', ',')}%` : '0,00%'}
                       </span>
                       <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.taxasMaquininhas)})</span>
                     </div>
@@ -900,7 +894,7 @@ export default function FinancePage() {
                     </div>
                     <div className="flex items-center gap-3 font-mono">
                       <span className="text-[9px] text-rose-500 font-bold">
-                        {dre.receita > 0 ? `-${(dre.despesas / dre.receita).toFixed(2).replace('.', ',')}%` : '0,00%'}
+                        {dre.receita > 0 ? `-${((dre.despesas / dre.receita) * 100).toFixed(2).replace('.', ',')}%` : '0,00%'}
                       </span>
                       <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-455">({formatCurrency(dre.despesas)})</span>
                     </div>
@@ -933,7 +927,7 @@ export default function FinancePage() {
                       <span className={cn(
                         "text-[9px] font-black",
                         dre.lucroReal >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"
-                      )}>{(dre.margemLiquida / 100).toFixed(2).replace('.', ',')}%</span>
+                      )}>{dre.margemLiquida.toFixed(2).replace('.', ',')}%</span>
                       <span className={cn(
                         "text-sm sm:text-base font-black",
                         dre.lucroReal >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-405"

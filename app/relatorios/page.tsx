@@ -10001,18 +10001,29 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
 
   // Helper for calculating non-explicit costs (Taxes & CMV)
   const getSaleCosts = (s: any) => {
-    let tax = 0;
-    if (s.paymentMethod === 'Cartão de Crédito') {
-      const installment = s.installments || 1;
-      if (installment === 1) tax = s.total * 0.034;
-      else if (installment <= 6) tax = s.total * 0.045;
-      else tax = s.total * 0.055;
-    } else if (s.paymentMethod === 'Cartão de Débito') {
-      tax = s.total * 0.019;
-    } else if (s.paymentMethod === 'Pix') {
-      tax = s.total * 0.009;
+    // 1. Tenta obter as taxas reais cadastradas na venda/pagamentos usando a função robusta global
+    let tax = calculateSaleTax(s);
+    
+    // 2. Se as taxas reais forem zero, faz a estimativa baseada no método de pagamento
+    if (tax === 0) {
+      const method = (s.paymentMethod || s.payment_method || '').trim();
+      if (method === 'Cartão de Crédito' || method.toLowerCase().includes('crédito') || method.toLowerCase().includes('credito')) {
+        const installment = s.installments || 1;
+        if (installment === 1) tax = s.total * 0.034;
+        else if (installment <= 6) tax = s.total * 0.045;
+        else tax = s.total * 0.055;
+      } else if (method === 'Cartão de Débito' || method.toLowerCase().includes('débito') || method.toLowerCase().includes('debito')) {
+        tax = s.total * 0.019;
+      } else if (method === 'Pix' || method.toLowerCase() === 'pix') {
+        tax = s.total * 0.009;
+      }
     }
-    const cost = s.items?.reduce((acc: number, item: any) => acc + (item.costPrice * item.quantity), 0) || 0;
+    
+    const cost = s.items?.reduce((acc: number, item: any) => {
+      const costPrice = Number(item.costPrice !== undefined ? item.costPrice : (item.cost_price !== undefined ? item.cost_price : 0));
+      return acc + (costPrice * Number(item.quantity || 0));
+    }, 0) || 0;
+
     return { tax, cost, total: tax + cost };
   };
 

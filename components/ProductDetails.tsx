@@ -42,7 +42,7 @@ interface ProductDetailsProps {
 }
 
 export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
-  const { products, stockMovements, categorias, subcategorias, departamentos, pricingSettings } = useERP();
+  const { products, stockMovements, categorias, subcategorias, departamentos, pricingSettings, lotes } = useERP();
   
   // Page logs pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -141,6 +141,55 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
 
     return { entries, exits: calculatedExits, adjustments };
   }, [movements, product]);
+
+  // Cost history memo compiled from lotes, stock movements and current price
+  const costHistory = React.useMemo(() => {
+    const historyList: { date: string; cost: number; type: string; origin: string }[] = [];
+
+    // 1. From Lotes
+    if (lotes && Array.isArray(lotes)) {
+      const productLotes = lotes.filter(l => l.productId === productId);
+      productLotes.forEach(l => {
+        if (l.custoUnit !== undefined && l.custoUnit > 0) {
+          historyList.push({
+            date: l.dataEntrada || new Date().toISOString(),
+            cost: l.custoUnit,
+            type: 'LOTE DE ENTRADA',
+            origin: `Lote: ${l.numeroLote || 'N/A'}`
+          });
+        }
+      });
+    }
+
+    // 2. From Stock Movements (ENTRADA, COMPRA, AJUSTE, or any with cost defined)
+    const productMovements = stockMovements.filter(m => m.productId === productId);
+    productMovements.forEach(m => {
+      if (m.cost !== undefined && m.cost > 0) {
+        historyList.push({
+          date: m.date,
+          cost: m.cost,
+          type: m.type === 'COMPRA' ? 'ORDEM DE COMPRA' : m.type === 'ENTRADA' ? 'ENTRADA DE ESTOQUE' : 'AJUSTE MANUAL',
+          origin: m.origin || 'Ajuste de Estoque'
+        });
+      }
+    });
+
+    // 3. Add current product cost price as baseline if present
+    if (product?.costPrice !== undefined && product.costPrice > 0) {
+      const alreadyHasCurrent = historyList.some(h => Math.abs(h.cost - (product.costPrice || 0)) < 0.001);
+      if (!alreadyHasCurrent) {
+        historyList.push({
+          date: new Date().toISOString(), // Use current date for active reference
+          cost: product.costPrice,
+          type: 'PREÇO DE CUSTO ATUAL',
+          origin: 'Ficha Cadastral (Vigente)'
+        });
+      }
+    }
+
+    // Sort by date descending
+    return historyList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [stockMovements, lotes, productId, product]);
 
   // Reset page when filter changes
   React.useEffect(() => {
@@ -666,6 +715,56 @@ export function ProductDetails({ productId, onClose }: ProductDetailsProps) {
                     )}
                   </div>
                 )}
+
+                {/* Histórico de Preço de Custo */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <Coins size={14} className="stroke-[2.5]" />
+                      </div>
+                      <h3 className="text-xs font-black uppercase text-slate-705 tracking-widest italic">Histórico de Preço de Custo</h3>
+                    </div>
+                    <span className="text-[9px] font-black tracking-widest uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                      {costHistory.length} registros
+                    </span>
+                  </div>
+
+                  {costHistory.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2.5 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                      {costHistory.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50/70 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={cn(
+                              "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+                              item.type === 'PREÇO DE CUSTO ATUAL' ? "bg-emerald-50 text-emerald-600" :
+                              item.type === 'LOTE DE ENTRADA' ? "bg-indigo-50 text-indigo-650 bg-indigo-50" : "bg-slate-105 bg-slate-100 text-slate-600"
+                            )}>
+                              $
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-black text-slate-700 uppercase italic block leading-none truncate">{item.type}</span>
+                              <span className="text-[9px] text-slate-400 font-extrabold uppercase font-mono tracking-wider mt-1 block truncate">
+                                {item.origin}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-black text-slate-750 font-mono italic block leading-none">{formatCurrency(item.cost)}</span>
+                            <span className="text-[9px] text-slate-400 font-extrabold font-mono mt-1 block">
+                              {formatDateTimeBR(item.date).split(' ')[0]}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                      <Coins size={22} className="mx-auto text-slate-300 opacity-40 mb-2" />
+                      <span className="text-[10px] font-black tracking-wider uppercase">Nenhum histórico de custo registrado</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Quick Historic Stats */}
                 <div className="grid grid-cols-3 gap-3">

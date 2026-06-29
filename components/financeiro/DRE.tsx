@@ -164,16 +164,16 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
     salesMonth.forEach(sale => {
       sale.items?.forEach((item: any) => {
         const product = products.find(p => p.id === item.productId);
-        const costPrice = item.costPrice || (product ? product.costPrice : 0);
-        cmv += costPrice * item.quantity;
+        const costPrice = Number(item.costPrice !== undefined ? item.costPrice : (product ? (product.costPrice || 0) : 0));
+        cmv += costPrice * Number(item.quantity || 0);
       });
     });
 
     returnsMonth.forEach(ret => {
       ret.items?.forEach((item: ReturnItem) => {
         const product = products.find(p => p.id === item.productId);
-        const costPrice = product ? product.costPrice : 0;
-        cmv -= costPrice * item.quantity;
+        const costPrice = Number(product ? (product.costPrice || 0) : 0);
+        cmv -= costPrice * Number(item.quantity || 0);
       });
     });
 
@@ -186,11 +186,11 @@ export function DRE({ sales, expenses, products, returns = [] }: DREProps) {
 
     const despesasPorCategoria = expensesMonth.reduce((acc, e) => {
       const label = e.description || e.category || 'Outros';
-      acc[label] = (acc[label] || 0) + e.amount;
+      acc[label] = (acc[label] || 0) + Number(e.amount || 0);
       return acc;
     }, {} as Record<string, number>);
 
-    const totalDespesas = expensesMonth.reduce((acc, e) => acc + e.amount, 0);
+    const totalDespesas = expensesMonth.reduce((acc, e) => acc + Number(e.amount || 0), 0);
 
     const lucroLiquido = lucroBruto - taxasMaquininhas - totalDespesas;
 

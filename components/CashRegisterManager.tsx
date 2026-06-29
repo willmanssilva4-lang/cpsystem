@@ -109,6 +109,26 @@ export function CashRegisterManager({
     }
   }, [activeRegister, showSuccessMessage]);
 
+  // Keyboard shortcut to quickly open the register / start selling
+  React.useEffect(() => {
+    if (!activeRegister && !showSuccessMessage) {
+      const handleShortcut = (e: KeyboardEvent) => {
+        if (e.key === 'F10') {
+          e.preventDefault();
+          handleOpen();
+        } else if (e.key === 'Enter') {
+          const isOtherInputFocused = document.activeElement instanceof HTMLInputElement && document.activeElement !== openingInputRef.current;
+          if (!isOtherInputFocused) {
+            e.preventDefault();
+            handleOpen();
+          }
+        }
+      };
+      window.addEventListener('keydown', handleShortcut);
+      return () => window.removeEventListener('keydown', handleShortcut);
+    }
+  }, [activeRegister, showSuccessMessage, openingBalance]);
+
   // Focus transaction amount when modal opens
   React.useEffect(() => {
     if (isTransaction) {
@@ -622,7 +642,7 @@ export function CashRegisterManager({
             className="w-full py-5 bg-brand-blue text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-xl shadow-brand-blue/20 flex items-center justify-center gap-3"
           >
             <CheckCircle2 className="w-6 h-6" />
-            Confirmar Abertura
+            Confirmar Abertura (F10 / Enter)
           </button>
           
           <p className="text-[10px] text-center text-slate-400 uppercase font-bold tracking-tighter">
