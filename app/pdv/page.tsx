@@ -7,6 +7,7 @@ import { QuickReturnModal } from '@/components/QuickReturnModal';
 import { useERP } from '@/lib/context';
 import { cn, getLocalDateString, formatDateTimeBR } from '@/lib/utils';
 import { Product } from '@/lib/types';
+import { getDBValue, setDBValue, removeDBValue } from '@/lib/indexedDb';
 import { ProductForm } from '@/components/ProductForm';
 import { PaymentModal } from '@/components/PaymentModal';
 import { DiscountModal } from '@/components/DiscountModal';
@@ -20,7 +21,53 @@ import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor,
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [] } = useERP();
+  const { products: originalProducts, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [] } = useERP();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [hasPendingCarga, setHasPendingCarga] = useState(false);
+  const isInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHasPendingCarga(localStorage.getItem('erp_pdv_carga_pending_flag') === 'true');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const loadInitialProducts = async () => {
+        try {
+          const cached = await getDBValue<Product[]>('erp_pdv_carga_products');
+          if (cached && cached.length > 0) {
+            setProducts(cached);
+            isInitializedRef.current = true;
+          } else if (originalProducts && originalProducts.length > 0 && !isInitializedRef.current) {
+            await setDBValue('erp_pdv_carga_products', originalProducts);
+            setProducts(originalProducts);
+            isInitializedRef.current = true;
+          }
+        } catch (err) {
+          console.error("Error loading products from IndexedDB:", err);
+          setProducts(originalProducts || []);
+        }
+      };
+      loadInitialProducts();
+    }
+  }, [originalProducts]);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'erp_pdv_carga_pending_flag') {
+        setHasPendingCarga(e.newValue === 'true');
+        // Let's also refresh our products in case a background tab updated erp_pdv_carga_products
+        getDBValue<Product[]>('erp_pdv_carga_products').then(current => {
+          if (current) setProducts(current);
+        });
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string, canceled?: boolean }[]>([]);
   const [barcode, setBarcode] = useState('');
   const [lastBeepedProduct, setLastBeepedProduct] = useState<string | null>(null);
@@ -125,6 +172,144 @@ export default function PDVPage() {
   const [completedSaleSelection, setCompletedSaleSelection] = useState<'print' | 'new_sale'>('new_sale');
   
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+
+  const handleImportCarga = async () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const pending = await getDBValue<Product[]>('erp_pdv_carga_pending_products');
+        
+        const isProductEqual = (p1: Product, p2: Product) => {
+          const normalize = (val: any) => {
+            if (val === null || val === undefined || val === '') return '';
+            if (typeof val === 'number') return val;
+            return String(val).trim();
+          };
+
+          const fields: (keyof Product)[] = [
+            'name', 'sku', 'barcode', 'status', 'category', 'active', 'brand'
+          ];
+
+          for (const field of fields) {
+            if (normalize(p1[field]) !== normalize(p2[field])) {
+              return false;
+            }
+          }
+
+          const numericFields: (keyof Product)[] = [
+            'salePrice', 'stock', 'costPrice', 'minStock', 
+            'wholesalePrice', 'wholesaleMinQty', 'clubPrice', 'termPrice'
+          ];
+
+          for (const field of numericFields) {
+            const v1 = Number(p1[field]) || 0;
+            const v2 = Number(p2[field]) || 0;
+            if (v1 !== v2) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const applyCarga = async (parsed: Product[], isFromPending: boolean) => {
+          try {
+            // Count altered products based on existing ones
+            const altered = parsed.filter(current => {
+              const last = products.find(p => p.id === current.id);
+              if (!last) return true;
+              return !isProductEqual(current, last);
+            });
+
+            await setDBValue('erp_pdv_carga_products', parsed);
+            setProducts(parsed);
+            setHasPendingCarga(false);
+            
+            if (isFromPending) {
+              await removeDBValue('erp_pdv_carga_pending_products');
+              localStorage.removeItem('erp_pdv_carga_pending_flag');
+            }
+
+            // Play success sound C5 -> E5 -> G5
+            try {
+              const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioCtx.createOscillator();
+              const gainNode = audioCtx.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioCtx.destination);
+              oscillator.type = 'sine';
+              oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+              gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+              oscillator.start();
+              oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // E5
+              oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16); // G5
+              oscillator.stop(audioCtx.currentTime + 0.24);
+            } catch (audioErr) {
+              console.log('Audio feedback blocked', audioErr);
+            }
+
+            let alertMessage = '';
+            if (products.length === 0) {
+              alertMessage = `Carga inicial de ${parsed.length} produtos recebida e aplicada no PDV com sucesso!`;
+            } else if (altered.length === 0) {
+              alertMessage = `Carga recebida! Todos os ${parsed.length} produtos já estavam atualizados no PDV.`;
+            } else {
+              alertMessage = `Carga recebida! ${altered.length} ${altered.length === 1 ? 'produto atualizado' : 'produtos atualizados'} de um total de ${parsed.length} cadastrados no PDV.`;
+            }
+
+            setCustomAlert?.({
+              message: alertMessage,
+              type: 'success'
+            });
+          } catch (err) {
+            console.error(err);
+            setCustomAlert?.({
+              message: 'Erro ao processar arquivo de carga de produtos.',
+              type: 'error'
+            });
+          }
+        };
+
+        if (cart.length > 0) {
+          setConfirmDialog({
+            message: 'Você possui itens no carrinho. Deseja realmente baixar a nova carga e atualizar o cadastro de produtos?',
+            onConfirm: () => {
+              if (pending) {
+                applyCarga(pending, true);
+              } else if (originalProducts && originalProducts.length > 0) {
+                applyCarga(originalProducts, false);
+              } else {
+                setCustomAlert?.({
+                  message: 'Nenhuma carga disponível para baixar no momento.',
+                  type: 'warning'
+                });
+              }
+            }
+          });
+          return;
+        }
+
+        if (pending) {
+          applyCarga(pending, true);
+        } else {
+          if (originalProducts && originalProducts.length > 0) {
+            setConfirmDialog({
+              message: 'Nenhuma nova carga pendente foi encontrada. Deseja forçar a sincronização direta com o cadastro atual do sistema?',
+              onConfirm: () => {
+                applyCarga(originalProducts, false);
+              }
+            });
+          } else {
+            setCustomAlert?.({
+              message: 'Nenhuma carga disponível para baixar no momento.',
+              type: 'warning'
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Error during handleImportCarga:", e);
+      }
+    }
+  };
 
   const removeCustomer = () => {
     setSelectedCustomer(null);
@@ -1532,6 +1717,24 @@ export default function PDVPage() {
         <div className="flex flex-col items-end z-10">
           <div className="flex gap-2 mb-1 items-center">
             <button
+              id="btn-import-carga"
+              type="button"
+              onClick={handleImportCarga}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-black transition-all border shrink-0 flex items-center justify-center gap-1 cursor-pointer",
+                hasPendingCarga 
+                  ? "bg-emerald-600 text-white border-emerald-500 animate-pulse hover:bg-emerald-700 shadow-[0_0_12px_rgba(16,185,129,0.5)] font-black" 
+                  : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-700 hover:text-white"
+              )}
+              title={hasPendingCarga ? "Existe uma nova carga de produtos disponível! Clique para receber." : "Importar carga de produtos"}
+            >
+              <span className="text-sm font-black">📥</span>
+              <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">
+                {hasPendingCarga ? "Receber Carga (Nova!)" : "Importar Carga"}
+              </span>
+              <span className="sm:hidden">Carga</span>
+            </button>
+            <button
               type="button"
               onClick={() => setShowHelp(true)}
               title="Instruções dos Atalhos (F1)"
@@ -2390,7 +2593,7 @@ export default function PDVPage() {
 
       {/* Price Check Modal */}
       {showPriceCheckModal && (
-        <PriceCheckModal onClose={() => setShowPriceCheckModal(false)} />
+        <PriceCheckModal onClose={() => setShowPriceCheckModal(false)} products={products} />
       )}
 
       {/* Product List Modal */}
@@ -2401,6 +2604,7 @@ export default function PDVPage() {
             selectProduct(product);
             setShowProductListModal(false);
           }}
+          products={products}
         />
       )}
 

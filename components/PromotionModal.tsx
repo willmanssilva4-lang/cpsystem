@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useERP } from '@/lib/context';
 import { Promotion, Product, Categoria } from '@/lib/types';
+import { setDBValue } from '@/lib/indexedDb';
 import { getLocalDateString } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -145,6 +146,10 @@ export default function PromotionModal({ isOpen, onClose, promotion }: Promotion
           setCustomAlert({ message: 'Nova campanha criada com sucesso!', type: 'success' });
         }
       }
+
+      await setDBValue('erp_pdv_carga_pending_products', products);
+      localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
+
       onClose();
     } catch (error: any) {
       console.error('Error saving promotion:', error);

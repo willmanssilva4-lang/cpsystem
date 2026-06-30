@@ -6,10 +6,12 @@ import { cn, getLocalDateString } from '@/lib/utils';
 
 interface PriceCheckModalProps {
   onClose: () => void;
+  products?: Product[];
 }
 
-export function PriceCheckModal({ onClose }: PriceCheckModalProps) {
-  const { products, promotions, subcategorias } = useERP();
+export function PriceCheckModal({ onClose, products: propProducts }: PriceCheckModalProps) {
+  const { products: contextProducts, promotions, subcategorias } = useERP();
+  const products = propProducts || contextProducts;
   const [searchTerm, setSearchTerm] = useState('');
   const [result, setResult] = useState<Product | null>(null);
   const [error, setError] = useState('');

@@ -7,10 +7,12 @@ import { cn, getLocalDateString } from '@/lib/utils';
 interface ProductListModalProps {
   onClose: () => void;
   onSelectProduct: (product: Product) => void;
+  products?: Product[];
 }
 
-export function ProductListModal({ onClose, onSelectProduct }: ProductListModalProps) {
-  const { products, promotions, subcategorias } = useERP();
+export function ProductListModal({ onClose, onSelectProduct, products: propProducts }: ProductListModalProps) {
+  const { products: contextProducts, promotions, subcategorias } = useERP();
+  const products = propProducts || contextProducts;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);

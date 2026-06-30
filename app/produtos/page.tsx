@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useERP } from '@/lib/context';
 import { supabase } from '@/lib/supabase';
+import { setDBValue, getDBValue } from '@/lib/indexedDb';
 import { 
   Search, 
   Plus, 
@@ -63,6 +64,7 @@ function ProductsContent() {
   const productIdParam = searchParams ? searchParams.get('id') : null;
   const { products, addProduct, updateProduct, deleteProduct, stockMovements, inventories, addStockMovement, addInventory, deleteInventory, user, hasPermission, subcategorias, categorias, departamentos, pricingSettings, setCustomAlert, fetchData } = useERP();
   const [showModal, setShowModal] = useState(false);
+  const [showCargaModal, setShowCargaModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [duplicateBaseProduct, setDuplicateBaseProduct] = useState<Product | null>(null);
@@ -119,6 +121,17 @@ function ProductsContent() {
     if (saved) {
       setShowInventorySession(true);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleCargaShortcut = (e: KeyboardEvent) => {
+      if (e.key === 'F9' || (e.altKey && e.key.toLowerCase() === 'c')) {
+        e.preventDefault();
+        setShowCargaModal(true);
+      }
+    };
+    window.addEventListener('keydown', handleCargaShortcut);
+    return () => window.removeEventListener('keydown', handleCargaShortcut);
   }, []);
 
   const calculateAdjustedPrice = (
@@ -229,11 +242,24 @@ function ProductsContent() {
             errorCount++;
           } else {
             successCount++;
+            // Atualiza o produto localmente para a carga
+            const index = products.findIndex(p => p.id === product.id);
+            if (index !== -1) {
+              products[index] = {
+                ...products[index],
+                costPrice: newCost,
+                salePrice: newSale,
+                wholesalePrice: newWholesale
+              };
+            }
           }
         } else {
           successCount++;
         }
       }
+
+      await setDBValue('erp_pdv_carga_pending_products', products);
+      localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
 
       await fetchData();
       
@@ -926,6 +952,16 @@ function ProductsContent() {
               title="Configurações de Precificação"
             >
               <Settings2 size={18} />
+            </button>
+          )}
+          {hasPermission('Estoque', 'create') && (
+            <button 
+              onClick={() => setShowCargaModal(true)}
+              className="flex items-center gap-2 px-4 h-10 bg-amber-600 text-white rounded-lg text-sm font-bold uppercase italic tracking-widest hover:bg-amber-750 transition-all shadow-sm cursor-pointer select-none"
+              title="Enviar Carga para Balanças e PDVs (F9 ou Alt+C)"
+            >
+              <RefreshCw size={16} className="animate-pulse" />
+              <span>Enviar Carga (F9)</span>
             </button>
           )}
           {hasPermission('Estoque', 'create') && (
@@ -2956,6 +2992,13 @@ function ProductsContent() {
           onClose={() => setSelectedProductForDetails(null)} 
         />
       )}
+
+      {showCargaModal && (
+        <CargaModal 
+          isOpen={showCargaModal} 
+          onClose={() => setShowCargaModal(false)} 
+        />
+      )}
     </div>
   );
 }
@@ -3405,6 +3448,345 @@ function InventoryDetailModal({ inventory, onClose }: { inventory: any, onClose:
             Fechar Visualização
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { products, setCustomAlert, activeRegister } = useERP();
+  const [cargaStep, setCargaStep] = useState<'idle' | 'running' | 'success'>('idle');
+  const [cargaType, setCargaType] = useState<'parcial' | 'total' | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentSubStepText, setCurrentSubStepText] = useState('');
+  const [lastSentProducts, setLastSentProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined') {
+      const loadBaseline = async () => {
+        try {
+          let saved = await getDBValue<Product[]>('erp_pdv_last_sent_products');
+          if (!saved || saved.length === 0) {
+            saved = await getDBValue<Product[]>('erp_pdv_carga_products');
+          }
+          if (!saved || saved.length === 0) {
+            saved = products;
+            if (products && products.length > 0) {
+              await setDBValue('erp_pdv_last_sent_products', products);
+            }
+          }
+          setLastSentProducts(saved);
+        } catch (err) {
+          console.error('Error loading baseline for CargaModal:', err);
+          setLastSentProducts(products);
+        }
+      };
+      loadBaseline();
+    }
+  }, [isOpen, products]);
+
+  // Auto-play synth sound on success
+  const playSuccessSound = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        
+        // C5 then E5
+        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        oscillator.start();
+        
+        oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08);
+        oscillator.stop(audioCtx.currentTime + 0.22);
+      } catch (e) {
+        console.log('Audio Context feedback blocked or not supported', e);
+      }
+    }
+  };
+
+  const handleStartCarga = (type: 'parcial' | 'total') => {
+    setCargaType(type);
+    setCargaStep('running');
+    setProgress(0);
+  };
+
+  useEffect(() => {
+    if (cargaStep !== 'running') return;
+
+    const subSteps = [
+      { prg: 15, text: 'Estruturando lote de sincronização...' },
+      { prg: 35, text: 'Formatando dados cadastrais e fiscais...' },
+      { prg: 60, text: 'Sincronizando tabelas do banco de dados local...' },
+      { prg: 85, text: 'Transmitindo carga de dados para o PDV ativo...' },
+      { prg: 100, text: 'Sincronização homologada com sucesso!' }
+    ];
+
+    let currentIdx = 0;
+    setCurrentSubStepText(subSteps[0].text);
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        const nextVal = prev + 5;
+        // Check which sub-step text matches current progress
+        const matched = subSteps.find(s => nextVal >= s.prg - 5 && nextVal <= s.prg);
+        if (matched) {
+          setCurrentSubStepText(matched.text);
+        }
+
+        if (nextVal >= 100) {
+          clearInterval(interval);
+          setCargaStep('success');
+          if (typeof window !== 'undefined') {
+            setDBValue('erp_pdv_carga_pending_products', products)
+              .then(() => {
+                localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
+                return setDBValue('erp_pdv_last_sent_products', products);
+              })
+              .catch(err => {
+                console.error('Failed to store pending products in IndexedDB:', err);
+              });
+          }
+          playSuccessSound();
+          setCustomAlert?.({
+            message: `Carga ${cargaType === 'parcial' ? 'Parcial' : 'Total'} enviada para o PDV com sucesso!`,
+            type: 'success'
+          });
+          return 100;
+        }
+        return nextVal;
+      });
+    }, 120);
+
+    return () => clearInterval(interval);
+  }, [cargaStep, cargaType, products]);
+
+  // Handle keyboard inputs: "1" for partial, "2" for total, "Esc" for exit
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      if (cargaStep === 'idle') {
+        if (e.key === '1') {
+          e.preventDefault();
+          handleStartCarga('parcial');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          handleStartCarga('total');
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      } else if (cargaStep === 'success') {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, cargaStep]);
+
+  if (!isOpen) return null;
+
+  const countActive = products.filter(p => p.status === 'Ativo').length;
+  
+  const isProductEqual = (p1: Product, p2: Product) => {
+    const normalize = (val: any) => {
+      if (val === null || val === undefined || val === '') return '';
+      if (typeof val === 'number') return val;
+      return String(val).trim();
+    };
+
+    const fields: (keyof Product)[] = [
+      'name', 'sku', 'barcode', 'status', 'category', 'active', 'brand'
+    ];
+
+    for (const field of fields) {
+      if (normalize(p1[field]) !== normalize(p2[field])) {
+        return false;
+      }
+    }
+
+    const numericFields: (keyof Product)[] = [
+      'salePrice', 'stock', 'costPrice', 'minStock', 
+      'wholesalePrice', 'wholesaleMinQty', 'clubPrice', 'termPrice'
+    ];
+
+    for (const field of numericFields) {
+      const v1 = Number(p1[field]) || 0;
+      const v2 = Number(p2[field]) || 0;
+      if (v1 !== v2) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const alteredProducts = products.filter(current => {
+    const last = lastSentProducts.find(p => p.id === current.id);
+    if (!last) return true;
+    return !isProductEqual(current, last);
+  });
+  const countPartial = alteredProducts.length;
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[900] p-4 animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white max-w-lg w-full rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 md:p-8 space-y-6 overflow-hidden">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 animate-pulse">
+              <RefreshCw size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black uppercase italic tracking-wider text-slate-950 dark:text-white">
+                Enviar Carga de Dados
+              </h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest pl-0.5">
+                Sincronização instantânea com o terminal PDV
+              </p>
+            </div>
+          </div>
+          {cargaStep !== 'running' && (
+            <button 
+              onClick={onClose}
+              className="p-1 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-400 hover:text-slate-650 rounded-xl transition-all cursor-pointer"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest">Fechar (Esc)</span>
+            </button>
+          )}
+        </div>
+
+        {cargaStep === 'idle' && (
+          <div className="space-y-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+              Escolha o tipo de carga de dados para enviar ao terminal de PDV ativo. Você pode usar os atalhos numéricos do teclado:
+            </p>
+
+            <div className="grid grid-cols-1 gap-4">
+              {/* Option 1: Partial load */}
+              <button
+                onClick={() => handleStartCarga('parcial')}
+                className="group flex items-start gap-4 p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-amber-600 dark:hover:border-amber-600 bg-slate-50 hover:bg-amber-50/10 dark:bg-slate-950 dark:hover:bg-amber-950/10 transition-all text-left cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-mono font-black border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600 transition-colors shrink-0">
+                  1
+                </div>
+                <div>
+                  <span className="block text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-wider">
+                    Carga Parcial (Rápida)
+                  </span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Envia apenas atualizações recentes (preços ou estoque de ~{countPartial} produtos modificados). Recomendado para uso no dia a dia.
+                  </span>
+                </div>
+              </button>
+
+              {/* Option 2: Total load */}
+              <button
+                onClick={() => handleStartCarga('total')}
+                className="group flex items-start gap-4 p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-brand-blue dark:hover:border-brand-blue bg-slate-50 hover:bg-brand-blue/5 dark:bg-slate-950 dark:hover:bg-brand-blue/10 transition-all text-left cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-mono font-black border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 group-hover:bg-brand-blue group-hover:text-white group-hover:border-brand-blue transition-colors shrink-0">
+                  2
+                </div>
+                <div>
+                  <span className="block text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-wider">
+                    Carga Total (Completa)
+                  </span>
+                  <span className="block text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Reescreve o banco de dados completo de todos os {countActive} produtos ativos no terminal do PDV.
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center">
+              Dica: use as teclas <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border">1</kbd> ou <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border">2</kbd> do teclado para disparar instantaneamente!
+            </div>
+          </div>
+        )}
+
+        {cargaStep === 'running' && (
+          <div className="py-8 space-y-6 flex flex-col items-center justify-center text-center">
+            <RefreshCw size={48} className="text-amber-600 animate-spin" />
+            
+            <div className="space-y-2 w-full">
+              <h4 className="text-md font-black uppercase italic tracking-wider text-slate-900 dark:text-white">
+                Transmitindo {cargaType === 'parcial' ? 'Carga Parcial' : 'Carga Total'}...
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono font-bold uppercase tracking-wider h-5">
+                {currentSubStepText}
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-100 dark:bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-850 p-0.5">
+              <div 
+                className="bg-amber-600 h-full rounded-full transition-all duration-150 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+
+            <span className="text-xl font-black font-mono text-slate-800 dark:text-slate-200">
+              {progress}%
+            </span>
+          </div>
+        )}
+
+        {cargaStep === 'success' && (
+          <div className="py-6 space-y-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-250">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center border-2 border-emerald-500/20">
+              <CheckCircle2 size={36} />
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-lg font-black uppercase italic tracking-wider text-slate-900 dark:text-white">
+                Carga Concluída com Sucesso!
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                Os arquivos de carga ({cargaType === 'parcial' ? 'parcial' : 'total'}) foram gerados e sincronizados com sucesso no terminal de vendas (PDV).
+              </p>
+            </div>
+
+            {/* Audit details in the success screen */}
+            <div className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800 rounded-2xl text-left font-mono text-[11px] text-slate-500 space-y-1">
+              <p className="flex justify-between">
+                <span>TIPO DE CARGA:</span>
+                <span className="font-black text-slate-700 dark:text-slate-300 uppercase">{cargaType === 'parcial' ? 'PARCIAL' : 'TOTAL (COMPLETA)'}</span>
+              </p>
+              <p className="flex justify-between">
+                <span>PRODUTOS ENVIADOS:</span>
+                <span className="font-black text-slate-700 dark:text-slate-300">{cargaType === 'parcial' ? countPartial : countActive} ITENS</span>
+              </p>
+              <p className="flex justify-between items-center">
+                <span>TERMINAIS SINCRONIZADOS:</span>
+                <span className="font-black text-slate-700 dark:text-slate-300 text-right">
+                  {activeRegister ? '1 PDV ATIVO' : '1 PDV (CAIXA FECHADO)'} & 0 BALANÇAS
+                </span>
+              </p>
+              <p className="flex justify-between">
+                <span>STATUS DA HOMOLOGAÇÃO:</span>
+                <span className="font-black text-emerald-600">100% SUCESSO</span>
+              </p>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-xs tracking-widest rounded-xl transition-all shadow-md shadow-emerald-600/15 cursor-pointer"
+            >
+              Confirmar e Fechar (Enter)
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );

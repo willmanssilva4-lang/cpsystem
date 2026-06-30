@@ -6,9 +6,10 @@ import { Plus, Search, Filter, Edit, Trash2, Tag, Percent, ShoppingBag, Layers, 
 import PromotionModal from '@/components/PromotionModal';
 import { Promotion } from '@/lib/types';
 import { getLocalDateString } from '@/lib/utils';
+import { setDBValue } from '@/lib/indexedDb';
 
 export default function PromocoesPage() {
-  const { promotions, deletePromotion, sales, user } = useERP();
+  const { promotions, deletePromotion, sales, user, products } = useERP();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | undefined>(undefined);
   const [promotionToDelete, setPromotionToDelete] = useState<string | null>(null);
@@ -37,6 +38,10 @@ export default function PromocoesPage() {
     if (promotionToDelete) {
       try {
         await deletePromotion(promotionToDelete);
+        
+        // Ativa sinalizador de carga pendente
+        await setDBValue('erp_pdv_carga_pending_products', products);
+        localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
       } catch (error: any) {
         console.error('Erro ao excluir:', error);
         // You could add a toast notification here
