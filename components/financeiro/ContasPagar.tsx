@@ -15,7 +15,10 @@ import {
   Tag, 
   DollarSign,
   TrendingUp,
-  XCircle
+  XCircle,
+  Check,
+  X,
+  Pencil
 } from 'lucide-react';
 import { cn, formatDateBR, getLocalDateString } from '@/lib/utils';
 import { Expense } from '@/lib/types';
@@ -24,8 +27,35 @@ import { useERP } from '@/lib/context';
 import * as XLSX from 'xlsx';
 
 export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: () => void }) {
-  const { setCustomAlert } = useERP();
+  const { updateExpense, setCustomAlert } = useERP();
   const [expenseToPay, setExpenseToPay] = useState<Expense | null>(null);
+  
+  // Inline editing state for due date
+  const [editingDueDateId, setEditingDueDateId] = useState<string | null>(null);
+  const [tempDueDate, setTempDueDate] = useState<string>('');
+  const [isUpdatingDate, setIsUpdatingDate] = useState(false);
+
+  const handleSaveDueDate = async (expense: Expense, newDate: string) => {
+    if (!newDate) {
+      if (setCustomAlert) setCustomAlert({ message: 'Selecione uma data de vencimento válida.', type: 'warning' });
+      return;
+    }
+    setIsUpdatingDate(true);
+    try {
+      await updateExpense({
+        ...expense,
+        dueDate: newDate,
+        due_date: newDate
+      });
+      if (setCustomAlert) setCustomAlert({ message: 'Data de vencimento atualizada com sucesso!', type: 'success' });
+      setEditingDueDateId(null);
+    } catch (err: any) {
+      console.error(err);
+      if (setCustomAlert) setCustomAlert({ message: 'Erro ao atualizar a data de vencimento.', type: 'error' });
+    } finally {
+      setIsUpdatingDate(false);
+    }
+  };
   
   // Filters State
   const [searchTerm, setSearchTerm] = useState('');
@@ -385,10 +415,47 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
               <div key={e.id} className="p-5 space-y-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
-                      <Calendar size={12} />
-                      <span>Vencto: {formatDateBR(e.dueDate)}</span>
-                    </div>
+                    {editingDueDateId === e.id ? (
+                      <div className="flex items-center gap-1" onClick={(evt) => evt.stopPropagation()}>
+                        <input 
+                          type="date"
+                          value={tempDueDate}
+                          onChange={(evt) => setTempDueDate(evt.target.value)}
+                          disabled={isUpdatingDate}
+                          className="px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+                        />
+                        <button
+                          disabled={isUpdatingDate}
+                          onClick={() => handleSaveDueDate(e, tempDueDate)}
+                          className="p-1 bg-emerald-500 text-white rounded transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                        >
+                          <Check size={10} />
+                        </button>
+                        <button
+                          disabled={isUpdatingDate}
+                          onClick={() => setEditingDueDateId(null)}
+                          className="p-1 bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500 group/mobdate">
+                        <Calendar size={12} />
+                        <span>Vencto: {formatDateBR(e.dueDate)}</span>
+                        <button
+                          onClick={(evt) => {
+                            evt.stopPropagation();
+                            setEditingDueDateId(e.id);
+                            setTempDueDate(e.dueDate ? e.dueDate.split('T')[0] : '');
+                          }}
+                          className="p-0.5 text-slate-400 hover:text-brand-blue rounded transition-all cursor-pointer ml-1"
+                          title="Editar vencimento"
+                        >
+                          <Pencil size={10} />
+                        </button>
+                      </div>
+                    )}
                     <h4 className="font-black text-slate-900 dark:text-white uppercase text-xs">{e.description}</h4>
                   </div>
                   <div className="text-right">
@@ -486,10 +553,51 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
 
                     {/* Due Date */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 font-mono text-slate-550 font-bold text-xs">
-                        <Calendar size={14} className="text-slate-400 shrink-0" />
-                        {formatDateBR(e.dueDate)}
-                      </div>
+                      {editingDueDateId === e.id ? (
+                        <div className="flex items-center gap-1.5" onClick={(evt) => evt.stopPropagation()}>
+                          <input 
+                            type="date"
+                            value={tempDueDate}
+                            onChange={(evt) => setTempDueDate(evt.target.value)}
+                            disabled={isUpdatingDate}
+                            className="px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                          />
+                          <button
+                            disabled={isUpdatingDate}
+                            onClick={() => handleSaveDueDate(e, tempDueDate)}
+                            className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                            title="Salvar"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            disabled={isUpdatingDate}
+                            onClick={() => setEditingDueDateId(null)}
+                            className="p-1.5 bg-slate-300 hover:bg-slate-400 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors shadow-sm disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                            title="Cancelar"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group/date">
+                          <div className="flex items-center gap-2 font-mono text-slate-550 font-bold text-xs select-none">
+                            <Calendar size={14} className="text-slate-400 shrink-0" />
+                            {formatDateBR(e.dueDate)}
+                          </div>
+                          <button
+                            onClick={(evt) => {
+                              evt.stopPropagation();
+                              setEditingDueDateId(e.id);
+                              setTempDueDate(e.dueDate ? e.dueDate.split('T')[0] : '');
+                            }}
+                            className="opacity-0 group-hover/date:opacity-100 focus:opacity-100 p-1 text-slate-400 hover:text-brand-blue rounded-md transition-all cursor-pointer"
+                            title="Editar data de vencimento"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        </div>
+                      )}
                     </td>
 
                     {/* Status Badge */}

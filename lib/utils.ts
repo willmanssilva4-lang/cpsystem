@@ -7,16 +7,51 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDateBR(dateInput?: string | Date | null) {
   if (!dateInput) return '-';
-  const date = new Date(dateInput);
+  
+  if (typeof dateInput === 'string') {
+    const matchYMD = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (matchYMD) {
+      return `${matchYMD[3]}/${matchYMD[2]}/${matchYMD[1]}`;
+    }
+    
+    const matchDMY = dateInput.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (matchDMY) {
+      return `${matchDMY[1]}/${matchDMY[2]}/${matchDMY[3]}`;
+    }
+  }
+  
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('pt-BR');
+  
+  try {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(date);
+  } catch (e) {
+    return date.toLocaleDateString('pt-BR');
+  }
 }
 
 export function formatDateTimeBR(dateInput?: string | Date | null) {
   if (!dateInput) return '-';
-  const date = new Date(dateInput);
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (isNaN(date.getTime())) return '-';
-  return date.toLocaleString('pt-BR');
+  
+  try {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  } catch (e) {
+    return date.toLocaleString('pt-BR');
+  }
 }
 
 export function formatTimeBR(dateInput?: string | Date | null) {

@@ -1513,7 +1513,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       justification: justificationPayload,
       closed_at: new Date().toISOString(),
       company_id: user?.companyId || null,
-      approved_by: user?.id || null
+      approved_by: user?.id || null,
+      operator_name: user?.name || 'Operador'
     };
 
     const { error: closingError } = await supabase.from('cash_closings').insert([closingPayload]);
@@ -1950,22 +1951,22 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       date: clean(data.date ?? data.issueDate ?? data.issue_date ?? null),
       status: data.status,
       supplier: data.supplier,
-      issue_date: clean(data.issue_date ?? data.issueDate ?? null),
-      due_date: clean(data.due_date ?? data.dueDate ?? null),
-      payment_date: clean(data.payment_date ?? data.paymentDate ?? null),
-      payment_method: clean(data.payment_method ?? data.paymentMethod ?? null),
-      financial_account: clean(data.financial_account ?? data.financialAccount ?? null),
+      issue_date: clean(data.issueDate ?? data.issue_date ?? null),
+      due_date: clean(data.dueDate ?? data.due_date ?? null),
+      payment_date: clean(data.paymentDate ?? data.payment_date ?? null),
+      payment_method: clean(data.paymentMethod ?? data.payment_method ?? null),
+      financial_account: clean(data.financialAccount ?? data.financial_account ?? null),
       observation: data.observation,
-      is_recurring: data.is_recurring ?? data.isRecurring ?? false,
+      is_recurring: data.isRecurring ?? data.is_recurring ?? false,
       frequency: data.frequency,
-      supplier_id: clean(data.supplier_id ?? data.supplierId ?? null),
-      company_id: clean(data.company_id ?? data.companyId ?? user?.companyId ?? null),
+      supplier_id: clean(data.supplierId ?? data.supplier_id ?? null),
+      company_id: clean(data.companyId ?? data.company_id ?? user?.companyId ?? null),
       origin: data.origin,
       type: data.type,
       interest: Number(data.interest) || 0,
       discount: Number(data.discount) || 0,
-      payment_type: clean(data.payment_type ?? data.paymentType ?? null),
-      store_id: clean(data.store_id ?? data.storeId ?? null)
+      payment_type: clean(data.paymentType ?? data.payment_type ?? null),
+      store_id: clean(data.storeId ?? data.store_id ?? null)
     };
 
     const sanitized: any = {};
@@ -1994,22 +1995,22 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       date: clean(data.date ?? data.issueDate ?? data.issue_date ?? null),
       status: data.status,
       supplier: data.supplier,
-      issue_date: clean(data.issue_date ?? data.issueDate ?? null),
-      due_date: clean(data.due_date ?? data.dueDate ?? null),
-      payment_date: clean(data.payment_date ?? data.paymentDate ?? null),
-      payment_method: clean(data.payment_method ?? data.paymentMethod ?? null),
-      financial_account: clean(data.financial_account ?? data.financialAccount ?? null),
+      issue_date: clean(data.issueDate ?? data.issue_date ?? null),
+      due_date: clean(data.dueDate ?? data.due_date ?? null),
+      payment_date: clean(data.paymentDate ?? data.payment_date ?? null),
+      payment_method: clean(data.paymentMethod ?? data.payment_method ?? null),
+      financial_account: clean(data.financialAccount ?? data.financial_account ?? null),
       observation: data.observation,
-      is_recurring: data.is_recurring ?? data.isRecurring ?? false,
+      is_recurring: data.isRecurring ?? data.is_recurring ?? false,
       frequency: data.frequency,
-      supplier_id: clean(data.supplier_id ?? data.supplierId ?? null),
-      company_id: clean(data.company_id ?? data.companyId ?? user?.companyId ?? null),
+      supplier_id: clean(data.supplierId ?? data.supplier_id ?? null),
+      company_id: clean(data.companyId ?? data.company_id ?? user?.companyId ?? null),
       origin: data.origin,
       type: data.type,
       interest: Number(data.interest) || 0,
       discount: Number(data.discount) || 0,
-      payment_type: clean(data.payment_type ?? data.paymentType ?? null),
-      store_id: clean(data.store_id ?? data.storeId ?? null)
+      payment_type: clean(data.paymentType ?? data.payment_type ?? null),
+      store_id: clean(data.storeId ?? data.store_id ?? null)
     };
 
     const sanitized: any = {};

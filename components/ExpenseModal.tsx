@@ -82,8 +82,8 @@ export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
         discount: (expenseToEdit.discount || 0).toString(),
         documentNumber: '', // Try to parse if stored in observation
         paymentType: expenseToEdit.paymentType || (expenseToEdit.status === 'Pago' ? 'À vista' : 'A prazo'),
-        issueDate: expenseToEdit.issueDate || getTodayDate(),
-        dueDate: expenseToEdit.dueDate || getTodayDate(),
+        issueDate: expenseToEdit.issueDate ? expenseToEdit.issueDate.split('T')[0] : getTodayDate(),
+        dueDate: expenseToEdit.dueDate ? expenseToEdit.dueDate.split('T')[0] : getTodayDate(),
         observation: expenseToEdit.observation || '',
         status: expenseToEdit.status,
         paymentMethod: expenseToEdit.paymentMethod || 'Dinheiro',

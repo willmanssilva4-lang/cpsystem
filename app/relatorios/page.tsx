@@ -852,7 +852,7 @@ function ReportsContent() {
                     />
                   )}
                   
-                  {!['Dashboard Executivo', 'Vendas por Período', 'Resumo de Vendas por Dia', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas Mais/Menos Produtos', 'Vendas por Categoria', 'Vendas por Departamento', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Relatório de Perdas e Avarias', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento'].includes(selectedReportView) && (
+                  {!['Dashboard Executivo', 'Vendas por Período', 'Resumo de Vendas por Dia', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas Mais/Menos Produtos', 'Vendas por Categoria', 'Vendas por Departamento', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Relatório de Perdas e Avarias', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento', 'Relatório de Consumo Interno'].includes(selectedReportView) && (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                         <FileText size={40} />
@@ -1749,8 +1749,9 @@ function AdvancedPerformanceDashboard({
       }).reduce((acc, s) => acc + s.total, 0);
       
       const weekExpenses = expenses.filter(e => {
-        const d = new Date(e.date);
-        const dateStr = toLocalDateString(e.date);
+        const expDate = e.status === 'Pago' ? (e.paymentDate || e.dueDate || e.date) : (e.dueDate || e.date);
+        const d = new Date(expDate);
+        const dateStr = toLocalDateString(expDate);
         return dateStr >= sDate && dateStr <= eDate && d >= start && d < end;
       }).reduce((acc, e) => acc + e.amount, 0);
       

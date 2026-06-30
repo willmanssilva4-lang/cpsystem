@@ -14,7 +14,9 @@ import {
   Calculator,
   ShieldCheck,
   Printer,
-  Zap
+  Zap,
+  Eye,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -35,8 +37,137 @@ export function CashRegisterManager({
     sales,
     cashMovements,
     user,
-    paymentMethods
+    paymentMethods,
+    cashClosings,
+    cashRegisters,
+    systemUsers
   } = useERP();
+
+  const maskCashRegisterId = (id?: string) => {
+    if (!id) return 'Desconhecido';
+    if (id.length <= 8) return id.substring(0, 2) + '***' + id.substring(id.length - 2);
+    if (id.includes('-')) {
+      const parts = id.split('-');
+      return `${parts[0]}-****-****-${parts[parts.length - 1].slice(-4)}`;
+    }
+    return id.substring(0, 4) + '...' + id.substring(id.length - 4);
+  };
+
+  const handlePrint = (reportId: string, title: string) => {
+    if (typeof window === 'undefined') return;
+    
+    const isIframe = window.self !== window.top;
+    
+    if (isIframe) {
+      const printElement = document.getElementById(reportId);
+      if (printElement) {
+        const printContent = printElement.innerHTML;
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>${title}</title>
+                <style>
+                  body { font-family: sans-serif; padding: 20px; background: white; color: #1e293b; line-height: 1.5; }
+                  .bg-white { background-color: #fff; }
+                  .text-slate-800 { color: #1e293b; }
+                  .text-slate-900 { color: #0f172a; }
+                  .border { border: 1px solid #e2e8f0; }
+                  .p-4 { padding: 1rem; }
+                  .font-bold { font-weight: 700; }
+                  .text-xs { font-size: 0.75rem; }
+                  .text-sm { font-size: 0.875rem; }
+                  .grid { display: grid; }
+                  .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                  .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                  .gap-2 { gap: 0.5rem; }
+                  .gap-4 { gap: 1rem; }
+                  .gap-8 { gap: 2rem; }
+                  .space-y-4 > * + * { margin-top: 1rem; }
+                  .space-y-2 > * + * { margin-top: 0.5rem; }
+                  .space-y-1.5 > * + * { margin-top: 0.375rem; }
+                  .space-y-1 > * + * { margin-top: 0.25rem; }
+                  .space-y-0.5 > * + * { margin-top: 0.125rem; }
+                  .flex { display: flex; }
+                  .flex-col { flex-direction: column; }
+                  .flex-1 { flex: 1 1 0%; }
+                  .justify-between { justify-content: space-between; }
+                  .justify-center { justify-content: center; }
+                  .items-center { align-items: center; }
+                  .items-start { align-items: flex-start; }
+                  .border-t { border-top: 1px solid #e2e8f0; }
+                  .border-b { border-bottom: 1px solid #e2e8f0; }
+                  .border-dashed { border-style: dashed; }
+                  .text-center { text-align: center; }
+                  .text-right { text-align: right; }
+                  .font-mono { font-family: monospace; }
+                  .text-slate-400 { color: #94a3b8; }
+                  .text-slate-500 { color: #64748b; }
+                  .text-slate-700 { color: #334155; }
+                  .bg-slate-50 { background-color: #f8fafc; }
+                  .bg-slate-100 { background-color: #f1f5f9; }
+                  .bg-emerald-50 { background-color: #ecfdf5; }
+                  .bg-rose-50 { background-color: #fff1f2; }
+                  .text-emerald-600 { color: #059669; }
+                  .text-emerald-700 { color: #047857; }
+                  .text-rose-600 { color: #dc2626; }
+                  .text-rose-700 { color: #b91c1c; }
+                  .p-2 { padding: 0.5rem; }
+                  .p-3 { padding: 0.75rem; }
+                  .p-3.5 { padding: 0.875rem; }
+                  .pt-1 { padding-top: 0.25rem; }
+                  .pt-2 { padding-top: 0.5rem; }
+                  .pb-4 { padding-bottom: 1rem; }
+                  .pt-4 { padding-top: 1rem; }
+                  .pt-12 { padding-top: 3rem; }
+                  .rounded-xl { border-radius: 0.75rem; }
+                  .rounded-2xl { border-radius: 1rem; }
+                  .rounded-3xl { border-radius: 1.5rem; }
+                  .divide-y > * + * { border-top: 1px solid #e2e8f0; }
+                  .uppercase { text-transform: uppercase; }
+                  .text-xl { font-size: 1.25rem; }
+                  .font-black { font-weight: 900; }
+                  .italic { font-style: italic; }
+                  .tracking-wider { letter-spacing: 0.05em; }
+                  .tracking-widest { letter-spacing: 0.1em; }
+                  .text-brand-blue { color: #3b82f6; }
+                  .w-full { width: 100%; }
+                  .max-w-xl { max-width: 36rem; }
+                  .mx-auto { margin-left: auto; margin-right: auto; }
+                  .shrink-0 { flex-shrink: 0; }
+                  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+                  th, td { padding: 8px; text-align: left; font-size: 11px; }
+                  th { font-weight: bold; border-bottom: 1px solid #e2e8f0; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+                  .print\\:hidden, .print-hidden, button { display: none !important; }
+                </style>
+              </head>
+              <body>
+                <div class="max-w-xl mx-auto">
+                  ${printContent}
+                </div>
+                <script>
+                  window.onload = function() {
+                    window.focus();
+                    window.print();
+                  }
+                </script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          return;
+        }
+      }
+    }
+
+    try {
+      window.focus();
+      window.print();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const isCancelledSale = (sale: any): boolean => {
     if (!sale) return false;
@@ -73,6 +204,9 @@ export function CashRegisterManager({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showDivergences, setShowDivergences] = useState(true);
   const [showAutoConfirmModal, setShowAutoConfirmModal] = useState(false);
+
+  // Selected historical closing detail state
+  const [selectedClosingDetail, setSelectedClosingDetail] = useState<any | null>(null);
 
   // Transaction state (Sangria/Suprimento)
   const [transType, setTransType] = useState<'Sangria' | 'Suprimento'>(
@@ -373,6 +507,489 @@ export function CashRegisterManager({
     }
   }, [isClosing]);
 
+  const sortedClosings = useMemo(() => {
+    return [...(cashClosings || [])].sort((a, b) => {
+      const dateA = new Date(a.closedAt || a.closed_at || 0).getTime();
+      const dateB = new Date(b.closedAt || b.closed_at || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [cashClosings]);
+
+  const getRichClosingData = (closing: any) => {
+    const register = cashRegisters?.find((r: any) => r.id === closing.cashRegisterId || r.id === closing.cash_register_id);
+    const movements = cashMovements?.filter((m: any) => m.cashRegisterId === closing.cashRegisterId || m.cash_register_id === closing.cash_register_id) || [];
+    const registerSales = sales?.filter((s: any) => (s.cashRegisterId === closing.cashRegisterId || s.cash_register_id === closing.cash_register_id) && !isCancelledSale(s)) || [];
+
+    // Parse justification JSON if applicable
+    let textJust = closing.justification;
+    let parsedInformedTotals = closing.informedTotals || [];
+    try {
+      if (closing.justification && typeof closing.justification === 'string' && closing.justification.trim().startsWith('{')) {
+        const parsed = JSON.parse(closing.justification);
+        if (parsed && typeof parsed === 'object') {
+          textJust = parsed.text || closing.justification;
+          parsedInformedTotals = parsed.informedTotals || [];
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Se informedTotals não veio no JSON, podemos tentar reconstruir a partir das formas de pagamento informadas ou deixar vazio
+    const systemTotalsMap: Record<string, number> = {
+      'Dinheiro': 0,
+      'Pix': 0,
+      'Crédito': 0,
+      'Débito': 0,
+      'Voucher': 0,
+      'Fiado': 0
+    };
+
+    const safePaymentMethods = paymentMethods || [];
+    const normalizeStr = (str?: string) => {
+      return (str || '')
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    };
+
+    const getClosureCategory = (methodName?: string, methodType?: string): string => {
+      const normName = normalizeStr(methodName);
+      const normType = normalizeStr(methodType);
+      if (normName === 'dinheiro' || normName === 'especie' || normName === 'dinheiro em especie' || normName === 'cash' || normName === 'money') return 'Dinheiro';
+      if (normName === 'pix') return 'Pix';
+      if (normName === 'credito' || normName === 'cartao de credito' || normName === 'credit' || normName === 'card' || normName === 'cartao') return 'Crédito';
+      if (normName === 'debito' || normName === 'cartao de debito' || normName === 'debit') return 'Débito';
+      if (normName === 'voucher' || normName === 'vale' || normName === 'vale credito' || normName === 'vale-credito' || normName === 'cupom') return 'Voucher';
+      if (normName === 'fiado' || normName === 'prazo' || normName === 'conta assinada' || normName === 'caderneta' || normName === 'crediario' || normName === 'crediário') return 'Fiado';
+
+      if (normType === 'dinheiro') return 'Dinheiro';
+      if (normType === 'pix') return 'Pix';
+      if (normType === 'credito') return 'Crédito';
+      if (normType === 'debito') return 'Débito';
+      if (normType === 'voucher' || normType === 'vale_credito' || normType === 'vale-credito') return 'Voucher';
+      if (normType === 'fiado' || normType === 'prazo') return 'Fiado';
+
+      if (normName.includes('dinheiro') || normName.includes('especie') || normName.includes('money') || normName.includes('cash')) return 'Dinheiro';
+      if (normName.includes('pix')) return 'Pix';
+      if (normName.includes('credito') || normName.includes('credit')) return 'Crédito';
+      if (normName.includes('debito') || normName.includes('debit')) return 'Débito';
+      if (normName.includes('voucher') || normName.includes('vale') || normName.includes('cupom')) return 'Voucher';
+      if (normName.includes('fiado') || normName.includes('prazo') || normName.includes('conta ass') || normName.includes('caderneta') || normName.includes('assina') || normName.includes('crediar')) return 'Fiado';
+
+      return 'Dinheiro';
+    };
+
+    registerSales.forEach(sale => {
+      if (sale.payments && Array.isArray(sale.payments) && sale.payments.length > 0) {
+        sale.payments.forEach((payment: any) => {
+          const pmObj = safePaymentMethods.find(m => m.id === payment.method || normalizeStr(m.name) === normalizeStr(payment.method));
+          const category = getClosureCategory(payment.method, pmObj?.type);
+          if (systemTotalsMap[category] !== undefined) {
+            systemTotalsMap[category] += Number(payment.amount) || 0;
+          }
+        });
+      } else {
+        const pmObj = safePaymentMethods.find(m => m.id === sale.paymentMethod || normalizeStr(m.name) === normalizeStr(sale.paymentMethod));
+        const category = getClosureCategory(sale.paymentMethod, pmObj?.type);
+        if (systemTotalsMap[category] !== undefined) {
+          systemTotalsMap[category] += Number(sale.total) || 0;
+        }
+      }
+    });
+
+    if (register) {
+      systemTotalsMap['Dinheiro'] += Number(register.openingBalance || register.opening_balance) || 0;
+    }
+
+    movements.forEach(m => {
+      if (m.type === 'suprimento') {
+        systemTotalsMap['Dinheiro'] += Number(m.amount) || 0;
+      } else if (m.type === 'sangria') {
+        systemTotalsMap['Dinheiro'] -= Number(m.amount) || 0;
+      }
+    });
+
+    const operatorUser = systemUsers?.find((u: any) => u.id === register?.operatorId || u.id === register?.operator_id);
+    const closingUser = systemUsers?.find((u: any) => u.id === closing.approvedBy || u.id === closing.approved_by);
+
+    const informedValuesMap: Record<string, number> = {
+      'Dinheiro': 0,
+      'Pix': 0,
+      'Crédito': 0,
+      'Débito': 0,
+      'Voucher': 0,
+      'Fiado': 0
+    };
+
+    if (parsedInformedTotals && parsedInformedTotals.length > 0) {
+      parsedInformedTotals.forEach((t: any) => {
+        if (informedValuesMap[t.method] !== undefined) {
+          informedValuesMap[t.method] = Number(t.informed) || 0;
+        }
+      });
+    } else {
+      // Fallback: use total_informed or total_system if list is not structured
+      const isPerfectMatch = Math.abs((closing.totalInformed ?? closing.total_informed ?? 0) - (closing.totalSystem ?? closing.total_system ?? 0)) < 0.01;
+      Object.keys(systemTotalsMap).forEach(key => {
+        if (isPerfectMatch) {
+          informedValuesMap[key] = systemTotalsMap[key];
+        } else if (key === 'Dinheiro') {
+          // Put difference in cash as fallback
+          const diff = (closing.totalInformed ?? closing.total_informed ?? 0) - (closing.totalSystem ?? closing.total_system ?? 0);
+          informedValuesMap[key] = systemTotalsMap[key] + diff;
+        } else {
+          informedValuesMap[key] = systemTotalsMap[key];
+        }
+      });
+    }
+
+    return {
+      id: closing.id,
+      registerId: closing.cashRegisterId,
+      openedAt: register?.openedAt || register?.opened_at || closing.closedAt || closing.closed_at,
+      closedAt: closing.closedAt || closing.closed_at,
+      operatorName: closing.operatorName || closing.operator_name || operatorUser?.name || closingUser?.name || 'Operador',
+      openingBalance: Number(register?.openingBalance || register?.opening_balance) || 0,
+      systemTotals: systemTotalsMap,
+      informedValues: informedValuesMap,
+      justifications: textJust ? { 'Geral': textJust } : {},
+      movements,
+      salesCount: registerSales.length,
+      salesTotal: registerSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0)
+    };
+  };
+
+  const renderClosingsHistory = () => {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+        <div className="flex items-center gap-3.5 mb-5 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
+            <History className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white italic uppercase tracking-tight">Histórico de Fechamentos</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Consulte os fechamentos de caixa registrados anteriormente</p>
+          </div>
+        </div>
+
+        {sortedClosings.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">
+            <History className="w-8 h-8 mx-auto mb-2 opacity-40 animate-pulse" />
+            <p className="text-xs font-bold uppercase tracking-wider">Nenhum fechamento registrado ainda</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto max-h-[300px] overflow-y-auto scrollbar-thin">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-3">Data/Hora</th>
+                  <th className="py-2.5 px-3 text-right">Sistema (R$)</th>
+                  <th className="py-2.5 px-3 text-right">Informado (R$)</th>
+                  <th className="py-2.5 px-3 text-right">Diferença (R$)</th>
+                  <th className="py-2.5 px-3 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {sortedClosings.map((c) => {
+                  const diff = c.totalDifference ?? c.total_difference ?? 0;
+                  const dateStr = c.closedAt || c.closed_at ? new Date(c.closedAt || c.closed_at).toLocaleString('pt-BR') : 'Sem data';
+                  
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                      <td className="py-2 px-3 font-medium text-slate-600 dark:text-slate-350">
+                        {dateStr}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                        R$ {(c.totalSystem ?? c.total_system ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono font-black text-slate-800 dark:text-slate-200">
+                        R$ {(c.totalInformed ?? c.total_informed ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className={`py-2 px-3 text-right font-mono font-black ${
+                        diff === 0 
+                          ? 'text-emerald-500' 
+                          : diff > 0 
+                            ? 'text-blue-500' 
+                            : 'text-rose-500'
+                      }`}>
+                        {diff > 0 ? '+' : ''} R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const richData = getRichClosingData(c);
+                            setSelectedClosingDetail(richData);
+                          }}
+                          className="p-1.5 text-brand-blue hover:bg-brand-blue/10 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px] uppercase tracking-wider cursor-pointer"
+                          title="Visualizar Comprovante"
+                        >
+                          <Eye size={14} />
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderHistoricalClosingModal = () => (
+    <AnimatePresence>
+      {selectedClosingDetail && (
+        <div id="historical-closing-modal-overlay" className="fixed inset-0 z-[610] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:bg-white print:p-0">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              #historical-closing-modal-overlay {
+                visibility: visible !important;
+                background: white !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                position: absolute !important;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                overflow: visible !important;
+                display: block !important;
+                padding: 0 !important;
+              }
+              #printable-historical-closing-report, #printable-historical-closing-report * {
+                visibility: visible !important;
+              }
+              #printable-historical-closing-report {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                background: white !important;
+                color: black !important;
+                padding: 10px 0;
+                margin: 0;
+                overflow: visible;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+              }
+              .print-hidden {
+                display: none !important;
+              }
+            }
+          `}} />
+
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            id="printable-historical-closing-report"
+            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white max-w-xl w-full rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto print:max-h-none print:overflow-visible print:bg-white print:text-black print:shadow-none print:border-none print:rounded-none relative"
+          >
+            <button 
+              type="button"
+              onClick={() => setSelectedClosingDetail(null)} 
+              className="absolute right-4 top-4 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl print:hidden cursor-pointer animate-none"
+            >
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+
+            {/* Report Header */}
+            <div className="text-center space-y-2 pb-4 border-b border-dashed border-slate-300 dark:border-slate-800 print:border-black">
+              <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full flex items-center justify-center mx-auto print:hidden">
+                <History size={24} />
+              </div>
+              <h3 className="text-xl font-black uppercase italic tracking-wider text-slate-900 dark:text-white print:text-black pt-1">
+                Fechamento de Caixa Histórico
+              </h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">
+                Comprovante de Auditoria
+              </p>
+              <div className="text-xs font-mono text-slate-500 space-y-0.5 pt-1">
+                <div>ID Caixa: <span className="font-bold">{maskCashRegisterId(selectedClosingDetail.registerId)}</span></div>
+                <div>Operador: <span className="font-bold uppercase">{selectedClosingDetail.operatorName}</span></div>
+              </div>
+            </div>
+
+            {/* Period Info Grid */}
+            <div className="grid grid-cols-2 gap-4 text-xs font-mono py-2.5 bg-slate-50 dark:bg-slate-850 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/50 print:bg-slate-100 print:text-black print:border-black">
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase">Abertura:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black">
+                  {selectedClosingDetail.openedAt ? new Date(selectedClosingDetail.openedAt).toLocaleString('pt-BR') : 'Não disponível'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase">Fechamento:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 print:text-black">
+                  {selectedClosingDetail.closedAt ? new Date(selectedClosingDetail.closedAt).toLocaleString('pt-BR') : 'Não disponível'}
+                </span>
+              </div>
+            </div>
+
+            {/* Cash Movement Stream */}
+            <div className="space-y-2 border-b border-dashed border-slate-300 dark:border-slate-800 pb-4 print:border-black">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                Resumo das Movimentações
+              </h4>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-slate-50 dark:bg-slate-800/20 p-2 text-center rounded-xl border border-slate-100 dark:border-slate-800/50 print:bg-slate-100 print:text-black">
+                  <span className="text-[9px] uppercase font-bold text-slate-400">Fundo Inicial</span>
+                  <div className="text-xs font-black text-slate-700 dark:text-slate-300 print:text-black mt-0.5 font-mono">
+                    R$ {selectedClosingDetail.openingBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-500/10 p-2 text-center rounded-xl border border-emerald-100/20 print:bg-slate-100 print:text-black">
+                  <span className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 print:text-slate-500">Suprimentos</span>
+                  <div className="text-xs font-black text-emerald-700 dark:text-emerald-400 print:text-black mt-0.5 font-mono">
+                    R$ {selectedClosingDetail.movements.filter((m: any) => m.type === 'suprimento').reduce((acc: number, m: any) => acc + Number(m.amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-rose-50 dark:bg-rose-500/10 p-2 text-center rounded-xl border border-rose-100/20 print:bg-slate-100 print:text-black">
+                  <span className="text-[9px] uppercase font-bold text-rose-600 dark:text-rose-400 print:text-slate-500">Sangrias</span>
+                  <div className="text-xs font-black text-rose-700 dark:text-rose-400 print:text-black mt-0.5 font-mono">
+                    R$ {selectedClosingDetail.movements.filter((m: any) => m.type === 'sangria').reduce((acc: number, m: any) => acc + Number(m.amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payments Break down Table */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                Conferência por Forma de Pagamento
+              </h4>
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 print:border-black">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 print:bg-slate-100 print:text-black print:border-black">
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500">Forma</th>
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500 text-right">Esperado</th>
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500 text-right">Informado</th>
+                      <th className="p-2 font-bold uppercase tracking-wider text-slate-500 text-right">Diferença</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 print:divide-black">
+                    {Object.keys(selectedClosingDetail.informedValues).map(method => {
+                      const system = selectedClosingDetail.systemTotals[method] || 0;
+                      const informed = selectedClosingDetail.informedValues[method] || 0;
+                      const diff = informed - system;
+                      return (
+                        <tr key={method} className="hover:bg-slate-50/50 print:text-black">
+                          <td className="p-2 font-semibold text-slate-900 dark:text-white print:text-black">{method}</td>
+                          <td className="p-2 text-right text-slate-500 dark:text-slate-400 print:text-black font-mono">
+                            R$ {system.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-2 text-right font-bold text-slate-700 dark:text-slate-300 print:text-black font-mono">
+                            R$ {informed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className={`p-2 text-right font-black font-mono ${
+                            diff === 0 
+                              ? 'text-emerald-500' 
+                              : diff > 0 
+                                ? 'text-blue-500' 
+                                : 'text-rose-500'
+                          } print:text-black`}>
+                            {diff > 0 ? '+' : ''} R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Total Summary */}
+            <div className="bg-slate-50 dark:bg-slate-800/10 p-4 rounded-xl border border-slate-100 dark:border-slate-800/50 print:bg-white print:text-black print:border-black space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500 uppercase font-bold">Total Sistema (Vendas + Fundo):</span>
+                <span className="font-bold font-mono">
+                  R$ {Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500 uppercase font-bold">Total Informado (Físico):</span>
+                <span className="font-bold font-mono text-brand-blue print:text-black">
+                  R$ {Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-850 print:border-black font-black">
+                <span>Diferença Consolidada:</span>
+                <span className={
+                  Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0) - Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0) === 0 
+                    ? 'text-emerald-500' 
+                    : 'text-rose-500'
+                }>
+                  R$ {(Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0) - Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Audit justifications / notes */}
+            {Object.keys(selectedClosingDetail.justifications).length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Observações e Justificativas
+                </h4>
+                <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 font-mono print:text-black print:border-black space-y-1">
+                  {Object.entries(selectedClosingDetail.justifications as Record<string, string>).map(([key, value]) => value && (
+                    <div key={key}>
+                      <span className="font-bold">{key}:</span> {value}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Signature block helper for print spool */}
+            <div className="hidden print:block pt-12 space-y-8">
+              <div className="flex justify-between gap-8 text-center text-xs font-mono">
+                <div className="flex-1 border-t border-slate-900 pt-2 shrink-0">
+                  <p className="font-bold uppercase leading-none">{selectedClosingDetail.operatorName}</p>
+                  <p className="text-[10px] text-slate-500 pt-1">Assinatura do Operador</p>
+                </div>
+                <div className="flex-1 border-t border-slate-900 pt-2 shrink-0">
+                  <p className="font-bold uppercase leading-none">Supervisor autorizado</p>
+                  <p className="text-[10px] text-slate-500 pt-1">Assinatura de Auditoria</p>
+                </div>
+              </div>
+            </div>
+
+            {/* UI CTA Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
+              <button 
+                type="button"
+                onClick={() => handlePrint('printable-historical-closing-report', 'Comprovante de Fechamento de Caixa')}
+                className="flex-1 py-2.5 px-4 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
+              >
+                <Printer size={16} />
+                Imprimir Comprovante
+              </button>
+              <button 
+                type="button"
+                onClick={() => setSelectedClosingDetail(null)}
+                className="flex-1 py-2.5 px-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-bold rounded-xl transition-all flex items-center justify-center text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
   if (!activeRegister) {
     if (showSuccessMessage && finalReportData) {
       return (
@@ -578,7 +1195,7 @@ export function CashRegisterManager({
             {/* UI CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
               <button 
-                onClick={() => window.print()}
+                onClick={() => handlePrint('printable-closing-report', 'Comprovante de Fechamento de Caixa')}
                 className="flex-1 py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
               >
                 <Printer size={18} />
@@ -600,55 +1217,60 @@ export function CashRegisterManager({
     }
 
     return (
-      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-        <div className="flex items-center gap-3.5 mb-5">
-          <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center">
-            <Wallet className="w-6 h-6 text-brand-blue" />
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white italic uppercase tracking-tight">Abertura de Caixa</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Informe o saldo inicial para começar</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
-              Fundo de Troco (R$)
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
-              <input 
-                ref={openingInputRef}
-                type="number"
-                value={openingBalance}
-                onChange={(e) => setOpeningBalance(Number(e.target.value))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleOpen();
-                  }
-                }}
-                onFocus={(e) => e.target.select()}
-                className="w-full pl-12 pr-4 py-2.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-lg font-black transition-all"
-                placeholder="0,00"
-                autoFocus
-              />
+      <div className="space-y-6">
+        <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+          <div className="flex items-center gap-3.5 mb-5">
+            <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-brand-blue" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white italic uppercase tracking-tight">Abertura de Caixa</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Informe o saldo inicial para começar</p>
             </div>
           </div>
 
-          <button 
-            onClick={handleOpen}
-            className="w-full py-3 bg-brand-blue text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-md shadow-brand-blue/10 flex items-center justify-center gap-2"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            Confirmar Abertura (F10 / Enter)
-          </button>
-          
-          <p className="text-[9px] text-center text-slate-400 uppercase font-bold tracking-tighter">
-            O sistema registrará o horário e o usuário responsável pela abertura.
-          </p>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-black uppercase tracking-widest text-slate-500 ml-1">
+                Fundo de Troco (R$)
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
+                <input 
+                  ref={openingInputRef}
+                  type="number"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(Number(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleOpen();
+                    }
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full pl-12 pr-4 py-2.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 outline-none text-lg font-black transition-all"
+                  placeholder="0,00"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleOpen}
+              className="w-full py-3 bg-brand-blue text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-md shadow-brand-blue/10 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              Confirmar Abertura (F10 / Enter)
+            </button>
+            
+            <p className="text-[9px] text-center text-slate-400 uppercase font-bold tracking-tighter">
+              O sistema registrará o horário e o usuário responsável pela abertura.
+            </p>
+          </div>
         </div>
+
+        {renderClosingsHistory()}
+        {renderHistoricalClosingModal()}
       </div>
     );
   }
@@ -1253,7 +1875,7 @@ export function CashRegisterManager({
               {/* UI CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
                 <button 
-                  onClick={() => window.print()}
+                  onClick={() => handlePrint('printable-closing-report', 'Comprovante de Fechamento de Caixa')}
                   className="flex-1 py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
                 >
                   <Printer size={18} />
@@ -1325,14 +1947,14 @@ export function CashRegisterManager({
                 <button
                   type="button"
                   onClick={() => setShowAutoConfirmModal(false)}
-                  className="flex-1 py-3 border border-slate-205 dark:border-slate-705/50 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="flex-1 py-3 border border-slate-205 dark:border-slate-705/50 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Voltar
                 </button>
                 <button
                   type="button"
                   onClick={handleAutomaticClose}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-600/10"
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-600/10 cursor-pointer"
                 >
                   Confirmar e Fechar
                 </button>
@@ -1341,6 +1963,11 @@ export function CashRegisterManager({
           </div>
         )}
       </AnimatePresence>
+
+      {renderClosingsHistory()}
+
+      {/* Visualizador de Detalhes de Fechamento Histórico */}
+      {renderHistoricalClosingModal()}
     </div>
   );
 }
