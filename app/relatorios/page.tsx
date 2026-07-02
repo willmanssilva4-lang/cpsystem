@@ -139,7 +139,7 @@ export default function ReportsPage() {
 }
 
 function ReportsContent() {
-  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods, setCustomAlert, promotions = [] } = useERP();
+  const { sales, products, customers, companySettings, discountLogs, hasPermission, expenses, subcategorias, categorias, departamentos, systemUsers, suppliers, paymentMethods, setCustomAlert, promotions = [], returns } = useERP();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [activeReport, setActiveReport] = useState('dashboard');
@@ -211,8 +211,13 @@ function ReportsContent() {
   // Dynamic Data Calculations for Dashboard
   const filteredSales = React.useMemo(() => sales.filter(s => {
     const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
-  }), [sales, startDate, endDate]);
+    const isReturned = returns.some(r => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    return d >= startDate && d <= endDate && !isReturned;
+  }), [sales, startDate, endDate, returns]);
 
   const filteredExpenses = React.useMemo(() => expenses.filter(e => {
     const d = toLocalDateString(e.date);
@@ -852,15 +857,6 @@ function ReportsContent() {
                     />
                   )}
                   
-                  {!['Dashboard Executivo', 'Vendas por Período', 'Resumo de Vendas por Dia', 'Fechamento de Caixa', 'DRE Gerencial', 'Giro de Estoque', 'Curva ABC de Clientes', 'Curva ABC de Produtos', 'Comissões de Vendedores', 'Vendas por Vendedor', 'Vendas por Produto', 'Vendas Mais/Menos Produtos', 'Vendas por Categoria', 'Vendas por Departamento', 'Vendas por Hora', 'Estoque Crítico', 'Validade de Lotes', 'Relatório de Perdas e Avarias', 'Fluxo de Caixa', 'Contas a Pagar', 'Relatório de Estorno e Devolução', 'Relatório de Custo', 'Relatório de Compras', 'Lucro no Estoque', 'Estoque Geral', 'Relatório Cliente Clube', 'Vendas Cliente Clube', 'Meios de Pagamento', 'Relatório de Consumo Interno'].includes(selectedReportView) && (
-                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
-                        <FileText size={40} />
-                      </div>
-                      <h4 className="text-xl font-bold text-slate-800">Relatório em Processamento</h4>
-                      <p className="text-slate-400 max-w-md">Este relatório está sendo compilado com base nos dados mais recentes do sistema.</p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -967,7 +963,7 @@ function AdvancedPerformanceDashboard({
   onOpenCatalog?: () => void,
   onViewReport?: (reportName: string) => void
 }) {
-  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert, fetchData, promotions = [] } = useERP();
+  const { sales, products, expenses, systemUsers, categorias, subcategorias, paymentMethods, customers, setCustomAlert, fetchData, promotions = [], returns } = useERP();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
 
@@ -1309,7 +1305,12 @@ function AdvancedPerformanceDashboard({
   const filteredSales = sales.filter(s => {
     const d = toLocalDateString(s.date);
     const isCancelled = s.status === 'Cancelada' || s.status === 'cancelada' || s.status === 'CANCELADA' || s.status === 'Cancelado' || s.status === 'cancelado' || s.status === 'CANCEL_PEDIDO' || s.status?.toUpperCase() === 'CANCELADO' || s.status?.toUpperCase() === 'CANCELADA';
-    return d >= safeStartDate && d <= safeEndDate && !isCancelled;
+    const isReturned = returns.some(r => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    return d >= safeStartDate && d <= safeEndDate && !isCancelled && !isReturned;
   });
 
   const filteredExpenses = expenses.filter(e => {
@@ -1444,10 +1445,19 @@ function AdvancedPerformanceDashboard({
   const prevStartDate = getLocalDateString(prevStart);
   const prevEndDate = getLocalDateString(prevEnd);
 
-  const prevFilteredSales = sales.filter(s => {
+  const prevFilteredSales = (sales || []).filter(s => {
     const d = toLocalDateString(s.date);
-    const isCancelled = s.status === 'Cancelada' || s.status === 'cancelada' || s.status === 'CANCELADA' || s.status === 'Cancelado' || s.status === 'cancelado' || s.status === 'CANCEL_PEDIDO' || s.status?.toUpperCase() === 'CANCELADO' || s.status?.toUpperCase() === 'CANCELADA';
-    return d >= prevStartDate && d <= prevEndDate && !isCancelled;
+    
+    const rawStatus = (s.status || '').toLowerCase().trim();
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+    const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+    
+    const isReturned = (returns || []).some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    return d >= prevStartDate && d <= prevEndDate && !isCancelled && !isReturned;
   });
 
   const prevFilteredExpenses = expenses.filter(e => {
@@ -1745,7 +1755,13 @@ function AdvancedPerformanceDashboard({
       const weekSales = sales.filter(s => {
         const d = new Date(s.date);
         const dateStr = toLocalDateString(s.date);
-        return dateStr >= sDate && dateStr <= eDate && d >= start && d < end;
+        const isCancelled = s.status === 'Cancelada' || s.status === 'cancelada' || s.status === 'CANCELADA' || s.status === 'Cancelado' || s.status === 'cancelado' || s.status === 'CANCEL_PEDIDO' || s.status?.toUpperCase() === 'CANCELADO' || s.status?.toUpperCase() === 'CANCELADA';
+        const isReturned = returns.some(r => {
+            const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+            const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+            return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+        });
+        return dateStr >= sDate && dateStr <= eDate && d >= start && d < end && !isCancelled && !isReturned;
       }).reduce((acc, s) => acc + s.total, 0);
       
       const weekExpenses = expenses.filter(e => {
@@ -3183,20 +3199,33 @@ function CashClosingReport({ startDate, endDate }: { startDate: string, endDate:
 }
 
 function DreReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, expenses } = useERP();
+  const { sales, products, expenses, returns } = useERP();
   
   const { filteredSales, filteredExpenses } = React.useMemo(() => {
+    const safeReturns = returns || [];
     return {
-      filteredSales: sales.filter(s => {
+      filteredSales: (sales || []).filter(s => {
+        if (!s.date) return false;
         const d = toLocalDateString(s.date);
-        return d >= startDate && d <= endDate;
+        
+        const rawStatus = (s.status || '').toLowerCase().trim();
+        const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+        const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+        
+        const isReturned = safeReturns.some((r: any) => {
+          const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+          const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+          return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+        });
+        
+        return d >= startDate && d <= endDate && !isCancelled && !isReturned;
       }),
-      filteredExpenses: expenses.filter(e => {
+      filteredExpenses: (expenses || []).filter(e => {
         const d = toLocalDateString(e.date);
         return d >= startDate && d <= endDate;
       })
     };
-  }, [sales, expenses, startDate, endDate]);
+  }, [sales, expenses, startDate, endDate, returns]);
 
   const { receitaBruta, cmv, impostos, despesasOp, despesasAdm, depreciacao } = React.useMemo(() => {
     const rBruta = filteredSales.reduce((acc, s) => acc + s.total, 0);
@@ -3316,17 +3345,28 @@ function DreRow({ label, value, bold, negative, highlight, final }: any) {
 }
 
 function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products } = useERP();
+  const { sales, products, returns } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [isExplanationOpen, setIsExplanationOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
   // Filter sales that are within the period and not cancelled
-  const filteredSales = sales.filter(s => {
-    if (s.status === 'Cancelada') return false;
+  const filteredSales = (sales || []).filter(s => {
+    if (!s.date) return false;
     const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
+    
+    const rawStatus = (s.status || '').toLowerCase().trim();
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+    const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+    
+    const isReturned = (returns || []).some((r: any) => {
+      const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+      const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+      return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    
+    return d >= startDate && d <= endDate && !isCancelled && !isReturned;
   });
 
   const productSales: Record<string, number> = {};
@@ -3680,11 +3720,23 @@ function StockTurnoverReport({ startDate, endDate }: { startDate: string, endDat
 }
 
 function AbcCustomersReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, customers } = useERP();
+  const { sales, customers, returns } = useERP();
   
-  const filteredSales = sales.filter(s => {
+  const filteredSales = (sales || []).filter(s => {
+    if (!s.date) return false;
     const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
+    
+    const rawStatus = (s.status || '').toLowerCase().trim();
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+    const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+    
+    const isReturned = (returns || []).some((r: any) => {
+      const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+      const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+      return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    
+    return d >= startDate && d <= endDate && !isCancelled && !isReturned;
   });
 
   const customerTotals: Record<string, number> = {};
@@ -3937,7 +3989,7 @@ function ClubCustomersReport() {
 }
 
 function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, customers, products } = useERP();
+  const { sales, customers, products, returns } = useERP();
   
   // Navigation tabs and filters
   const [activeTab, setActiveTab] = React.useState<'consolidado' | 'ranking' | 'vendas'>('consolidado');
@@ -3957,12 +4009,23 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
 
   // 1. Core period filtering
   const filteredSales = React.useMemo(() => {
+    const safeReturns = returns || [];
     return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+      
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const clubSales = React.useMemo(() => {
     return filteredSales.filter(s => {
@@ -4023,11 +4086,11 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
 
   // 4. Ranking Tab calculation
   const rankingData = React.useMemo(() => {
-    const clubMembers = (customers || []).filter(c => c.isClubMember);
+    const clubMembers = (customers || []).filter(c => c && c.isClubMember);
     
     const rankMapped = clubMembers.map(member => {
       const memberSalesLoc = clubSales.filter(s => s.customerId === member.id);
-      const totalSpentPeriod = memberSalesLoc.reduce((acc, s) => acc + s.total, 0);
+      const totalSpentPeriod = memberSalesLoc.reduce((acc, s) => acc + (s.total || 0), 0);
       const orderCountPeriod = memberSalesLoc.length;
       const averageTicketPeriod = orderCountPeriod > 0 ? totalSpentPeriod / orderCountPeriod : 0;
       
@@ -4042,15 +4105,20 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
     let result = rankMapped;
     if (searchTerm.trim() !== '') {
       const q = searchTerm.toLowerCase();
-      result = result.filter(r => 
-        r.member.name.toLowerCase().includes(q) || 
-        r.member.document.includes(q) || 
-        (r.member.phone && r.member.phone.includes(q))
-      );
+      result = result.filter(r => {
+        const name = (r.member?.name || '').toLowerCase();
+        const document = (r.member?.document || '').toLowerCase();
+        const phone = (r.member?.phone || '').toLowerCase();
+        return name.includes(q) || document.includes(q) || phone.includes(q);
+      });
     }
 
     if (statusFilter !== 'All') {
-      result = result.filter(r => r.member.status === statusFilter);
+      if (statusFilter === 'VIP_Ativo') {
+        result = result.filter(r => r.member?.status === 'VIP' || r.member?.status === 'Ativo');
+      } else {
+        result = result.filter(r => r.member?.status === statusFilter);
+      }
     }
 
     return result.sort((a, b) => b.totalSpentPeriod - a.totalSpentPeriod);
@@ -4069,15 +4137,19 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
     if (searchTerm.trim() !== '') {
       const q = searchTerm.toLowerCase();
       result = result.filter(s => {
-        const customer = (customers || []).find(c => c.id === s.customerId);
-        const nameMatch = customer ? customer.name.toLowerCase().includes(q) : false;
-        const docMatch = customer ? customer.document.includes(q) : false;
-        const idMatch = s.id.toLowerCase().includes(q);
+        const customer = (customers || []).find(c => c && c.id === s.customerId);
+        const nameMatch = customer && customer.name ? customer.name.toLowerCase().includes(q) : false;
+        const docMatch = customer && customer.document ? customer.document.toLowerCase().includes(q) : false;
+        const idMatch = s.id ? s.id.toLowerCase().includes(q) : false;
         return nameMatch || docMatch || idMatch;
       });
     }
 
-    return [...result].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return [...result].sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateB - dateA;
+    });
   }, [clubSales, customers, searchTerm]);
 
   const totalSalesPages = Math.ceil(transitionSalesData.length / itemsPerPage) || 1;
@@ -4653,7 +4725,7 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                       
                       return (
                         <tr 
-                          key={item.member.id}
+                          key={item.member?.id || index}
                           className="hover:bg-slate-50/40 transition-colors group"
                         >
                           {/* Position index badge */}
@@ -4673,14 +4745,14 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                           <td className="py-4">
                             <div className="flex items-center gap-2.5">
                               <span className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-705 uppercase italic border border-slate-200 group-hover:bg-brand-blue group-hover:text-white transition-all">
-                                {item.member.name.charAt(0).toUpperCase()}
+                                {((item.member?.name || 'S').charAt(0) || '?').toUpperCase()}
                               </span>
                               <div className="flex flex-col">
                                 <span className="text-xs font-black text-slate-800 uppercase italic leading-none group-hover:text-brand-blue transition-colors">
-                                  {item.member.name}
+                                  {item.member?.name || 'Sócio Sem Nome'}
                                 </span>
                                 <span className="text-[9px] text-slate-400 font-semibold mt-0.5 uppercase leading-none truncate max-w-[180px]">
-                                  {item.member.phone || 'Sem fone'}
+                                  {item.member?.phone || 'Sem fone'}
                                 </span>
                               </div>
                             </div>
@@ -4688,19 +4760,19 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
 
                           {/* Document reference */}
                           <td className="py-4 text-xs font-bold text-slate-600 font-mono">
-                            {item.member.document || '---'}
+                            {item.member?.document || '---'}
                           </td>
 
                           {/* Member status badging */}
                           <td className="py-4">
                             <span className={cn(
                               "inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-full uppercase border select-none italic",
-                              item.member.status === 'VIP' ? "bg-purple-50 text-purple-650 border-purple-100" :
-                              item.member.status === 'Ativo' ? "bg-emerald-50 text-emerald-650 border-emerald-100" :
-                              item.member.status === 'Inativo' ? "bg-slate-100 text-slate-500 border-slate-200" :
+                              item.member?.status === 'VIP' ? "bg-purple-50 text-purple-650 border-purple-100" :
+                              item.member?.status === 'Ativo' ? "bg-emerald-50 text-emerald-650 border-emerald-100" :
+                              item.member?.status === 'Inativo' ? "bg-slate-100 text-slate-500 border-slate-200" :
                               "bg-amber-50 text-amber-650 border-amber-100"
                             )}>
-                              {item.member.status || 'Ativo'}
+                              {item.member?.status || 'Ativo'}
                             </span>
                           </td>
 
@@ -4729,7 +4801,7 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
                           {/* Historic lifetime spend */}
                           <td className="py-4 text-right pr-6">
                             <span className="text-xs font-black text-slate-850 font-mono">
-                              {formatCurrency(item.member.totalSpent || 0)}
+                              {formatCurrency(item.member?.totalSpent || 0)}
                             </span>
                           </td>
                         </tr>
@@ -4967,17 +5039,28 @@ function ClubSalesReport({ startDate, endDate }: { startDate: string, endDate: s
 }
 
 function CommissionsReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, systemUsers, employees, customers } = useERP();
+  const { sales, systemUsers, employees, customers, returns } = useERP();
   const [commissionRate, setCommissionRate] = React.useState<number>(3); // Alíquota padrão de 3%
   const [expandedSeller, setExpandedSeller] = React.useState<string | null>(null);
   
   const filteredSales = React.useMemo(() => {
-    return sales.filter(s => {
+    const safeReturns = returns || [];
+    return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+      
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const salesByUser: Record<string, number> = {};
   const salesListByUser: Record<string, typeof sales> = {};
@@ -5337,16 +5420,27 @@ function CommissionsReport({ startDate, endDate }: { startDate: string, endDate:
 
 
 function SalesByCategoryReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, subcategorias, categorias } = useERP();
+  const { sales, products, subcategorias, categorias, returns } = useERP();
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   
   const filteredSales = React.useMemo(() => {
-    return sales.filter(s => {
+    const safeReturns = returns || [];
+    return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+      
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const categoryTotals: Record<string, number> = {};
   const categoryProducts: Record<string, Record<string, { name: string, quantity: number, total: number }>> = {};
@@ -6177,7 +6271,7 @@ function SalesByHourReport({ startDate, endDate }: { startDate: string, endDate:
 }
 
 function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products } = useERP();
+  const { sales, products, returns } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<'All' | 'A' | 'B' | 'C'>('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -6186,12 +6280,23 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
   
   // Filter sales within the period that are not cancelled
   const filteredSales = useMemo(() => {
-    return sales.filter(s => {
-      if (s.status === 'Cancelada') return false;
+    const safeReturns = returns || [];
+    return (sales || []).filter(s => {
+      if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+      
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const rawData = useMemo(() => {
     const productTotals: Record<string, number> = {};
@@ -6653,7 +6758,7 @@ function AbcProductsReport({ startDate, endDate }: { startDate: string, endDate:
 }
 
 function LossesReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { losses, products, sales } = useERP();
+  const { losses, products, sales, returns } = useERP();
 
   const filteredLosses = losses.filter(l => {
     if (!l.date || l.reason === 'Consumo Interno') return false;
@@ -6661,9 +6766,21 @@ function LossesReport({ startDate, endDate }: { startDate: string, endDate: stri
     return d >= startDate && d <= endDate;
   });
 
-  const filteredSales = sales.filter(s => {
+  const filteredSales = (sales || []).filter(s => {
+    if (!s.date) return false;
     const d = toLocalDateString(s.date);
-    return d >= startDate && d <= endDate;
+    
+    const rawStatus = (s.status || '').toLowerCase().trim();
+    const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+    const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+    
+    const isReturned = (returns || []).some((r: any) => {
+      const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+      const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+      return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+    });
+    
+    return d >= startDate && d <= endDate && !isCancelled && !isReturned;
   });
 
   const totalLosses = filteredLosses.reduce((acc, l) => acc + l.totalValue, 0);
@@ -7118,7 +7235,7 @@ function DiscountAuditReport({ startDate, endDate }: { startDate: string, endDat
 }
 
 function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, paymentMethods, customers, systemUsers, products } = useERP();
+  const { sales, paymentMethods, customers, systemUsers, products, returns } = useERP();
   
   // Tabs and drill-down state
   const [activeTab, setActiveTab] = useState<'geral' | 'detalhes'>('geral');
@@ -7137,12 +7254,19 @@ function SalesByPaymentReport({ startDate, endDate }: { startDate: string, endDa
 
   // 1. Filter sales in date range
   const filteredSales = useMemo(() => {
+    const safeReturns = returns || [];
     return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      const isCancelled = s.status === 'Cancelada' || s.status === 'cancelada' || s.status === 'CANCELADA' || s.status === 'Cancelado' || s.status === 'cancelado' || s.status === 'CANCEL_PEDIDO' || s.status?.toUpperCase() === 'CANCELADO' || s.status?.toUpperCase() === 'CANCELADA';
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const safePaymentMethods = useMemo(() => paymentMethods || [], [paymentMethods]);
 
@@ -8332,15 +8456,26 @@ function ExpiryReport({ startDate, endDate }: { startDate: string, endDate: stri
 }
 
 function SalesBySellerReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, systemUsers, employees } = useERP();
+  const { sales, systemUsers, employees, returns } = useERP();
   
   const filteredSales = React.useMemo(() => {
-    return sales.filter(s => {
+    const safeReturns = returns || [];
+    return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+      
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const salesByUser: Record<string, { total: number, count: number }> = {};
   filteredSales.forEach(sale => {
@@ -8838,17 +8973,28 @@ function EstornoDevolucaoReport({ startDate, endDate }: { startDate: string, end
 }
 
 function CostReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products } = useERP();
+  const { sales, products, returns } = useERP();
   const [costData, setCostData] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const processCostData = React.useCallback(() => {
     setIsLoading(true);
     try {
-      const filteredSales = sales.filter(s => {
-        if (s.status === 'Cancelada') return false;
+      const filteredSales = (sales || []).filter(s => {
+        if (!s.date) return false;
         const d = toLocalDateString(s.date);
-        return d >= startDate && d <= endDate;
+        
+        const rawStatus = (s.status || '').toLowerCase().trim();
+        const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+        const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+        
+        const isReturned = (returns || []).some((r: any) => {
+          const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+          const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+          return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+        });
+        
+        return d >= startDate && d <= endDate && !isCancelled && !isReturned;
       });
 
       const stats: Record<string, { name: string, qty: number, totalCost: number }> = {};
@@ -9978,7 +10124,7 @@ function StockProfitReport() {
 }
 
 function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, expenses } = useERP();
+  const { sales, expenses, returns } = useERP();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'All' | 'Entrada' | 'Saída'>('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -9987,18 +10133,30 @@ function CashFlowReport({ startDate, endDate }: { startDate: string, endDate: st
 
   // Filter sales and expenses by date matching exactly what other reports do
   const { filteredSales, filteredExpenses } = useMemo(() => {
+    const safeReturns = returns || [];
     return {
-      filteredSales: sales.filter(s => {
-        if (s.status === 'Cancelada') return false; // Ignore cancelled sales
+      filteredSales: (sales || []).filter(s => {
+        if (!s.date) return false;
         const d = toLocalDateString(s.date);
-        return d >= startDate && d <= endDate;
+        
+        const rawStatus = (s.status || '').toLowerCase().trim();
+        const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+        const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+        
+        const isReturned = safeReturns.some((r: any) => {
+          const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+          const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+          return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+        });
+        
+        return d >= startDate && d <= endDate && !isCancelled && !isReturned;
       }),
-      filteredExpenses: expenses.filter(e => {
+      filteredExpenses: (expenses || []).filter(e => {
         const d = toLocalDateString(e.date);
         return d >= startDate && d <= endDate;
       })
     };
-  }, [sales, expenses, startDate, endDate]);
+  }, [sales, expenses, startDate, endDate, returns]);
 
   // Helper for calculating non-explicit costs (Taxes & CMV)
   const getSaleCosts = (s: any) => {
@@ -11794,7 +11952,7 @@ function SalesByDaySummaryReport({ startDate, endDate }: { startDate: string, en
 // RELATÓRIO VENDAS POR DEPARTAMENTO
 // ==========================================
 function SalesByDepartmentReport({ startDate, endDate }: { startDate: string, endDate: string }) {
-  const { sales, products, subcategorias, categorias, departamentos } = useERP();
+  const { sales, products, subcategorias, categorias, departamentos, returns } = useERP();
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -11807,12 +11965,23 @@ function SalesByDepartmentReport({ startDate, endDate }: { startDate: string, en
   }, [searchQuery]);
 
   const filteredSales = React.useMemo(() => {
-    return sales.filter(s => {
+    const safeReturns = returns || [];
+    return (sales || []).filter(s => {
       if (!s.date) return false;
       const d = toLocalDateString(s.date);
-      return d >= startDate && d <= endDate;
+      
+      const rawStatus = (s.status || '').toLowerCase().trim();
+      const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida', 'devolvido'];
+      const isCancelled = cancelledStatuses.some(status => rawStatus.includes(status)) || s.status === 'CANCEL_PEDIDO';
+      
+      const isReturned = safeReturns.some((r: any) => {
+        const rId = String(r.saleId || r.sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      return d >= startDate && d <= endDate && !isCancelled && !isReturned;
     });
-  }, [sales, startDate, endDate]);
+  }, [sales, startDate, endDate, returns]);
 
   const departmentTotals: Record<string, { id: string, name: string, total: number, quantity: number }> = {};
   const departmentProducts: Record<string, Record<string, { name: string, quantity: number, total: number }>> = {};

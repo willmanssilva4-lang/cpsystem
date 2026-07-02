@@ -3467,7 +3467,7 @@ function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
         try {
           let saved = await getDBValue<Product[]>('erp_pdv_last_sent_products');
           if (!saved || saved.length === 0) {
-            saved = await getDBValue<Product[]>('erp_pdv_carga_products');
+            saved = await getDBValue<Product[]>('erp_pdv_last_sent_products');
           }
           if (!saved || saved.length === 0) {
             saved = products;

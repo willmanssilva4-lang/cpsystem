@@ -23,11 +23,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function CashRegisterManager({ 
   initialMode,
   onClose,
-  onSuccess
+  onSuccess,
+  hideHistory = false
 }: { 
   initialMode?: 'sangria' | 'suprimento' | 'fechamento',
   onClose?: () => void,
-  onSuccess?: () => void
+  onSuccess?: () => void,
+  hideHistory?: boolean
 }) {
   const { 
     activeRegister, 
@@ -694,7 +696,8 @@ export function CashRegisterManager({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {sortedClosings.map((c) => {
-                  const diff = c.totalDifference ?? c.total_difference ?? 0;
+                  const rawDiff = c.totalDifference ?? c.total_difference ?? 0;
+                  const diff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
                   const dateStr = c.closedAt || c.closed_at ? new Date(c.closedAt || c.closed_at).toLocaleString('pt-BR') : 'Sem data';
                   
                   return (
@@ -883,7 +886,8 @@ export function CashRegisterManager({
                     {Object.keys(selectedClosingDetail.informedValues).map(method => {
                       const system = selectedClosingDetail.systemTotals[method] || 0;
                       const informed = selectedClosingDetail.informedValues[method] || 0;
-                      const diff = informed - system;
+                      const rawDiff = informed - system;
+                      const diff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
                       return (
                         <tr key={method} className="hover:bg-slate-50/50 print:text-black">
                           <td className="p-2 font-semibold text-slate-900 dark:text-white print:text-black">{method}</td>
@@ -926,13 +930,17 @@ export function CashRegisterManager({
               </div>
               <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-850 print:border-black font-black">
                 <span>Diferença Consolidada:</span>
-                <span className={
-                  Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0) - Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0) === 0 
-                    ? 'text-emerald-500' 
-                    : 'text-rose-500'
-                }>
-                  R$ {(Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0) - Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
+                {(() => {
+                  const totalInformed = Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0);
+                  const totalSystem = Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0);
+                  const rawDiff = totalInformed - totalSystem;
+                  const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                  return (
+                    <span className={cleanDiff === 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                      R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1109,7 +1117,8 @@ export function CashRegisterManager({
                     {Object.keys(finalReportData.informedValues).map(method => {
                       const system = finalReportData.systemTotals[method] || 0;
                       const informed = finalReportData.informedValues[method] || 0;
-                      const diff = informed - system;
+                      const rawDiff = informed - system;
+                      const diff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
                       return (
                         <tr key={method} className="hover:bg-slate-50/50 print:text-black">
                           <td className="p-2 font-semibold text-slate-900 dark:text-white print:text-black">{method}</td>
@@ -1152,13 +1161,17 @@ export function CashRegisterManager({
               </div>
               <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-850 print:border-black font-black">
                 <span>Diferença Consolidada:</span>
-                <span className={
-                  Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0) - Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0) === 0 
-                    ? 'text-emerald-500' 
-                    : 'text-rose-500'
-                }>
-                  R$ {(Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0) - Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
+                {(() => {
+                  const totalInformed = Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0);
+                  const totalSystem = Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0);
+                  const rawDiff = totalInformed - totalSystem;
+                  const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                  return (
+                    <span className={cleanDiff === 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                      R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1269,8 +1282,12 @@ export function CashRegisterManager({
           </div>
         </div>
 
-        {renderClosingsHistory()}
-        {renderHistoricalClosingModal()}
+        {!hideHistory && (
+          <div className="space-y-6">
+            {renderClosingsHistory()}
+            {renderHistoricalClosingModal()}
+          </div>
+        )}
       </div>
     );
   }
@@ -1460,7 +1477,8 @@ export function CashRegisterManager({
                          {Object.keys(informedValues).map((method, idx) => {
                           const system = systemTotals[method] || 0;
                           const informed = informedValues[method] || 0;
-                          const diff = informed - system;
+                          const rawDiff = informed - system;
+                          const diff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
                           
                           return (
                             <tr key={method} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
@@ -1593,13 +1611,17 @@ export function CashRegisterManager({
                       {(showDivergences || isAuthorized) && (
                         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center animate-pulse-subtle">
                           <span className="font-bold text-xs text-slate-900 dark:text-white">Diferença Total:</span>
-                          <span className={`text-md font-black ${
-                            Object.values(informedValues).reduce((acc, val) => acc + val, 0) - Object.values(systemTotals).reduce((acc, val) => acc + val, 0) === 0 
-                            ? 'text-emerald-500' 
-                            : 'text-rose-500'
-                          }`}>
-                            R$ {(Object.values(informedValues).reduce((acc, val) => acc + val, 0) - Object.values(systemTotals).reduce((acc, val) => acc + val, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
+                          {(() => {
+                            const totalInformed = Object.values(informedValues).reduce((acc, val) => acc + val, 0);
+                            const totalSystem = Object.values(systemTotals).reduce((acc, val) => acc + val, 0);
+                            const rawDiff = totalInformed - totalSystem;
+                            const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                            return (
+                              <span className={`text-md font-black ${cleanDiff === 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -1789,7 +1811,8 @@ export function CashRegisterManager({
                       {Object.keys(finalReportData.informedValues).map(method => {
                         const system = finalReportData.systemTotals[method] || 0;
                         const informed = finalReportData.informedValues[method] || 0;
-                        const diff = informed - system;
+                        const rawDiff = informed - system;
+                        const diff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
                         return (
                           <tr key={method} className="hover:bg-slate-50/50 print:text-black">
                             <td className="p-2 font-semibold text-slate-900 dark:text-white print:text-black">{method}</td>
@@ -1832,13 +1855,17 @@ export function CashRegisterManager({
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-dashed border-slate-200 dark:border-slate-850 print:border-black font-black">
                   <span>Diferença Consolidada:</span>
-                  <span className={
-                    Object.values(finalReportData.informedValues).reduce((acc, val) => acc + val, 0) - Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + val, 0) === 0 
-                      ? 'text-emerald-500' 
-                      : 'text-rose-500'
-                  }>
-                    R$ {(Object.values(finalReportData.informedValues).reduce((acc, val) => acc + val, 0) - Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + val, 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+                  {(() => {
+                    const totalInformed = Object.values(finalReportData.informedValues).reduce((acc, val) => acc + val, 0);
+                    const totalSystem = Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + val, 0);
+                    const rawDiff = totalInformed - totalSystem;
+                    const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                    return (
+                      <span className={cleanDiff === 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                        R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 

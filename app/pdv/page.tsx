@@ -1729,10 +1729,6 @@ export default function PDVPage() {
               title={hasPendingCarga ? "Existe uma nova carga de produtos disponível! Clique para receber." : "Importar carga de produtos"}
             >
               <span className="text-sm font-black">📥</span>
-              <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">
-                {hasPendingCarga ? "Receber Carga (Nova!)" : "Importar Carga"}
-              </span>
-              <span className="sm:hidden">Carga</span>
             </button>
             <button
               type="button"
@@ -1741,7 +1737,6 @@ export default function PDVPage() {
               className="px-2.5 py-1 rounded-lg text-xs font-black transition-colors border shrink-0 bg-amber-500/20 text-amber-500 border-amber-500/30 hover:bg-amber-500/35 flex items-center justify-center gap-1 cursor-pointer"
             >
               <span className="text-sm font-black">?</span>
-              <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">Atalhos (F1)</span>
             </button>
             <button
               onClick={() => {
@@ -1773,14 +1768,14 @@ export default function PDVPage() {
             >
               {pricingMode === 'retail' && (
                 <>
-                  <span className="hidden md:inline">Modo Varejo (F11)</span>
-                  <span className="md:hidden">Varejo</span>
+                  <span className="hidden md:inline">(F11)</span>
+                  <span className="md:hidden">(F11)</span>
                 </>
               )}
               {pricingMode === 'term' && (
                 <>
-                  <span className="hidden md:inline">Modo Preço 2 (F11)</span>
-                  <span className="md:hidden">Preço 2</span>
+                  <span className="hidden md:inline">(F11)</span>
+                  <span className="md:hidden">(F11)</span>
                 </>
               )}
             </button>
@@ -1828,7 +1823,7 @@ export default function PDVPage() {
                     const activeAds = advertisements.filter(ad => ad.ativo);
                     const currentAd = activeAds[currentAdIndex % activeAds.length];
                     return (
-                      <div className="w-full h-full relative flex flex-col items-center justify-center bg-black/5 p-1.5 md:p-2">
+                      <div className="w-full h-full relative flex flex-col items-center justify-center bg-[#1d4ed8] p-1.5 md:p-2">
                         <img 
                           src={currentAd.imagem_url} 
                           alt={currentAd.titulo} 
@@ -2016,7 +2011,7 @@ export default function PDVPage() {
       {/* Footer */}
       <footer className="px-4 md:px-6 py-4 flex flex-col md:flex-row gap-4 md:gap-6 items-stretch md:items-end justify-between">
         {/* Left Side: Product Inputs aligned with Total a Pagar */}
-        <div className="w-full md:w-[58%] flex flex-col gap-2">
+        <div className="w-full md:w-[50%] flex flex-col gap-2">
           {/* Barcode input */}
           <div className="space-y-0.5 relative">
             <label id="pdv-barcode-label" className="text-xs md:text-sm font-bold italic text-brand-text-main">Código de Barras</label>
@@ -2028,7 +2023,7 @@ export default function PDVPage() {
               onKeyDown={handleKeyDown}
               disabled={!activeRegister}
               autoComplete="off"
-              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0.5 md:py-1 text-base md:text-xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
+              className="w-full bg-white border-2 border-brand-border rounded-xl px-3 py-0 md:py-0.5 text-base md:text-xl font-black text-brand-text-main focus:border-brand-blue-hover focus:ring-4 focus:ring-brand-blue-hover/10 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50"
             />
             
             {/* Search Results Dropdown */}
@@ -2173,30 +2168,23 @@ export default function PDVPage() {
       {/* Shortcuts Bar */}
       <div className="hidden lg:block bg-brand-text-main py-1 px-4 text-[9px] font-bold border-t border-brand-text-main overflow-x-auto whitespace-nowrap text-brand-border">
         <div className="flex gap-4 justify-center opacity-80">
-          <button onClick={() => setShowHelp(prev => !prev)} className="hover:text-white transition-colors">F1 - Ajuda</button>
-          <span>|</span>
-          <span>F2 - Navegar</span>
-          <span>|</span>
-          <button onClick={() => setShowProductListModal(prev => !prev)} className="hover:text-white transition-colors">F3 - Buscar</button>
-          <span>|</span>
-          <span>F4 - Qtd</span>
-          <span>|</span>
-          <span>F5 - Cliente</span>
-          <span>|</span>
+          <button onClick={() => setShowHelp(prev => !prev)} className="hover:text-white transition-colors">&nbsp;</button>
+          <span>&nbsp;</span>
+          <button onClick={() => setShowProductListModal(prev => !prev)} className="hover:text-white transition-colors">&nbsp;</button>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
           <button onClick={() => {
             if (cart.length > 0) {
               setDiscountType(selectedCartIndex >= 0 ? 'item' : 'sale');
               setShowDiscountModal(true);
             }
-          }} className="hover:text-white transition-colors">F6 - Desc. Item</button>
-          <span>|</span>
+          }} className="hover:text-white transition-colors">&nbsp;</button>
           <button onClick={() => {
             if (cart.length > 0) {
               setDiscountType('sale');
               setShowDiscountModal(true);
             }
-          }} className="hover:text-white transition-colors">F7 - Desc. Total</button>
-          <span>|</span>
+          }} className="hover:text-white transition-colors">&nbsp;</button>
           <button onClick={() => {
             if (selectedCartIndex >= 0) {
               setConfirmDialog({
@@ -2226,8 +2214,7 @@ export default function PDVPage() {
                 }
               }
             }
-          }} className="hover:text-white transition-colors">F8 - Canc. Item</button>
-          <span>|</span>
+          }} className="hover:text-white transition-colors">&nbsp;</button>
           <button onClick={() => {
             if (cart.length > 0) {
               setConfirmDialog({
@@ -2245,32 +2232,26 @@ export default function PDVPage() {
                 }
               });
             }
-          }} className="hover:text-white transition-colors">F9 - Canc. Venda</button>
-          <span>|</span>
-          <button onClick={handleCheckout} className="hover:text-white transition-colors">F10 - Finalizar</button>
-          <span>|</span>
-          <span>Esc - Sair</span>
+          }} className="hover:text-white transition-colors">&nbsp;</button>
+          <button onClick={handleCheckout} className="hover:text-white transition-colors">&nbsp;</button>
+          <span>&nbsp;</span>
         </div>
         <div className="flex gap-4 justify-center opacity-80 mt-0.5">
-          <span>Ctrl+S - Sangria</span>
-          <span>|</span>
-          <span>Ctrl+U - Suprimento</span>
-          <span>|</span>
-          <span>Ctrl+F - Fechamento</span>
-          <span>|</span>
-          <span>Ctrl+R - Reabrir</span>
-          <span>|</span>
-          <span>Ctrl+E - Estoque</span>
-          <span>|</span>
-          <span>Ctrl+P - Preço</span>
-          <span>|</span>
-          <span>Alt+H - Histórico</span>
-          <span>|</span>
-          <span>Alt+L - Lista</span>
-          <span>|</span>
-          <span>Alt+N - NF</span>
-          <span>|</span>
-          <span>Alt+Z - Tela Cheia</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
         </div>
       </div>
 
@@ -2670,7 +2651,7 @@ export default function PDVPage() {
               <h1 className="text-3xl font-black text-white italic tracking-widest uppercase">Acesso Bloqueado</h1>
               <p className="text-slate-400">O caixa deve estar aberto para realizar vendas.</p>
             </div>
-            <CashRegisterManager />
+            <CashRegisterManager hideHistory={true} />
             <button 
               onClick={() => {
                 setIsNavigatingAway(true);

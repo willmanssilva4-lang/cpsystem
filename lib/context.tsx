@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabase';
+import { getDBValue, setDBValue } from './indexedDb';
 import { 
   Product, 
   Supplier,
@@ -506,6 +507,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         });
 
         setProducts(resolvedProducts);
+        
+        // Snapshot initial state if not already set
+        const checkAndSetInitialSnapshot = async () => {
+          const saved = await getDBValue<Product[]>('erp_pdv_last_sent_products');
+          if (!saved || saved.length === 0) {
+            console.log('[ERPProvider] Snapshotting initial product state');
+            await setDBValue('erp_pdv_last_sent_products', resolvedProducts);
+          }
+        };
+        checkAndSetInitialSnapshot();
       }
       if (Array.isArray(supps_res)) {
         setSuppliers(supps_res.map(s => ({
@@ -1502,7 +1513,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     // Encapsulate both text justification and dynamic payment method totals breakdown in the justification field
     const justificationPayload = JSON.stringify({
       text: justification,
-      informedTotals: informedTotals
+      informedTotals: informedTotals,
+      operatorName: user?.name || 'Operador'
     });
 
     const closingPayload = {
@@ -1513,8 +1525,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       justification: justificationPayload,
       closed_at: new Date().toISOString(),
       company_id: user?.companyId || null,
-      approved_by: user?.id || null,
-      operator_name: user?.name || 'Operador'
+      approved_by: user?.id || null
     };
 
     const { error: closingError } = await supabase.from('cash_closings').insert([closingPayload]);
