@@ -1,0 +1,67 @@
+[
+  {
+    "id": "8e7f8cf2-2977-42a3-a195-680dd2356b8f",
+    "sale_id": "e2b1fbbb-28a6-4657-a192-b9d017f91a7b",
+    "date": "2026-06-30T21:39:03.409+00:00",
+    "total": 13.49,
+    "type": "TOTAL",
+    "refund_method": "Dinheiro",
+    "user_id": "f137a7c1-d732-4832-8cd5-1187d5dd83f4",
+    "status": "CONCLUÍDO",
+    "company_id": null,
+    "store_id": null,
+    "voucher_code": null
+  },
+  {
+    "id": "2bb7d79e-c333-4f0e-acae-1664b727825b",
+    "sale_id": "2dc5b367-f59d-4756-b075-0cebb1700f89",
+    "date": "2026-06-30T23:23:51.687+00:00",
+    "total": 1.99,
+    "type": "TOTAL",
+    "refund_method": "Dinheiro",
+    "user_id": "f137a7c1-d732-4832-8cd5-1187d5dd83f4",
+    "status": "CONCLUÍDO",
+    "company_id": null,
+    "store_id": null,
+    "voucher_code": null
+  },
+  {
+    "id": "f232325d-a4ea-4ccb-8c54-2447876f2eba",
+    "sale_id": "40c5f4c6-5048-46a2-9882-bb9e432f8457",
+    "date": "2026-07-01T20:43:54.897+00:00",
+    "total": 25.5,
+    "type": "TOTAL",
+    "refund_method": "Estorno no Cartão",
+    "user_id": "f137a7c1-d732-4832-8cd5-1187d5dd83f4",
+    "status": "CONCLUÍDO",
+    "company_id": null,
+    "store_id": null,
+    "voucher_code": null
+  },
+  {
+    "id": "f1a199bf-605a-49a2-b9b2-1da1e84f7b36",
+    "sale_id": "bf32ef71-6418-45e6-87f6-25ea66b0b254",
+    "date": "2026-07-02T18:17:44.797+00:00",
+    "total": 11,
+    "type": "TOTAL",
+    "refund_method": "Dinheiro",
+    "user_id": "f137a7c1-d732-4832-8cd5-1187d5dd83f4",
+    "status": "CONCLUÍDO",
+    "company_id": null,
+    "store_id": null,
+    "voucher_code": null
+  },
+  {
+    "id": "a150fff3-e2b9-4a47-99f6-16165e8f7b75",
+    "sale_id": "edf3c3b6-afac-411d-a4a6-361a45c42381",
+    "date": "2026-07-03T14:40:50.563+00:00",
+    "total": 1.5,
+    "type": "TOTAL",
+    "refund_method": "Dinheiro",
+    "user_id": "f137a7c1-d732-4832-8cd5-1187d5dd83f4",
+    "status": "CONCLUÍDO",
+    "company_id": null,
+    "store_id": null,
+    "voucher_code": null
+  }
+]

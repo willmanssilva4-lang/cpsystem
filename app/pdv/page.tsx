@@ -1698,17 +1698,17 @@ export default function PDVPage() {
   return (
     <div className="h-screen flex flex-col bg-white text-slate-900 font-sans overflow-hidden select-none">
       {/* Top Header */}
-      <header className="bg-brand-text-main text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-brand-text-main gap-2 relative">
+      <header className="bg-[#1e40af] text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-[#1e40af] gap-2 relative shadow-sm">
         <div className="flex items-center gap-1.5 md:gap-4 min-w-0 z-10">
-          <div className="shrink-0">
-            <Logo size="sm" hideText theme="dark" className="md:hidden" />
-            <Logo size="md" hideText theme="dark" className="hidden md:block" />
+          <div className="shrink-0 bg-white px-3 py-1 rounded-lg flex items-center justify-center shadow-sm">
+            <Logo size="sm" theme="light" className="md:hidden" />
+            <Logo size="md" theme="light" className="hidden md:block" />
           </div>
         </div>
         
         <div className="absolute top-2.5 md:top-1/2 -translate-y-0 md:-translate-y-1/2 left-[90px] right-[115px] md:right-auto md:left-1/2 md:-translate-x-1/2 text-left md:text-center pointer-events-none z-0">
           {companySettings?.tradeName && (
-            <h1 className="text-xs xs:text-sm md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate w-full pointer-events-auto">
+            <h1 className="text-xs xs:text-sm md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate w-full pointer-events-auto text-white">
               {companySettings.tradeName}
             </h1>
           )}
@@ -1724,7 +1724,7 @@ export default function PDVPage() {
                 "px-2.5 py-1 rounded-lg text-xs font-black transition-all border shrink-0 flex items-center justify-center gap-1 cursor-pointer",
                 hasPendingCarga 
                   ? "bg-emerald-600 text-white border-emerald-500 animate-pulse hover:bg-emerald-700 shadow-[0_0_12px_rgba(16,185,129,0.5)] font-black" 
-                  : "bg-slate-700/50 text-slate-300 border-slate-600/50 hover:bg-slate-700 hover:text-white"
+                  : "bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white"
               )}
               title={hasPendingCarga ? "Existe uma nova carga de produtos disponível! Clique para receber." : "Importar carga de produtos"}
             >
@@ -1734,7 +1734,7 @@ export default function PDVPage() {
               type="button"
               onClick={() => setShowHelp(true)}
               title="Instruções dos Atalhos (F1)"
-              className="px-2.5 py-1 rounded-lg text-xs font-black transition-colors border shrink-0 bg-amber-500/20 text-amber-500 border-amber-500/30 hover:bg-amber-500/35 flex items-center justify-center gap-1 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-xs font-black transition-colors border shrink-0 bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/35 flex items-center justify-center gap-1 cursor-pointer"
             >
               <span className="text-sm font-black">?</span>
             </button>
@@ -1762,8 +1762,8 @@ export default function PDVPage() {
               }}
               className={cn(
                 "px-2 py-1 md:px-3 md:py-1 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors border shrink-0",
-                pricingMode === 'term' && "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
-                pricingMode === 'retail' && "bg-brand-blue/20 text-brand-blue border-brand-blue/30"
+                pricingMode === 'term' && "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+                pricingMode === 'retail' && "bg-white/10 text-white border-white/20"
               )}
             >
               {pricingMode === 'retail' && (
@@ -1781,26 +1781,20 @@ export default function PDVPage() {
             </button>
             {/* Removed: Terminal de Consulta, Full Screen, and Sair buttons */}
           </div>
-          <div className="bg-brand-text-main px-4 py-1 border border-brand-text-main rounded">
-            <span className="text-sm font-bold text-slate-50">{formatDate(currentTime)}</span>
+          <div className="bg-white/10 px-4 py-1 border border-white/20 rounded">
+            <span className="text-sm font-bold text-white/90">{formatDate(currentTime)}</span>
           </div>
         </div>
       </header>
 
-      {/* Sale Info Bar */}
-      <div className="bg-slate-50 px-6 py-1 flex items-center gap-8 text-xs font-bold border-b border-brand-border text-brand-text-main">
-        <div className="flex gap-2">
-          <span className="text-brand-blue/60">Atendente:</span>
-          <span className="uppercase">{user?.name || 'SISTEMA'}</span>
-        </div>
-      </div>
-
       {/* Status Bar */}
-      <div className={cn(
-        "py-1.5 md:py-2 text-center shadow-inner transition-colors duration-300",
-        cart.filter(item => !item.canceled).length > 0 ? "bg-brand-blue" : "bg-brand-blue-hover"
-      )}>
-        <h2 className="text-2xl md:text-4xl font-black tracking-normal uppercase italic text-white px-4 truncate">
+      <div className="relative py-3 md:py-4 text-center shadow-inner bg-[#1e40af] transition-colors duration-300 flex flex-col items-center justify-center min-h-[70px] md:min-h-[88px]">
+        <div className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center">
+          <span className="text-[10px] md:text-xs font-black tracking-widest text-white/90 bg-white/15 px-3 py-1.5 rounded uppercase border border-white/20 shadow-sm">
+            DESCRIÇÃO
+          </span>
+        </div>
+        <h2 className="text-2xl md:text-4xl font-black tracking-normal uppercase italic px-4 max-w-[70%] truncate text-white">
           {cart.filter(item => !item.canceled).length > 0 
             ? (lastBeepedProduct || cart.filter(item => !item.canceled).slice(-1)[0]?.product.name || "CAIXA OCUPADO") 
             : "CAIXA LIVRE"
@@ -2140,8 +2134,8 @@ export default function PDVPage() {
             disabled={cart.length === 0}
             onClick={handleCheckout}
             className={cn(
-              "w-full bg-brand-text-main py-2 md:py-3 text-center rounded-xl border border-brand-blue shadow-md relative overflow-hidden transition-all duration-200 outline-none text-left flex flex-col items-center justify-center",
-              cart.length > 0 ? "cursor-pointer hover:bg-brand-text-main/90 active:scale-[0.98]" : "cursor-not-allowed"
+              "w-full bg-[#1e40af] py-2 md:py-3 text-center rounded-xl border border-[#1d4ed8] shadow-md relative overflow-hidden transition-all duration-200 outline-none text-left flex flex-col items-center justify-center",
+              cart.length > 0 ? "cursor-pointer hover:bg-[#1d4ed8] active:scale-[0.98]" : "cursor-not-allowed"
             )}
           >
             {saleDiscount > 0 && (
@@ -2166,92 +2160,98 @@ export default function PDVPage() {
       </footer>
 
       {/* Shortcuts Bar */}
-      <div className="hidden lg:block bg-brand-text-main py-1 px-4 text-[9px] font-bold border-t border-brand-text-main overflow-x-auto whitespace-nowrap text-brand-border">
-        <div className="flex gap-4 justify-center opacity-80">
-          <button onClick={() => setShowHelp(prev => !prev)} className="hover:text-white transition-colors">&nbsp;</button>
-          <span>&nbsp;</span>
-          <button onClick={() => setShowProductListModal(prev => !prev)} className="hover:text-white transition-colors">&nbsp;</button>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <button onClick={() => {
-            if (cart.length > 0) {
-              setDiscountType(selectedCartIndex >= 0 ? 'item' : 'sale');
-              setShowDiscountModal(true);
-            }
-          }} className="hover:text-white transition-colors">&nbsp;</button>
-          <button onClick={() => {
-            if (cart.length > 0) {
-              setDiscountType('sale');
-              setShowDiscountModal(true);
-            }
-          }} className="hover:text-white transition-colors">&nbsp;</button>
-          <button onClick={() => {
-            if (selectedCartIndex >= 0) {
-              setConfirmDialog({
-                message: `Deseja cancelar o item: ${cart[selectedCartIndex].product.name}?`,
-                onConfirm: () => {
+      <div className="bg-[#1e40af] py-2 px-4 text-[9px] font-bold border-t border-[#1e40af] overflow-x-auto whitespace-nowrap text-brand-border flex items-center justify-between gap-4">
+        <div className="flex items-center gap-1.5 text-white bg-white/10 px-2.5 py-1 rounded">
+          <span className="bg-white text-slate-900 px-1.5 py-0.5 rounded uppercase text-[9px] tracking-wider">Operador:</span>
+          <span className="uppercase font-black text-xs">{user?.name || 'SISTEMA'}</span>
+        </div>
+        <div className="hidden lg:flex flex-col items-center">
+          <div className="flex gap-4 justify-center opacity-80">
+            <button onClick={() => setShowHelp(prev => !prev)} className="hover:text-white transition-colors">&nbsp;</button>
+            <span>&nbsp;</span>
+            <button onClick={() => setShowProductListModal(prev => !prev)} className="hover:text-white transition-colors">&nbsp;</button>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <button onClick={() => {
+              if (cart.length > 0) {
+                setDiscountType(selectedCartIndex >= 0 ? 'item' : 'sale');
+                setShowDiscountModal(true);
+              }
+            }} className="hover:text-white transition-colors">&nbsp;</button>
+            <button onClick={() => {
+              if (cart.length > 0) {
+                setDiscountType('sale');
+                setShowDiscountModal(true);
+              }
+            }} className="hover:text-white transition-colors">&nbsp;</button>
+            <button onClick={() => {
+              if (selectedCartIndex >= 0) {
+                setConfirmDialog({
+                  message: `Deseja cancelar o item: ${cart[selectedCartIndex].product.name}?`,
+                  onConfirm: () => {
+                    if (checkActionPermission()) {
+                      setCart(prev => prev.map((item, i) => i === selectedCartIndex ? { ...item, canceled: true } : item));
+                      setSelectedCartIndex(-1);
+                      setIsNavigatingCart(false);
+                    } else {
+                      setPendingAction({ type: 'cancel_item', data: { index: selectedCartIndex } });
+                      setShowAuthModal(true);
+                    }
+                  }
+                });
+              } else if (cart.length > 0) {
+                const lastActiveIdx = [...cart].reverse().findIndex(item => !item.canceled);
+                const lastIdx = lastActiveIdx !== -1 ? cart.length - 1 - lastActiveIdx : -1;
+                if (lastIdx !== -1) {
                   if (checkActionPermission()) {
-                    setCart(prev => prev.map((item, i) => i === selectedCartIndex ? { ...item, canceled: true } : item));
+                    setCart(prev => prev.map((item, i) => i === lastIdx ? { ...item, canceled: true } : item));
                     setSelectedCartIndex(-1);
                     setIsNavigatingCart(false);
                   } else {
-                    setPendingAction({ type: 'cancel_item', data: { index: selectedCartIndex } });
+                    setPendingAction({ type: 'cancel_item', data: { index: lastIdx } });
                     setShowAuthModal(true);
                   }
-                }
-              });
-            } else if (cart.length > 0) {
-              const lastActiveIdx = [...cart].reverse().findIndex(item => !item.canceled);
-              const lastIdx = lastActiveIdx !== -1 ? cart.length - 1 - lastActiveIdx : -1;
-              if (lastIdx !== -1) {
-                if (checkActionPermission()) {
-                  setCart(prev => prev.map((item, i) => i === lastIdx ? { ...item, canceled: true } : item));
-                  setSelectedCartIndex(-1);
-                  setIsNavigatingCart(false);
-                } else {
-                  setPendingAction({ type: 'cancel_item', data: { index: lastIdx } });
-                  setShowAuthModal(true);
                 }
               }
-            }
-          }} className="hover:text-white transition-colors">&nbsp;</button>
-          <button onClick={() => {
-            if (cart.length > 0) {
-              setConfirmDialog({
-                message: 'Deseja cancelar a venda atual?',
-                onConfirm: () => {
-                  if (checkActionPermission()) {
-                    setCart([]);
-                    setSaleDiscount(0);
-                    setSelectedCartIndex(-1);
-                    setIsNavigatingCart(false);
-                  } else {
-                    setPendingAction({ type: 'cancel_sale' });
-                    setShowAuthModal(true);
+            }} className="hover:text-white transition-colors">&nbsp;</button>
+            <button onClick={() => {
+              if (cart.length > 0) {
+                setConfirmDialog({
+                  message: 'Deseja cancelar a venda atual?',
+                  onConfirm: () => {
+                    if (checkActionPermission()) {
+                      setCart([]);
+                      setSaleDiscount(0);
+                      setSelectedCartIndex(-1);
+                      setIsNavigatingCart(false);
+                    } else {
+                      setPendingAction({ type: 'cancel_sale' });
+                      setShowAuthModal(true);
+                    }
                   }
-                }
-              });
-            }
-          }} className="hover:text-white transition-colors">&nbsp;</button>
-          <button onClick={handleCheckout} className="hover:text-white transition-colors">&nbsp;</button>
-          <span>&nbsp;</span>
-        </div>
-        <div className="flex gap-4 justify-center opacity-80 mt-0.5">
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
+                });
+              }
+            }} className="hover:text-white transition-colors">&nbsp;</button>
+            <button onClick={handleCheckout} className="hover:text-white transition-colors">&nbsp;</button>
+            <span>&nbsp;</span>
+          </div>
+          <div className="flex gap-4 justify-center opacity-80 mt-0.5">
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+          </div>
         </div>
       </div>
 

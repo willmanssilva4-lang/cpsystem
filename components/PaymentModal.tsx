@@ -804,15 +804,22 @@ export function PaymentModal({ total, onClose, onFinalize }: PaymentModalProps) 
         </div>
 
         {/* Footer */}
-        <div className="p-4 md:p-6 bg-slate-50 flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
-          <button 
-            type="button"
-            disabled={isSubmitting}
-            onClick={onClose} 
-            className="px-4 py-2.5 md:px-8 md:py-4 bg-slate-200 rounded-xl font-black italic uppercase text-xs md:text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancelar <span className="hidden md:inline">(ESC)</span>
-          </button>
+        <div className="p-4 md:p-6 bg-slate-50 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-200/50 px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+              <User size={14} className="text-slate-400" />
+              <span>Operador:</span>
+              <span className="uppercase text-slate-800 font-black">{user?.name || 'SISTEMA'}</span>
+            </div>
+            <button 
+              type="button"
+              disabled={isSubmitting}
+              onClick={onClose} 
+              className="px-4 py-2.5 md:px-8 md:py-4 bg-slate-200 hover:bg-slate-300 rounded-xl font-black italic uppercase text-xs md:text-sm text-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancelar <span className="hidden md:inline">(ESC)</span>
+            </button>
+          </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             {remainingAmount > 0 ? (
               receivedAmount < remainingAmount ? (

@@ -42,7 +42,8 @@ export function CashRegisterManager({
     paymentMethods,
     cashClosings,
     cashRegisters,
-    systemUsers
+    systemUsers,
+    returns
   } = useERP();
 
   const maskCashRegisterId = (id?: string) => {
@@ -173,8 +174,14 @@ export function CashRegisterManager({
 
   const isCancelledSale = (sale: any): boolean => {
     if (!sale) return false;
-    const rawStatus = (sale.status || '').toLowerCase();
-    const sType = (sale.type || '').toLowerCase();
+    
+    // Check if the sale has been returned
+    if (returns && returns.some(r => r.sale_id === sale.id)) {
+      return true;
+    }
+
+    const rawStatus = (sale.status || '').toLowerCase().trim();
+    const sType = (sale.type || '').toLowerCase().trim();
     const cancelledStatuses = [
       'cancelada', 'estornada', 'cancelado', 'reversão', 'reversao', 
       'estorno', 'cancelar', 'reverter', 'devolução', 'devolucao', 
@@ -406,7 +413,7 @@ export function CashRegisterManager({
       justifications: { ...justifications },
       movements: snapshotMovements,
       salesCount: snapshotSales.length,
-      salesTotal: snapshotSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0)
+      salesTotal: snapshotSales.reduce((acc, s) => acc + (s.items?.reduce((itemAcc: number, item: any) => itemAcc + (Number(item.price) * Number(item.quantity)), 0) || Number(s.total) || 0), 0)
     };
 
     const informedTotals = Object.entries(informedValues).map(([method, informed]) => ({
@@ -447,7 +454,7 @@ export function CashRegisterManager({
       justifications: { 'Geral': 'Fechamento automático concluído sem divergências físicas.' },
       movements: snapshotMovements,
       salesCount: snapshotSales.length,
-      salesTotal: snapshotSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0)
+      salesTotal: snapshotSales.reduce((acc, s) => acc + (s.items?.reduce((itemAcc: number, item: any) => itemAcc + (Number(item.price) * Number(item.quantity)), 0) || Number(s.total) || 0), 0)
     };
 
     const informedTotals = Object.entries(systemTotals).map(([method, systemValue]) => ({
@@ -660,7 +667,7 @@ export function CashRegisterManager({
       justifications: textJust ? { 'Geral': textJust } : {},
       movements,
       salesCount: registerSales.length,
-      salesTotal: registerSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0)
+      salesTotal: registerSales.reduce((acc, s) => acc + (s.items?.reduce((itemAcc: number, item: any) => itemAcc + (Number(item.price) * Number(item.quantity)), 0) || Number(s.total) || 0), 0)
     };
   };
 
@@ -975,22 +982,38 @@ export function CashRegisterManager({
             </div>
 
             {/* UI CTA Buttons */}
-            <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
-              <button 
-                type="button"
-                onClick={() => handlePrint('printable-historical-closing-report', 'Comprovante de Fechamento de Caixa')}
-                className="flex-1 py-2.5 px-4 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
-              >
-                <Printer size={16} />
-                Imprimir Comprovante
-              </button>
-              <button 
-                type="button"
-                onClick={() => setSelectedClosingDetail(null)}
-                className="flex-1 py-2.5 px-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-bold rounded-xl transition-all flex items-center justify-center text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-              >
-                Fechar
-              </button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
+              <div className="flex items-center gap-2 text-xs md:text-sm font-bold">
+                <span className="text-slate-500 uppercase tracking-wider">Diferença Consolidada:</span>
+                {(() => {
+                  const totalInformed = Object.values(selectedClosingDetail.informedValues).reduce((acc: number, val: any) => acc + Number(val), 0);
+                  const totalSystem = Object.values(selectedClosingDetail.systemTotals).reduce((acc: number, val: any) => acc + Number(val), 0);
+                  const rawDiff = totalInformed - totalSystem;
+                  const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                  return (
+                    <span className={cleanDiff === 0 ? 'text-emerald-500 font-mono font-black' : 'text-rose-500 font-mono font-black'}>
+                      R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="flex gap-3 w-full sm:w-auto">
+                <button 
+                  type="button"
+                  onClick={() => handlePrint('printable-historical-closing-report', 'Comprovante de Fechamento de Caixa')}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  <Printer size={16} />
+                  Imprimir Comprovante
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setSelectedClosingDetail(null)}
+                  className="flex-1 sm:flex-initial py-2.5 px-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-bold rounded-xl transition-all flex items-center justify-center text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -1206,23 +1229,39 @@ export function CashRegisterManager({
             </div>
 
             {/* UI CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
-              <button 
-                onClick={() => handlePrint('printable-closing-report', 'Comprovante de Fechamento de Caixa')}
-                className="flex-1 py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
-              >
-                <Printer size={18} />
-                Imprimir Relatório
-              </button>
-              <button 
-                onClick={() => {
-                  onSuccess?.();
-                  onClose?.();
-                }}
-                className="flex-1 py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
-              >
-                Concluir e Voltar ao Início
-              </button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
+              <div className="flex items-center gap-2 text-xs md:text-sm font-bold">
+                <span className="text-slate-500 uppercase tracking-wider">Diferença Consolidada:</span>
+                {(() => {
+                  const totalInformed = Object.values(finalReportData.informedValues).reduce((acc, val) => acc + Number(val), 0);
+                  const totalSystem = Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + Number(val), 0);
+                  const rawDiff = totalInformed - totalSystem;
+                  const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                  return (
+                    <span className={cleanDiff === 0 ? 'text-emerald-500 font-mono font-black' : 'text-rose-500 font-mono font-black'}>
+                      R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <button 
+                  onClick={() => handlePrint('printable-closing-report', 'Comprovante de Fechamento de Caixa')}
+                  className="w-full sm:w-auto py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
+                >
+                  <Printer size={18} />
+                  Imprimir Relatório
+                </button>
+                <button 
+                  onClick={() => {
+                    onSuccess?.();
+                    onClose?.();
+                  }}
+                  className="w-full sm:w-auto py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
+                >
+                  Concluir e Voltar ao Início
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -1900,23 +1939,39 @@ export function CashRegisterManager({
               </div>
 
               {/* UI CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
-                <button 
-                  onClick={() => handlePrint('printable-closing-report', 'Comprovante de Fechamento de Caixa')}
-                  className="flex-1 py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
-                >
-                  <Printer size={18} />
-                  Imprimir Relatório
-                </button>
-                <button 
-                  onClick={() => {
-                    onSuccess?.();
-                    onClose?.();
-                  }}
-                  className="flex-1 py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
-                >
-                  Concluir e Voltar ao Início
-                </button>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 print:hidden">
+                <div className="flex items-center gap-2 text-xs md:text-sm font-bold">
+                  <span className="text-slate-500 uppercase tracking-wider">Diferença Consolidada:</span>
+                  {(() => {
+                    const totalInformed = Object.values(finalReportData.informedValues).reduce((acc, val) => acc + val, 0);
+                    const totalSystem = Object.values(finalReportData.systemTotals).reduce((acc, val) => acc + val, 0);
+                    const rawDiff = totalInformed - totalSystem;
+                    const cleanDiff = Math.abs(rawDiff) < 0.005 ? 0 : rawDiff;
+                    return (
+                      <span className={cleanDiff === 0 ? 'text-emerald-500 font-mono font-black' : 'text-rose-500 font-mono font-black'}>
+                        R$ {cleanDiff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <button 
+                    onClick={() => handlePrint('printable-closing-report', 'Comprovante de Fechamento de Caixa')}
+                    className="w-full sm:w-auto py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 active:scale-95"
+                  >
+                    <Printer size={18} />
+                    Imprimir Relatório
+                  </button>
+                  <button 
+                    onClick={() => {
+                      onSuccess?.();
+                      onClose?.();
+                    }}
+                    className="w-full sm:w-auto py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
+                  >
+                    Concluir e Voltar ao Início
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
