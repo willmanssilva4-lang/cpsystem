@@ -227,7 +227,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [customAlert, setCustomAlert] = useState<any>(null);
 
   const activeRegister = useMemo(() => {
-    return cashRegisters.find(r => r.status === 'open' && r.operator_id === user?.id);
+    return cashRegisters.find(r => r.status === 'open' && r.userId === user?.id);
   }, [cashRegisters, user?.id]);
 
   const fetchData = async (explicitCompanyId?: string) => {
