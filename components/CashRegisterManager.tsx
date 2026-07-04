@@ -538,7 +538,7 @@ export function CashRegisterManager({
       if (closing.justification && typeof closing.justification === 'string' && closing.justification.trim().startsWith('{')) {
         const parsed = JSON.parse(closing.justification);
         if (parsed && typeof parsed === 'object') {
-          textJust = parsed.text || closing.justification;
+          textJust = parsed.text !== undefined && parsed.text !== null ? parsed.text : closing.justification;
           parsedInformedTotals = parsed.informedTotals || [];
         }
       }
