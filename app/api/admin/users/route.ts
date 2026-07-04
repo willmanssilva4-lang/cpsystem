@@ -112,6 +112,9 @@ export async function POST(req: Request) {
       email_confirm: true, // Auto-confirm email
       user_metadata: {
         username: username,
+        company_id: companyId,
+        companyId: companyId,
+        name: username,
         ...user_metadata
       }
     });
@@ -127,6 +130,59 @@ export async function POST(req: Request) {
          }, { status: 403 });
       }
 
+      // Check if user already exists in Supabase Auth, and if so, synchronize with system_users
+      if (authError.message?.toLowerCase().includes('already been registered') || authError.status === 422) {
+        console.log('User already registered in Auth. Attempting to synchronize...');
+        const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (!listError && listData?.users) {
+          const existingAuthUser = listData.users.find(
+            (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+          );
+
+          if (existingAuthUser) {
+            console.log('Found existing Auth user to sync:', existingAuthUser.id);
+            try {
+              const passwordHash = await bcrypt.hash(password, 10);
+              const { error: dbError } = await supabaseAdmin.from('system_users').upsert([{
+                id: existingAuthUser.id, // Link to Auth ID
+                username: username,
+                email: email,
+                employee_id: employeeId || null,
+                profile_id: profileId || null,
+                store_id: storeId || 'Todas as Lojas',
+                status: status || 'Ativo',
+                company_id: companyId || null,
+                password_hash: passwordHash,
+                supervisor_code: supervisorCode || null
+              }]);
+
+              if (dbError) {
+                console.error('Error inserting into system_users during sync:', dbError.message);
+                return NextResponse.json({ error: `Database Error during synchronization: ${dbError.message}` }, { status: 500 });
+              }
+
+              // Update metadata & password on the existing Auth user to keep them in sync
+              await supabaseAdmin.auth.admin.updateUserById(existingAuthUser.id, {
+                password: password,
+                user_metadata: {
+                  username: username,
+                  company_id: companyId,
+                  companyId: companyId,
+                  name: username,
+                  ...user_metadata
+                }
+              });
+
+              console.log('Auth user synchronized with system_users successfully');
+              return NextResponse.json({ user: existingAuthUser });
+            } catch (dbErr: any) {
+              console.error('Exception syncing existing user:', dbErr);
+              return NextResponse.json({ error: `Database Exception during sync: ${dbErr.message}` }, { status: 500 });
+            }
+          }
+        }
+      }
+
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
@@ -140,13 +196,13 @@ export async function POST(req: Request) {
         id: authData.user.id, // Link to Auth ID
         username: username,
         email: email,
-        employee_id: employeeId,
-        profile_id: profileId,
-        store_id: storeId,
-        status: status,
-        company_id: companyId,
+        employee_id: employeeId || null,
+        profile_id: profileId || null,
+        store_id: storeId || 'Todas as Lojas',
+        status: status || 'Ativo',
+        company_id: companyId || null,
         password_hash: passwordHash,
-        supervisor_code: supervisorCode
+        supervisor_code: supervisorCode || null
       }]);
 
       if (dbError) {
@@ -174,3 +230,46 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function GET(req: Request) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return NextResponse.json(
+      { error: 'Missing Supabase credentials (SUPABASE_SERVICE_ROLE_KEY)' },
+      { status: 500 }
+    );
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  try {
+    const url = new URL(req.url);
+    const companyId = url.searchParams.get('companyId');
+
+    let query = supabaseAdmin.from('system_users').select('*');
+    
+    // If we have a specific company, we filter by that company or null (for platform-wide/system global rows if any)
+    if (companyId && companyId !== 'null' && companyId !== 'undefined' && companyId !== '') {
+      query = query.or(`company_id.eq.${companyId},company_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching system_users:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data: data || [] });
+  } catch (error: any) {
+    console.error('Unexpected error fetching system_users:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
+

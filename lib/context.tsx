@@ -327,7 +327,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         baseQuery('expenses'),
         baseQuery('produto_lotes'),
         supabase.from('system_settings').select('*').single(), // Settings might be per company
-        supabase.from('system_users').select('*'), // Filter users by company later if needed
+        fetch(`/api/admin/users?companyId=${targetCompanyId || ''}`).then(async (res) => {
+          if (!res.ok) throw new Error('Failed to fetch users');
+          const json = await res.json();
+          return { data: json.data || [] };
+        }).catch(err => {
+          console.error('[ERPProvider] Error fetching system_users from API:', err);
+          return { data: [] };
+        }), // Filter users by company later if needed
         baseQuery('promotions'),
         fetchReturns(),
         baseQuery('employees'),
@@ -804,7 +811,23 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         })));
       }
       if (Array.isArray(profs_res)) setAccessProfiles(profs_res);
-      if (Array.isArray(perms_res)) setPermissions(perms_res);
+      if (Array.isArray(perms_res)) {
+        setPermissions(perms_res.map((p: any) => ({
+          ...p,
+          profileId: p.profileId || p.profile_id || '',
+          profile_id: p.profile_id || p.profileId || '',
+          canView: p.canView !== undefined ? p.canView : (p.can_view !== undefined ? p.can_view : false),
+          can_view: p.can_view !== undefined ? p.can_view : (p.canView !== undefined ? p.canView : false),
+          canCreate: p.canCreate !== undefined ? p.canCreate : (p.can_create !== undefined ? p.can_create : false),
+          can_create: p.can_create !== undefined ? p.can_create : (p.canCreate !== undefined ? p.canCreate : false),
+          canEdit: p.canEdit !== undefined ? p.canEdit : (p.can_edit !== undefined ? p.can_edit : false),
+          can_edit: p.can_edit !== undefined ? p.can_edit : (p.canEdit !== undefined ? p.canEdit : false),
+          canDelete: p.canDelete !== undefined ? p.canDelete : (p.can_delete !== undefined ? p.can_delete : false),
+          can_delete: p.can_delete !== undefined ? p.can_delete : (p.canDelete !== undefined ? p.canDelete : false),
+          companyId: p.companyId || p.company_id || '',
+          company_id: p.company_id || p.companyId || ''
+        })));
+      }
       if (Array.isArray(expCats_res)) setExpenseCategories(expCats_res);
       if (Array.isArray(ls_res)) {
         setLosses(ls_res.map((l: any) => ({
@@ -947,7 +970,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         
         console.log('[ERPProvider] session status:', session ? 'User present' : 'No session');
         
-        const companyId = session?.user?.user_metadata?.companyId;
+        const companyId = session?.user?.user_metadata?.companyId || session?.user?.user_metadata?.company_id;
         if (session?.user) {
           setUser({
             id: session.user.id,
@@ -986,7 +1009,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
           email: session.user.email || '',
           role: session.user.user_metadata.role || 'admin',
-          companyId: session.user.user_metadata.companyId
+          companyId: session.user.user_metadata.companyId || session.user.user_metadata.company_id
         });
       } else {
         setUser(null);
@@ -2107,8 +2130,87 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     console.log('Seeding expense categories...');
   };
 
+  const derivedUser = useMemo(() => {
+    if (!user) return null;
+    
+    // Find in systemUsers
+    const dbUser = systemUsers.find(
+      u => u.id === user.id || u.email?.toLowerCase() === user.email?.toLowerCase()
+    );
+    
+    if (dbUser) {
+      const profileId = dbUser.profileId || dbUser.profile_id;
+      if (profileId) {
+        const profile = accessProfiles.find(p => p.id === profileId);
+        if (profile?.name) {
+          return {
+            ...user,
+            role: profile.name
+          };
+        }
+      }
+    }
+    
+    return user;
+  }, [user, systemUsers, accessProfiles]);
+
   const hasPermission = (module: string, action: string) => {
-    return true; // Simplified authorize-all
+    // 1. If no user is logged in, no permissions
+    if (!derivedUser) return false;
+
+    // 2. Super admin gets all permissions
+    const isSuperAdmin = derivedUser.email?.toLowerCase() === 'willmanssilva4@gmail.com';
+    if (isSuperAdmin) return true;
+
+    // 3. Find the user record in system_users
+    const dbUser = systemUsers.find(
+      u => u.id === derivedUser.id || u.email?.toLowerCase() === derivedUser.email?.toLowerCase()
+    );
+
+    if (!dbUser) {
+      // Fallback to role-based check if not found in system_users
+      return derivedUser.role?.toLowerCase() === 'admin' || derivedUser.role?.toLowerCase() === 'administrador';
+    }
+
+    // 4. If user is inactive, deny all permissions
+    if (dbUser.status === 'Inativo') return false;
+
+    // 5. Find their access profile
+    const profileId = dbUser.profileId || dbUser.profile_id;
+    if (!profileId) {
+      return derivedUser.role?.toLowerCase() === 'admin' || derivedUser.role?.toLowerCase() === 'administrador';
+    }
+
+    const profile = accessProfiles.find(p => p.id === profileId);
+    
+    // 6. If the profile name is 'Administrador' (case-insensitive), grant full access
+    const isProfileAdmin = profile?.name?.toLowerCase() === 'administrador';
+    if (isProfileAdmin) {
+      return true;
+    }
+
+    // 7. Look up the specific permission record for this profile and module
+    const perm = permissions.find(
+      p => (p.profileId === profileId || p.profile_id === profileId) &&
+           p.module?.toLowerCase() === module?.toLowerCase()
+    );
+
+    if (!perm) {
+      // If no permission record exists yet, default to false (or true for Gerente if needed)
+      const isProfileGerente = profile?.name?.toLowerCase() === 'gerente';
+      if (isProfileGerente) {
+        return action === 'view' || action === 'create' || action === 'edit';
+      }
+      return false;
+    }
+
+    // 8. Return the action's corresponding boolean value
+    if (action === 'view') return !!(perm.canView || perm.can_view);
+    if (action === 'create') return !!(perm.canCreate || perm.can_create);
+    if (action === 'edit') return !!(perm.canEdit || perm.can_edit);
+    if (action === 'delete') return !!(perm.canDelete || perm.can_delete);
+
+    return false;
   };
 
   const logout = async () => {
@@ -2218,11 +2320,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const dbPayload = {
         username: data.username,
         email: data.email,
-        full_name: data.fullName || data.full_name || data.username,
         employee_id: data.employeeId || data.employee_id || null,
         profile_id: data.profileId || data.profile_id || null,
         store_id: data.storeId || data.store_id || 'Todas as Lojas',
-        active: data.status !== undefined ? (data.status === 'Ativo') : (data.active !== undefined ? data.active : true),
+        status: data.status || 'Ativo',
         supervisor_code: data.supervisorCode !== undefined ? data.supervisorCode : (data.supervisor_code !== undefined ? data.supervisor_code : null),
         company_id: data.companyId || data.company_id || user?.companyId || null
       };
@@ -2252,11 +2353,10 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       const dbPayload = {
         username: data.username,
         email: data.email,
-        full_name: data.fullName || data.full_name,
         employee_id: data.employeeId || data.employee_id,
         profile_id: data.profileId || data.profile_id,
         store_id: data.storeId || data.store_id,
-        active: data.status !== undefined ? (data.status === 'Ativo') : data.active,
+        status: data.status || 'Ativo',
         supervisor_code: data.supervisorCode !== undefined ? data.supervisorCode : data.supervisor_code,
         company_id: data.companyId || data.company_id
       };
@@ -2435,8 +2535,26 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updatePermissions = async (profileId: string, permissions: any[]) => {
-    // Assuming we need to upsert permissions for a specific profile
-    await supabase.from('permissions').upsert(permissions.map(p => ({ ...p, profile_id: profileId })));
+    // Map permissions back to snake_case schema to match Database table
+    const payload = permissions.map(p => {
+      const obj: any = {
+        profile_id: profileId,
+        module: p.module,
+        can_view: p.canView !== undefined ? p.canView : (p.can_view !== undefined ? p.can_view : false),
+        can_create: p.canCreate !== undefined ? p.canCreate : (p.can_create !== undefined ? p.can_create : false),
+        can_edit: p.canEdit !== undefined ? p.canEdit : (p.can_edit !== undefined ? p.can_edit : false),
+        can_delete: p.canDelete !== undefined ? p.canDelete : (p.can_delete !== undefined ? p.can_delete : false),
+        company_id: p.company_id || p.companyId || user?.companyId || null
+      };
+      if (p.id) {
+        obj.id = p.id;
+      }
+      return obj;
+    });
+    const { error } = await supabase.from('permissions').upsert(payload, { onConflict: 'profile_id,module' });
+    if (error) {
+      console.error('Error upserting permissions:', error.message);
+    }
     await fetchData();
   };
 
@@ -2446,7 +2564,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ERPContext.Provider value={{
-      user, isAuthReady, isLoading, products, suppliers, customers, sales, expenses, lotes,
+      user: derivedUser, isAuthReady, isLoading, products, suppliers, customers, sales, expenses, lotes,
       stockMovements, inventories, systemSettings, pricingSettings,
       categorias, subcategorias, departamentos, paymentMethods, systemUsers, promotions, returns, employees, accessProfiles, permissions, maquininhas,
       expenseCategories, losses, discountLogs, auditLogs, vouchers, cashRegisters, cashMovements, cashClosings, advertisements, customAlert,

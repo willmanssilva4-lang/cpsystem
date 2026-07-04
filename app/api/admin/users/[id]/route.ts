@@ -47,9 +47,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       authUpdateData.email = email;
     }
     
-    if (username) {
+    if (username || companyId) {
       authUpdateData.user_metadata = {
-        username: username,
+        username: username || body.username,
+        company_id: companyId || body.companyId || body.company_id || null,
+        companyId: companyId || body.companyId || body.company_id || null,
         ...(body.user_metadata || {})
       };
     }
