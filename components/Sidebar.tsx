@@ -95,12 +95,12 @@ export function Sidebar({ isOpen, onClose, hideOnDesktop }: { isOpen?: boolean, 
 
   const SidebarContent = (
     <aside id="sidebar-nav" className="w-64 bg-brand-blue-support flex flex-col h-full text-white overflow-hidden">
-      <div className="p-8 flex items-center justify-between">
+      <div className="p-8 flex items-center justify-center relative">
         <Logo size="md" theme="dark" />
         <button 
           id="sidebar-close"
           onClick={onClose}
-          className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60"
+          className="lg:hidden absolute right-4 p-2 hover:bg-white/10 rounded-lg transition-colors text-white/60"
         >
           <X size={24} />
         </button>

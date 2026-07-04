@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useERP } from '@/lib/context';
 import { 
   Wallet, 
@@ -31,6 +32,7 @@ export function CashRegisterManager({
   onSuccess?: () => void,
   hideHistory?: boolean
 }) {
+  const router = useRouter();
   const { 
     activeRegister, 
     openCashRegister, 
@@ -1254,7 +1256,11 @@ export function CashRegisterManager({
                 </button>
                 <button 
                   onClick={() => {
-                    onSuccess?.();
+                    if (onSuccess) {
+                      onSuccess();
+                    } else {
+                      router.push('/');
+                    }
                     onClose?.();
                   }}
                   className="w-full sm:w-auto py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"
@@ -1964,7 +1970,11 @@ export function CashRegisterManager({
                   </button>
                   <button 
                     onClick={() => {
-                      onSuccess?.();
+                      if (onSuccess) {
+                        onSuccess();
+                      } else {
+                        router.push('/');
+                      }
                       onClose?.();
                     }}
                     className="w-full sm:w-auto py-3 px-5 bg-brand-blue hover:bg-brand-blue-hover text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20 active:scale-95"

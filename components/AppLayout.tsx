@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useERP } from '@/lib/context';
+import { Logo } from '@/components/Logo';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { GlobalAlert } from '@/components/GlobalAlert';
@@ -218,7 +219,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
   };
 
   return (
-    <header id="top-bar" className="bg-white border-b border-brand-border h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
+    <header id="top-bar" className="bg-white border-b border-brand-border h-14 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
       {/* Brand Accent Line */}
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-brand-blue via-brand-green to-brand-blue-hover z-20" />
       
@@ -241,7 +242,11 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
         </div>
       </div>
 
-          <div id="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
+      <div className="flex-1 flex justify-center">
+        <Logo size="sm" theme="light" className="scale-90" />
+      </div>
+
+      <div id="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
           <div id="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
             {!isSuperAdmin && (
               <button 
@@ -527,7 +532,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 showMenuToggleOnDesktop={hideSidebar}
               />
             )}
-            <div id="page-content" data-id="page-content" data-name="page-content" className="flex-1">
+            <div id="page-content" data-id="page-content" data-name="page-content" className="flex-1 bg-white">
               {children}
             </div>
           </main>

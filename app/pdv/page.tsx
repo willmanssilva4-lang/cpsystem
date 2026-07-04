@@ -1698,7 +1698,7 @@ export default function PDVPage() {
   return (
     <div className="h-screen flex flex-col bg-white text-slate-900 font-sans overflow-hidden select-none">
       {/* Top Header */}
-      <header className="bg-[#1e40af] text-white px-2 md:px-4 py-2 flex items-center justify-between border-b border-[#1e40af] gap-2 relative shadow-sm">
+      <header className="bg-white text-slate-900 px-2 md:px-4 py-2 flex items-center justify-between border-b border-brand-border gap-2 relative shadow-sm">
         <div className="flex items-center gap-1.5 md:gap-4 min-w-0 z-10">
           <div className="shrink-0 bg-white px-3 py-1 rounded-lg flex items-center justify-center shadow-sm">
             <Logo size="sm" theme="light" className="md:hidden" />
@@ -1708,7 +1708,7 @@ export default function PDVPage() {
         
         <div className="absolute top-2.5 md:top-1/2 -translate-y-0 md:-translate-y-1/2 left-[90px] right-[115px] md:right-auto md:left-1/2 md:-translate-x-1/2 text-left md:text-center pointer-events-none z-0">
           {companySettings?.tradeName && (
-            <h1 className="text-xs xs:text-sm md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate w-full pointer-events-auto text-white">
+            <h1 className="text-xs xs:text-sm md:text-xl font-bold md:tracking-widest uppercase leading-tight truncate w-full pointer-events-auto text-slate-900">
               {companySettings.tradeName}
             </h1>
           )}

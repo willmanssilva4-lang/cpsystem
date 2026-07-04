@@ -56,7 +56,7 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>stem</span>
       </div>
       {!hideText && (
-        <span className={`${textColor} font-bold tracking-[0.2em] ${s.sub} mt-1`}>
+        <span className={`${textColor} font-bold tracking-[0.2em] ${s.sub} mt-1 text-center`}>
           GESTÃO FINANCEIRA INTELIGENTE
         </span>
       )}

@@ -252,7 +252,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
             const { data, error } = await query;
             if (error) {
-              console.error('[ERPProvider] Error fetching products:', error);
+              console.error('[ERPProvider] Error fetching products. Range:', rangeStart, '-', rangeStart + rangeSize, 'Error:', error);
               break;
             }
             if (!data || data.length === 0) break;
@@ -278,19 +278,31 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
       const fetchReturns = async () => {
         try {
-          let q = supabase.from('returns').select('*, return_items(*)');
+          let q = supabase.from('returns').select('*');
           if (targetCompanyId) {
             q = q.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
           }
-          const { data, error } = await q;
-          if (error) {
-            console.error('[ERPProvider] Error fetching returns with return_items:', error);
-            // Fallback
-            const { data: fallback, error: fallbackErr } = await baseQuery('returns');
-            if (fallbackErr) throw fallbackErr;
-            return fallback || [];
+          const { data: returnsData, error: returnsError } = await q;
+          
+          if (returnsError) {
+            console.error('[ERPProvider] Error fetching returns:', returnsError);
+            throw returnsError;
           }
-          return data;
+
+          if (!returnsData) return [];
+
+          // Try fetching return_items separately if the initial join failed or just for safety
+          const { data: itemsData, error: itemsError } = await supabase.from('return_items').select('*');
+          
+          if (itemsError) {
+             console.warn('[ERPProvider] Could not fetch return_items:', itemsError);
+             return returnsData;
+          }
+
+          return returnsData.map(r => ({
+            ...r,
+            return_items: itemsData.filter(i => i.return_id === r.id)
+          }));
         } catch (e) {
           console.error('[ERPProvider] Exception in fetchReturns:', e);
           return [];
