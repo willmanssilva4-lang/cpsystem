@@ -170,6 +170,7 @@ export interface User {
   role: string;
   image?: string;
   companyId?: string;
+  userNumber?: string;
 }
 
 export interface Customer {

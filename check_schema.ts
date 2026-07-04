@@ -23,13 +23,13 @@ async function check() {
     console.log('Promotions columns:', Object.keys(promoData[0]));
   }
 
-  console.log('\nChecking system_settings table columns from information_schema...');
-  const { data: colsData, error: colsError } = await supabase.rpc('get_table_columns', { table_name: 'system_settings' });
+  console.log('\nChecking system_users table columns from information_schema...');
+  const { data: colsData, error: colsError } = await supabase.rpc('get_table_columns', { table_name: 'system_users' });
   
   if (colsError) {
     console.log('RPC get_table_columns failed, trying custom select from pg_attribute/information_schema via a postgrest query if possible, or trying to fetch a dummy select to inspect properties...');
-    // Since we don't have SQL endpoint, let's try a regular query on system_settings but with some mock insert to see if we get column errors
-    const { error: insertError } = await supabase.from('system_settings').insert([{ non_existent_column_abc: 123 }]);
+    // Since we don't have SQL endpoint, let's try a regular query on system_users but with some mock insert to see if we get column errors
+    const { error: insertError } = await supabase.from('system_users').insert([{ non_existent_column_abc: 123 }]);
     console.log('Dummy insert error (contains column info):', insertError?.message);
   } else {
     console.log('Columns:', colsData);

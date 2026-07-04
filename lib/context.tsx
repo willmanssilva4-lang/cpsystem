@@ -227,8 +227,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [customAlert, setCustomAlert] = useState<any>(null);
 
   const activeRegister = useMemo(() => {
-    return cashRegisters.find(r => r.status === 'open');
-  }, [cashRegisters]);
+    return cashRegisters.find(r => r.status === 'open' && r.operator_id === user?.id);
+  }, [cashRegisters, user?.id]);
 
   const fetchData = async (explicitCompanyId?: string) => {
     setIsLoading(true);
@@ -327,14 +327,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         baseQuery('expenses'),
         baseQuery('produto_lotes'),
         supabase.from('system_settings').select('*').single(), // Settings might be per company
-        fetch(`/api/admin/users?companyId=${targetCompanyId || ''}`).then(async (res) => {
-          if (!res.ok) throw new Error('Failed to fetch users');
-          const json = await res.json();
-          return { data: json.data || [] };
-        }).catch(err => {
-          console.error('[ERPProvider] Error fetching system_users from API:', err);
-          return { data: [] };
-        }), // Filter users by company later if needed
+        typeof window !== 'undefined'
+          ? fetch(`/api/admin/users?companyId=${targetCompanyId || ''}`).then(async (res) => {
+              if (!res.ok) throw new Error('Failed to fetch users');
+              const json = await res.json();
+              return { data: json.data || [] };
+            }).catch(err => {
+              console.error('[ERPProvider] Error fetching system_users from API:', err);
+              return { data: [] };
+            })
+          : Promise.resolve({ data: [] }), // Filter users by company later if needed
         baseQuery('promotions'),
         fetchReturns(),
         baseQuery('employees'),
@@ -741,16 +743,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (Array.isArray(sysUsrs_res)) {
-        setSystemUsers(sysUsrs_res.map((u: any) => ({
-          ...u,
-          fullName: u.fullName || u.full_name || '',
-          employeeId: u.employeeId || u.employee_id || '',
-          profileId: u.profileId || u.profile_id || '',
-          storeId: u.storeId || u.store_id || 'Todas as Lojas',
-          status: u.status || (u.active !== undefined ? (u.active ? 'Ativo' : 'Inativo') : 'Ativo'),
-          supervisorCode: u.supervisorCode || u.supervisor_code || '',
-          companyId: u.companyId || u.company_id || ''
-        })));
+        setSystemUsers(sysUsrs_res.map((u: any) => {
+          const rawCode = u.supervisor_code || u.supervisorCode || '';
+          let userNumber = '';
+          let supervisorCode = '';
+          if (rawCode.includes('|')) {
+            const parts = rawCode.split('|');
+            userNumber = parts[0] || '';
+            supervisorCode = parts[1] || '';
+          } else {
+            supervisorCode = rawCode;
+          }
+          return {
+            ...u,
+            fullName: u.fullName || u.full_name || '',
+            employeeId: u.employeeId || u.employee_id || '',
+            profileId: u.profileId || u.profile_id || '',
+            storeId: u.storeId || u.store_id || 'Todas as Lojas',
+            status: u.status || (u.active !== undefined ? (u.active ? 'Ativo' : 'Inativo') : 'Ativo'),
+            supervisorCode: supervisorCode,
+            userNumber: userNumber,
+            companyId: u.companyId || u.company_id || ''
+          };
+        }));
       }
       if (Array.isArray(proms_res)) {
         setPromotions(proms_res.map((p: any) => ({
@@ -2145,7 +2160,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         if (profile?.name) {
           return {
             ...user,
-            role: profile.name
+            role: profile.name,
+            userNumber: dbUser.userNumber
           };
         }
       }
@@ -2325,6 +2341,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         store_id: data.storeId || data.store_id || 'Todas as Lojas',
         status: data.status || 'Ativo',
         supervisor_code: data.supervisorCode !== undefined ? data.supervisorCode : (data.supervisor_code !== undefined ? data.supervisor_code : null),
+        user_number: data.userNumber || null,
         company_id: data.companyId || data.company_id || user?.companyId || null
       };
       await supabase.from('system_users').insert([dbPayload]);

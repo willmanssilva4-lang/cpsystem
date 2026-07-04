@@ -31,6 +31,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       storeId, 
       status, 
       supervisorCode,
+      userNumber,
       companyId
     } = body;
     const { id } = await params;
@@ -73,6 +74,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (storeId !== undefined) dbUpdateData.store_id = storeId || null;
     if (status !== undefined) dbUpdateData.status = status;
     if (supervisorCode !== undefined) dbUpdateData.supervisor_code = supervisorCode || null;
+    if (userNumber !== undefined) dbUpdateData.user_number = userNumber || null;
     if (companyId !== undefined) dbUpdateData.company_id = companyId || null;
 
     if (password) {

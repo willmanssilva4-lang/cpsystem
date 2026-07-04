@@ -50,6 +50,7 @@ export async function POST(req: Request) {
       storeId, 
       status, 
       supervisorCode,
+      userNumber,
       companyId,
       user_metadata 
     } = data;

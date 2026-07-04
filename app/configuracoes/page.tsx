@@ -684,7 +684,7 @@ function SystemSettings() {
         advertisements: ['id', 'title', 'imageUrl', 'image_url', 'link', 'status', 'company_id', 'created_at'],
         produto_lotes: ['id', 'produto_id', 'numero_lote', 'validade', 'saldo_atual', 'data_entrada', 'custo_unit', 'quantidade_inicial', 'company_id', 'fornecedor_id'],
         system_settings: ['id', 'company_name', 'company_document', 'address', 'phone', 'email', 'theme', 'logo_url', 'company_id', 'created_at', 'logo', 'receipt_footer_message'],
-        system_users: ['id', 'username', 'email', 'full_name', 'employee_id', 'profile_id', 'store_id', 'active', 'supervisor_code', 'company_id', 'created_at'],
+        system_users: ['id', 'username', 'email', 'full_name', 'employee_id', 'profile_id', 'store_id', 'status', 'supervisor_code', 'company_id', 'created_at'],
         promotions: ['id', 'name', 'type', 'status', 'start_date', 'end_date', 'target_type', 'target_id', 'product_prices', 'discount_value', 'company_id', 'created_at'],
         returns: ['id', 'sale_id', 'date', 'reason', 'total', 'company_id', 'created_at'],
         employees: ['id', 'name', 'role', 'phone', 'email', 'admission_date', 'salary', 'status', 'company_id', 'created_at'],

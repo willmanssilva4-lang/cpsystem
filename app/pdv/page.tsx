@@ -21,7 +21,20 @@ import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor,
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products: originalProducts, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [] } = useERP();
+  const { products: originalProducts, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [], logout } = useERP();
+  
+  const handleExitPDV = useCallback(async () => {
+    const role = user?.role?.trim().toLowerCase() || '';
+    if (role === 'caixa' || role === 'operador de caixa') {
+      if (logout) {
+        await logout();
+      }
+      router.push('/login');
+    } else {
+      router.push('/');
+    }
+  }, [user, logout, router]);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [hasPendingCarga, setHasPendingCarga] = useState(false);
   const isInitializedRef = useRef(false);
@@ -1336,7 +1349,7 @@ export default function PDVPage() {
         } else {
           setConfirmDialog({
             message: 'Deseja sair do PDV?',
-            onConfirm: () => router.push('/')
+            onConfirm: handleExitPDV
           });
         }
         setNumericBuffer('');
@@ -1347,7 +1360,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, oldRegisterWarningSelection, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, completedSaleSelection, pricingMode]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, oldRegisterWarningSelection, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, completedSaleSelection, pricingMode, handleExitPDV]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -2163,7 +2176,7 @@ export default function PDVPage() {
       <div className="bg-[#1e40af] py-2 px-4 text-[9px] font-bold border-t border-[#1e40af] overflow-x-auto whitespace-nowrap text-brand-border flex items-center justify-between gap-4">
         <div className="flex items-center gap-1.5 text-white bg-white/10 px-2.5 py-1 rounded">
           <span className="bg-white text-slate-900 px-1.5 py-0.5 rounded uppercase text-[9px] tracking-wider">Operador:</span>
-          <span className="uppercase font-black text-xs">{user?.name || 'SISTEMA'}</span>
+          <span className="uppercase font-black text-xs">{user?.userNumber ? `${user.userNumber} - ` : ''}{user?.name || 'SISTEMA'}</span>
         </div>
         <div className="hidden lg:flex flex-col items-center">
           <div className="flex gap-4 justify-center opacity-80">
@@ -2655,7 +2668,7 @@ export default function PDVPage() {
             <button 
               onClick={() => {
                 setIsNavigatingAway(true);
-                router.push('/');
+                handleExitPDV();
               }}
               className="w-full mt-4 py-3 text-slate-400 hover:text-white transition-colors font-bold uppercase text-sm tracking-widest"
             >
@@ -2678,7 +2691,7 @@ export default function PDVPage() {
               }}
               onSuccess={() => {
                 setIsNavigatingAway(true);
-                router.push('/');
+                handleExitPDV();
               }}
             />
             <button 

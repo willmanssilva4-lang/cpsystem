@@ -133,7 +133,7 @@ export async function GET() {
       email: superAdminEmail,
       full_name: 'Super Admin',
       profile_id: (profile as { id: string }).id,
-      active: true,
+      status: 'Ativo',
       company_id: companyId
     };
 

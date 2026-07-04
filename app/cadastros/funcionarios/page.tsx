@@ -459,7 +459,8 @@ function UsersSettings() {
     status: 'Ativo',
     password: '',
     confirmPassword: '',
-    supervisorCode: ''
+    supervisorCode: '',
+    userNumber: ''
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, username: string } | null>(null);
@@ -502,7 +503,8 @@ function UsersSettings() {
       status: user.status,
       password: '',
       confirmPassword: '',
-      supervisorCode: user.supervisorCode || user.supervisor_code || ''
+      supervisorCode: user.supervisorCode || user.supervisor_code || '',
+      userNumber: user.userNumber || ''
     });
     setEditingId(user.id);
     setShowForm(true);
@@ -526,7 +528,8 @@ function UsersSettings() {
       profileId: formData.profileId,
       storeId: formData.storeId,
       status: formData.status as 'Ativo' | 'Inativo',
-      supervisorCode: formData.supervisorCode
+      supervisorCode: `${formData.userNumber}|${formData.supervisorCode}`,
+      userNumber: formData.userNumber
     };
 
     console.log('handleSave - editingId:', editingId);
@@ -545,7 +548,7 @@ function UsersSettings() {
 
     setShowForm(false);
     setEditingId(null);
-    setFormData({ username: '', email: '', employeeId: '', profileId: '', storeId: 'Todas as Lojas', status: 'Ativo', password: '', confirmPassword: '', supervisorCode: '' });
+    setFormData({ username: '', email: '', employeeId: '', profileId: '', storeId: 'Todas as Lojas', status: 'Ativo', password: '', confirmPassword: '', supervisorCode: '', userNumber: '' });
   };
 
   if (showForm) {
@@ -628,6 +631,12 @@ function UsersSettings() {
               </select>
             </div>
             <InputGroup 
+              label="Número do Usuário (Automático)" 
+              value={formData.userNumber} 
+              readOnly
+              className="opacity-50 cursor-not-allowed"
+            />
+            <InputGroup 
               label="Código de Autorização PDV (PIN)" 
               placeholder="Ex: 1234" 
               value={formData.supervisorCode} 
@@ -655,7 +664,8 @@ function UsersSettings() {
         description="Gestão de acessos, senhas e perfis." 
         action={
           <button onClick={() => {
-            setFormData({ username: '', email: '', employeeId: '', profileId: '', storeId: 'Todas as Lojas', status: 'Ativo', password: '', confirmPassword: '', supervisorCode: '' });
+            const maxNum = Math.max(0, ...systemUsers.map(u => parseInt(u.userNumber) || 0));
+            setFormData({ username: '', email: '', employeeId: '', profileId: '', storeId: 'Todas as Lojas', status: 'Ativo', password: '', confirmPassword: '', supervisorCode: '', userNumber: (maxNum + 1).toString().padStart(3, '0') });
             setEditingId(null);
             setShowForm(true);
           }} className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-xl font-black uppercase italic text-xs shadow-lg shadow-brand-blue/20 hover:bg-brand-text-main transition-all">
