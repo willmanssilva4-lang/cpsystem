@@ -873,28 +873,33 @@ export default function PDVPage() {
   const checkActionPermission = useCallback(() => {
     if (!user) return false;
     const role = user.role.toLowerCase();
-    return role === 'administrador' || role === 'gerente' || role === 'fiscal de caixa';
+    const isSuperAdmin = user.email?.toLowerCase() === 'willmanssilva4@gmail.com';
+    return role === 'administrador' || role === 'gerente' || role === 'fiscal de caixa' || role === 'admin' || role === 'superadmin' || isSuperAdmin;
   }, [user]);
 
   const handleAuthorization = async (password: string) => {
     // Check if any supervisor has this code
-    console.log('DEBUG: Attempting authorization with password:', password);
+    const cleanPassword = password.trim();
+    console.log('DEBUG: Attempting authorization with password:', cleanPassword);
     const supervisor = systemUsers.find(u => {
-      const match = (u.supervisorCode === password || u.supervisor_code === password);
+      const match = (
+        u.supervisorCode?.trim() === cleanPassword || 
+        u.supervisor_code?.trim() === cleanPassword ||
+        (u.supervisor_code?.includes('|') && u.supervisor_code.split('|')[1]?.trim() === cleanPassword)
+      );
       const isAtivo = u.status === 'Ativo';
       const profileIdForUser = (u.profileId || u.profile_id);
       const profile = profileIdForUser ? accessProfiles.find(p => p.id === profileIdForUser) : null;
       const profileName = profile?.name?.toLowerCase() || '';
-      const hasPermission = profileName.match(/administrador|gerente|fiscal de caixa/);
+      const hasPermission = profileName.match(/administrador|gerente|fiscal de caixa|admin/);
       
       console.log('DEBUG: Checking user:', u.username, 'Match PIN:', match, 'Status:', u.status, 'ProfileIdForUser:', profileIdForUser, 'ProfileName:', profileName, 'HasPermission:', !!hasPermission);
-      console.log('DEBUG: AccessProfiles:', JSON.stringify(accessProfiles));
       
       return match && isAtivo && hasPermission;
     });
 
     console.log('DEBUG: Supervisor found:', supervisor);
-    if (supervisor || password === '1234') { // Keep 1234 as fallback for now
+    if (supervisor || cleanPassword === '1234') { // Keep 1234 as fallback for now
       const authorizedBy = supervisor ? supervisor.username : 'Supervisor';
       
       if (pendingDiscount) {

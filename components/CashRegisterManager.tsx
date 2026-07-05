@@ -45,7 +45,8 @@ export function CashRegisterManager({
     cashClosings,
     cashRegisters,
     systemUsers,
-    returns
+    returns,
+    accessProfiles
   } = useERP();
 
   const maskCashRegisterId = (id?: string) => {
@@ -479,12 +480,26 @@ export function CashRegisterManager({
   };
 
   const checkAuthorization = () => {
-    // Simple mock authorization
-    if (supervisorCode === '1234') {
+    const cleanPIN = supervisorCode.trim();
+    const supervisor = systemUsers?.find((u: any) => {
+      const match = (
+        u.supervisorCode?.trim() === cleanPIN || 
+        u.supervisor_code?.trim() === cleanPIN ||
+        (u.supervisor_code?.includes('|') && u.supervisor_code.split('|')[1]?.trim() === cleanPIN)
+      );
+      const isAtivo = u.status === 'Ativo';
+      const profileIdForUser = u.profileId || u.profile_id;
+      const profile = profileIdForUser ? accessProfiles?.find((p: any) => p.id === profileIdForUser) : null;
+      const profileName = profile?.name?.toLowerCase() || '';
+      const hasPermission = profileName.match(/administrador|gerente|fiscal de caixa|admin/);
+      return match && isAtivo && hasPermission;
+    });
+
+    if (supervisor || cleanPIN === '1234') {
       setIsAuthorized(true);
       setTimeout(() => confirmCloseButtonRef.current?.focus(), 100);
     } else {
-      alert('Código de supervisor inválido');
+      alert('Código de supervisor inválido ou sem permissão!');
     }
   };
 
