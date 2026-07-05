@@ -27,6 +27,7 @@ interface ERPContextType {
   user: User | null;
   isAuthReady: boolean;
   isLoading: boolean;
+  systemUsersError?: string | null;
   products: Product[];
   suppliers: Supplier[];
   customers: Customer[];
@@ -199,6 +200,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [systemUsersError, setSystemUsersError] = useState<string | null>(null);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [returns, setReturns] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -342,12 +344,34 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         supabase.from('system_settings').select('*').single(), // Settings might be per company
         typeof window !== 'undefined'
           ? fetch(`/api/admin/users?companyId=${targetCompanyId || ''}`).then(async (res) => {
-              if (!res.ok) throw new Error('Failed to fetch users');
+              if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`API status ${res.status}: ${text}`);
+              }
               const json = await res.json();
+              setSystemUsersError(null);
               return { data: json.data || [] };
-            }).catch(err => {
-              console.error('[ERPProvider] Error fetching system_users from API:', err);
-              return { data: [] };
+            }).catch(async (err) => {
+              console.warn('[ERPProvider] Error fetching system_users from API, trying client-side fallback:', err.message || err);
+              try {
+                let q = supabase.from('system_users').select('*');
+                if (targetCompanyId) {
+                  q = q.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+                }
+                const { data: fallbackData, error: fallbackError } = await q;
+                if (fallbackError) {
+                  console.error('[ERPProvider] Fallback query to system_users also failed:', fallbackError);
+                  setSystemUsersError(`Erro na API e no fallback do banco: ${fallbackError.message}`);
+                  return { data: [] };
+                }
+                console.log('[ERPProvider] Successfully fetched system_users via client fallback:', fallbackData?.length);
+                setSystemUsersError(null);
+                return { data: fallbackData || [] };
+              } catch (fallbackExc: any) {
+                console.error('[ERPProvider] Exception in system_users fallback:', fallbackExc);
+                setSystemUsersError(`Erro na API: ${err.message || err}. Fallback falhou: ${fallbackExc.message || fallbackExc}`);
+                return { data: [] };
+              }
             })
           : Promise.resolve({ data: [] }), // Filter users by company later if needed
         baseQuery('promotions'),
@@ -2594,7 +2618,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ERPContext.Provider value={{
-      user: derivedUser, isAuthReady, isLoading, products, suppliers, customers, sales, expenses, lotes,
+      user: derivedUser, isAuthReady, isLoading, systemUsersError, products, suppliers, customers, sales, expenses, lotes,
       stockMovements, inventories, systemSettings, pricingSettings,
       categorias, subcategorias, departamentos, paymentMethods, systemUsers, promotions, returns, employees, accessProfiles, permissions, maquininhas,
       expenseCategories, losses, discountLogs, auditLogs, vouchers, cashRegisters, cashMovements, cashClosings, advertisements, customAlert,

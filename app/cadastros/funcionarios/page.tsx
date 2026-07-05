@@ -447,7 +447,7 @@ function EmployeesSettings() {
 }
 
 function UsersSettings() {
-  const { systemUsers, employees, accessProfiles, addSystemUser, updateSystemUser, deleteSystemUser, companySettings } = useERP();
+  const { systemUsers, systemUsersError, employees, accessProfiles, addSystemUser, updateSystemUser, deleteSystemUser, companySettings } = useERP();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -705,6 +705,13 @@ function UsersSettings() {
             </div>
           </div>
         </div>
+
+        {systemUsersError && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-bold text-amber-700 uppercase tracking-wider flex flex-col gap-1">
+            <span>Aviso sobre carregamento de usuários:</span>
+            <span className="opacity-80 normal-case font-medium">{systemUsersError}</span>
+          </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto border border-slate-100 rounded-2xl">
