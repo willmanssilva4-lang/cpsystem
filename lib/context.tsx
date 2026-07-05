@@ -226,6 +226,19 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   });
   const [customAlert, setCustomAlert] = useState<any>(null);
 
+  useEffect(() => {
+    const channel = supabase.channel('data_sync');
+    channel
+      .on('broadcast', { event: 'data_imported' }, () => {
+        console.log('🔄 Sincronização recebida! Recarregando...');
+        window.location.reload();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const activeRegister = useMemo(() => {
     return cashRegisters.find(r => r.status === 'open' && r.userId === user?.id);
   }, [cashRegisters, user?.id]);

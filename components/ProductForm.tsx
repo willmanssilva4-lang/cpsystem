@@ -507,6 +507,17 @@ export function ProductForm({ onClose, onSave, initialData }: ProductFormProps) 
       }
       return;
     }
+
+    const isDuplicate = products.some(p => p.sku === formData.sku && p.id !== initialData?.id);
+    if (isDuplicate) {
+      if (setCustomAlert) {
+        setCustomAlert({
+          type: 'error',
+          message: 'Aviso do Sistema: Código de barra já em uso!'
+        });
+      }
+      return;
+    }
     
     let finalCodigoMercadologico = formData.codigo_mercadologico;
     if (!finalCodigoMercadologico && formData.subcategoria_id) {

@@ -995,6 +995,14 @@ function SystemSettings() {
         }
       }
 
+      if (isSupabaseConnected) {
+        await supabase.channel('data_sync').send({
+          type: 'broadcast',
+          event: 'data_imported',
+          payload: { message: 'reload' }
+        });
+      }
+
       const syncResultMsg = isSupabaseConnected
         ? `Restauração Completa!\n\n${localStorageSuccessCount} módulos salvos localmente.\nSincronizados e carregados com sucesso no banco de dados.`
         : `${localStorageSuccessCount} módulos restaurados localmente!`;
