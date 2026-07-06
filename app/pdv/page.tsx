@@ -17,7 +17,7 @@ import { PriceCheckModal } from '@/components/PriceCheckModal';
 import { ProductListModal } from '@/components/ProductListModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
-import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor, Image as ImageIcon } from 'lucide-react';
+import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor, Image as ImageIcon, Pause, FolderOpen } from 'lucide-react';
 
 export default function PDVPage() {
   const router = useRouter();
@@ -185,6 +185,114 @@ export default function PDVPage() {
   const [completedSaleSelection, setCompletedSaleSelection] = useState<'print' | 'new_sale'>('new_sale');
   
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+
+  interface PausedSale {
+    id: string;
+    timestamp: string;
+    cart: { product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string, canceled?: boolean }[];
+    saleDiscount: number;
+    selectedCustomer: any | null;
+    pricingMode: 'retail' | 'wholesale' | 'term';
+  }
+
+  const [pausedSales, setPausedSales] = useState<PausedSale[]>([]);
+  const [showPausedSalesDropdown, setShowPausedSalesDropdown] = useState(false);
+
+  // Initialize and persist pausedSales in localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_pdv_paused_sales');
+      if (saved) {
+        try {
+          setPausedSales(JSON.parse(saved));
+        } catch (e) {
+          console.error("Error parsing paused sales from localStorage:", e);
+        }
+      }
+    }
+  }, []);
+
+  const savePausedSalesToStorage = (sales: PausedSale[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_pdv_paused_sales', JSON.stringify(sales));
+    }
+  };
+
+  const handlePauseCurrentSale = () => {
+    if (cart.length === 0) {
+      setCustomAlert({ message: 'Não há itens no carrinho para pausar.', type: 'error' });
+      return;
+    }
+
+    const newPausedSale: PausedSale = {
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      cart: [...cart],
+      saleDiscount,
+      selectedCustomer,
+      pricingMode
+    };
+
+    const updated = [newPausedSale, ...pausedSales];
+    setPausedSales(updated);
+    savePausedSalesToStorage(updated);
+
+    // Clear current cart and reset states
+    setCart([]);
+    setSaleDiscount(0);
+    setSelectedCustomer(null);
+    setPricingMode('retail');
+    setSelectedCartIndex(-1);
+    setIsNavigatingCart(false);
+
+    setCustomAlert({ message: 'Venda colocada em pausa com sucesso!', type: 'success' });
+  };
+
+  const resumeSale = (pausedId: string) => {
+    const selected = pausedSales.find(s => s.id === pausedId);
+    if (!selected) return;
+
+    const currentCart = [...cart];
+    const currentDiscount = saleDiscount;
+    const currentCust = selectedCustomer;
+    const currentMode = pricingMode;
+
+    // Load selected sale
+    setCart(selected.cart);
+    setSaleDiscount(selected.saleDiscount);
+    setSelectedCustomer(selected.selectedCustomer);
+    setPricingMode(selected.pricingMode);
+    setSelectedCartIndex(-1);
+    setIsNavigatingCart(false);
+
+    let updated: PausedSale[];
+    if (currentCart.length > 0) {
+      // Swap current cart into the paused slot
+      updated = pausedSales.map(s => s.id === pausedId ? {
+        id: s.id,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        cart: currentCart,
+        saleDiscount: currentDiscount,
+        selectedCustomer: currentCust,
+        pricingMode: currentMode
+      } : s);
+      setCustomAlert({ message: 'Vendas alternadas! A venda anterior foi colocada em pausa.', type: 'info' });
+    } else {
+      // Just remove from paused list
+      updated = pausedSales.filter(s => s.id !== pausedId);
+      setCustomAlert({ message: 'Venda em pausa recuperada com sucesso!', type: 'success' });
+    }
+
+    setPausedSales(updated);
+    savePausedSalesToStorage(updated);
+  };
+
+  const deletePausedSale = (pausedId: string) => {
+    const updated = pausedSales.filter(s => s.id !== pausedId);
+    setPausedSales(updated);
+    savePausedSalesToStorage(updated);
+    setCustomAlert({ message: 'Venda em pausa excluída.', type: 'info' });
+  };
 
   const handleImportCarga = async () => {
     if (typeof window !== 'undefined') {
@@ -1302,6 +1410,7 @@ export default function PDVPage() {
           setShowReverseModal(true);
         }
         if (key === 'h') { e.preventDefault(); alert('Funcionalidade: Histórico Cliente (Alt+H)'); }
+        if (key === 'p') { e.preventDefault(); handlePauseCurrentSale(); }
         if (key === 'z') { e.preventDefault(); toggleFullScreen(); }
       }
 
@@ -1912,8 +2021,103 @@ export default function PDVPage() {
 
         {/* Right: Cupom */}
         <div className="w-full lg:w-[50%] flex flex-col bg-white rounded-xl overflow-hidden shadow-2xl border border-brand-border min-h-[400px] lg:min-h-0">
-          <div className="py-1 text-center border-b border-brand-border bg-slate-50">
-            <h3 className="text-lg md:text-2xl font-black italic tracking-widest text-brand-text-main uppercase">Cupom Fiscal</h3>
+          <div className="py-1.5 px-4 flex flex-wrap justify-between items-center gap-2 border-b border-brand-border bg-slate-50">
+            <h3 className="text-lg md:text-xl font-black italic tracking-widest text-brand-text-main uppercase">Cupom Fiscal</h3>
+            
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={cart.length === 0}
+                onClick={handlePauseCurrentSale}
+                className={cn(
+                  "px-2.5 py-1 text-[10px] md:text-xs font-black italic uppercase rounded-lg border transition-all flex items-center gap-1 shadow-sm",
+                  cart.length > 0 
+                    ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white cursor-pointer active:scale-95" 
+                    : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                )}
+                title="Pausar Venda Atual (Alt+P)"
+              >
+                <Pause size={12} className="shrink-0" /> Pausar (Alt+P)
+              </button>
+              
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPausedSalesDropdown(prev => !prev)}
+                  className={cn(
+                    "px-2.5 py-1 text-[10px] md:text-xs font-black italic uppercase rounded-lg border transition-all flex items-center gap-1 shadow-sm relative",
+                    pausedSales.length > 0
+                      ? "bg-brand-blue hover:bg-brand-blue-hover border-brand-blue text-white cursor-pointer active:scale-95"
+                      : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                  )}
+                >
+                  <FolderOpen size={12} className="shrink-0" /> Pausadas ({pausedSales.length})
+                  {pausedSales.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                  )}
+                </button>
+                
+                {showPausedSalesDropdown && pausedSales.length > 0 && (
+                  <div className="absolute right-0 mt-2 w-72 md:w-80 bg-white border-2 border-brand-border rounded-xl shadow-2xl z-[150] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="bg-brand-text-main px-4 py-2 text-white font-black italic uppercase text-xs flex justify-between items-center">
+                      <span>Vendas em Pausa</span>
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setShowPausedSalesDropdown(false); }}
+                        className="text-white hover:text-rose-400 text-[10px] font-bold uppercase"
+                      >
+                        Fechar
+                      </button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                      {pausedSales.map((ps) => {
+                        const activeItemsCount = ps.cart.filter(i => !i.canceled).reduce((sum, i) => sum + i.quantity, 0);
+                        const totalVal = ps.cart.filter(i => !i.canceled).reduce((sum, i) => sum + (i.product.salePrice * i.quantity - i.discount * i.quantity), 0) - ps.saleDiscount;
+                        return (
+                          <div key={ps.id} className="p-3 hover:bg-slate-50/80 transition-colors flex flex-col gap-1.5 text-left">
+                            <div className="flex justify-between items-center">
+                              <span className="font-mono text-[9px] text-slate-400 font-bold uppercase">ID: #{ps.id}</span>
+                              <span className="font-mono text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold">{ps.timestamp}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs font-black text-brand-text-main">
+                              <span className="uppercase italic text-slate-600">{activeItemsCount} {activeItemsCount === 1 ? 'item' : 'itens'}</span>
+                              <span className="text-brand-blue">R$ {formatCurrency(Math.max(0, totalVal))}</span>
+                            </div>
+                            {ps.selectedCustomer && (
+                              <div className="text-[10px] text-brand-blue font-black uppercase italic bg-brand-blue/5 px-2 py-0.5 rounded border border-brand-blue/10 truncate">
+                                Cliente: {ps.selectedCustomer.name}
+                              </div>
+                            )}
+                            <div className="flex gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  resumeSale(ps.id);
+                                  setShowPausedSalesDropdown(false);
+                                }}
+                                className="flex-1 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white text-[10px] font-black uppercase italic rounded-md transition-all text-center shadow"
+                              >
+                                Recuperar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deletePausedSale(ps.id)}
+                                className="py-1.5 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-black uppercase italic rounded-md transition-all text-center border border-rose-100"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           
           <div className="flex-1 bg-white text-slate-900 overflow-y-auto relative">
@@ -2563,6 +2767,7 @@ export default function PDVPage() {
                 <p><span className="font-bold">F10</span> - Finalizar venda</p>
                 <p><span className="font-bold">F11</span> - Alternar precificação (Varejo / Preço 2)</p>
                 <p><span className="font-bold">F12</span> - Autorização rápida</p>
+                <p><span className="font-bold">Alt + P</span> - Pausar / Alternar venda atual</p>
               </div>
               <div className="space-y-2">
                 <h4 className="font-black italic uppercase text-brand-blue border-b border-brand-border pb-1">Caixa & Consultas</h4>
