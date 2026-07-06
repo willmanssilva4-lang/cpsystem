@@ -219,7 +219,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
   };
 
   return (
-    <header id="top-bar" className="bg-white border-b border-brand-border h-14 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
+    <header id="top-bar" className="bg-[#1e40af] text-white border-b border-blue-900/30 h-14 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 shadow-md">
       {/* Brand Accent Line */}
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-brand-blue via-brand-green to-brand-blue-hover z-20" />
       
@@ -228,12 +228,12 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
           id="mobile-menu-toggle"
           name="mobile-menu-toggle"
           onClick={onMenuClick}
-          className={cn("p-2 hover:bg-slate-50 rounded-lg transition-colors text-brand-text-main", !showMenuToggleOnDesktop && "lg:hidden")}
+          className={cn("p-2 hover:bg-blue-700/55 rounded-lg transition-colors text-white", !showMenuToggleOnDesktop && "lg:hidden")}
         >
           <Menu size={24} />
         </button>
         
-        <div id="date-display" className="hidden lg:flex items-center gap-2 text-brand-text-sec font-medium cursor-pointer hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-brand-border">
+        <div id="date-display" className="hidden lg:flex items-center gap-2 text-white font-medium cursor-pointer hover:bg-blue-700/55 px-3 py-1.5 rounded-lg transition-colors border border-blue-500/30 bg-blue-900/20">
           <Calendar size={18} />
           <span className="text-sm">
             {mounted ? new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Carregando...'}
@@ -243,21 +243,21 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
       </div>
 
       <div className="flex-1 flex justify-center">
-        <Logo size="sm" theme="light" className="scale-90" />
+        <Logo size="sm" theme="dark" className="scale-90" />
       </div>
 
       <div id="top-bar-actions" data-id="top-bar-actions" data-name="top-bar-actions" className="flex items-center gap-3 md:gap-6">
-          <div id="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-brand-text-sec relative">
+          <div id="notifications-container" data-id="notifications-container" data-name="notifications-container" className="flex items-center gap-2 md:gap-4 text-white/95 relative">
             {!isSuperAdmin && (
               <button 
                 id="notifications-toggle"
                 name="notifications-toggle"
-                className="relative hover:text-brand-blue transition-colors p-1"
+                className="relative hover:text-white hover:bg-blue-700/55 rounded-lg p-1 transition-colors"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
               >
                 <Bell size={20} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-brand-green text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-brand-green text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-[#1e40af]">
                     {unreadCount}
                   </span>
                 )}
@@ -265,7 +265,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
             )}
 
             {!isSuperAdmin && isNotificationsOpen && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-brand-border overflow-hidden z-50">
+            <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-brand-border overflow-hidden z-50 text-brand-text-main">
               <div className="p-4 border-b border-brand-border flex justify-between items-center bg-slate-50">
                 <h3 className="font-semibold text-brand-text-main">Notificações</h3>
                 {unreadCount > 0 && (
@@ -315,10 +315,10 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
                 name="sync-toggle"
                 onClick={() => fetchData()}
                 disabled={isLoading}
-                className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group cursor-pointer disabled:opacity-50"
+                className="hover:text-white hover:bg-blue-700/55 rounded-lg p-1 flex items-center gap-1 group cursor-pointer disabled:opacity-50 transition-colors"
                 title="Sincronizar dados com o servidor"
               >
-                <RefreshCw size={18} className={isLoading ? "animate-spin text-brand-blue" : "transition-transform group-hover:rotate-45"} />
+                <RefreshCw size={18} className={isLoading ? "animate-spin text-white" : "transition-transform group-hover:rotate-45"} />
                 <span className="hidden xl:inline text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Sincronizar</span>
               </button>
             )}
@@ -328,7 +328,7 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
                 id="help-toggle"
                 name="help-toggle"
                 onClick={onHelpClick}
-                className="hover:text-brand-blue transition-colors p-1 flex items-center gap-1 group"
+                className="hover:text-white hover:bg-blue-700/55 rounded-lg p-1 flex items-center gap-1 group transition-colors"
                 title="Modo Ajuda"
               >
                 <HelpCircle size={20} />
@@ -337,28 +337,28 @@ function TopBar({ user, onMenuClick, onHelpClick, showMenuToggleOnDesktop }: { u
             )}
   
             {!isSuperAdmin && (
-              <Link id="settings-link" href="/configuracoes" className="hover:text-brand-blue transition-colors p-1">
+              <Link id="settings-link" href="/configuracoes" className="hover:text-white hover:bg-blue-700/55 rounded-lg p-1 transition-colors">
                 <Settings size={20} />
               </Link>
             )}
           </div>
   
-          <div className="hidden sm:block w-px h-8 bg-brand-border"></div>
+          <div className="hidden sm:block w-px h-8 bg-blue-500/20"></div>
   
           <div 
             id="user-profile-toggle"
-            className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-slate-50 p-1 rounded-lg transition-colors"
+            className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-blue-700/55 p-1 rounded-lg transition-colors"
             onClick={() => !isSuperAdmin && (window.location.href = '/configuracoes')}
           >
           <div className="hidden md:block text-right">
-            <p className="text-sm font-semibold text-brand-text-main">{user?.name || 'Usuário'}</p>
-            <p className="text-xs text-brand-text-sec capitalize">{user?.role || 'Acesso'}</p>
+            <p className="text-sm font-semibold text-white">{user?.name || 'Usuário'}</p>
+            <p className="text-xs text-white/70 capitalize">{user?.role || 'Acesso'}</p>
           </div>
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-brand-blue/10 overflow-hidden border border-brand-border flex items-center justify-center">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 overflow-hidden border border-white/20 flex items-center justify-center">
             {user?.image ? (
               <img src={user.image} alt={user.name || 'User'} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-full h-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm">
+              <div className="w-full h-full bg-white text-blue-800 flex items-center justify-center font-bold text-sm">
                 {(user?.name || 'U').charAt(0).toUpperCase()}
               </div>
             )}
