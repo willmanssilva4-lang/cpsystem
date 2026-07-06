@@ -35,7 +35,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // Synchronously compute the redirection target
   let computedTarget: string | null = null;
   const isSuperAdminManagement = effectiveUser?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
-  const isCaixaCheck = effectiveUser?.role?.trim().toLowerCase() === 'caixa';
+  const userRole = effectiveUser?.role?.trim().toLowerCase() || '';
+  const isCaixaCheck = userRole === 'caixa' || 
+                       userRole === 'operador de caixa' || 
+                       userRole === 'operador caixa' || 
+                       userRole === 'fiscal de caixa' ||
+                       userRole.includes('caixa');
 
   if (isAuthReady && !forcedReady) {
     if (!effectiveUser) {

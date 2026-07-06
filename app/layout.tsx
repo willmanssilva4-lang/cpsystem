@@ -3,6 +3,8 @@ import './globals.css';
 import { ERPProvider } from '@/lib/context';
 import { AppLayout } from '@/components/AppLayout';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'CPSystem ERP - Gestão Integrada',
   description: 'Sistema ERP Profissional para Gestão de Vendas, Estoque e Financeiro.',
