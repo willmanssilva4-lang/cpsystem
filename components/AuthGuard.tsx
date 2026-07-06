@@ -80,10 +80,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       console.log(`[AuthGuard] Redirecting from ${currentPath} to ${computedTarget}`);
       redirectingToRef.current = computedTarget;
       
-      // Use window.location.replace for ALL redirects to be absolutely sure it works
-      // and doesn't get stuck in a router state loop. 
-      // This forces a full page load which is more robust for auth state transitions.
-      window.location.replace(computedTarget);
+      // Use Next.js client-side router to redirect smoothly without full-page reloads,
+      // avoiding annoying visual flickers/flashes while retaining auth state in context.
+      router.replace(computedTarget);
     } else {
       console.log('[AuthGuard] No redirect target needed.');
       redirectingToRef.current = null;
