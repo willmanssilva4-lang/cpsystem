@@ -504,13 +504,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [systemSettings?.theme]);
   
-  const isLoginPage = pathname === '/login';
-  const isPDVPage = pathname === '/pdv';
-  const isPriceCheckPage = pathname === '/consulta-preco';
-  const isEstoquePage = pathname === '/produtos';
-  const isComprasPage = pathname.startsWith('/compras');
-  const isFinanceiroPage = pathname.startsWith('/financeiro');
-  const isCadastrosPage = pathname.startsWith('/cadastros');
+  const currentPath = pathname || '';
+  const isLoginPage = currentPath === '/login';
+  const isPDVPage = currentPath === '/pdv';
+  const isPriceCheckPage = currentPath === '/consulta-preco';
+  const isEstoquePage = currentPath === '/produtos';
+  const isComprasPage = currentPath.startsWith('/compras');
+  const isFinanceiroPage = currentPath.startsWith('/financeiro');
+  const isCadastrosPage = currentPath.startsWith('/cadastros');
   const hideSidebar = isEstoquePage || isComprasPage || isFinanceiroPage || isCadastrosPage;
 
   return (

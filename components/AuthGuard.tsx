@@ -10,6 +10,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isAuthReady, isLoading } = useERP();
   const router = useRouter();
   const pathname = usePathname();
+  const currentPath = pathname || '';
   const redirectingToRef = React.useRef<string | null>(null);
 
   // States for diagnostic assistance and loading bypass
@@ -31,8 +32,37 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Synchronously compute the redirection target
+  let computedTarget: string | null = null;
+  const isSuperAdminManagement = effectiveUser?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
+  const isCaixaCheck = effectiveUser?.role?.trim().toLowerCase() === 'caixa';
+
+  if (isAuthReady && !forcedReady) {
+    if (!effectiveUser) {
+      if (currentPath !== '/login' && currentPath !== '/consulta-preco') {
+        computedTarget = '/login';
+      }
+    } else {
+      if (isCaixaCheck) {
+        if (currentPath !== '/pdv' && currentPath !== '/consulta-preco') {
+          computedTarget = '/pdv';
+        }
+      } else if (isSuperAdminManagement) {
+        if (currentPath !== '/admin/companies' && currentPath !== '/consulta-preco') {
+          computedTarget = '/admin/companies';
+        }
+      } else {
+        if (currentPath === '/login') {
+          computedTarget = '/';
+        } else if (currentPath.startsWith('/admin')) {
+          computedTarget = '/';
+        }
+      }
+    }
+  }
+
   useEffect(() => {
-    console.log('[AuthGuard] useEffect running. isAuthReady:', isAuthReady, 'user:', effectiveUser, 'pathname:', pathname);
+    console.log('[AuthGuard] useEffect running. isAuthReady:', isAuthReady, 'user:', effectiveUser, 'pathname:', currentPath, 'computedTarget:', computedTarget);
     
     // If the user forced entry, we skip the redirections unless we find auth has actually loaded later
     if (forcedReady && !isAuthReady) {
@@ -40,54 +70,30 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Wait for auth to be ready before making decisions
-    if (!isAuthReady) {
-      console.log('[AuthGuard] Auth not ready yet.');
-      return;
-    }
-
-    const isSuperAdminManagement = effectiveUser?.email?.toLowerCase() === 'willmanssilva4@gmail.com';
-    const isCaixaCheck = effectiveUser?.role?.trim().toLowerCase() === 'caixa';
-    
-    let target: string | null = null;
-    
-    if (!effectiveUser) {
-      if (pathname !== '/login' && pathname !== '/consulta-preco') {
-        target = '/login';
-      }
-    } else {
-      if (pathname === '/login') {
-        target = isCaixaCheck ? '/pdv' : (isSuperAdminManagement ? '/admin/companies' : '/');
-      } else if (pathname === '/' && isSuperAdminManagement) {
-        target = '/admin/companies';
-      } else if (pathname === '/' && isCaixaCheck) {
-        target = '/pdv';
-      }
-    }
-    
-    if (target && target !== pathname) {
+    if (computedTarget && computedTarget !== currentPath) {
       // If we are already on the target or navigating to it, don't trigger again
-      if (redirectingToRef.current === target) {
-        console.log('[AuthGuard] Already redirecting to target:', target);
+      if (redirectingToRef.current === computedTarget) {
+        console.log('[AuthGuard] Already redirecting to target:', computedTarget);
         return;
       }
 
-      console.log(`[AuthGuard] Redirecting from ${pathname} to ${target}`);
-      redirectingToRef.current = target;
+      console.log(`[AuthGuard] Redirecting from ${currentPath} to ${computedTarget}`);
+      redirectingToRef.current = computedTarget;
       
       // Use window.location.replace for ALL redirects to be absolutely sure it works
       // and doesn't get stuck in a router state loop. 
       // This forces a full page load which is more robust for auth state transitions.
-      window.location.replace(target);
+      window.location.replace(computedTarget);
     } else {
       console.log('[AuthGuard] No redirect target needed.');
       redirectingToRef.current = null;
     }
-  }, [user, router, pathname, isAuthReady, effectiveUser, forcedReady]);
+  }, [currentPath, isAuthReady, effectiveUser, forcedReady, computedTarget]);
 
   // If we are on a public page, don't show the loading screen if auth is not ready
   // This prevents stuck loading screens on login/price check pages
-  const isPublicPage = pathname === '/login' || pathname === '/consulta-preco';
+  const isPublicPage = currentPath === '/login' || currentPath === '/consulta-preco';
+  const needsRedirect = computedTarget !== null && computedTarget !== currentPath;
 
   // Toggle troubleshooting panel after 4 seconds of loading
   useEffect(() => {
@@ -130,10 +136,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Show loading state while auth is initializing or when explicitly loading
-  // No longer showing it for redirecting state to prevent stuck UI
-  if (!isAuthReady && !isPublicPage && !forcedReady) {
-    console.log('[AuthGuard] Rendering loading screen');
+  // Show loading state while auth is initializing OR when a redirect is pending/in-progress
+  if ((!isAuthReady && !isPublicPage && !forcedReady) || needsRedirect) {
+    console.log('[AuthGuard] Rendering loading screen. isAuthReady:', isAuthReady, 'needsRedirect:', needsRedirect);
     return (
       <div 
         id="auth-loading-screen" 
@@ -149,11 +154,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <div id="loading-spinner" data-id="loading-spinner" className="w-12 h-12 border-4 border-white/20 border-t-brand-green rounded-full animate-spin" />
             
             <span id="loading-text" data-id="loading-text" className="text-white font-bold uppercase italic tracking-widest text-sm md:text-base">
-              Carregando Sistema...
+              {needsRedirect ? 'Redirecionando...' : 'Carregando Sistema...'}
             </span>
             
             <span className="text-white/60 text-xs mt-1">
-              Status: {isAuthReady ? 'Pronto' : 'Aguardando'} | {isLoading ? 'Carregando dados' : 'Dados prontos'}
+              Status: {isAuthReady ? 'Pronto' : 'Aguardando'} | {needsRedirect ? 'Calculando acesso seguro' : 'Aguardando dados'}
             </span>
           </div>
 
