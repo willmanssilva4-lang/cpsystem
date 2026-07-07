@@ -1126,6 +1126,13 @@ export default function PDVPage() {
       // Check if user is typing in an input field
       const isInputFocused = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
 
+      // ALT+C shortcut to import product database (Carga) - available globally anytime
+      if (e.altKey && !e.ctrlKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        handleImportCarga();
+        return;
+      }
+
       // Handle Numeric Buffer for Quick Actions (3 + F6, etc)
       if (!isInputFocused && e.key >= '0' && e.key <= '9' && !e.ctrlKey && !e.altKey && !showPaymentModal && !showDiscountModal && !showAuthModal && activeRegister) {
         setNumericBuffer(prev => prev + e.key);
@@ -1445,7 +1452,6 @@ export default function PDVPage() {
         const key = e.key.toLowerCase();
         if (key === 'n') { e.preventDefault(); setShowInvoiceModal(true); }
         if (key === 'l') { e.preventDefault(); setShowProductListModal(true); }
-        if (key === 'c') { e.preventDefault(); handleImportCarga(); }
         if (key === 't') { 
           e.preventDefault(); 
           setShowReverseModal(true);
