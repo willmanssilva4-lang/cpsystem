@@ -304,6 +304,45 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Polling backup to check for new load (carga) in case Realtime Broadcast was missed or disconnected
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkCargaUpdate = async () => {
+      try {
+        const { data, error } = await supabase.from('system_settings').select('last_carga_at').single();
+        if (!error && data?.last_carga_at) {
+          const lastCargaCloud = data.last_carga_at;
+          const lastCargaLocal = localStorage.getItem('erp_pdv_last_imported_carga_at');
+          
+          if (!lastCargaLocal || lastCargaLocal !== lastCargaCloud) {
+            console.log('[context] Detectado que o PDV está desatualizado via polling. Nova carga disponível:', lastCargaCloud);
+            localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
+            
+            try {
+              window.dispatchEvent(new StorageEvent('storage', {
+                key: 'erp_pdv_carga_pending_flag',
+                newValue: 'true'
+              }));
+            } catch (evErr) {}
+            window.dispatchEvent(new CustomEvent('erp_pdv_carga_pending_flag_changed', { detail: 'true' }));
+          }
+        }
+      } catch (err) {
+        console.warn('[context] Erro ao verificar atualizações de carga no polling:', err);
+      }
+    };
+
+    // Run once on mount after 3 seconds, then every 30 seconds
+    const initialTimeout = setTimeout(checkCargaUpdate, 3000);
+    const interval = setInterval(checkCargaUpdate, 30000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, []);
+
   const activeRegister = useMemo(() => {
     return cashRegisters.find(r => r.status === 'open' && r.userId === user?.id);
   }, [cashRegisters, user?.id]);

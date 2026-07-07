@@ -21,7 +21,7 @@ import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor,
 
 export default function PDVPage() {
   const router = useRouter();
-  const { products: originalProducts, addSale, addProduct, addDiscountLog, companySettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [], logout } = useERP();
+  const { products: originalProducts, fetchData, addSale, addProduct, addDiscountLog, companySettings, systemSettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [], logout } = useERP();
   
   const handleExitPDV = useCallback(async () => {
     const role = user?.role?.trim().toLowerCase() || '';
@@ -41,9 +41,21 @@ export default function PDVPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setHasPendingCarga(localStorage.getItem('erp_pdv_carga_pending_flag') === 'true');
+      const isPendingFlag = localStorage.getItem('erp_pdv_carga_pending_flag') === 'true';
+      if (isPendingFlag) {
+        setHasPendingCarga(true);
+      } else if (systemSettings?.last_carga_at) {
+        const lastImported = localStorage.getItem('erp_pdv_last_imported_carga_at');
+        if (!lastImported || lastImported !== systemSettings.last_carga_at) {
+          setHasPendingCarga(true);
+        } else {
+          setHasPendingCarga(false);
+        }
+      } else {
+        setHasPendingCarga(false);
+      }
     }
-  }, []);
+  }, [systemSettings?.last_carga_at]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -314,6 +326,13 @@ export default function PDVPage() {
   const handleImportCarga = async () => {
     if (typeof window !== 'undefined') {
       try {
+        if (fetchData) {
+          try {
+            await fetchData();
+          } catch (fetchErr) {
+            console.warn('[PDV] Erro ao sincronizar dados na importação:', fetchErr);
+          }
+        }
         const pending = await getDBValue<Product[]>('erp_pdv_carga_pending_products');
         
         const isProductEqual = (p1: Product, p2: Product) => {
@@ -362,9 +381,15 @@ export default function PDVPage() {
             setProducts(parsed);
             setHasPendingCarga(false);
             
+            if (systemSettings?.last_carga_at) {
+              localStorage.setItem('erp_pdv_last_imported_carga_at', systemSettings.last_carga_at);
+            } else {
+              localStorage.setItem('erp_pdv_last_imported_carga_at', new Date().toISOString());
+            }
+            localStorage.removeItem('erp_pdv_carga_pending_flag');
+
             if (isFromPending) {
               await removeDBValue('erp_pdv_carga_pending_products');
-              localStorage.removeItem('erp_pdv_carga_pending_flag');
             }
 
             // Play success sound C5 -> E5 -> G5
@@ -411,7 +436,7 @@ export default function PDVPage() {
           setConfirmDialog({
             message: 'Você possui itens no carrinho. Deseja realmente baixar a nova carga e atualizar o cadastro de produtos?',
             onConfirm: () => {
-              if (pending) {
+              if (pending && pending.length > 0) {
                 applyCarga(pending, true);
               } else if (originalProducts && originalProducts.length > 0) {
                 applyCarga(originalProducts, false);
@@ -426,16 +451,11 @@ export default function PDVPage() {
           return;
         }
 
-        if (pending) {
+        if (pending && pending.length > 0) {
           applyCarga(pending, true);
         } else {
           if (originalProducts && originalProducts.length > 0) {
-            setConfirmDialog({
-              message: 'Nenhuma nova carga pendente foi encontrada. Deseja forçar a sincronização direta com o cadastro atual do sistema?',
-              onConfirm: () => {
-                applyCarga(originalProducts, false);
-              }
-            });
+            applyCarga(originalProducts, false);
           } else {
             setCustomAlert?.({
               message: 'Nenhuma carga disponível para baixar no momento.',

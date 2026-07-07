@@ -3454,7 +3454,7 @@ function InventoryDetailModal({ inventory, onClose }: { inventory: any, onClose:
 }
 
 function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { products, setCustomAlert, activeRegister } = useERP();
+  const { products, setCustomAlert, activeRegister, updateSystemSettings } = useERP();
   const [cargaStep, setCargaStep] = useState<'idle' | 'running' | 'success'>('idle');
   const [cargaType, setCargaType] = useState<'parcial' | 'total' | null>(null);
   const [progress, setProgress] = useState(0);
@@ -3546,6 +3546,19 @@ function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
               .then(() => {
                 localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
                 
+                const nowStr = new Date().toISOString();
+                
+                // Update company system settings in the cloud with the last load timestamp
+                if (updateSystemSettings) {
+                  updateSystemSettings({ last_carga_at: nowStr })
+                    .then(() => {
+                      localStorage.setItem('erp_pdv_last_imported_carga_at', nowStr);
+                    })
+                    .catch(err => {
+                      console.error('Error updating last_carga_at in system settings:', err);
+                    });
+                }
+
                 // Broadcast to all logged in terminals/cashiers via Supabase Realtime
                 try {
                   const syncChannel = supabase.channel('data_sync');
@@ -3556,7 +3569,7 @@ function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                         event: 'carga_enviada',
                         payload: { 
                           products: products.length < 50 ? products : null,
-                          timestamp: new Date().toISOString()
+                          timestamp: nowStr
                         }
                       }).then(() => {
                         console.log('Realtime broadcast of products load sent successfully!');
