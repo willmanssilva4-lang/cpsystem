@@ -1445,6 +1445,7 @@ export default function PDVPage() {
         const key = e.key.toLowerCase();
         if (key === 'n') { e.preventDefault(); setShowInvoiceModal(true); }
         if (key === 'l') { e.preventDefault(); setShowProductListModal(true); }
+        if (key === 'c') { e.preventDefault(); handleImportCarga(); }
         if (key === 't') { 
           e.preventDefault(); 
           setShowReverseModal(true);
@@ -1514,7 +1515,7 @@ export default function PDVPage() {
      return () => {
        window.removeEventListener('keydown', handleGlobalKeyDown);
      };
-  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, oldRegisterWarningSelection, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, completedSaleSelection, pricingMode, handleExitPDV]);
+  }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, oldRegisterWarningSelection, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, completedSaleSelection, pricingMode, handleExitPDV, handleImportCarga]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isNavigatingCart) {
@@ -1893,9 +1894,10 @@ export default function PDVPage() {
                   ? "bg-emerald-600 text-white border-emerald-500 animate-pulse hover:bg-emerald-700 shadow-[0_0_12px_rgba(16,185,129,0.5)] font-black" 
                   : "bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white"
               )}
-              title={hasPendingCarga ? "Existe uma nova carga de produtos disponível! Clique para receber." : "Importar carga de produtos"}
+              title={hasPendingCarga ? "Existe uma nova carga de produtos disponível! Pressione Alt+C para receber." : "Importar carga de produtos (Alt+C)"}
             >
               <span className="text-sm font-black">📥</span>
+              <span className="hidden md:inline text-[10px] font-black">ALT+C</span>
             </button>
             <button
               type="button"
@@ -2819,6 +2821,7 @@ export default function PDVPage() {
                 <a href="/consulta-preco" target="_blank" className="block mt-2 p-2 bg-brand-blue/10 text-brand-blue rounded-lg text-[10px] font-black uppercase italic hover:bg-brand-blue hover:text-white transition-all text-center border border-brand-blue/20">
                   Abrir Terminal em Nova Aba
                 </a>
+                <p><span className="font-bold">Alt + C</span> - Importar carga de produtos</p>
                 <p><span className="font-bold">Alt + H</span> - Histórico do cliente</p>
                 <p><span className="font-bold">Alt + L</span> - Lista de produtos</p>
                 <p><span className="font-bold">Alt + N</span> - Nota fiscal</p>
