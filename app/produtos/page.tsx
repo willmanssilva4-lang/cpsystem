@@ -3555,7 +3555,7 @@ function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                         type: 'broadcast',
                         event: 'carga_enviada',
                         payload: { 
-                          products,
+                          products: products.length < 50 ? products : null,
                           timestamp: new Date().toISOString()
                         }
                       }).then(() => {

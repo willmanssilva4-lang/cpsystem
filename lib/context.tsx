@@ -235,10 +235,50 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.log('🔄 Sincronização recebida! Recarregando...');
         window.location.reload();
       })
-      .on('broadcast', { event: 'carga_enviada' }, ({ payload }) => {
+      .on('broadcast', { event: 'carga_enviada' }, async ({ payload }) => {
         console.log('📦 Nova carga de produtos recebida via broadcast!', payload);
-        if (payload && payload.products) {
-          setDBValue('erp_pdv_carga_pending_products', payload.products)
+        
+        let productsToSave = payload && payload.products ? payload.products : null;
+        
+        // Se a carga não veio no payload (ex: payload leve para evitar limite de tamanho de transmissão do Supabase)
+        // ou se queremos garantir que temos os dados atualizados, vamos buscar os produtos diretamente do banco de dados (Supabase)
+        if (!productsToSave || productsToSave.length === 0) {
+          console.log('[context] Iniciando busca direta de produtos no Supabase para carga...');
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const targetCompanyId = session?.user?.user_metadata?.companyId || session?.user?.user_metadata?.company_id;
+            
+            let allProducts: any[] = [];
+            let rangeStart = 0;
+            const rangeSize = 1000;
+            
+            while (true) {
+              let query = supabase.from('products').select('*').order('id').range(rangeStart, rangeStart + rangeSize - 1);
+              if (targetCompanyId) {
+                query = query.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+              }
+              const { data, error } = await query;
+              if (error) {
+                console.error('[context] Erro ao buscar produtos para carga no Supabase:', error);
+                break;
+              }
+              if (!data || data.length === 0) break;
+              allProducts = [...allProducts, ...data];
+              if (data.length < rangeSize) break;
+              rangeStart += rangeSize;
+            }
+            
+            if (allProducts.length > 0) {
+              productsToSave = allProducts;
+              console.log(`[context] Sincronizado com sucesso: ${allProducts.length} produtos carregados para carga.`);
+            }
+          } catch (fetchErr) {
+            console.error('[context] Erro de exceção ao buscar produtos diretamente para carga:', fetchErr);
+          }
+        }
+
+        if (productsToSave && productsToSave.length > 0) {
+          setDBValue('erp_pdv_carga_pending_products', productsToSave)
             .then(() => {
               localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
               
