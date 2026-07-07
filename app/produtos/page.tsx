@@ -3545,6 +3545,30 @@ function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
             setDBValue('erp_pdv_carga_pending_products', products)
               .then(() => {
                 localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
+                
+                // Broadcast to all logged in terminals/cashiers via Supabase Realtime
+                try {
+                  const syncChannel = supabase.channel('data_sync');
+                  syncChannel.subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                      syncChannel.send({
+                        type: 'broadcast',
+                        event: 'carga_enviada',
+                        payload: { 
+                          products,
+                          timestamp: new Date().toISOString()
+                        }
+                      }).then(() => {
+                        console.log('Realtime broadcast of products load sent successfully!');
+                      }).catch(sendErr => {
+                        console.error('Error sending products load broadcast:', sendErr);
+                      });
+                    }
+                  });
+                } catch (bErr) {
+                  console.error('Error initializing channel for load broadcast:', bErr);
+                }
+
                 return setDBValue('erp_pdv_last_sent_products', products);
               })
               .catch(err => {

@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Clock
 } from 'lucide-react';
-import { cn, formatDateBR, formatTimeBR } from '@/lib/utils';
+import { cn, formatDateBR, formatTimeBR, getLocalDateString } from '@/lib/utils';
 import { Sale, Expense, StockMovement, CashMovement, Return } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
@@ -52,10 +52,9 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
 
   const transactions = useMemo(() => {
     if (!mounted) return [];
-    const now = new Date();
     const cutoffDate = new Date();
-    cutoffDate.setDate(now.getDate() - daysFilter);
-    cutoffDate.setHours(0, 0, 0, 0);
+    cutoffDate.setDate(cutoffDate.getDate() - daysFilter);
+    const cutoffStr = getLocalDateString(cutoffDate);
 
     const purchaseMovements = stockMovements.filter(m => m.type === 'COMPRA');
     const groupedPurchases: Record<string, typeof purchaseMovements> = {};
@@ -128,6 +127,14 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
     const isSaleActive = (s: any) => {
       if (!s || !s.date) return false;
 
+      // Filter out returned/cancelled/reversed sales (matching Vendas por Período)
+      const isReturned = (returns || []).some(r => {
+        const rId = String(r.saleId || (r as any).sale_id || '').toLowerCase().replace('#', '').trim();
+        const sId = String(s.id || '').toLowerCase().replace('#', '').trim();
+        return rId === sId || (rId.length > 4 && sId.includes(rId)) || (sId.length > 4 && rId.includes(sId));
+      });
+      if (isReturned) return false;
+
       const rawStatus = (s.status || '').toLowerCase().trim();
       const cancelledStatuses = ['cancelada', 'estornada', 'cancelado', 'reversão', 'estorno', 'cancelar', 'reverter', 'devolução', 'devolvida'];
       if (cancelledStatuses.some(status => rawStatus.includes(status))) {
@@ -187,7 +194,7 @@ export function MovimentacaoFinanceira({ sales, expenses, stockMovements, cashMo
     ];
 
     return all
-      .filter(t => new Date(t.date).getTime() >= cutoffDate.getTime())
+      .filter(t => getLocalDateString(t.date) >= cutoffStr)
       .filter(t => typeFilter === 'all' || t.type === typeFilter)
       .filter(t => 
         t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||

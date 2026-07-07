@@ -235,6 +235,29 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         console.log('🔄 Sincronização recebida! Recarregando...');
         window.location.reload();
       })
+      .on('broadcast', { event: 'carga_enviada' }, ({ payload }) => {
+        console.log('📦 Nova carga de produtos recebida via broadcast!', payload);
+        if (payload && payload.products) {
+          setDBValue('erp_pdv_carga_pending_products', payload.products)
+            .then(() => {
+              localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
+              
+              // Trigger local window events so the active PDV page can instantly update
+              try {
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'erp_pdv_carga_pending_flag',
+                  newValue: 'true'
+                }));
+              } catch (evErr) {
+                console.warn('Falha ao disparar StorageEvent padrão, tentando CustomEvent:', evErr);
+              }
+              window.dispatchEvent(new CustomEvent('erp_pdv_carga_pending_flag_changed', { detail: 'true' }));
+            })
+            .catch(err => {
+              console.error('[context] Erro ao salvar carga pendente no IndexedDB via broadcast:', err);
+            });
+        }
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);

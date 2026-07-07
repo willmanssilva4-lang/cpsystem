@@ -68,17 +68,34 @@ export default function PDVPage() {
   }, [originalProducts]);
 
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'erp_pdv_carga_pending_flag') {
-        setHasPendingCarga(e.newValue === 'true');
-        // Let's also refresh our products in case a background tab updated erp_pdv_carga_products
+    const handleStorageChange = (e: Event) => {
+      let isCargaPending = false;
+      if (e instanceof StorageEvent) {
+        if (e.key === 'erp_pdv_carga_pending_flag') {
+          isCargaPending = e.newValue === 'true';
+        } else {
+          return;
+        }
+      } else {
+        // CustomEvent erp_pdv_carga_pending_flag_changed
+        isCargaPending = true;
+      }
+
+      if (isCargaPending) {
+        setHasPendingCarga(true);
         getDBValue<Product[]>('erp_pdv_carga_products').then(current => {
           if (current) setProducts(current);
         });
+      } else {
+        setHasPendingCarga(false);
       }
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange as any);
+    window.addEventListener('erp_pdv_carga_pending_flag_changed', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange as any);
+      window.removeEventListener('erp_pdv_carga_pending_flag_changed', handleStorageChange);
+    };
   }, []);
 
   const [cart, setCart] = useState<{ product: Product, quantity: number, discount: number, originalPrice: number, promotionId?: string, canceled?: boolean }[]>([]);
@@ -842,6 +859,7 @@ export default function PDVPage() {
           cashReceived: paymentData.cashReceived
         });
         setSelectedCustomer(null);
+        setPricingMode('retail');
       }
     } catch (err) {
       console.error('Error during finalizeSale:', err);
@@ -1025,6 +1043,7 @@ export default function PDVPage() {
           setSaleDiscount(0);
           setSelectedCartIndex(-1);
           setIsNavigatingCart(false);
+          setPricingMode('retail');
         } else if (pendingAction.type === 'reverse_sale') {
           const saleId = pendingAction.data?.saleId;
           if (saleId) {
@@ -1299,6 +1318,7 @@ export default function PDVPage() {
                 setSaleDiscount(0);
                 setSelectedCartIndex(-1);
                 setIsNavigatingCart(false);
+                setPricingMode('retail');
               } else {
                 setPendingAction({ type: 'cancel_sale' });
                 setShowAuthModal(true);
@@ -2446,6 +2466,7 @@ export default function PDVPage() {
                       setSaleDiscount(0);
                       setSelectedCartIndex(-1);
                       setIsNavigatingCart(false);
+                      setPricingMode('retail');
                     } else {
                       setPendingAction({ type: 'cancel_sale' });
                       setShowAuthModal(true);

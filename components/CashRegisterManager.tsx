@@ -239,6 +239,7 @@ export function CashRegisterManager({
     openedAt: string;
     closedAt: string;
     operatorName: string;
+    operatorUserNumber?: string;
     openingBalance: number;
     systemTotals: Record<string, number>;
     informedValues: Record<string, number>;
@@ -410,6 +411,7 @@ export function CashRegisterManager({
       openedAt: activeRegister.openedAt,
       closedAt: new Date().toISOString(),
       operatorName: user?.name || 'Operador',
+      operatorUserNumber: user?.userNumber || '',
       openingBalance: Number(activeRegister.openingBalance) || 0,
       systemTotals: { ...systemTotals },
       informedValues: { ...informedValues },
@@ -451,6 +453,7 @@ export function CashRegisterManager({
       openedAt: activeRegister.openedAt,
       closedAt: new Date().toISOString(),
       operatorName: user?.name || 'Operador',
+      operatorUserNumber: user?.userNumber || '',
       openingBalance: Number(activeRegister.openingBalance) || 0,
       systemTotals: { ...systemTotals },
       informedValues: autoInformedValues,
@@ -678,6 +681,7 @@ export function CashRegisterManager({
       openedAt: register?.openedAt || register?.opened_at || closing.closedAt || closing.closed_at,
       closedAt: closing.closedAt || closing.closed_at,
       operatorName: closing.operatorName || closing.operator_name || operatorUser?.name || closingUser?.name || 'Operador',
+      operatorUserNumber: operatorUser?.userNumber || closingUser?.userNumber || '',
       openingBalance: Number(register?.openingBalance || register?.opening_balance) || 0,
       systemTotals: systemTotalsMap,
       informedValues: informedValuesMap,
@@ -845,6 +849,9 @@ export function CashRegisterManager({
               <div className="text-xs font-mono text-slate-500 space-y-0.5 pt-1">
                 <div>ID Caixa: <span className="font-bold">{maskCashRegisterId(selectedClosingDetail.registerId)}</span></div>
                 <div>Operador: <span className="font-bold uppercase">{selectedClosingDetail.operatorName}</span></div>
+                {selectedClosingDetail.operatorUserNumber && (
+                  <div>Número do Usuário: <span className="font-bold font-mono">{selectedClosingDetail.operatorUserNumber}</span></div>
+                )}
               </div>
             </div>
 
@@ -1092,6 +1099,9 @@ export function CashRegisterManager({
               <div className="text-xs font-mono text-slate-500 space-y-0.5 pt-1">
                 <div>ID Caixa: <span className="font-bold">{finalReportData.registerId}</span></div>
                 <div>Operador: <span className="font-bold uppercase">{finalReportData.operatorName}</span></div>
+                {finalReportData.operatorUserNumber && (
+                  <div>Número do Usuário: <span className="font-bold font-mono">{finalReportData.operatorUserNumber}</span></div>
+                )}
               </div>
             </div>
 
@@ -1806,6 +1816,9 @@ export function CashRegisterManager({
                 <div className="text-xs font-mono text-slate-500 space-y-0.5 pt-1">
                   <div>ID Caixa: <span className="font-bold">{finalReportData.registerId}</span></div>
                   <div>Operador: <span className="font-bold uppercase">{finalReportData.operatorName}</span></div>
+                  {finalReportData.operatorUserNumber && (
+                    <div>Número do Usuário: <span className="font-bold font-mono">{finalReportData.operatorUserNumber}</span></div>
+                  )}
                 </div>
               </div>
 
