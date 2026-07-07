@@ -310,9 +310,14 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
 
     const checkCargaUpdate = async () => {
       try {
-        const { data, error } = await supabase.from('system_settings').select('last_carga_at').single();
-        if (!error && data?.last_carga_at) {
-          const lastCargaCloud = data.last_carga_at;
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'last_carga_at')
+          .limit(1);
+        
+        if (!error && data && data.length > 0 && data[0].setting_value) {
+          const lastCargaCloud = data[0].setting_value;
           const lastCargaLocal = localStorage.getItem('erp_pdv_last_imported_carga_at');
           
           if (!lastCargaLocal || lastCargaLocal !== lastCargaCloud) {
@@ -443,7 +448,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         baseQuery('sales').order('created_at', { ascending: false }).limit(2000),
         baseQuery('expenses'),
         baseQuery('produto_lotes'),
-        supabase.from('system_settings').select('*').single(), // Settings might be per company
+        supabase.from('system_settings').select('*'), // Settings might be per company
         typeof window !== 'undefined'
           ? fetch(`/api/admin/users?companyId=${targetCompanyId || ''}`).then(async (res) => {
               if (!res.ok) {
@@ -872,10 +877,34 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
         })));
       }
       if (sysSet) {
-        setSystemSettings(sysSet);
+        let mappedSettings: any = {};
+        if (Array.isArray(sysSet)) {
+          sysSet.forEach((item: any) => {
+            if (item && item.setting_key) {
+              let parsedValue = item.setting_value;
+              if (parsedValue && (parsedValue.startsWith('{') || parsedValue.startsWith('['))) {
+                try {
+                  parsedValue = JSON.parse(parsedValue);
+                } catch (e) {}
+              }
+              mappedSettings[item.setting_key] = parsedValue;
+            }
+          });
+          const companyRow = sysSet.find(item => item && item.company_id);
+          if (companyRow) {
+            mappedSettings.company_id = companyRow.company_id;
+          }
+          if (sysSet.length > 0 && sysSet[0].id) {
+            mappedSettings.id = sysSet[0].id;
+          }
+        } else if (typeof sysSet === 'object') {
+          mappedSettings = sysSet;
+        }
+
+        setSystemSettings(mappedSettings);
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem('systemSettings', JSON.stringify(sysSet));
+            localStorage.setItem('systemSettings', JSON.stringify(mappedSettings));
           } catch (e) {
             console.error('[ERPProvider] Error saving systemSettings to localStorage:', e);
           }
@@ -2381,6 +2410,30 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     return { success: true };
   };
 
+  const upsertKeyValueSettings = async (data: any) => {
+    try {
+      const keys = Object.keys(data);
+      const rows = keys.map(key => {
+        let valStr = data[key];
+        if (typeof valStr === 'object' && valStr !== null) {
+          valStr = JSON.stringify(valStr);
+        }
+        return {
+          setting_key: key,
+          setting_value: valStr !== undefined && valStr !== null ? String(valStr) : '',
+          company_id: user?.companyId || null
+        };
+      });
+      
+      const { error } = await supabase.from('system_settings').upsert(rows, { onConflict: 'setting_key' });
+      if (error) {
+        console.warn('[upsertKeyValueSettings] Supabase key-value upsert failed:', error.message);
+      }
+    } catch (e) {
+      console.warn('[upsertKeyValueSettings] Supabase key-value exception:', e);
+    }
+  };
+
   const updateCompanySettings = async (data: any) => {
     const payload = {
       ...(systemSettings || {}),
@@ -2399,15 +2452,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    try {
-      const { error } = await supabase.from('system_settings').upsert([payload]);
-      if (error) {
-        console.warn('[updateCompanySettings] Supabase upsert failed, relying on local state/storage:', error.message);
-      }
-    } catch (e) {
-      console.warn('[updateCompanySettings] Supabase exception, relying on local state/storage:', e);
-    }
-    
+    await upsertKeyValueSettings(data);
     await fetchData();
   };
 
@@ -2429,15 +2474,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    try {
-      const { error } = await supabase.from('system_settings').upsert([payload]);
-      if (error) {
-        console.warn('[updateSystemSettings] Supabase upsert failed, relying on local state/storage:', error.message);
-      }
-    } catch (e) {
-      console.warn('[updateSystemSettings] Supabase exception, relying on local state/storage:', e);
-    }
-
+    await upsertKeyValueSettings(data);
     await fetchData();
   };
 

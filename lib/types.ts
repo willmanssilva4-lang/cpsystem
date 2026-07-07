@@ -139,6 +139,7 @@ export interface SystemSettings {
   companyId?: string | null;
   theme?: 'light' | 'dark' | 'system';
   tradeName?: string;
+  last_carga_at?: string;
   notifications?: {
     email?: boolean;
     push?: boolean;
