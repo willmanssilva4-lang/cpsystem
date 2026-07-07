@@ -3454,7 +3454,14 @@ function InventoryDetailModal({ inventory, onClose }: { inventory: any, onClose:
 }
 
 function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { products, setCustomAlert, activeRegister, updateSystemSettings } = useERP();
+  const { products, setCustomAlert, activeRegister, updateSystemSettings, cashRegisters, systemUsers } = useERP();
+  const openRegisters = cashRegisters?.filter((r: any) => r.status === 'open') || [];
+  const hasOpenRegisters = openRegisters.length > 0;
+  const openRegistersNames = openRegisters.map((r: any) => {
+    const operator = systemUsers?.find((u: any) => u.id === r.userId);
+    return operator ? (operator.fullName || operator.name || operator.email || 'Operador') : 'Operador';
+  }).join(', ');
+
   const [cargaStep, setCargaStep] = useState<'idle' | 'running' | 'success'>('idle');
   const [cargaType, setCargaType] = useState<'parcial' | 'total' | null>(null);
   const [progress, setProgress] = useState(0);
@@ -3805,8 +3812,12 @@ function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
               </p>
               <p className="flex justify-between items-center">
                 <span>TERMINAIS SINCRONIZADOS:</span>
-                <span className="font-black text-slate-700 dark:text-slate-300 text-right">
-                  {activeRegister ? '1 PDV ATIVO' : '1 PDV (CAIXA FECHADO)'} & 0 BALANÇAS
+                <span className="font-black text-slate-700 dark:text-slate-300 text-right uppercase">
+                  {hasOpenRegisters 
+                    ? `${openRegisters.length} PDV(S) ATIVO(S) (${openRegistersNames})` 
+                    : activeRegister 
+                      ? '1 PDV ATIVO (ADMIN)' 
+                      : '0 PDV ATIVO (CAIXA FECHADO)'} & 0 BALANÇAS
                 </span>
               </p>
               <p className="flex justify-between">
