@@ -162,7 +162,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         if (!prev.some(sp => sp.id === p.id)) {
           const updated = [...prev, p];
           if (configRef.current?.type !== 'Rotativo') {
-            updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+            updated.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' }));
           }
           return updated;
         }
@@ -196,7 +196,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       if (!prev.some(sp => sp.id === p.id)) {
         const updated = [...prev, p];
         if (configRef.current?.type !== 'Rotativo') {
-          updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+          updated.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' }));
         }
         return updated;
       }
@@ -255,7 +255,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     setSessionProducts(prev => {
       if (!prev.some(p => p.id === product.id)) {
         const updated = [...prev, product];
-        updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+        updated.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' }));
         return updated;
       }
       return prev;
@@ -338,7 +338,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
         setSessionProducts(prev => {
           if (!prev.some(p => p.id === globalMatch.id)) {
             const updated = [...prev, globalMatch];
-            updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+            updated.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' }));
             return updated;
           }
           return prev;
@@ -446,7 +446,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       setSessionProducts(prev => {
         if (!prev.some(p => p.id === singleMatch.id)) {
           const updated = [...prev, singleMatch];
-          updated.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+          updated.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' }));
           return updated;
         }
         return prev;
@@ -687,7 +687,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
     }
 
     // Ordenar os produtos em ordem alfabética (A-Z) para as contagens e relatórios
-    filtered.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+    filtered.sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' }));
 
     setSessionProducts(filtered);
     
@@ -724,7 +724,7 @@ export function InventorySessionModal({ onClose, onComplete }: InventorySessionM
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
     }
-    return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+    return (a.name || '').trim().localeCompare((b.name || '').trim(), 'pt-BR', { sensitivity: 'base' });
   });
 
   const handleCountChange = (productId: string, value: string) => {

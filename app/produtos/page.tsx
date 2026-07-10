@@ -712,7 +712,7 @@ function ProductsContent() {
     return true;
   });
 
-  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim()));
 
   const totalPages = Math.ceil(sortedFilteredProducts.length / itemsPerPage);
   const currentProducts = sortedFilteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

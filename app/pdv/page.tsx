@@ -1554,7 +1554,7 @@ export default function PDVPage() {
           }
           const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
           return searchTerms.every(term => searchableText.includes(term));
-        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50); // Limit results
+        }).sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim())).slice(0, 50); // Limit results
         setSearchResults(filtered);
         setSelectedIndex(filtered.length > 0 ? 0 : -1);
       } else {
@@ -1621,7 +1621,7 @@ export default function PDVPage() {
             return !isNaN(stock) && stock > 0;
           }
           return true;
-        }).sort((a, b) => (a.name || '').localeCompare(b.name || '')).slice(0, 50));
+        }).sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim())).slice(0, 50));
         setSelectedIndex(0);
       } else {
         setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));

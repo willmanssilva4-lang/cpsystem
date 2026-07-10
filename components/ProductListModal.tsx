@@ -88,13 +88,16 @@ export function ProductListModal({ onClose, onSelectProduct, products: propProdu
 
   const filteredProducts = React.useMemo(() => {
     const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-    return products.filter(p => {
-      if (p.status === 'Inativo') return false;
-      const stock = parseFloat(String(p.stock));
-      if (isNaN(stock) || stock <= 0) return false;
-      const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
-      return searchTerms.length === 0 || searchTerms.every(term => searchableText.includes(term));
-    }).slice(0, 100);
+    return [...products]
+      .filter(p => {
+        if (p.status === 'Inativo') return false;
+        const stock = parseFloat(String(p.stock));
+        if (isNaN(stock) || stock <= 0) return false;
+        const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
+        return searchTerms.length === 0 || searchTerms.every(term => searchableText.includes(term));
+      })
+      .sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim()))
+      .slice(0, 100);
   }, [products, searchTerm]); // Limit to 100 results for performance
 
   useEffect(() => {
