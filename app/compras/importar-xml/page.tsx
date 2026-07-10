@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { useERP } from '@/lib/context';
 import { Product } from '@/lib/types';
 
@@ -33,6 +34,7 @@ export default function ImportXmlPage() {
   const [linkingItem, setLinkingItem] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [entranceMode, setEntranceMode] = useState<'express' | 'checker'>('checker');
   const [showPayablePrompt, setShowPayablePrompt] = useState(false);
   const [payableDueDate, setPayableDueDate] = useState('');
   const [installmentsCount, setInstallmentsCount] = useState(1);
@@ -460,61 +462,150 @@ export default function ImportXmlPage() {
         }
       }
 
-      // Loop through all items in mockInvoice.items
-      for (const item of mockInvoice.items) {
-        let targetProduct = item.originalProduct;
-
-        // If not linked, or no originalProduct, we can't update stock
-        if (!item.linked || !targetProduct) {
-          continue;
-        }
-
-        // If targetProduct has a temporary id (starts with 'new_'), we must register it first!
-        if (targetProduct.id && targetProduct.id.startsWith('new_')) {
-          // Generate a real UUID to persist
-          const realUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); });
-          const cleanProductData: Partial<Product> = {
-            id: realUuid,
-            name: targetProduct.name,
-            sku: targetProduct.sku || '',
-            barcode: targetProduct.barcode || undefined,
-            costPrice: targetProduct.costPrice,
-            salePrice: targetProduct.salePrice,
-            wholesalePrice: targetProduct.wholesalePrice,
-            stock: 0, // start with 0 stock, and let stock movement add to it
-            minStock: targetProduct.minStock,
-            category: targetProduct.category,
-            status: 'Ativo',
-            active: true,
-            company_id: user?.companyId || undefined
-          };
-
-          const addResult = await addProduct(cleanProductData);
-          if (addResult !== true) {
-            console.error('Erro ao adicionar produto:', addResult);
+      // If 'checker' mode, we register a pending purchase order
+      if (entranceMode === 'checker') {
+        let finalSupplierId = null;
+        if (suppliers && suppliers.length > 0) {
+          const matched = suppliers.find(s => s.name.toLowerCase() === mockInvoice.supplier.toLowerCase());
+          if (matched) {
+            finalSupplierId = matched.id;
+          } else {
+            const { data: newS, error: newSErr } = await supabase.from('suppliers').insert({
+              name: mockInvoice.supplier,
+              cnpj: mockInvoice.cnpj || '',
+              status: 'Ativo',
+              company_id: user?.companyId || null
+            }).select('id').single();
+            if (!newSErr && newS) {
+              finalSupplierId = newS.id;
+            } else {
+              finalSupplierId = suppliers[0]?.id || null;
+            }
           }
-          
-          // Update the targetProduct to use the newly created product details
-          targetProduct = { ...cleanProductData, id: realUuid };
         }
 
-        // Parse quantity and cost
-        const quantity = typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty).replace(',', '.')) || 0;
-        const costPrice = item.unitPrice !== undefined 
-          ? (typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice).replace(',', '.')) || 0)
-          : (parseFloat(item.unit.replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+        if (!finalSupplierId && suppliers && suppliers.length > 0) {
+          finalSupplierId = suppliers[0].id;
+        }
 
-        // Add Stock Movement
-        await addStockMovement({
-          companyId: user?.companyId || '',
-          productId: targetProduct.id,
-          type: 'ENTRADA',
-          quantity: quantity,
-          origin: `Importação XML NF-e: ${mockInvoice.number} - Fornecedor: ${mockInvoice.supplier}`,
-          cost: isNaN(costPrice) ? null : costPrice,
-          userId: user?.id,
-          userName: user?.name
-        }, true); // skipFetch = true to handle batch efficiently
+        const totalAmount = mockInvoice.rawTotal || parseFloat(mockInvoice.total.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+
+        const { data: orderData, error: orderError } = await supabase
+          .from('purchase_orders')
+          .insert({
+            company_id: user?.companyId || null,
+            supplier_id: finalSupplierId,
+            order_date: new Date().toISOString(),
+            total_amount: totalAmount,
+            status: 'Pendente'
+          })
+          .select('id')
+          .single();
+
+        if (orderError) throw orderError;
+        const orderId = orderData.id;
+
+        for (const item of mockInvoice.items) {
+          let targetProduct = item.originalProduct;
+
+          // If targetProduct has a temporary id (starts with 'new_'), we register it first!
+          if (targetProduct && targetProduct.id && targetProduct.id.startsWith('new_')) {
+            const realUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); });
+            const cleanProductData: Partial<Product> = {
+              id: realUuid,
+              name: targetProduct.name,
+              sku: targetProduct.sku || '',
+              barcode: targetProduct.barcode || undefined,
+              costPrice: targetProduct.costPrice,
+              salePrice: targetProduct.salePrice,
+              wholesalePrice: targetProduct.wholesalePrice,
+              stock: 0,
+              minStock: targetProduct.minStock,
+              category: targetProduct.category,
+              status: 'Ativo',
+              active: true,
+              company_id: user?.companyId || undefined
+            };
+
+            const addResult = await addProduct(cleanProductData);
+            if (addResult === true) {
+              targetProduct = { ...cleanProductData, id: realUuid };
+            }
+          }
+
+          if (targetProduct && targetProduct.id) {
+            const quantity = typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty).replace(',', '.')) || 0;
+            const costPrice = item.unitPrice !== undefined 
+              ? (typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice).replace(',', '.')) || 0)
+              : (parseFloat(item.unit.replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+
+            await supabase.from('purchase_order_items').insert({
+              company_id: user?.companyId || null,
+              purchase_order_id: orderId,
+              product_id: targetProduct.id,
+              quantity: quantity,
+              unit_price: costPrice,
+              total_price: quantity * costPrice
+            });
+          }
+        }
+      } else {
+        // Loop through all items in mockInvoice.items
+        for (const item of mockInvoice.items) {
+          let targetProduct = item.originalProduct;
+
+          // If not linked, or no originalProduct, we can't update stock
+          if (!item.linked || !targetProduct) {
+            continue;
+          }
+
+          // If targetProduct has a temporary id (starts with 'new_'), we must register it first!
+          if (targetProduct.id && targetProduct.id.startsWith('new_')) {
+            // Generate a real UUID to persist
+            const realUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); });
+            const cleanProductData: Partial<Product> = {
+              id: realUuid,
+              name: targetProduct.name,
+              sku: targetProduct.sku || '',
+              barcode: targetProduct.barcode || undefined,
+              costPrice: targetProduct.costPrice,
+              salePrice: targetProduct.salePrice,
+              wholesalePrice: targetProduct.wholesalePrice,
+              stock: 0, // start with 0 stock, and let stock movement add to it
+              minStock: targetProduct.minStock,
+              category: targetProduct.category,
+              status: 'Ativo',
+              active: true,
+              company_id: user?.companyId || undefined
+            };
+
+            const addResult = await addProduct(cleanProductData);
+            if (addResult !== true) {
+              console.error('Erro ao adicionar produto:', addResult);
+            }
+            
+            // Update the targetProduct to use the newly created product details
+            targetProduct = { ...cleanProductData, id: realUuid };
+          }
+
+          // Parse quantity and cost
+          const quantity = typeof item.qty === 'number' ? item.qty : parseFloat(String(item.qty).replace(',', '.')) || 0;
+          const costPrice = item.unitPrice !== undefined 
+            ? (typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice).replace(',', '.')) || 0)
+            : (parseFloat(item.unit.replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+
+          // Add Stock Movement
+          await addStockMovement({
+            companyId: user?.companyId || '',
+            productId: targetProduct.id,
+            type: 'ENTRADA',
+            quantity: quantity,
+            origin: `Importação XML NF-e: ${mockInvoice.number} - Fornecedor: ${mockInvoice.supplier}`,
+            cost: isNaN(costPrice) ? null : costPrice,
+            userId: user?.id,
+            userName: user?.name
+          }, true); // skipFetch = true to handle batch efficiently
+        }
       }
 
       // Sync local storage / PDV payload pending products
@@ -527,9 +618,11 @@ export default function ImportXmlPage() {
 
       if (setCustomAlert) {
         setCustomAlert({
-          message: shouldCreatePayable 
-            ? 'Entrada de estoque e conta a pagar registradas com sucesso!' 
-            : 'Entrada de mercadorias via XML realizada com sucesso!',
+          message: entranceMode === 'checker'
+            ? 'Nota Fiscal lançada como Pendente para conferência física do conferente!'
+            : (shouldCreatePayable 
+              ? 'Entrada de estoque e conta a pagar registradas com sucesso!' 
+              : 'Entrada de mercadorias via XML realizada com sucesso!'),
           type: 'success'
         });
       }
@@ -983,6 +1076,41 @@ export default function ImportXmlPage() {
                     <p className="text-xs text-brand-text-main/40 uppercase font-black italic">
                       Fornecedor: {mockInvoice?.supplier}
                     </p>
+                  </div>
+                </div>
+
+                {/* Workflow Selector */}
+                <div className="space-y-3 bg-slate-50 p-4 border border-brand-border rounded-2xl">
+                  <label className="text-xs font-black text-brand-text-main/50 uppercase italic tracking-widest block text-left">
+                    Modo de Recebimento de Mercadoria
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEntranceMode('checker')}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center ${
+                        entranceMode === 'checker'
+                          ? 'border-brand-blue bg-brand-blue/5 text-brand-blue shadow-sm'
+                          : 'border-brand-border bg-white text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Database size={18} />
+                      <div className="text-[11px] font-black uppercase italic leading-tight">Módulo Conferente</div>
+                      <span className="text-[8px] text-slate-400 font-bold block leading-normal">Conferência física com bipe/validades</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEntranceMode('express')}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center ${
+                        entranceMode === 'express'
+                          ? 'border-brand-blue bg-brand-blue/5 text-brand-blue shadow-sm'
+                          : 'border-brand-border bg-white text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <CheckCircle2 size={18} />
+                      <div className="text-[11px] font-black uppercase italic leading-tight">Entrada Expressa</div>
+                      <span className="text-[8px] text-slate-400 font-bold block leading-normal">Estoque imediato e lotes automáticos</span>
+                    </button>
                   </div>
                 </div>
 

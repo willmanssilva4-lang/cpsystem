@@ -2,7 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Search, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Search, 
+  Clock, 
+  CheckCircle2, 
+  XCircle,
+  Barcode,
+  AlertTriangle,
+  RotateCcw,
+  Plus,
+  Minus,
+  Calendar,
+  List,
+  Sparkles,
+  Check
+} from 'lucide-react';
 import Link from 'next/link';
 import { cn, formatDateBR } from '@/lib/utils';
 import { useERP } from '@/lib/context';
@@ -16,6 +31,12 @@ export default function TodosPedidosPage() {
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+  // Módulo de Conferência Física do Conferente (Sistemas de Grande Porte)
+  const [isCheckingMode, setIsCheckingMode] = useState(false);
+  const [checkedItems, setCheckedItems] = useState<any[]>([]);
+  const [scannerInput, setScannerInput] = useState('');
+  const [checkerLog, setCheckerLog] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -95,70 +116,193 @@ export default function TodosPedidosPage() {
     setIsItemsLoading(false);
   };
 
-  const handleReceiveOrder = async () => {
-    if (!selectedOrder || !orderItems.length) return;
+  const initChecking = () => {
+    if (!orderItems.length) return;
+    const today = new Date();
+    const initialChecked = orderItems.map((item, index) => {
+      return {
+        ...item,
+        qtyExpected: Number(item.quantity) || 0,
+        qtyReceived: 0,
+        loteNumber: `LT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${index + 100}`,
+        expirationDate: '',
+        product: item.products
+      };
+    });
+    setCheckedItems(initialChecked);
+    setIsCheckingMode(true);
+    setCheckerLog(['Iniciando conferência de carga física...', 'Pronto para bipar ou coletar mercadorias.']);
+  };
+
+  const handlePrefillChecking = () => {
+    const updated = checkedItems.map(item => ({
+      ...item,
+      qtyReceived: item.qtyExpected
+    }));
+    setCheckedItems(updated);
+    setCheckerLog(prev => [
+      '⚡ AUTO-PREENCHIMENTO: Quantidades esperadas copiadas para recebidas.',
+      ...prev.slice(0, 4)
+    ]);
+    if (setCustomAlert) {
+      setCustomAlert({
+        message: 'Todas as quantidades foram preenchidas com sucesso!',
+        type: 'success'
+      });
+    }
+  };
+
+  const handleScanBarcode = (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = scannerInput.trim();
+    if (!code) return;
+
+    const foundIndex = checkedItems.findIndex(item => {
+      const prod = item.product || {};
+      return (
+        (prod.barcode && prod.barcode.toLowerCase() === code.toLowerCase()) ||
+        (prod.sku && prod.sku.toLowerCase() === code.toLowerCase()) ||
+        (prod.name && prod.name.toLowerCase().includes(code.toLowerCase()))
+      );
+    });
+
+    if (foundIndex !== -1) {
+      const updated = [...checkedItems];
+      const item = updated[foundIndex];
+      item.qtyReceived = (item.qtyReceived || 0) + 1;
+      setCheckedItems(updated);
+
+      setCheckerLog(prev => [
+        `BIP! 📥 ${item.product?.name || 'Produto'} recebido (Total: ${item.qtyReceived} / ${item.qtyExpected})`,
+        ...prev.slice(0, 4)
+      ]);
+
+      if (setCustomAlert) {
+        setCustomAlert({
+          message: `Bipado: ${item.product?.name || 'Produto'} (+1 un)`,
+          type: 'success'
+        });
+      }
+    } else {
+      setCheckerLog(prev => [
+        `⚠️ CÓDIGO NÃO ENCONTRADO NO PEDIDO: "${code}"`,
+        ...prev.slice(0, 4)
+      ]);
+      if (setCustomAlert) {
+        setCustomAlert({
+          message: `O produto "${code}" não pertence a este pedido de compra!`,
+          type: 'warning'
+        });
+      }
+    }
+
+    setScannerInput('');
+  };
+
+  const handleIncrementQty = (index: number) => {
+    const updated = [...checkedItems];
+    updated[index].qtyReceived = (updated[index].qtyReceived || 0) + 1;
+    setCheckedItems(updated);
+  };
+
+  const handleDecrementQty = (index: number) => {
+    const updated = [...checkedItems];
+    if ((updated[index].qtyReceived || 0) > 0) {
+      updated[index].qtyReceived = (updated[index].qtyReceived || 0) - 1;
+      setCheckedItems(updated);
+    }
+  };
+
+  const handleUpdateItemField = (index: number, field: string, value: any) => {
+    const updated = [...checkedItems];
+    updated[index][field] = value;
+    setCheckedItems(updated);
+  };
+
+  const handleFinishChecking = async () => {
+    if (!selectedOrder || !checkedItems.length) return;
     
     setIsLoading(true);
     try {
       const supplierName = selectedOrder.suppliers?.name || 'Fornecedor Desconhecido';
       const targetCompanyId = user?.companyId || null;
       
-      for (const item of orderItems) {
-        const numeroLote = `LT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-        
-        // 1. Create Lote
-        const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
-          company_id: targetCompanyId,
-          produto_id: item.product_id,
-          numero_lote: numeroLote,
-          data_entrada: new Date().toISOString(),
-          custo_unit: Number(item.unit_price) || 0,
-          quantidade_inicial: Number(item.quantity) || 0,
-          saldo_atual: Number(item.quantity) || 0,
-          fornecedor_id: selectedOrder.supplier_id
-        }).select('id').single();
+      let hasDiscrepancy = false;
+      const discrepanciesList: string[] = [];
 
-        let loteId = undefined;
-        if (loteError) {
-          console.error('Error creating lote:', loteError);
-        } else if (loteData) {
-          loteId = loteData.id;
+      for (const item of checkedItems) {
+        const expected = Number(item.qtyExpected) || 0;
+        const received = Number(item.qtyReceived) || 0;
+        const finalCost = Number(item.unit_price) || 0;
+        
+        if (expected !== received) {
+          hasDiscrepancy = true;
+          discrepanciesList.push(`${item.product?.name || 'Produto'}: Esperado ${expected}, Recebido ${received}`);
         }
 
-        // 2. Update Product (last cost, supplier, and precise cost metadata)
-        const currentProd = (item as any).products;
-        const rawImage = currentProd?.image ?? 'https://i.imgur.com/jGU5BUa.png';
-        const cleanImage = String(rawImage).split('#cost:')[0];
-        const costVal = Number(item.unit_price) || 0;
+        // Only create Lote and update stock if they received at least 1 unit!
+        if (received > 0) {
+          // 1. Create Lote with actual checked quantity and expiration
+          const { data: loteData, error: loteError } = await supabase.from('produto_lotes').insert({
+            company_id: targetCompanyId,
+            produto_id: item.product_id,
+            numero_lote: item.loteNumber || `LT-${Date.now().toString().slice(-6)}`,
+            data_entrada: new Date().toISOString(),
+            custo_unit: finalCost,
+            quantidade_inicial: received,
+            saldo_atual: received,
+            validade: item.expirationDate || null,
+            fornecedor_id: selectedOrder.supplier_id
+          }).select('id').single();
 
-        await supabase.from('products')
-          .update({ 
-            cost_price: costVal,
-            supplier: supplierName,
-            has_had_stock: true,
-            image: `${cleanImage}#cost:${costVal}`
-          })
-          .eq('id', item.product_id); // Removed company_id filter to be safer since ID is unique
+          let loteId = undefined;
+          if (loteError) {
+            console.error('Error creating lote:', loteError);
+          } else if (loteData) {
+            loteId = loteData.id;
+          }
 
-        // 3. Register Movement
-        await addStockMovement({
-          productId: item.product_id,
-          loteId: loteId,
-          type: 'COMPRA',
-          quantity: Number(item.quantity) || 0,
-          cost: Number(item.unit_price) || 0,
-          origin: `Recebimento Pedido: ${selectedOrder.id.slice(0, 8)} - Fornecedor: ${supplierName}`,
-          date: new Date().toISOString(),
-          userId: user?.email || 'system',
-          userName: user?.name || 'Sistema',
-          companyId: targetCompanyId
-        }, true); // Use skipFetch: true
+          // 2. Update Product (last cost, supplier, and precise cost metadata)
+          const currentProd = item.product;
+          const rawImage = currentProd?.image ?? 'https://i.imgur.com/jGU5BUa.png';
+          const cleanImage = String(rawImage).split('#cost:')[0];
+
+          await supabase.from('products')
+            .update({ 
+              cost_price: finalCost,
+              supplier: supplierName,
+              has_had_stock: true,
+              validade: item.expirationDate || currentProd?.validade || null,
+              image: `${cleanImage}#cost:${finalCost}`
+            })
+            .eq('id', item.product_id);
+
+          // 3. Register Movement using actual checked received quantity
+          await addStockMovement({
+            productId: item.product_id,
+            loteId: loteId,
+            type: 'COMPRA',
+            quantity: received,
+            cost: finalCost,
+            origin: `Conferência Carga Pedido: ${selectedOrder.id.slice(0, 8)} - Fornecedor: ${supplierName}`,
+            date: new Date().toISOString(),
+            userId: user?.email || 'system',
+            userName: user?.name || 'Sistema',
+            companyId: targetCompanyId
+          }, true);
+        }
       }
 
       // 4. Update Order Status
+      const finalStatus = hasDiscrepancy ? 'Recebido com Divergência' : 'Recebido';
+      
       let updateQuery = supabase
         .from('purchase_orders')
-        .update({ status: 'Recebido' })
+        .update({ 
+          status: finalStatus,
+          received_date: new Date().toISOString(),
+          checker_notes: discrepanciesList.join('; ')
+        })
         .eq('id', selectedOrder.id);
       
       if (targetCompanyId) {
@@ -168,14 +312,15 @@ export default function TodosPedidosPage() {
       }
 
       const { error: updateError } = await updateQuery;
-
       if (updateError) throw updateError;
 
       // 5. Generate Expense
+      const actualTotalAmount = checkedItems.reduce((acc, item) => acc + (Number(item.qtyReceived) * Number(item.unit_price)), 0);
+
       await addExpense({
-        description: `Recebimento Pedido: ${selectedOrder.id.slice(0, 8)} - ${supplierName}`,
+        description: `Conferência Pedido: ${selectedOrder.id.slice(0, 8)} (${finalStatus}) - ${supplierName}`,
         category: 'Compra de Mercadoria',
-        amount: Number(selectedOrder.total_amount) || 0,
+        amount: actualTotalAmount || Number(selectedOrder.total_amount) || 0,
         supplier: supplierName,
         supplierId: selectedOrder.supplier_id,
         dueDate: new Date().toISOString(),
@@ -188,19 +333,21 @@ export default function TodosPedidosPage() {
         companyId: targetCompanyId
       });
 
+      // Refresh list
+      setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, status: finalStatus } : o));
+      setSelectedOrder(null);
+      setIsCheckingMode(false);
+      setCheckedItems([]);
+
       setCustomAlert?.({
-        message: 'Pedido recebido com sucesso! Estoque atualizado.',
+        message: `Carga conferida com sucesso! Status: ${finalStatus}`,
         type: 'success'
       });
 
-      // Refresh list
-      setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, status: 'Recebido' } : o));
-      setSelectedOrder(null);
-
     } catch (error: any) {
-      console.error('Error receiving order:', error);
+      console.error('Error completing check:', error);
       setCustomAlert?.({
-        message: `Erro ao receber pedido: ${error.message || 'Erro desconhecido'}`,
+        message: `Erro ao finalizar conferência: ${error.message || 'Erro desconhecido'}`,
         type: 'error'
       });
     } finally {
@@ -327,11 +474,13 @@ export default function TodosPedidosPage() {
 
                     {selectedOrder.status === 'Pendente' && (
                       <button
-                        onClick={() => setIsConfirmModalOpen(true)}
+                        onClick={() => {
+                          initChecking();
+                        }}
                         className="w-full mt-4 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center justify-center gap-2"
                       >
-                        <CheckCircle2 size={18} />
-                        Confirmar Recebimento
+                        <Barcode size={18} />
+                        Iniciar Conferência Física (Conferente)
                       </button>
                     )}
                   </div>
@@ -346,36 +495,214 @@ export default function TodosPedidosPage() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
-      {isConfirmModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[32px] p-8 w-full max-w-md border border-brand-border shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-16 h-16 bg-brand-blue/10 text-brand-blue rounded-full flex items-center justify-center mb-2">
-                <CheckCircle2 size={32} />
-              </div>
-              <h2 className="text-xl font-black text-brand-text-main uppercase italic tracking-tight">Confirmar Recebimento</h2>
-              <p className="text-slate-500 font-medium leading-relaxed">
-                Deseja confirmar o recebimento deste pedido? <br />
-                <span className="text-brand-blue font-bold">O estoque será atualizado agora.</span>
+      {/* Módulo do Conferente: Interface de Conferência Física de Carga */}
+      {isCheckingMode && selectedOrder && (
+        <div className="fixed inset-0 bg-slate-100 z-[70] overflow-y-auto p-4 md:p-8 flex flex-col gap-6">
+          {/* Header */}
+          <div className="bg-white rounded-3xl p-6 border border-brand-border shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-brand-blue bg-brand-blue/10 px-2.5 py-1 rounded-full">
+                Módulo Conferente • Recepção de Carga Física
+              </span>
+              <h1 className="text-2xl font-black text-brand-text-main uppercase italic tracking-tight">
+                Conferência de Estoque: Pedido #{selectedOrder.id.slice(0, 8)}
+              </h1>
+              <p className="text-xs font-bold text-slate-400 uppercase">
+                Fornecedor: <span className="text-slate-600 font-black">{selectedOrder.suppliers?.name || 'Desconhecido'}</span>
               </p>
-              
-              <div className="grid grid-cols-2 gap-3 w-full mt-8">
-                <button
-                  onClick={() => setIsConfirmModalOpen(false)}
-                  className="py-4 bg-slate-100 text-brand-text-main rounded-2xl font-black uppercase italic tracking-tight text-xs hover:bg-slate-200 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    setIsConfirmModalOpen(false);
-                    handleReceiveOrder();
-                  }}
-                  className="py-4 bg-brand-blue text-white rounded-2xl font-black uppercase italic tracking-tight text-xs hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20"
-                >
-                  Confirmar
-                </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePrefillChecking}
+                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-brand-text-main font-black text-xs uppercase italic tracking-wider rounded-xl transition-all flex items-center gap-1.5"
+                title="Copia quantidades esperadas para recebidas"
+              >
+                <Sparkles size={14} className="text-amber-500" />
+                Autopreencher Quantidades
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCheckingMode(false);
+                  setCheckedItems([]);
+                }}
+                className="px-4 py-3 bg-white border border-brand-border hover:bg-slate-50 text-slate-500 hover:text-slate-700 font-black text-xs uppercase italic tracking-wider rounded-xl transition-all"
+              >
+                Cancelar Conferência
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left side: scanner inputs and scanner logs */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Barcode scanner console */}
+              <div className="bg-brand-text-main text-white rounded-3xl p-6 border border-brand-text-main shadow-lg space-y-4">
+                <div className="flex items-center gap-2 text-brand-blue">
+                  <Barcode size={24} />
+                  <h3 className="text-sm font-black uppercase tracking-wider italic">Scanner / Leitor de Código</h3>
+                </div>
+                
+                <form onSubmit={handleScanBarcode} className="space-y-2">
+                  <p className="text-[11px] text-slate-300 font-medium">
+                    Bipe o código de barras ou digite o nome/SKU do produto e pressione Enter para registrar +1 unidade:
+                  </p>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={scannerInput}
+                      onChange={(e) => setScannerInput(e.target.value)}
+                      placeholder="Foque aqui para bipar..."
+                      className="w-full bg-slate-800 border-2 border-slate-700 focus:border-brand-blue text-white font-black px-4 py-3.5 rounded-xl outline-none transition-all placeholder-slate-500 uppercase text-sm"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="absolute right-2 top-2 px-3 py-1.5 bg-brand-blue text-white rounded-lg text-[10px] font-black uppercase italic tracking-wider hover:bg-brand-blue-hover transition-all"
+                    >
+                      Bipar
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Logs */}
+              <div className="bg-white rounded-3xl p-6 border border-brand-border shadow-md space-y-3">
+                <h4 className="text-xs font-black uppercase text-slate-400 italic tracking-wider flex items-center gap-1.5">
+                  <List size={14} />
+                  Logs de Bipagem Recentes
+                </h4>
+                <div className="bg-slate-50 border border-brand-border rounded-2xl p-4 font-mono text-[11px] text-slate-600 min-h-[160px] max-h-[220px] overflow-y-auto space-y-1.5">
+                  {checkerLog.map((log, index) => (
+                    <div key={index} className={cn(
+                      "pb-1 border-b border-slate-100 last:border-0",
+                      log.startsWith('⚠️') ? 'text-rose-600 font-bold' :
+                      log.startsWith('⚡') ? 'text-amber-600 font-bold' :
+                      log.startsWith('BIP!') ? 'text-emerald-600 font-bold' : 'text-slate-500'
+                    )}>
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right side: Items grid/table */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white rounded-3xl border border-brand-border shadow-md overflow-hidden">
+                <div className="p-6 border-b border-brand-border bg-slate-50/50 flex items-center justify-between">
+                  <h3 className="font-black text-brand-text-main uppercase italic tracking-tight text-sm">
+                    Lista de Conferência de Itens
+                  </h3>
+                  <span className="text-[10px] font-black text-brand-blue uppercase bg-brand-blue/10 px-2.5 py-1 rounded-full">
+                    {checkedItems.length} itens a conferir
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-brand-border/60 bg-slate-50/20 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        <th className="px-6 py-4">Produto</th>
+                        <th className="px-6 py-4 text-center">Esperado</th>
+                        <th className="px-6 py-4 text-center">Recebido (Contagem)</th>
+                        <th className="px-6 py-4">Código Lote</th>
+                        <th className="px-6 py-4">Data Validade</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-border/40 text-sm">
+                      {checkedItems.map((item, index) => {
+                        const expected = Number(item.qtyExpected) || 0;
+                        const received = Number(item.qtyReceived) || 0;
+                        const hasDiverg = expected !== received;
+
+                        return (
+                          <tr key={index} className={cn(
+                            "hover:bg-slate-50/30 transition-colors",
+                            hasDiverg && received > 0 ? "bg-amber-50/10" : ""
+                          )}>
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-brand-text-main">{item.product?.name || 'Produto'}</div>
+                              <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                                SKU: {item.product?.sku || 'N/A'} {item.product?.barcode && `| EAN: ${item.product?.barcode}`}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center font-black text-slate-500">
+                              {expected}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecrementQty(index)}
+                                  className="w-8 h-8 rounded-lg border border-brand-border hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all active:scale-95"
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={item.qtyReceived}
+                                  onChange={(e) => handleUpdateItemField(index, 'qtyReceived', Math.max(0, parseInt(e.target.value) || 0))}
+                                  className={cn(
+                                    "w-16 px-2 py-1.5 border-2 rounded-lg text-center font-black text-sm outline-none",
+                                    hasDiverg && received > 0 ? "border-amber-400 focus:border-amber-500 bg-amber-50/20 text-amber-700" :
+                                    received === expected ? "border-emerald-300 focus:border-emerald-500 bg-emerald-50/10 text-emerald-700" :
+                                    "border-brand-border focus:border-brand-blue text-slate-700"
+                                  )}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleIncrementQty(index)}
+                                  className="w-8 h-8 rounded-lg border border-brand-border hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-all active:scale-95"
+                                >
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <input
+                                type="text"
+                                value={item.loteNumber}
+                                onChange={(e) => handleUpdateItemField(index, 'loteNumber', e.target.value)}
+                                className="w-full min-w-[110px] px-3 py-1.5 bg-slate-50 border border-brand-border rounded-lg text-xs font-mono font-bold text-slate-600 outline-none focus:bg-white focus:border-brand-blue"
+                                placeholder="Num Lote"
+                              />
+                            </td>
+                            <td className="px-6 py-4">
+                              <input
+                                type="date"
+                                value={item.expirationDate}
+                                onChange={(e) => handleUpdateItemField(index, 'expirationDate', e.target.value)}
+                                className="w-full px-3 py-1.5 bg-slate-50 border border-brand-border rounded-lg text-xs font-semibold text-slate-600 outline-none focus:bg-white focus:border-brand-blue"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-6 border-t border-brand-border bg-slate-50/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={18} className="text-amber-500" />
+                    <span className="text-xs text-slate-500 font-medium">
+                      Valores divergentes de recebimento serão registrados como <strong className="text-amber-600 font-bold">"Recebido com Divergência"</strong> para fins de auditoria e estoque.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFinishChecking}
+                    disabled={isLoading}
+                    className="w-full sm:w-auto px-8 py-4 bg-brand-blue hover:bg-brand-blue-hover disabled:bg-slate-300 text-white rounded-2xl text-xs font-black uppercase italic tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-brand-blue/20"
+                  >
+                    <CheckCircle2 size={16} />
+                    {isLoading ? 'Salvando...' : 'Finalizar Conferência Física'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

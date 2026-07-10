@@ -7,7 +7,7 @@ import { Logo } from '@/components/Logo';
 import { AlertCircle, RefreshCw, Play, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isAuthReady, isLoading } = useERP();
+  const { user, isAuthReady, isLoading, hasPermission } = useERP();
   const router = useRouter();
   const pathname = usePathname();
   const currentPath = pathname || '';
@@ -40,7 +40,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                        userRole === 'operador de caixa' || 
                        userRole === 'operador caixa' || 
                        userRole === 'fiscal de caixa' ||
-                       userRole.includes('caixa');
+                       userRole.includes('caixa') ||
+                       userRole.includes('operador') ||
+                       userRole.includes('atendente');
 
   if (isAuthReady && !forcedReady) {
     if (!effectiveUser) {
@@ -48,19 +50,65 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         computedTarget = '/login';
       }
     } else {
-      if (isCaixaCheck) {
-        if (currentPath !== '/pdv' && currentPath !== '/consulta-preco') {
-          computedTarget = '/pdv';
-        }
-      } else if (isSuperAdminManagement) {
+      // User is logged in
+      if (isSuperAdminManagement) {
         if (currentPath !== '/admin/companies' && currentPath !== '/consulta-preco') {
           computedTarget = '/admin/companies';
         }
       } else {
-        if (currentPath === '/login') {
-          computedTarget = '/';
-        } else if (currentPath.startsWith('/admin')) {
-          computedTarget = '/';
+        // For non-super-admins, wait for data/permissions to be loaded before deciding redirects
+        if (!isLoading) {
+          // 1. Determine the module for currentPath
+          let requiredModule: string | null = null;
+          if (currentPath === '/') {
+            requiredModule = 'Dashboard';
+          } else if (currentPath.startsWith('/pdv') || currentPath.startsWith('/vendas') || currentPath.startsWith('/promocoes')) {
+            requiredModule = 'Vendas';
+          } else if (currentPath.startsWith('/produtos')) {
+            requiredModule = 'Estoque';
+          } else if (currentPath.startsWith('/financeiro')) {
+            requiredModule = 'Financeiro';
+          } else if (currentPath.startsWith('/compras')) {
+            requiredModule = 'Compras';
+          } else if (currentPath.startsWith('/clientes')) {
+            requiredModule = 'Clientes';
+          } else if (currentPath.startsWith('/relatorios')) {
+            requiredModule = 'Relatórios';
+          } else if (currentPath.startsWith('/configuracoes')) {
+            requiredModule = 'Configurações';
+          } else if (currentPath.startsWith('/cadastros')) {
+            requiredModule = 'Cadastros';
+          }
+
+          // 2. Check if they have view permission for current module
+          const hasViewPermission = requiredModule ? hasPermission(requiredModule, 'view') : true;
+
+          // 3. Find their preferred landing page based on allowed modules
+          const fallbackModules = [
+            { module: 'Dashboard', path: '/' },
+            { module: 'Vendas', path: '/pdv' },
+            { module: 'Estoque', path: '/produtos' },
+            { module: 'Financeiro', path: '/financeiro' },
+            { module: 'Compras', path: '/compras' },
+            { module: 'Clientes', path: '/clientes' },
+            { module: 'Relatórios', path: '/relatorios' },
+            { module: 'Configurações', path: '/configuracoes' },
+            { module: 'Cadastros', path: '/cadastros' }
+          ];
+          const firstAllowedModule = fallbackModules.find(m => hasPermission(m.module, 'view'));
+          const allowedLandingPath = firstAllowedModule ? firstAllowedModule.path : '/pdv';
+
+          if (currentPath === '/login') {
+            computedTarget = allowedLandingPath;
+          } else if (currentPath.startsWith('/admin')) {
+            computedTarget = allowedLandingPath;
+          } else if (!hasViewPermission) {
+            // Trying to access an unauthorized module or '/' when they don't have Dashboard permission
+            computedTarget = allowedLandingPath;
+          } else if (isCaixaCheck && currentPath !== '/pdv' && currentPath !== '/consulta-preco') {
+            // Keep hardcoded caixa fallback for extra security
+            computedTarget = '/pdv';
+          }
         }
       }
     }
