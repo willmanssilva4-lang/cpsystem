@@ -91,8 +91,15 @@ export function ProductListModal({ onClose, onSelectProduct, products: propProdu
     return [...products]
       .filter(p => {
         if (p.status === 'Inativo') return false;
-        const stock = parseFloat(String(p.stock));
-        if (isNaN(stock) || stock <= 0) return false;
+        
+        const isControlActive = p.controlStock === undefined || 
+                                p.controlStock === null || 
+                                String(p.controlStock).toUpperCase() !== 'NÃO';
+        if (isControlActive) {
+          const stock = parseFloat(String(p.stock));
+          if (isNaN(stock) || stock <= 0) return false;
+        }
+
         const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
         return searchTerms.length === 0 || searchTerms.every(term => searchableText.includes(term));
       })

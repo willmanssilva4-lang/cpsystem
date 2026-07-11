@@ -827,6 +827,69 @@ export default function PDVPage() {
     setShowPaymentModal(true);
   }, [cart]);
 
+  const decrementLocalStock = useCallback(async (soldItems: typeof cart) => {
+    setProducts(prevProducts => {
+      const updatedProducts = [...prevProducts];
+
+      const deductProductStock = (productId: string, qty: number) => {
+        const idx = updatedProducts.findIndex(p => p.id === productId);
+        if (idx === -1) return;
+
+        const p = updatedProducts[idx];
+        const currentStock = Number(p.stock) || 0;
+        const newStock = currentStock - qty;
+        
+        updatedProducts[idx] = {
+          ...p,
+          stock: newStock
+        };
+
+        // Handle Virtual Product (SALE)
+        if (p.product_type === 'SALE' && p.base_product_id) {
+          const baseId = p.base_product_id;
+          const convFactor = Number(p.conversion_factor) || 1;
+          const baseQty = qty / convFactor;
+          deductProductStock(baseId, baseQty);
+        }
+
+        // Handle Kit
+        const composition = p.composition;
+        if (p.product_type === 'KIT') {
+          if (composition) {
+            let parsedComp: any = composition;
+            if (typeof parsedComp === 'string') {
+              try {
+                parsedComp = JSON.parse(parsedComp);
+              } catch (e) {
+                parsedComp = null;
+              }
+            }
+            if (Array.isArray(parsedComp)) {
+              parsedComp.forEach((comp: any) => {
+                const compId = comp.productId || comp.product_id;
+                const compQty = (Number(comp.quantity) || 0) * qty;
+                if (compId) {
+                  deductProductStock(compId, compQty);
+                }
+              });
+            }
+          }
+        }
+      };
+
+      soldItems.forEach(item => {
+        deductProductStock(item.product.id, item.quantity);
+      });
+
+      // Async save to IndexedDB
+      setDBValue('erp_pdv_carga_products', updatedProducts).catch(err => {
+        console.error('Error saving updated local products to IndexedDB:', err);
+      });
+
+      return updatedProducts;
+    });
+  }, []);
+
   const finalizeSale = async (paymentData: any) => {
     if (isFinishingSale) return;
     setIsFinishingSale(true);
@@ -838,6 +901,7 @@ export default function PDVPage() {
       const stockCheck = validateCartStock(cart.filter(item => !item.canceled));
       if (!stockCheck.okay) {
         setCustomAlert({ message: stockCheck.message || '', type: 'error' });
+        setIsFinishingSale(false);
         return;
       }
 
@@ -867,6 +931,9 @@ export default function PDVPage() {
       console.log('DEBUG: Valor de taxAmount enviado para addSale:', paymentData.payments.reduce((acc: number, p: any) => acc + (p.taxAmount || 0), 0));
 
       if (success) {
+        // Decrement local stock cache
+        await decrementLocalStock(cart.filter(item => !item.canceled));
+
         setCart([]);
         setSaleDiscount(0);
         setSelectedCartIndex(-1);

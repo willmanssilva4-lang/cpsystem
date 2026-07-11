@@ -1695,6 +1695,27 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const openCashRegister = async (openingBalance: number) => {
+    if (activeRegister) {
+      console.warn('[ERPContext] openCashRegister: An active register is already open locally for this operator.');
+      return false;
+    }
+
+    if (user?.id) {
+      const { data: existing, error: checkError } = await supabase
+        .from('cash_registers')
+        .select('id')
+        .eq('status', 'open')
+        .eq('operator_id', user.id);
+
+      if (checkError) {
+        console.error('[ERPContext] Error checking for existing open register:', checkError);
+      } else if (existing && existing.length > 0) {
+        console.warn('[ERPContext] openCashRegister: An active register is already open in the DB for this operator.');
+        await fetchData();
+        return false;
+      }
+    }
+
     const dbPayload = {
       opening_balance: openingBalance,
       status: 'open',
