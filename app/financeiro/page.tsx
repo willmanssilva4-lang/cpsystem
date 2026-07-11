@@ -1114,7 +1114,14 @@ export default function FinancePage() {
       )}
 
       {activeTab === 'pagar' && (
-        <ContasPagar expenses={expenses} onAdd={() => setShowExpenseModal(true)} />
+        <ContasPagar 
+          expenses={expenses} 
+          onAdd={() => setShowExpenseModal(true)} 
+          onEdit={(exp) => {
+            setExpenseToEdit(exp);
+            setShowExpenseModal(true);
+          }}
+        />
       )}
 
       {activeTab === 'receber' && (

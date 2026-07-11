@@ -26,7 +26,7 @@ import { PaymentModal } from './PaymentModal';
 import { useERP } from '@/lib/context';
 import * as XLSX from 'xlsx';
 
-export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: () => void }) {
+export function ContasPagar({ expenses, onAdd, onEdit }: { expenses: Expense[], onAdd: () => void, onEdit?: (expense: Expense) => void }) {
   const { updateExpense, setCustomAlert } = useERP();
   const [expenseToPay, setExpenseToPay] = useState<Expense | null>(null);
   
@@ -481,14 +481,25 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
                     </span>
                   </div>
                   
-                  {!isPaid && (
-                    <button 
-                      onClick={() => setExpenseToPay(e)} 
-                      className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[10px] font-black uppercase italic tracking-wide transition-all cursor-pointer active:scale-95"
-                    >
-                      💰 Pagar
-                    </button>
-                  )}
+                  <div className="flex gap-2">
+                    {onEdit && (
+                      <button 
+                        onClick={() => onEdit(e)} 
+                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                        title="Editar"
+                      >
+                        ✏️ Editar
+                      </button>
+                    )}
+                    {!isPaid && (
+                      <button 
+                        onClick={() => setExpenseToPay(e)} 
+                        className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[10px] font-black uppercase italic tracking-wide transition-all cursor-pointer active:scale-95"
+                      >
+                        💰 Pagar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -614,16 +625,27 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
 
                     {/* Action buttons */}
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {!isPaid ? (
-                        <button 
-                          onClick={() => setExpenseToPay(e)} 
-                          className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-xl text-xs font-black uppercase italic tracking-wider transition-all shadow-md shadow-brand-blue/15 active:scale-95 cursor-pointer"
-                        >
-                          💰 Pagar
-                        </button>
-                      ) : (
-                        <span className="text-xs font-extrabold text-emerald-500 uppercase">Quitada</span>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {onEdit && (
+                          <button 
+                            onClick={() => onEdit(e)} 
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-xl transition-all cursor-pointer flex items-center justify-center"
+                            title="Editar Parcela / Duplicata"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        )}
+                        {!isPaid ? (
+                          <button 
+                            onClick={() => setExpenseToPay(e)} 
+                            className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-xl text-xs font-black uppercase italic tracking-wider transition-all shadow-md shadow-brand-blue/15 active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            💰 Pagar
+                          </button>
+                        ) : (
+                          <span className="text-xs font-extrabold text-emerald-500 uppercase whitespace-nowrap">Quitada</span>
+                        )}
+                      </div>
                     </td>
 
                   </tr>
