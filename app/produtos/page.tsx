@@ -45,6 +45,7 @@ import { ProductDetails } from '@/components/ProductDetails';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
 import { InventorySessionModal } from '@/components/InventorySessionModal';
 import { Product } from '@/lib/types';
+import ProductLabelPrinterModal from '@/components/ProductLabelPrinterModal';
 
 export default function ProductsPage() {
   return (
@@ -66,6 +67,8 @@ function ProductsContent() {
   const [showModal, setShowModal] = useState(false);
   const [showCargaModal, setShowCargaModal] = useState(false);
   const [showPricingSettings, setShowPricingSettings] = useState(false);
+  const [showLabelPrinterModal, setShowLabelPrinterModal] = useState(false);
+  const [labelPrinterPreSelectedIds, setLabelPrinterPreSelectedIds] = useState<string[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [duplicateBaseProduct, setDuplicateBaseProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -1063,19 +1066,42 @@ function ProductsContent() {
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
                   {Object.values(selectedProductsForBulk).filter(Boolean).length > 0 && (
-                    <button 
-                      onClick={handleBulkDeactivate} 
-                      disabled={bulkDeactivateLoading}
-                      className="flex items-center gap-2 px-4 h-10 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-rose-100 hover:border-rose-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
-                    >
-                      {bulkDeactivateLoading ? (
-                        <RefreshCw size={14} className="animate-spin stroke-[2.5]" />
-                      ) : (
-                        <AlertTriangle size={14} className="stroke-[2.5]" />
-                      )}
-                      <span>Inativar Selecionados ({Object.values(selectedProductsForBulk).filter(Boolean).length})</span>
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => {
+                          const selectedIds = Object.keys(selectedProductsForBulk).filter(id => selectedProductsForBulk[id]);
+                          setLabelPrinterPreSelectedIds(selectedIds);
+                          setShowLabelPrinterModal(true);
+                        }}
+                        className="flex items-center gap-2 px-4 h-10 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-100 hover:border-emerald-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap cursor-pointer"
+                      >
+                        <Printer size={14} className="stroke-[2.5]" />
+                        <span>Etiquetas ({Object.values(selectedProductsForBulk).filter(Boolean).length})</span>
+                      </button>
+                      <button 
+                        onClick={handleBulkDeactivate} 
+                        disabled={bulkDeactivateLoading}
+                        className="flex items-center gap-2 px-4 h-10 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-rose-100 hover:border-rose-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
+                      >
+                        {bulkDeactivateLoading ? (
+                          <RefreshCw size={14} className="animate-spin stroke-[2.5]" />
+                        ) : (
+                          <AlertTriangle size={14} className="stroke-[2.5]" />
+                        )}
+                        <span>Inativar Selecionados ({Object.values(selectedProductsForBulk).filter(Boolean).length})</span>
+                      </button>
+                    </>
                   )}
+                  <button 
+                    onClick={() => {
+                      setLabelPrinterPreSelectedIds([]);
+                      setShowLabelPrinterModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-xl text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap cursor-pointer"
+                  >
+                    <Printer size={14} className="stroke-[2.5] text-brand-blue" />
+                    <span>Imprimir Etiquetas</span>
+                  </button>
                   <button 
                     onClick={() => setShowImportModal(true)} 
                     className="flex items-center gap-2 px-4 h-10 bg-white border border-slate-200 rounded-xl text-slate-600 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 hover:shadow transition-all duration-200 active:scale-95 whitespace-nowrap"
@@ -2275,6 +2301,17 @@ function ProductsContent() {
 
       {showPricingSettings && (
         <PricingSettingsModal onClose={() => setShowPricingSettings(false)} />
+      )}
+
+      {showLabelPrinterModal && (
+        <ProductLabelPrinterModal 
+          isOpen={showLabelPrinterModal}
+          preSelectedProductIds={labelPrinterPreSelectedIds}
+          onClose={() => {
+            setShowLabelPrinterModal(false);
+            setLabelPrinterPreSelectedIds([]);
+          }}
+        />
       )}
 
       {showInventorySession && (

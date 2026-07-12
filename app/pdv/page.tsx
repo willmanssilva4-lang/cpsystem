@@ -53,16 +53,17 @@ function PDVPage() {
         try {
           const cached = await getDBValue<Product[]>('erp_pdv_carga_products');
           if (cached && cached.length > 0) {
-            setProducts(cached);
+            setProducts(cached.filter(p => p && p.id));
             isInitializedRef.current = true;
           } else if (originalProducts && originalProducts.length > 0 && !isInitializedRef.current) {
-            await setDBValue('erp_pdv_carga_products', originalProducts);
-            setProducts(originalProducts);
+            const validOriginals = originalProducts.filter(p => p && p.id);
+            await setDBValue('erp_pdv_carga_products', validOriginals);
+            setProducts(validOriginals);
             isInitializedRef.current = true;
           }
         } catch (err) {
           console.error("Error loading products from IndexedDB:", err);
-          setProducts(originalProducts || []);
+          setProducts((originalProducts || []).filter(p => p && p.id));
         }
       };
       loadInitialProducts();
@@ -86,7 +87,7 @@ function PDVPage() {
       if (isCargaPending) {
         setHasPendingCarga(true);
         getDBValue<Product[]>('erp_pdv_carga_products').then(current => {
-          if (current) setProducts(current);
+          if (current) setProducts(current.filter(p => p && p.id));
         });
       } else {
         setHasPendingCarga(false);
@@ -360,15 +361,16 @@ function PDVPage() {
 
         const applyCarga = async (parsed: Product[], isFromPending: boolean) => {
           try {
+            const validParsed = parsed.filter(p => p && p.id);
             // Count altered products based on existing ones
-            const altered = parsed.filter(current => {
-              const last = products.find(p => p.id === current.id);
+            const altered = validParsed.filter(current => {
+              const last = products.find(p => p && p.id === current.id);
               if (!last) return true;
               return !isProductEqual(current, last);
             });
 
-            await setDBValue('erp_pdv_carga_products', parsed);
-            setProducts(parsed);
+            await setDBValue('erp_pdv_carga_products', validParsed);
+            setProducts(validParsed);
             setHasPendingCarga(false);
             
             if (systemSettings?.last_carga_at) {
@@ -569,7 +571,10 @@ function PDVPage() {
     }
   }, [showCustomerSearch]);
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | undefined | null) => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return '0,00';
+    }
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
@@ -620,7 +625,7 @@ function PDVPage() {
       if (minSets > 0 && minSets !== Infinity) {
         let regularComboPrice = 0;
         for (const productId of combo.comboItems) {
-          const product = products.find(p => p.id === productId);
+          const product = products.find(p => p && p.id === productId);
           if (product) {
             regularComboPrice += product.salePrice;
           }
@@ -716,7 +721,7 @@ function PDVPage() {
       const p = item.product;
       const qty = item.quantity;
       
-      const currentProduct = products.find(prod => prod.id === p.id);
+      const currentProduct = products.find(prod => prod && prod.id === p.id);
       if (!currentProduct) return;
 
       if (currentProduct.product_type === 'KIT' && currentProduct.composition && currentProduct.composition.length > 0) {
@@ -734,7 +739,7 @@ function PDVPage() {
     // Because if multiple virtual products or components share the same base product, we want to sum them up.
     const physicalDemand: Record<string, number> = {};
     for (const [productId, demandedQty] of Object.entries(stockDemand)) {
-      const p = products.find(prod => prod.id === productId);
+      const p = products.find(prod => prod && prod.id === productId);
       if (!p) continue;
 
       if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
@@ -747,7 +752,7 @@ function PDVPage() {
 
     // 3. Compare with actual physical stock
     for (const [productId, demandedQty] of Object.entries(physicalDemand)) {
-      const physicalProduct = products.find(prod => prod.id === productId);
+      const physicalProduct = products.find(prod => prod && prod.id === productId);
       if (!physicalProduct) continue;
 
       // Robust check: if controlStock is SIM, undefined, null, or anything other than NÃO, treat it as active
@@ -760,12 +765,12 @@ function PDVPage() {
         if (demandedQty > availableStock) {
           // Find if this physical product is used inside a kit in the proposed cart
           const kitUsingComp = proposedCart.find(item => {
-            const p = products.find(prod => prod.id === item.product.id);
+            const p = products.find(prod => prod && prod.id === item.product.id);
             if (!p || !p.composition) return false;
             return p.composition.some((comp: any) => 
               comp.productId === productId || 
               (() => {
-                const compProduct = products.find(prod => prod.id === comp.productId);
+                const compProduct = products.find(prod => prod && prod.id === comp.productId);
                 return compProduct?.base_product_id === productId;
               })()
             );
@@ -776,11 +781,11 @@ function PDVPage() {
             const compInKit = kitUsingComp.product.composition?.find((comp: any) => 
               comp.productId === productId || 
               (() => {
-                const compProd = products.find(prod => prod.id === comp.productId);
+                const compProd = products.find(prod => prod && prod.id === comp.productId);
                 return compProd?.base_product_id === productId;
               })()
             );
-            const compProduct = products.find(prod => prod.id === compInKit?.productId);
+            const compProduct = products.find(prod => prod && prod.id === compInKit?.productId);
             const missing = demandedQty - availableStock;
 
             return {
@@ -819,10 +824,10 @@ function PDVPage() {
 
   const decrementLocalStock = useCallback(async (soldItems: typeof cart) => {
     setProducts(prevProducts => {
-      const updatedProducts = [...prevProducts];
+      const updatedProducts = [...prevProducts].filter(p => p && p.id);
 
       const deductProductStock = (productId: string, qty: number) => {
-        const idx = updatedProducts.findIndex(p => p.id === productId);
+        const idx = updatedProducts.findIndex(p => p && p.id === productId);
         if (idx === -1) return;
 
         const p = updatedProducts[idx];
@@ -993,7 +998,7 @@ function PDVPage() {
     if (!printWindow) return;
 
     const itemsHtml = sale.items.map((item: any) => {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find(p => p && p.id === item.productId);
       return `
         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
           <span>${item.quantity}x ${product?.name || 'Produto'}</span>
@@ -1581,49 +1586,59 @@ function PDVPage() {
   }, [cart, searchResults, showHelp, showProductModal, showPaymentModal, showDiscountModal, showAuthModal, showSangriaModal, showSuprimentoModal, showClosureModal, showReverseModal, showPriceCheckModal, showProductListModal, showInvoiceModal, showCancelItemModal, showQuickReturnModal, showDiscountItemModal, showOldRegisterWarning, oldRegisterWarningSelection, selectedCartIndex, isNavigatingCart, numericBuffer, confirmDialog, router, handleCheckout, currentProduct, activeRegister, checkActionPermission, showCustomerSearch, completedSale, completedSaleSelection, pricingMode, handleExitPDV, handleImportCarga]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isNavigatingCart) {
-      setIsNavigatingCart(false);
-      setSelectedCartIndex(-1);
-    }
-    
-    const value = e.target.value;
-    setBarcode(value);
-    
-    // Search by barcode (exact match)
-    const product = products.find(p => (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
-    if (product) {
-      setCurrentProduct(product);
-      setSearchResults([]);
-      setSelectedIndex(-1);
-    } else {
-      setCurrentProduct(null);
-      // Search by name (at least 3 chars)
-      if (value.length >= 3) {
-        const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
-        const filtered = products.filter(p => {
-          if (p.status === 'Inativo') return false;
-          
-          if (p.product_type === 'KIT') {
-            const stock = parseFloat(String(p.stock));
-            if (isNaN(stock) || stock <= 0) return false;
-          } else {
-            const isControlActive = p.controlStock === undefined || 
-                                    p.controlStock === null || 
-                                    String(p.controlStock).toUpperCase() !== 'NÃO';
-            if (isControlActive) {
-              const stock = parseFloat(String(p.stock));
-              if (isNaN(stock) || stock <= 0) return false;
-            }
-          }
-          const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
-          return searchTerms.every(term => searchableText.includes(term));
-        }).sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim())).slice(0, 50); // Limit results
-        setSearchResults(filtered);
-        setSelectedIndex(filtered.length > 0 ? 0 : -1);
-      } else {
+    try {
+      if (isNavigatingCart) {
+        setIsNavigatingCart(false);
+        setSelectedCartIndex(-1);
+      }
+      
+      const value = e.target.value;
+      setBarcode(value);
+      
+      // Search by barcode (exact match)
+      const product = products.find(p => p && (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
+      if (product) {
+        setCurrentProduct(product);
         setSearchResults([]);
         setSelectedIndex(-1);
+      } else {
+        setCurrentProduct(null);
+        // Search by name (at least 3 chars)
+        if (value.length >= 3) {
+          const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
+          const filtered = products.filter(p => {
+            if (!p) return false;
+            if (p.status === 'Inativo') return false;
+            
+            if (p.product_type === 'KIT') {
+              const stock = parseFloat(String(p.stock));
+              if (isNaN(stock) || stock <= 0) return false;
+            } else {
+              const isControlActive = p.controlStock === undefined || 
+                                      p.controlStock === null || 
+                                      String(p.controlStock).toUpperCase() !== 'NÃO';
+              if (isControlActive) {
+                const stock = parseFloat(String(p.stock));
+                if (isNaN(stock) || stock <= 0) return false;
+              }
+            }
+            const searchableText = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''}`.toLowerCase();
+            return searchTerms.every(term => searchableText.includes(term));
+          }).sort((a, b) => {
+            if (!a || !b) return 0;
+            return (a.name || '').trim().localeCompare((b.name || '').trim());
+          }).slice(0, 50); // Limit results
+          setSearchResults(filtered);
+          setSelectedIndex(filtered.length > 0 ? 0 : -1);
+        } else {
+          setSearchResults([]);
+          setSelectedIndex(-1);
+        }
       }
+    } catch (err) {
+      console.error("Erro ao pesquisar produto no PDV:", err);
+      setSearchResults([]);
+      setSelectedIndex(-1);
     }
   };
 
@@ -1752,7 +1767,7 @@ function PDVPage() {
 
   const addToCart = (product: Product, qty: number) => {
     // Find the product in the state to get the most up-to-date data
-    const currentProduct = products.find(p => p.id === product.id);
+    const currentProduct = products.find(p => p && p.id === product.id);
     
     // Log everything about the product to debug
     console.log('DEBUG: addToCart - Product Data:', { 
@@ -3161,16 +3176,16 @@ function PDVPage() {
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 space-y-2 text-left animate-in slide-in-from-bottom duration-300">
                     <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                       <span>Total da Venda</span>
-                      <span className="font-bold text-slate-800 text-base">R$ {completedSale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {formatCurrency(completedSale.total)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                       <span>Valor Pago (Dinheiro)</span>
-                      <span className="font-bold text-slate-800 text-base">R$ {cashReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {formatCurrency(cashReceived)}</span>
                     </div>
                     <div className="h-px bg-slate-200 my-2" />
                     <div className="flex justify-between items-center text-base font-black uppercase tracking-wider text-brand-green">
                       <span>Troco</span>
-                      <span>R$ {change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>R$ {formatCurrency(change)}</span>
                     </div>
                   </div>
                 );
