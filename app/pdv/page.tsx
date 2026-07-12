@@ -569,7 +569,8 @@ export default function PDVPage() {
   }, [showCustomerSearch]);
 
   const formatCurrency = (value: number | undefined | null) => {
-    return (value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (value === undefined || value === null || value === 0) return '-';
+    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   const formatDate = (date: Date | null) => {
