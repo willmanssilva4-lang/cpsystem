@@ -12,10 +12,9 @@ import { motion } from 'framer-motion';
 interface ExpenseModalProps {
   onClose: () => void;
   expenseToEdit?: Expense;
-  defaultPaymentType?: 'À vista' | 'A prazo';
 }
 
-export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: ExpenseModalProps) {
+export function ExpenseModal({ onClose, expenseToEdit }: ExpenseModalProps) {
   const { 
     addExpense, 
     updateExpense, 
@@ -32,14 +31,6 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'dados' | 'parcelas'>('dados');
-
-  const [isInstallmentEditing, setIsInstallmentEditing] = useState(false);
-  const [currentInstallmentNumber, setCurrentInstallmentNumber] = useState(1);
-  const [totalInstallments, setTotalInstallments] = useState(1);
-
-  // Custom values override for each installment row
-  const [customAmounts, setCustomAmounts] = useState<{[key: number]: number}>({});
-  const [customDates, setCustomDates] = useState<{[key: number]: string}>({});
 
   // Attachment local state
   const [attachedFile, setAttachedFile] = useState<{ name: string; size: string } | null>(null);
@@ -63,7 +54,7 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
     interest: '0',
     discount: '0',
     documentNumber: '',
-    paymentType: (defaultPaymentType || 'À vista') as 'À vista' | 'A prazo',
+    paymentType: 'À vista' as 'À vista' | 'A prazo',
     issueDate: getTodayDate(),
     dueDate: getTodayDate(),
     observation: '',
@@ -80,42 +71,16 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
   // Load existing expense if edit mode
   useEffect(() => {
     if (expenseToEdit) {
-      let cleanDescription = expenseToEdit.description;
-
-      // Try to parse document reference from description if pattern matches [NF: XXX]
-      let parsedDocNumber = '';
-      const nfMatch = cleanDescription.match(/\[NF: ([^\]]+)\]/);
-      if (nfMatch && nfMatch[1]) {
-        parsedDocNumber = nfMatch[1];
-        cleanDescription = cleanDescription.replace(/\[NF: [^\]]+\]\s*/, '');
-      }
-
-      // Try to parse installment/parcela information like (PARCELA X/Y) or PARCELA X/Y
-      let isInst = false;
-      let currentInst = 1;
-      let totalInst = 1;
-      const installmentMatch = cleanDescription.match(/\(PARCELA (\d+)\/(\d+)\)/i);
-      if (installmentMatch) {
-        isInst = true;
-        currentInst = parseInt(installmentMatch[1], 10);
-        totalInst = parseInt(installmentMatch[2], 10);
-        cleanDescription = cleanDescription.replace(/\s*\(PARCELA \d+\/\d+\)/i, '');
-      }
-
-      setIsInstallmentEditing(isInst);
-      setCurrentInstallmentNumber(currentInst);
-      setTotalInstallments(totalInst);
-
       setFormData({
         type: expenseToEdit.type || 'Fixa',
-        description: cleanDescription,
+        description: expenseToEdit.description,
         category: expenseToEdit.category,
         supplier: expenseToEdit.supplier ? (expenseToEdit.supplier.includes(' | ') ? expenseToEdit.supplier.split(' | ')[1] : expenseToEdit.supplier) : '',
         supplierId: expenseToEdit.supplierId || '',
         amount: expenseToEdit.amount.toString(),
         interest: (expenseToEdit.interest || 0).toString(),
         discount: (expenseToEdit.discount || 0).toString(),
-        documentNumber: parsedDocNumber,
+        documentNumber: '', // Try to parse if stored in observation
         paymentType: expenseToEdit.paymentType || (expenseToEdit.status === 'Pago' ? 'À vista' : 'A prazo'),
         issueDate: expenseToEdit.issueDate ? expenseToEdit.issueDate.split('T')[0] : getTodayDate(),
         dueDate: expenseToEdit.dueDate ? expenseToEdit.dueDate.split('T')[0] : getTodayDate(),
@@ -127,6 +92,16 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
         installmentsCount: 3,
         installmentsFrequency: 'Mensal',
       });
+
+      // Try to parse document reference from description or observation if pattern matches [NF-e: XXX]
+      const nfMatch = expenseToEdit.description.match(/\[NF: ([^\]]+)\]/);
+      if (nfMatch && nfMatch[1]) {
+        setFormData(prev => ({
+          ...prev,
+          documentNumber: nfMatch[1],
+          description: expenseToEdit.description.replace(/\[NF: [^\]]+\]\s*/, ''),
+        }));
+      }
     }
   }, [expenseToEdit]);
 
@@ -156,18 +131,12 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
   const rawDiscount = parseFloat(formData.discount) || 0;
   const calculatedNetTotal = Math.max(0, rawAmount + rawInterest - rawDiscount);
 
-  // Reset custom amounts and dates when count or total value changes
-  useEffect(() => {
-    setCustomAmounts({});
-    setCustomDates({});
-  }, [formData.installmentsCount, calculatedNetTotal]);
-
   // Live installments breakout simulation
   const computedInstallments = useMemo(() => {
     if (!formData.installmentsEnabled || formData.installmentsCount < 2 || formData.paymentType !== 'A prazo') {
       return [];
     }
-    const count = Math.min(120, Math.max(2, formData.installmentsCount));
+    const count = Math.min(24, Math.max(2, formData.installmentsCount));
     const list = [];
     const itemAmount = parseFloat((calculatedNetTotal / count).toFixed(2));
     
@@ -176,12 +145,9 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
     const diff = parseFloat((calculatedNetTotal - totalRepresented).toFixed(2));
 
     for (let i = 1; i <= count; i++) {
-      const baseDueDate = getNextDueDate(formData.dueDate, i - 1, formData.installmentsFrequency);
-      const dueDate = customDates[i] !== undefined ? customDates[i] : baseDueDate;
+      const dueDate = getNextDueDate(formData.dueDate, i - 1, formData.installmentsFrequency);
       const isLast = i === count;
-      const defaultAmt = isLast ? parseFloat((itemAmount + diff).toFixed(2)) : itemAmount;
-      const amt = customAmounts[i] !== undefined ? customAmounts[i] : defaultAmt;
-      
+      const amt = isLast ? parseFloat((itemAmount + diff).toFixed(2)) : itemAmount;
       list.push({
         num: i,
         date: dueDate,
@@ -189,7 +155,7 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
       });
     }
     return list;
-  }, [formData.installmentsEnabled, formData.installmentsCount, formData.installmentsFrequency, formData.dueDate, calculatedNetTotal, formData.paymentType, customAmounts, customDates]);
+  }, [formData.installmentsEnabled, formData.installmentsCount, formData.installmentsFrequency, formData.dueDate, calculatedNetTotal, formData.paymentType]);
 
   const handleDelete = async () => {
     if (!expenseToEdit) return;
@@ -243,10 +209,6 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
       let finalDescription = formData.description.trim().toUpperCase();
       if (formData.documentNumber.trim()) {
         finalDescription = `[NF: ${formData.documentNumber.trim().toUpperCase()}] ${finalDescription}`;
-      }
-
-      if (expenseToEdit && isInstallmentEditing) {
-        finalDescription = `${finalDescription} (PARCELA ${currentInstallmentNumber}/${totalInstallments})`;
       }
 
       // Appending attachment meta context to observations
@@ -633,18 +595,13 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
                       className={cn(
                         "w-full h-11 px-4 border rounded-xl text-xs font-black transition-all outline-none cursor-pointer",
                         formData.paymentType === 'À vista' 
-                           ? "bg-emerald-500/5 dark:bg-emerald-950/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/12" 
-                           : "bg-amber-500/5 dark:bg-amber-950/10 border-amber-500/20 text-amber-600 dark:text-amber-400 focus:ring-2 focus:ring-amber-500/12"
+                          ? "bg-emerald-500/5 dark:bg-emerald-950/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/12" 
+                          : "bg-amber-500/5 dark:bg-amber-950/10 border-amber-500/20 text-amber-600 dark:text-amber-400 focus:ring-2 focus:ring-amber-500/12"
                       )}
                     >
                       <option value="À vista">🟢 À VISTA (BAIXA E CAIXA AUTOMÁTICO)</option>
                       <option value="A prazo">🟡 A PRAZO (PREVISÃO E CONTAS A PAGAR)</option>
                     </select>
-                    {formData.paymentType === 'À vista' && (
-                      <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase mt-1.5 flex items-center gap-1">
-                        💡 PARA COMPRAS / PARCELAS NO CARTÃO OU BOLETO: altere para "A PRAZO" para liberar a aba "PLANO DE PARCELAMENTO".
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -737,64 +694,6 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
                           onChange={e => setFormData(prev => ({ ...prev, installmentsEnabled: e.target.checked }))}
                           className="size-5 rounded-md border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
                         />
-                      </div>
-                    )}
-
-                    {/* Edit mode: change installment sequence */}
-                    {expenseToEdit && (
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Layers size={15} className="text-rose-500" />
-                            <div>
-                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-350">
-                                Identificar como Parcela / Duplicata?
-                              </span>
-                              <p className="text-[8px] text-slate-400 uppercase font-bold tracking-wide">Define a numeração de parcela desta conta</p>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={isInstallmentEditing}
-                            onChange={e => setIsInstallmentEditing(e.target.checked)}
-                            className="size-5 rounded-md border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
-                          />
-                        </div>
-
-                        {isInstallmentEditing && (
-                          <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-150">
-                            <div className="space-y-1">
-                              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Parcela Atual</label>
-                              <input
-                                type="number"
-                                min="1"
-                                max={totalInstallments}
-                                value={currentInstallmentNumber}
-                                onChange={e => {
-                                  const val = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                  setCurrentInstallmentNumber(val);
-                                }}
-                                className="w-full h-9 px-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-250 focus:outline-none"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total de Parcelas</label>
-                              <input
-                                type="number"
-                                min={currentInstallmentNumber}
-                                value={totalInstallments}
-                                onChange={e => {
-                                  const val = Math.max(currentInstallmentNumber, parseInt(e.target.value, 10) || 1);
-                                  setTotalInstallments(val);
-                                }}
-                                className="w-full h-9 px-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-250 focus:outline-none"
-                              />
-                            </div>
-                            <div className="col-span-2 text-center text-[9px] font-bold text-slate-450 dark:text-slate-500 mt-1 uppercase">
-                              Visualização na Fatura: <strong className="text-rose-500">(PARCELA {currentInstallmentNumber}/{totalInstallments})</strong>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </motion.div>
@@ -916,36 +815,16 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-850/80 animate-in fade-in duration-150">
                     {/* Número de parcelas */}
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">
-                        Quantidade de Parcelas (Número)
-                      </label>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, installmentsCount: Math.max(2, prev.installmentsCount - 1) }))}
-                          className="h-11 w-11 shrink-0 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-500 hover:text-rose-500 hover:bg-slate-100 rounded-xl text-lg font-black transition-all flex items-center justify-center active:scale-95"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min="2"
-                          max="120"
-                          value={formData.installmentsCount}
-                          onChange={e => {
-                            const val = Math.min(120, Math.max(2, parseInt(e.target.value, 10) || 2));
-                            setFormData(prev => ({ ...prev, installmentsCount: val }));
-                          }}
-                          className="w-full h-11 px-3 text-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-black text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-rose-500/20"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, installmentsCount: Math.min(120, prev.installmentsCount + 1) }))}
-                          className="h-11 w-11 shrink-0 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-500 hover:text-rose-500 hover:bg-slate-100 rounded-xl text-lg font-black transition-all flex items-center justify-center active:scale-95"
-                        >
-                          +
-                        </button>
-                      </div>
+                      <label className="text-[9px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">Divisões (Número de Parcelas)</label>
+                      <select
+                        value={formData.installmentsCount}
+                        onChange={e => setFormData(prev => ({ ...prev, installmentsCount: parseInt(e.target.value) }))}
+                        className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 border-slate-100 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer"
+                      >
+                        {[2,3,4,5,6,7,8,9,10,12,18,24].map(num => (
+                          <option key={num} value={num}>{num} PARCELAS CONSECUTIVAS</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Frequência */}
@@ -966,27 +845,16 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
 
               {formData.installmentsEnabled ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={12} className="text-slate-400" />
-                      <span>Lançamentos Futuros que Serão Criados</span>
-                    </div>
-                    {(Object.keys(customAmounts).length > 0 || Object.keys(customDates).length > 0) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomAmounts({});
-                          setCustomDates({});
-                        }}
-                        className="text-rose-500 hover:text-rose-600 transition-all hover:underline cursor-pointer"
-                      >
-                        Resetar para Padrão (Valores/Datas)
-                      </button>
-                    )}
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <Clock size={12} className="text-slate-400" />
+                    <span>Lançamentos Futuros que Serão Criados</span>
                   </div>
 
-                  <div className="border border-slate-100 dark:border-slate-850 rounded-[1.8rem] overflow-hidden bg-white dark:bg-slate-900 grid grid-cols-1 divide-y divide-slate-50 dark:divide-slate-850 max-h-[15rem] overflow-y-auto">
+                  <div className="border border-slate-100 dark:border-slate-850 rounded-[1.8rem] overflow-hidden bg-white dark:bg-slate-900 grid grid-cols-1 divide-y divide-slate-50 dark:divide-slate-850 max-h-[12rem] overflow-y-auto">
                     {computedInstallments.map((inst, idx) => {
+                      const dateObj = new Date(inst.date + 'T12:00:00');
+                      const formattedDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      
                       return (
                         <div key={idx} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition-all font-mono text-xs">
                           <div className="flex items-center gap-3">
@@ -999,35 +867,15 @@ export function ExpenseModal({ onClose, expenseToEdit, defaultPaymentType }: Exp
                           </div>
 
                           <div className="flex items-center gap-6 text-right">
-                            <div className="flex flex-col items-end">
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wide mb-1">Vencimento</p>
-                              <input
-                                type="date"
-                                value={inst.date}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  if (val) {
-                                    setCustomDates(prev => ({ ...prev, [inst.num]: val }));
-                                  }
-                                }}
-                                className="h-7 px-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 outline-none focus:ring-1 focus:ring-rose-500/20 text-center cursor-pointer"
-                              />
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Vencimento</p>
+                              <span className="font-semibold text-slate-500 dark:text-slate-400 mt-0.5 inline-block">{formattedDate}</span>
                             </div>
-                            <div className="border-l border-slate-50 dark:border-slate-850 pl-5 min-w-[8.5rem] flex flex-col items-end">
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wide mb-1">Valor da Parcela</p>
-                              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2 h-7">
-                                <span className="text-[10px] font-bold text-slate-400">R$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={inst.amount}
-                                  onChange={e => {
-                                    const val = Math.max(0, parseFloat(e.target.value) || 0);
-                                    setCustomAmounts(prev => ({ ...prev, [inst.num]: val }));
-                                  }}
-                                  className="w-16 h-full bg-transparent text-xs font-black text-slate-750 dark:text-rose-400 outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                              </div>
+                            <div className="border-l border-slate-50 dark:border-slate-850 pl-5 min-w-[5.5rem]">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-wide">Valor Bruto</p>
+                              <span className="font-black text-slate-750 dark:text-rose-400 mt-0.5 inline-block">
+                                R$ {inst.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
                             </div>
                           </div>
                         </div>
