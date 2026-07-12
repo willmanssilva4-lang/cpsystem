@@ -568,8 +568,8 @@ export default function PDVPage() {
     }
   }, [showCustomerSearch]);
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatCurrency = (value: number | undefined | null) => {
+    return (value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   const formatDate = (date: Date | null) => {
@@ -3150,16 +3150,16 @@ export default function PDVPage() {
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 space-y-2 text-left animate-in slide-in-from-bottom duration-300">
                     <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                       <span>Total da Venda</span>
-                      <span className="font-bold text-slate-800 text-base">R$ {completedSale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {formatCurrency(completedSale.total)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                       <span>Valor Pago (Dinheiro)</span>
-                      <span className="font-bold text-slate-800 text-base">R$ {cashReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {formatCurrency(cashReceived)}</span>
                     </div>
                     <div className="h-px bg-slate-200 my-2" />
                     <div className="flex justify-between items-center text-base font-black uppercase tracking-wider text-brand-green">
                       <span>Troco</span>
-                      <span>R$ {change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>R$ {formatCurrency(change)}</span>
                     </div>
                   </div>
                 );
