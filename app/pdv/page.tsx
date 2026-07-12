@@ -42,20 +42,9 @@ export default function PDVPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isPendingFlag = localStorage.getItem('erp_pdv_carga_pending_flag') === 'true';
-      if (isPendingFlag) {
-        setHasPendingCarga(true);
-      } else if (systemSettings?.last_carga_at) {
-        const lastImported = localStorage.getItem('erp_pdv_last_imported_carga_at');
-        if (!lastImported || lastImported !== systemSettings.last_carga_at) {
-          setHasPendingCarga(true);
-        } else {
-          setHasPendingCarga(false);
-        }
-      } else {
-        setHasPendingCarga(false);
-      }
+      setHasPendingCarga(isPendingFlag);
     }
-  }, [systemSettings?.last_carga_at]);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1600,7 +1589,7 @@ export default function PDVPage() {
     setBarcode(value);
     
     // Search by barcode (exact match)
-    const product = products.find(p => (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
+    const product = products.find(p => p && (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
     if (product) {
       setCurrentProduct(product);
       setSearchResults([]);
@@ -1611,7 +1600,7 @@ export default function PDVPage() {
       if (value.length >= 3) {
         const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
         const filtered = products.filter(p => {
-          if (p.status === 'Inativo') return false;
+          if (!p || p.status === 'Inativo') return false;
           const isControlActive = p.controlStock === undefined || 
                                   p.controlStock === null || 
                                   String(p.controlStock).toUpperCase() !== 'NÃO';

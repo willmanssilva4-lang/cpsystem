@@ -228,6 +228,55 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
   });
   const [customAlert, setCustomAlert] = useState<any>(null);
 
+  const fetchAndSavePendingCarga = async () => {
+    console.log('[context] Iniciando busca de produtos no Supabase para carga pendente...');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const targetCompanyId = session?.user?.user_metadata?.companyId || session?.user?.user_metadata?.company_id;
+      
+      let allProducts: any[] = [];
+      let rangeStart = 0;
+      const rangeSize = 1000;
+      
+      while (true) {
+        let query = supabase.from('products').select('*').order('id').range(rangeStart, rangeStart + rangeSize - 1);
+        if (targetCompanyId) {
+          query = query.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+        }
+        const { data, error } = await query;
+        if (error) {
+          console.error('[context] Erro ao buscar produtos para carga no Supabase:', error);
+          break;
+        }
+        if (!data || data.length === 0) break;
+        allProducts = [...allProducts, ...data];
+        if (data.length < rangeSize) break;
+        rangeStart += rangeSize;
+      }
+      
+      if (allProducts.length > 0) {
+        await setDBValue('erp_pdv_carga_pending_products', allProducts);
+        localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
+        
+        // Trigger local window events so the active PDV page can instantly update
+        try {
+          window.dispatchEvent(new StorageEvent('storage', {
+            key: 'erp_pdv_carga_pending_flag',
+            newValue: 'true'
+          }));
+        } catch (evErr) {
+          console.warn('Falha ao disparar StorageEvent padrão, tentando CustomEvent:', evErr);
+        }
+        window.dispatchEvent(new CustomEvent('erp_pdv_carga_pending_flag_changed', { detail: 'true' }));
+        console.log(`[context] Carga pendente salva com sucesso: ${allProducts.length} produtos.`);
+        return allProducts;
+      }
+    } catch (fetchErr) {
+      console.error('[context] Erro ao buscar produtos para carga:', fetchErr);
+    }
+    return null;
+  };
+
   useEffect(() => {
     const channel = supabase.channel('data_sync');
     channel
@@ -238,45 +287,16 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       .on('broadcast', { event: 'carga_enviada' }, async ({ payload }) => {
         console.log('📦 Nova carga de produtos recebida via broadcast!', payload);
         
-        let productsToSave = payload && payload.products ? payload.products : null;
-        
-        // Se a carga não veio no payload (ex: payload leve para evitar limite de tamanho de transmissão do Supabase)
-        // ou se queremos garantir que temos os dados atualizados, vamos buscar os produtos diretamente do banco de dados (Supabase)
-        if (!productsToSave || productsToSave.length === 0) {
-          console.log('[context] Iniciando busca direta de produtos no Supabase para carga...');
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const targetCompanyId = session?.user?.user_metadata?.companyId || session?.user?.user_metadata?.company_id;
-            
-            let allProducts: any[] = [];
-            let rangeStart = 0;
-            const rangeSize = 1000;
-            
-            while (true) {
-              let query = supabase.from('products').select('*').order('id').range(rangeStart, rangeStart + rangeSize - 1);
-              if (targetCompanyId) {
-                query = query.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
-              }
-              const { data, error } = await query;
-              if (error) {
-                console.error('[context] Erro ao buscar produtos para carga no Supabase:', error);
-                break;
-              }
-              if (!data || data.length === 0) break;
-              allProducts = [...allProducts, ...data];
-              if (data.length < rangeSize) break;
-              rangeStart += rangeSize;
-            }
-            
-            if (allProducts.length > 0) {
-              productsToSave = allProducts;
-              console.log(`[context] Sincronizado com sucesso: ${allProducts.length} produtos carregados para carga.`);
-            }
-          } catch (fetchErr) {
-            console.error('[context] Erro de exceção ao buscar produtos diretamente para carga:', fetchErr);
+        if (typeof window !== 'undefined') {
+          const lastImported = localStorage.getItem('erp_pdv_last_imported_carga_at');
+          if (payload?.timestamp && lastImported === payload.timestamp) {
+            console.log('[context] Esta máquina já enviou ou importou esta carga. Ignorando broadcast duplicado.');
+            return;
           }
         }
 
+        let productsToSave = payload && payload.products ? payload.products : null;
+        
         if (productsToSave && productsToSave.length > 0) {
           setDBValue('erp_pdv_carga_pending_products', productsToSave)
             .then(() => {
@@ -296,6 +316,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
             .catch(err => {
               console.error('[context] Erro ao salvar carga pendente no IndexedDB via broadcast:', err);
             });
+        } else {
+          await fetchAndSavePendingCarga();
         }
       })
       .subscribe();
@@ -322,15 +344,7 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
           
           if (!lastCargaLocal || lastCargaLocal !== lastCargaCloud) {
             console.log('[context] Detectado que o PDV está desatualizado via polling. Nova carga disponível:', lastCargaCloud);
-            localStorage.setItem('erp_pdv_carga_pending_flag', 'true');
-            
-            try {
-              window.dispatchEvent(new StorageEvent('storage', {
-                key: 'erp_pdv_carga_pending_flag',
-                newValue: 'true'
-              }));
-            } catch (evErr) {}
-            window.dispatchEvent(new CustomEvent('erp_pdv_carga_pending_flag_changed', { detail: 'true' }));
+            await fetchAndSavePendingCarga();
           }
         }
       } catch (err) {
