@@ -18,8 +18,9 @@ import { ProductListModal } from '@/components/ProductListModal';
 import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
 import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor, Image as ImageIcon, Pause, FolderOpen } from 'lucide-react';
+import { PDVErrorBoundary } from '@/components/PDVErrorBoundary';
 
-export default function PDVPage() {
+function PDVPage() {
   const router = useRouter();
   const { products: originalProducts, fetchData, addSale, addProduct, addDiscountLog, companySettings, systemSettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [], logout } = useERP();
   
@@ -3252,3 +3253,12 @@ export default function PDVPage() {
     </div>
   );
 }
+
+export default function PDVPageWithBoundary() {
+  return (
+    <PDVErrorBoundary>
+      <PDVPage />
+    </PDVErrorBoundary>
+  );
+}
+
