@@ -636,12 +636,13 @@ export default function PDVPage() {
   }, [cart, promotions, products, currentTime, selectedCustomer]);
 
   const getProductPromoInfo = useCallback((product: Product) => {
+    if (!product) return null;
     const now = new Date();
     const todayStr = getLocalDateString(now);
     
     // Find active promotions that might apply to this product
-    const activePromos = promotions.filter(p => {
-      if (!p.startDate || !p.endDate) return false;
+    const activePromos = (promotions || []).filter(p => {
+      if (!p || !p.startDate || !p.endDate) return false;
       const startStr = getLocalDateString(p.startDate);
       const endStr = getLocalDateString(p.endDate);
       return (
@@ -654,7 +655,7 @@ export default function PDVPage() {
       );
     });
 
-    const productSubcategory = subcategorias.find(s => s.id === product.subcategoria_id);
+    const productSubcategory = (subcategorias || []).find(s => s && s.id === product.subcategoria_id);
     
     const applicablePromo = activePromos.find(p => 
       (p.targetType === 'PRODUCT' && (Array.isArray(p.targetId) ? p.targetId.includes(product.id) : p.targetId === product.id)) ||
