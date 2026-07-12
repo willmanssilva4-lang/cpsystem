@@ -42,20 +42,9 @@ export default function PDVPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isPendingFlag = localStorage.getItem('erp_pdv_carga_pending_flag') === 'true';
-      if (isPendingFlag) {
-        setHasPendingCarga(true);
-      } else if (systemSettings?.last_carga_at) {
-        const lastImported = localStorage.getItem('erp_pdv_last_imported_carga_at');
-        if (!lastImported || lastImported !== systemSettings.last_carga_at) {
-          setHasPendingCarga(true);
-        } else {
-          setHasPendingCarga(false);
-        }
-      } else {
-        setHasPendingCarga(false);
-      }
+      setHasPendingCarga(isPendingFlag);
     }
-  }, [systemSettings?.last_carga_at]);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
