@@ -1759,6 +1759,22 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
+    // Auto-heal duplicate active registers for this user by closing any remaining open ones
+    if (user?.id) {
+      try {
+        await supabase.from('cash_registers')
+          .update({
+            status: 'closed',
+            closed_at: new Date().toISOString(),
+            closed_by: user?.id || null
+          })
+          .eq('status', 'open')
+          .eq('operator_id', user.id);
+      } catch (e) {
+        console.warn('Error auto-healing other open registers:', e);
+      }
+    }
+
     const totalSystem = informedTotals.reduce((acc, t) => acc + (Number(t.system) || 0), 0);
     const totalInformed = informedTotals.reduce((acc, t) => acc + (Number(t.informed) || 0), 0);
     const totalDifference = totalInformed - totalSystem;

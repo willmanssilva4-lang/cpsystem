@@ -198,6 +198,7 @@ export function CashRegisterManager({
   };
 
   const [isOpening, setIsOpening] = useState(false);
+  const isOpeningRef = React.useRef(false);
   const [isClosing, setIsClosing] = useState(initialMode === 'fechamento');
   const [isTransaction, setIsTransaction] = useState(initialMode === 'sangria' || initialMode === 'suprimento');
   const [openingBalance, setOpeningBalance] = useState(0);
@@ -380,13 +381,15 @@ export function CashRegisterManager({
   }, [activeRegister, sales, cashMovements, paymentMethods]);
 
   const handleOpen = async () => {
-    if (isOpening) return;
+    if (isOpeningRef.current || isOpening) return;
+    isOpeningRef.current = true;
     setIsOpening(true);
     try {
       await openCashRegister(openingBalance);
     } catch (err) {
       console.error('[CashRegisterManager] Error opening register:', err);
     } finally {
+      isOpeningRef.current = false;
       setIsOpening(false);
       setOpeningBalance(0);
     }

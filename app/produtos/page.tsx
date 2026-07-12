@@ -3455,7 +3455,15 @@ function InventoryDetailModal({ inventory, onClose }: { inventory: any, onClose:
 
 function CargaModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { products, setCustomAlert, activeRegister, updateSystemSettings, cashRegisters, systemUsers } = useERP();
-  const openRegisters = cashRegisters?.filter((r: any) => r.status === 'open') || [];
+  const openRegisters = (() => {
+    const map = new Map();
+    cashRegisters?.forEach((r: any) => {
+      if (r.status === 'open') {
+        map.set(r.userId, r);
+      }
+    });
+    return Array.from(map.values());
+  })();
   const hasOpenRegisters = openRegisters.length > 0;
   const openRegistersNames = openRegisters.map((r: any) => {
     const operator = systemUsers?.find((u: any) => u.id === r.userId);
