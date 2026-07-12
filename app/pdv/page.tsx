@@ -361,7 +361,7 @@ export default function PDVPage() {
           try {
             // Count altered products based on existing ones
             const altered = parsed.filter(current => {
-              const last = products.find(p => p.id === current.id);
+              const last = products.find(p => p && p.id === current.id);
               if (!last) return true;
               return !isProductEqual(current, last);
             });
@@ -619,7 +619,7 @@ export default function PDVPage() {
       if (minSets > 0 && minSets !== Infinity) {
         let regularComboPrice = 0;
         for (const productId of combo.comboItems) {
-          const product = products.find(p => p.id === productId);
+          const product = products.find(p => p && p.id === productId);
           if (product) {
             regularComboPrice += product.salePrice;
           }
@@ -715,7 +715,7 @@ export default function PDVPage() {
       const p = item.product;
       const qty = item.quantity;
       
-      const currentProduct = products.find(prod => prod.id === p.id);
+      const currentProduct = products.find(prod => prod && prod.id === p.id);
       if (!currentProduct) return;
 
       if (currentProduct.product_type === 'KIT' && currentProduct.composition && currentProduct.composition.length > 0) {
@@ -733,7 +733,7 @@ export default function PDVPage() {
     // Because if multiple virtual products or components share the same base product, we want to sum them up.
     const physicalDemand: Record<string, number> = {};
     for (const [productId, demandedQty] of Object.entries(stockDemand)) {
-      const p = products.find(prod => prod.id === productId);
+      const p = products.find(prod => prod && prod.id === productId);
       if (!p) continue;
 
       if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
@@ -746,7 +746,7 @@ export default function PDVPage() {
 
     // 3. Compare with actual physical stock
     for (const [productId, demandedQty] of Object.entries(physicalDemand)) {
-      const physicalProduct = products.find(prod => prod.id === productId);
+      const physicalProduct = products.find(prod => prod && prod.id === productId);
       if (!physicalProduct) continue;
 
       // Robust check: if controlStock is SIM, undefined, null, or anything other than NÃO, treat it as active
@@ -759,12 +759,12 @@ export default function PDVPage() {
         if (demandedQty > availableStock) {
           // Find if this physical product is used inside a kit in the proposed cart
           const kitUsingComp = proposedCart.find(item => {
-            const p = products.find(prod => prod.id === item.product.id);
+            const p = products.find(prod => prod && prod.id === item.product.id);
             if (!p || !p.composition) return false;
             return p.composition.some((comp: any) => 
               comp.productId === productId || 
               (() => {
-                const compProduct = products.find(prod => prod.id === comp.productId);
+                const compProduct = products.find(prod => prod && prod.id === comp.productId);
                 return compProduct?.base_product_id === productId;
               })()
             );
@@ -775,11 +775,11 @@ export default function PDVPage() {
             const compInKit = kitUsingComp.product.composition?.find((comp: any) => 
               comp.productId === productId || 
               (() => {
-                const compProd = products.find(prod => prod.id === comp.productId);
+                const compProd = products.find(prod => prod && prod.id === comp.productId);
                 return compProd?.base_product_id === productId;
               })()
             );
-            const compProduct = products.find(prod => prod.id === compInKit?.productId);
+            const compProduct = products.find(prod => prod && prod.id === compInKit?.productId);
             const missing = demandedQty - availableStock;
 
             return {
@@ -992,7 +992,7 @@ export default function PDVPage() {
     if (!printWindow) return;
 
     const itemsHtml = sale.items.map((item: any) => {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find(p => p && p.id === item.productId);
       return `
         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
           <span>${item.quantity}x ${product?.name || 'Produto'}</span>
@@ -1668,7 +1668,7 @@ export default function PDVPage() {
       e.preventDefault();
       if (searchResults.length === 0 && barcode.length === 0) {
         setSearchResults(products.filter(p => {
-          if (p.status === 'Inativo') return false;
+          if (!p || p.status === 'Inativo') return false;
           const isControlActive = p.controlStock === undefined || 
                                   p.controlStock === null || 
                                   String(p.controlStock).toUpperCase() !== 'NÃO';
@@ -1739,7 +1739,7 @@ export default function PDVPage() {
 
   const addToCart = (product: Product, qty: number) => {
     // Find the product in the state to get the most up-to-date data
-    const currentProduct = products.find(p => p.id === product.id);
+    const currentProduct = products.find(p => p && p.id === product.id);
     
     // Log everything about the product to debug
     console.log('DEBUG: addToCart - Product Data:', { 
