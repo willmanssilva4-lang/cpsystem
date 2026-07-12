@@ -568,8 +568,9 @@ export default function PDVPage() {
     }
   }, [showCustomerSearch]);
 
-  const formatCurrency = (value: number | undefined | null) => {
-    return (value ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatCurrency = (value: number | string | undefined | null) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+    return isNaN(num) ? "0,00" : num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   const formatDate = (date: Date | null) => {
