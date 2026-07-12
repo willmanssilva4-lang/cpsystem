@@ -2351,6 +2351,7 @@ export default function PDVPage() {
             {searchResults.length > 0 && (
               <div className="absolute bottom-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mb-2 shadow-2xl z-[100] overflow-y-auto">
                  {searchResults.map((product, index) => {
+                    if (!product) return null;
                     const promoInfo = getProductPromoInfo(product);
                     const isPromoActive = promoInfo && promoInfo.promoPrice !== null;
                     return (
