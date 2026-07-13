@@ -17,7 +17,8 @@ import {
   Printer,
   Zap,
   Eye,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -379,9 +380,16 @@ export function CashRegisterManager({
   }, [activeRegister, sales, cashMovements, paymentMethods]);
 
   const handleOpen = async () => {
-    await openCashRegister(openingBalance);
-    setIsOpening(false);
-    setOpeningBalance(0);
+    if (isOpening) return;
+    setIsOpening(true);
+    try {
+      await openCashRegister(openingBalance);
+    } catch (err) {
+      console.error('[CashRegisterManager] Error opening register:', err);
+    } finally {
+      setIsOpening(false);
+      setOpeningBalance(0);
+    }
   };
 
   const handleTransaction = async () => {
@@ -1340,10 +1348,20 @@ export function CashRegisterManager({
 
             <button 
               onClick={handleOpen}
-              className="w-full py-3 bg-brand-blue text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-md shadow-brand-blue/10 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isOpening}
+              className="w-full py-3 bg-brand-blue text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-brand-blue-hover transition-all active:scale-[0.98] shadow-md shadow-brand-blue/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <CheckCircle2 className="w-5 h-5" />
-              Confirmar Abertura (F10 / Enter)
+              {isOpening ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Abrindo Caixa...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  Confirmar Abertura (F10 / Enter)
+                </>
+              )}
             </button>
             
             <p className="text-[9px] text-center text-slate-400 uppercase font-bold tracking-tighter">

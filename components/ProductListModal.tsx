@@ -225,7 +225,10 @@ export function ProductListModal({ onClose, onSelectProduct, products: propProdu
                       )}
                     </div>
                     <div>
-                      <h3 className="font-medium text-sm text-slate-800 dark:text-slate-100">{product.name}</h3>
+                      <h3 className="font-medium text-sm text-slate-800 dark:text-slate-100">
+                        {product.name} 
+                        <span className="text-xs text-slate-400 ml-1">(R$ {product.salePrice})</span>
+                      </h3>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         <span>SKU: {product.sku}</span>
                         {product.barcode && <span>EAN: {product.barcode}</span>}

@@ -19,6 +19,130 @@ import { InvoiceModal } from '@/components/InvoiceModal';
 import { Logo } from '@/components/Logo';
 import { X, Tag, Lock, AlertCircle, Check, Printer, Maximize, Minimize, Monitor, Image as ImageIcon, Pause, FolderOpen } from 'lucide-react';
 
+const normalizeProduct = (p: any): Product => {
+  if (!p) return p;
+  
+  let costPrice = p.costPrice ?? p.cost_price;
+  let image = p.image || '';
+  if (image && image.includes('#cost:')) {
+    const parts = image.split('#cost:');
+    image = parts[0];
+    const parsedCost = Number(parts[1]);
+    if (!isNaN(parsedCost)) {
+      costPrice = parsedCost;
+    }
+  }
+
+  let rawSalePrice = p.salePrice ?? p.sale_price ?? p.price;
+  let salePrice = 0;
+  if (rawSalePrice !== null && rawSalePrice !== undefined) {
+    salePrice = Number(rawSalePrice);
+  }
+  if (isNaN(salePrice)) {
+    salePrice = 0;
+  }
+
+  const costVal = costPrice !== undefined && costPrice !== null ? Number(costPrice) : 0;
+
+  return {
+    ...p,
+    image,
+    costPrice: isNaN(costVal) ? 0 : costVal,
+    salePrice,
+    sale_price: salePrice,
+    cost_price: isNaN(costVal) ? 0 : costVal,
+    wholesalePrice: p.wholesalePrice ?? p.wholesale_price,
+    wholesale_price: p.wholesalePrice ?? p.wholesale_price,
+    wholesaleMinQty: p.wholesaleMinQty ?? p.wholesale_min_qty,
+    wholesale_min_qty: p.wholesaleMinQty ?? p.wholesale_min_qty,
+    clubPrice: p.clubPrice ?? p.club_price,
+    club_price: p.clubPrice ?? p.club_price,
+    termPrice: p.termPrice ?? p.term_price,
+    term_price: p.termPrice ?? p.term_price,
+    minStock: p.minStock ?? p.min_stock,
+    min_stock: p.minStock ?? p.min_stock,
+    controlStock: p.controlStock ?? p.control_stock,
+    control_stock: p.controlStock ?? p.control_stock,
+    profit: p.profit,
+    profitPercentage: p.profitPercentage ?? 0,
+    brand: p.brand ?? p.marca
+  };
+};
+
+const normalizeProductList = (list: any[]): Product[] => {
+  if (!Array.isArray(list)) return [];
+  return list.map(normalizeProduct);
+};
+
+const resolveVirtualAndKitProducts = (productsList: Product[]): Product[] => {
+  if (!Array.isArray(productsList)) return [];
+  
+  const resolvedBasicProducts = normalizeProductList(productsList);
+
+  const resolvedWithVirtual = resolvedBasicProducts.map((p: any) => {
+    if (p.base_product_id && p.conversion_factor) {
+      const baseProduct = resolvedBasicProducts.find(bp => bp.id === p.base_product_id);
+      if (baseProduct) {
+        const baseStock = Number(baseProduct.stock || 0);
+        const convFactor = Number(p.conversion_factor) || 1;
+        const virtualStock = Math.floor(baseStock * convFactor);
+        
+        const baseCost = Number(baseProduct.costPrice || 0);
+        const virtualCost = Number((baseCost / convFactor).toFixed(3));
+        
+        return {
+          ...p,
+          stock: virtualStock,
+          costPrice: virtualCost,
+        };
+      }
+    }
+    return p;
+  });
+
+  const resolvedProducts = resolvedWithVirtual.map((p: any) => {
+    if (p.product_type === 'KIT' && p.composition && Array.isArray(p.composition)) {
+      const updatedComposition = p.composition.map((item: any) => {
+        const compProd = resolvedWithVirtual.find(bp => bp.id === item.productId);
+        return {
+          ...item,
+          price: compProd ? compProd.costPrice : (item.price || 0)
+        };
+      });
+      const dynamicCostPrice = Number(updatedComposition.reduce((acc: number, item: any) => acc + ((item.price || 0) * item.quantity), 0).toFixed(3));
+      
+      let kitStock = Infinity;
+      if (updatedComposition.length > 0) {
+        updatedComposition.forEach((item: any) => {
+          const component = resolvedWithVirtual.find(bp => bp.id === item.productId);
+          if (component) {
+            const compStock = Number(component.stock || 0);
+            const qtyNeeded = Number(item.quantity) || 1;
+            const available = Math.floor(compStock / qtyNeeded);
+            if (available < kitStock) {
+              kitStock = available;
+            }
+          } else {
+            kitStock = 0;
+          }
+        });
+      }
+      if (kitStock === Infinity) kitStock = 0;
+
+      return {
+        ...p,
+        composition: updatedComposition,
+        costPrice: dynamicCostPrice,
+        stock: Math.max(Number(p.stock || 0), kitStock)
+      };
+    }
+    
+    return p;
+  });
+
+  return resolvedProducts;
+};
+
 export default function PDVPage() {
   const router = useRouter();
   const { products: originalProducts, fetchData, addSale, addProduct, addDiscountLog, companySettings, systemSettings, user, systemUsers, accessProfiles, activeRegister, hasPermission, promotions, subcategorias, customers, setCustomAlert, isLoading, deleteSale, advertisements = [], logout } = useERP();
@@ -42,20 +166,9 @@ export default function PDVPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isPendingFlag = localStorage.getItem('erp_pdv_carga_pending_flag') === 'true';
-      if (isPendingFlag) {
-        setHasPendingCarga(true);
-      } else if (systemSettings?.last_carga_at) {
-        const lastImported = localStorage.getItem('erp_pdv_last_imported_carga_at');
-        if (!lastImported || lastImported !== systemSettings.last_carga_at) {
-          setHasPendingCarga(true);
-        } else {
-          setHasPendingCarga(false);
-        }
-      } else {
-        setHasPendingCarga(false);
-      }
+      setHasPendingCarga(isPendingFlag);
     }
-  }, [systemSettings?.last_carga_at]);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -63,16 +176,18 @@ export default function PDVPage() {
         try {
           const cached = await getDBValue<Product[]>('erp_pdv_carga_products');
           if (cached && cached.length > 0) {
-            setProducts(cached);
+            const normalized = resolveVirtualAndKitProducts(cached);
+            setProducts(normalized);
             isInitializedRef.current = true;
           } else if (originalProducts && originalProducts.length > 0 && !isInitializedRef.current) {
-            await setDBValue('erp_pdv_carga_products', originalProducts);
-            setProducts(originalProducts);
+            const normalized = resolveVirtualAndKitProducts(originalProducts);
+            await setDBValue('erp_pdv_carga_products', normalized);
+            setProducts(normalized);
             isInitializedRef.current = true;
           }
         } catch (err) {
           console.error("Error loading products from IndexedDB:", err);
-          setProducts(originalProducts || []);
+          setProducts(resolveVirtualAndKitProducts(originalProducts || []));
         }
       };
       loadInitialProducts();
@@ -96,7 +211,7 @@ export default function PDVPage() {
       if (isCargaPending) {
         setHasPendingCarga(true);
         getDBValue<Product[]>('erp_pdv_carga_products').then(current => {
-          if (current) setProducts(current);
+          if (current) setProducts(resolveVirtualAndKitProducts(current));
         });
       } else {
         setHasPendingCarga(false);
@@ -368,11 +483,12 @@ export default function PDVPage() {
           return true;
         };
 
-        const applyCarga = async (parsed: Product[], isFromPending: boolean) => {
+        const applyCarga = async (parsedRaw: Product[], isFromPending: boolean) => {
           try {
+            const parsed = resolveVirtualAndKitProducts(parsedRaw);
             // Count altered products based on existing ones
             const altered = parsed.filter(current => {
-              const last = products.find(p => p.id === current.id);
+              const last = products.find(p => p && p.id === current.id);
               if (!last) return true;
               return !isProductEqual(current, last);
             });
@@ -579,8 +695,8 @@ export default function PDVPage() {
     }
   }, [showCustomerSearch]);
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatCurrency = (value: number | undefined | null) => {
+    return (value ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   const formatDate = (date: Date | null) => {
@@ -630,7 +746,7 @@ export default function PDVPage() {
       if (minSets > 0 && minSets !== Infinity) {
         let regularComboPrice = 0;
         for (const productId of combo.comboItems) {
-          const product = products.find(p => p.id === productId);
+          const product = products.find(p => p && p.id === productId);
           if (product) {
             regularComboPrice += product.salePrice;
           }
@@ -647,12 +763,13 @@ export default function PDVPage() {
   }, [cart, promotions, products, currentTime, selectedCustomer]);
 
   const getProductPromoInfo = useCallback((product: Product) => {
+    if (!product) return null;
     const now = new Date();
     const todayStr = getLocalDateString(now);
     
     // Find active promotions that might apply to this product
-    const activePromos = promotions.filter(p => {
-      if (!p.startDate || !p.endDate) return false;
+    const activePromos = (promotions || []).filter(p => {
+      if (!p || !p.startDate || !p.endDate) return false;
       const startStr = getLocalDateString(p.startDate);
       const endStr = getLocalDateString(p.endDate);
       return (
@@ -665,7 +782,7 @@ export default function PDVPage() {
       );
     });
 
-    const productSubcategory = subcategorias.find(s => s.id === product.subcategoria_id);
+    const productSubcategory = (subcategorias || []).find(s => s && s.id === product.subcategoria_id);
     
     const applicablePromo = activePromos.find(p => 
       (p.targetType === 'PRODUCT' && (Array.isArray(p.targetId) ? p.targetId.includes(product.id) : p.targetId === product.id)) ||
@@ -726,7 +843,7 @@ export default function PDVPage() {
       const p = item.product;
       const qty = item.quantity;
       
-      const currentProduct = products.find(prod => prod.id === p.id);
+      const currentProduct = products.find(prod => prod && prod.id === p.id);
       if (!currentProduct) return;
 
       if (currentProduct.product_type === 'KIT' && currentProduct.composition && currentProduct.composition.length > 0) {
@@ -744,7 +861,7 @@ export default function PDVPage() {
     // Because if multiple virtual products or components share the same base product, we want to sum them up.
     const physicalDemand: Record<string, number> = {};
     for (const [productId, demandedQty] of Object.entries(stockDemand)) {
-      const p = products.find(prod => prod.id === productId);
+      const p = products.find(prod => prod && prod.id === productId);
       if (!p) continue;
 
       if (p.product_type === 'SALE' && p.base_product_id && p.conversion_factor) {
@@ -757,7 +874,7 @@ export default function PDVPage() {
 
     // 3. Compare with actual physical stock
     for (const [productId, demandedQty] of Object.entries(physicalDemand)) {
-      const physicalProduct = products.find(prod => prod.id === productId);
+      const physicalProduct = products.find(prod => prod && prod.id === productId);
       if (!physicalProduct) continue;
 
       // Robust check: if controlStock is SIM, undefined, null, or anything other than NÃO, treat it as active
@@ -770,12 +887,12 @@ export default function PDVPage() {
         if (demandedQty > availableStock) {
           // Find if this physical product is used inside a kit in the proposed cart
           const kitUsingComp = proposedCart.find(item => {
-            const p = products.find(prod => prod.id === item.product.id);
+            const p = products.find(prod => prod && prod.id === item.product.id);
             if (!p || !p.composition) return false;
             return p.composition.some((comp: any) => 
               comp.productId === productId || 
               (() => {
-                const compProduct = products.find(prod => prod.id === comp.productId);
+                const compProduct = products.find(prod => prod && prod.id === comp.productId);
                 return compProduct?.base_product_id === productId;
               })()
             );
@@ -786,11 +903,11 @@ export default function PDVPage() {
             const compInKit = kitUsingComp.product.composition?.find((comp: any) => 
               comp.productId === productId || 
               (() => {
-                const compProd = products.find(prod => prod.id === comp.productId);
+                const compProd = products.find(prod => prod && prod.id === comp.productId);
                 return compProd?.base_product_id === productId;
               })()
             );
-            const compProduct = products.find(prod => prod.id === compInKit?.productId);
+            const compProduct = products.find(prod => prod && prod.id === compInKit?.productId);
             const missing = demandedQty - availableStock;
 
             return {
@@ -1003,7 +1120,7 @@ export default function PDVPage() {
     if (!printWindow) return;
 
     const itemsHtml = sale.items.map((item: any) => {
-      const product = products.find(p => p.id === item.productId);
+      const product = products.find(p => p && p.id === item.productId);
       return `
         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
           <span>${item.quantity}x ${product?.name || 'Produto'}</span>
@@ -1600,7 +1717,7 @@ export default function PDVPage() {
     setBarcode(value);
     
     // Search by barcode (exact match)
-    const product = products.find(p => (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
+    const product = products.find(p => p && (p.sku === value || p.barcode === value) && p.status !== 'Inativo');
     if (product) {
       setCurrentProduct(product);
       setSearchResults([]);
@@ -1611,7 +1728,7 @@ export default function PDVPage() {
       if (value.length >= 3) {
         const searchTerms = value.toLowerCase().split(' ').filter(term => term.length > 0);
         const filtered = products.filter(p => {
-          if (p.status === 'Inativo') return false;
+          if (!p || p.status === 'Inativo') return false;
           const isControlActive = p.controlStock === undefined || 
                                   p.controlStock === null || 
                                   String(p.controlStock).toUpperCase() !== 'NÃO';
@@ -1679,7 +1796,7 @@ export default function PDVPage() {
       e.preventDefault();
       if (searchResults.length === 0 && barcode.length === 0) {
         setSearchResults(products.filter(p => {
-          if (p.status === 'Inativo') return false;
+          if (!p || p.status === 'Inativo') return false;
           const isControlActive = p.controlStock === undefined || 
                                   p.controlStock === null || 
                                   String(p.controlStock).toUpperCase() !== 'NÃO';
@@ -1750,45 +1867,26 @@ export default function PDVPage() {
 
   const addToCart = (product: Product, qty: number) => {
     // Find the product in the state to get the most up-to-date data
-    const currentProduct = products.find(p => p.id === product.id);
+    const currentProduct = products.find(p => p && p.id === product.id) || product;
     
     // Log everything about the product to debug
-    console.log('DEBUG: addToCart - Product Data:', { 
-      id: product.id,
-      name: product.name,
-      controlStockRaw: product.controlStock,
-      controlStockNormalized: String(product.controlStock).toUpperCase(),
-      stock: product.stock,
-      minStock: product.minStock,
-      foundInProducts: !!currentProduct,
-      currentProductData: currentProduct
-    });
     
-    // Check if the product found in state has different data
-    if (currentProduct) {
-      console.log('DEBUG: addToCart - Current Product from state:', {
-        id: currentProduct.id,
-        controlStock: currentProduct.controlStock,
-        stock: currentProduct.stock
-      });
-    }
-
     // Calculate total quantity of this product already in cart
     const qtyInCart = cart
-      .filter(item => !item.canceled && item.product.id === product.id)
+      .filter(item => !item.canceled && item.product.id === currentProduct.id)
       .reduce((sum, item) => sum + item.quantity, 0);
     
     const totalQty = qtyInCart + qty;
 
     // Simulate proposed cart state to validate against overall stock limits
     let proposedCart = cart.filter(item => !item.canceled);
-    const existingCartItem = proposedCart.find(item => item.product.id === product.id);
+    const existingCartItem = proposedCart.find(item => item.product.id === currentProduct.id);
     if (existingCartItem) {
       proposedCart = proposedCart.map(item =>
-        item.product.id === product.id ? { ...item, quantity: item.quantity + qty } : item
+        item.product.id === currentProduct.id ? { ...item, quantity: item.quantity + qty } : item
       );
     } else {
-      proposedCart.push({ product, quantity: qty, discount: 0, originalPrice: product.salePrice });
+      proposedCart.push({ product: currentProduct, quantity: qty, discount: 0, originalPrice: currentProduct.salePrice });
     }
 
     const stockCheck = validateCartStock(proposedCart);
@@ -2304,8 +2402,8 @@ export default function PDVPage() {
                         )}
                       </td>
                       <td className={cn("px-2 py-1 text-center", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{item.quantity.toFixed(3)}</td>
-                      <td className={cn("px-2 py-1 text-right", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{formatCurrency(item.product.salePrice)}</td>
-                      <td className={cn("px-2 py-1 text-right font-black", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{formatCurrency(item.product.salePrice * item.quantity)}</td>
+                      <td className={cn("px-2 py-1 text-right", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{formatCurrency(item.product.salePrice || 0)}</td>
+                      <td className={cn("px-2 py-1 text-right font-black", item.canceled ? "text-rose-500 line-through decoration-rose-500" : "text-brand-text-main")}>{formatCurrency((item.product.salePrice || 0) * item.quantity)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2361,6 +2459,7 @@ export default function PDVPage() {
             {searchResults.length > 0 && (
               <div className="absolute bottom-full left-0 w-full max-h-64 bg-white border-2 border-brand-border rounded-xl mb-2 shadow-2xl z-[100] overflow-y-auto">
                  {searchResults.map((product, index) => {
+                    if (!product) return null;
                     const promoInfo = getProductPromoInfo(product);
                     const isPromoActive = promoInfo && promoInfo.promoPrice !== null;
                     return (
@@ -3145,7 +3244,7 @@ export default function PDVPage() {
             </div>
             <h2 className="text-3xl font-black text-brand-text-main italic uppercase tracking-tight mb-2">Venda Finalizada!</h2>
             <p className="text-brand-text-sec font-medium mb-6">
-              Cupom: <span className="font-black text-brand-blue">#{completedSale.id.substring(0, 8).toUpperCase()}</span>
+              Cupom: <span className="font-black text-brand-blue">#{completedSale.id?.substring(0, 8).toUpperCase() || 'N/A'}</span>
             </p>
 
             {(() => {
@@ -3159,16 +3258,16 @@ export default function PDVPage() {
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 space-y-2 text-left animate-in slide-in-from-bottom duration-300">
                     <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                       <span>Total da Venda</span>
-                      <span className="font-bold text-slate-800 text-base">R$ {completedSale.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {formatCurrency(completedSale.total)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                       <span>Valor Pago (Dinheiro)</span>
-                      <span className="font-bold text-slate-800 text-base">R$ {cashReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-slate-800 text-base">R$ {formatCurrency(cashReceived)}</span>
                     </div>
                     <div className="h-px bg-slate-200 my-2" />
                     <div className="flex justify-between items-center text-base font-black uppercase tracking-wider text-brand-green">
                       <span>Troco</span>
-                      <span>R$ {change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>R$ {formatCurrency(change)}</span>
                     </div>
                   </div>
                 );

@@ -26,7 +26,7 @@ import { PaymentModal } from './PaymentModal';
 import { useERP } from '@/lib/context';
 import * as XLSX from 'xlsx';
 
-export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: () => void }) {
+export function ContasPagar({ expenses, onAdd, onEdit }: { expenses: Expense[], onAdd: () => void, onEdit?: (expense: Expense) => void }) {
   const { updateExpense, setCustomAlert } = useERP();
   const [expenseToPay, setExpenseToPay] = useState<Expense | null>(null);
   
@@ -70,6 +70,73 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   const todayStr = useMemo(() => getLocalDateString(), []);
+
+  // Duplicatas Quick Inquiry states
+  const [inquiryPeriod, setInquiryPeriod] = useState<'HOJE' | 'MES' | 'CUSTOM_DIA' | 'CUSTOM_MES'>('HOJE');
+  const [inquiryDate, setInquiryDate] = useState<string>('');
+  const [inquiryMonth, setInquiryMonth] = useState<string>('');
+
+  // Sync with todayStr once it's available
+  React.useEffect(() => {
+    if (todayStr) {
+      setInquiryDate(todayStr);
+      setInquiryMonth(todayStr.substring(0, 7));
+    }
+  }, [todayStr]);
+
+  // Unpaid Duplicatas
+  const unpaidDuplicatas = useMemo(() => {
+    return expenses.filter(e => {
+      if (e.status === 'Pago') return false;
+      
+      const desc = (e.description || '').toLowerCase();
+      const origin = (e.origin || '').toLowerCase();
+      
+      return (
+        desc.includes('(parcela') || 
+        desc.includes('parcela ') || 
+        desc.includes('duplicata') || 
+        e.paymentType === 'A prazo' ||
+        origin === 'parcelamento automático'
+      );
+    });
+  }, [expenses]);
+
+  // Today and Month default summaries for direct visual cards
+  const statsDuplicatas = useMemo(() => {
+    const todayDups = unpaidDuplicatas.filter(d => d.dueDate === todayStr);
+    const monthDups = unpaidDuplicatas.filter(d => d.dueDate.substring(0, 7) === todayStr.substring(0, 7));
+    
+    return {
+      todaySum: todayDups.reduce((acc, d) => acc + d.amount, 0),
+      todayCount: todayDups.length,
+      monthSum: monthDups.reduce((acc, d) => acc + d.amount, 0),
+      monthCount: monthDups.length
+    };
+  }, [unpaidDuplicatas, todayStr]);
+
+  // Currently filtered duplicatas for detailed display list
+  const inquiryResults = useMemo(() => {
+    return unpaidDuplicatas.filter(d => {
+      if (inquiryPeriod === 'HOJE') {
+        return d.dueDate === todayStr;
+      }
+      if (inquiryPeriod === 'MES') {
+        return d.dueDate.substring(0, 7) === todayStr.substring(0, 7);
+      }
+      if (inquiryPeriod === 'CUSTOM_DIA') {
+        return d.dueDate === inquiryDate;
+      }
+      if (inquiryPeriod === 'CUSTOM_MES') {
+        return d.dueDate.substring(0, 7) === inquiryMonth;
+      }
+      return false;
+    });
+  }, [unpaidDuplicatas, inquiryPeriod, inquiryDate, inquiryMonth, todayStr]);
+
+  const totalInquirySum = useMemo(() => {
+    return inquiryResults.reduce((acc, d) => acc + d.amount, 0);
+  }, [inquiryResults]);
 
   // Filter Categories list from available non-product expenses
   const availableCategories = useMemo(() => {
@@ -290,6 +357,243 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
 
       </div>
 
+      {/* Puxador & Extrato de Duplicatas a Pagar */}
+      <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden p-6 space-y-6">
+        
+        {/* Header with Title and subtle badge */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 dark:border-slate-700/50 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+              </span>
+              <h3 className="text-sm font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
+                Puxador & Extrato de Duplicatas a Pagar
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Selecione o período para calcular e puxar o total acumulado das parcelas em aberto
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50 dark:bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800">
+            <CreditCard size={12} className="text-rose-500" />
+            <span>Duplicatas Pendentes: <span className="text-rose-500 font-bold">{unpaidDuplicatas.length} docs</span></span>
+          </div>
+        </div>
+
+        {/* Dynamic Period Selector Tabs & Inputs */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          
+          {/* Preset 1: HOJE */}
+          <button
+            type="button"
+            onClick={() => setInquiryPeriod('HOJE')}
+            className={cn(
+              "p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-24 group relative overflow-hidden",
+              inquiryPeriod === 'HOJE'
+                ? "bg-rose-500/10 border-rose-500/40 shadow-sm shadow-rose-500/5"
+                : "bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
+            )}
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className={cn("text-[9px] font-black uppercase tracking-widest", inquiryPeriod === 'HOJE' ? "text-rose-600 dark:text-rose-400" : "text-slate-400")}>
+                Vencendo Hoje
+              </span>
+              <Calendar size={14} className={inquiryPeriod === 'HOJE' ? "text-rose-500" : "text-slate-400"} />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono text-slate-450 dark:text-slate-500">Total a Pagar</p>
+              <h4 className={cn("text-sm font-black tracking-tight", inquiryPeriod === 'HOJE' ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-300")}>
+                {formatCurrency(statsDuplicatas.todaySum)}
+              </h4>
+            </div>
+            <span className="absolute bottom-2 right-3 text-[9px] font-mono font-bold opacity-60">
+              {statsDuplicatas.todayCount} parcelas
+            </span>
+          </button>
+
+          {/* Preset 2: ESTE MÊS */}
+          <button
+            type="button"
+            onClick={() => setInquiryPeriod('MES')}
+            className={cn(
+              "p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-24 group relative overflow-hidden",
+              inquiryPeriod === 'MES'
+                ? "bg-rose-500/10 border-rose-500/40 shadow-sm shadow-rose-500/5"
+                : "bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
+            )}
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className={cn("text-[9px] font-black uppercase tracking-widest", inquiryPeriod === 'MES' ? "text-rose-600 dark:text-rose-400" : "text-slate-400")}>
+                Vencendo Este Mês
+              </span>
+              <Clock size={14} className={inquiryPeriod === 'MES' ? "text-rose-500" : "text-slate-400"} />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono text-slate-450 dark:text-slate-500">Total a Pagar</p>
+              <h4 className={cn("text-sm font-black tracking-tight", inquiryPeriod === 'MES' ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-300")}>
+                {formatCurrency(statsDuplicatas.monthSum)}
+              </h4>
+            </div>
+            <span className="absolute bottom-2 right-3 text-[9px] font-mono font-bold opacity-60">
+              {statsDuplicatas.monthCount} parcelas
+            </span>
+          </button>
+
+          {/* Custom option: Dia Específico */}
+          <div
+            onClick={() => setInquiryPeriod('CUSTOM_DIA')}
+            className={cn(
+              "p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-24 group relative overflow-hidden",
+              inquiryPeriod === 'CUSTOM_DIA'
+                ? "bg-rose-500/10 border-rose-500/40 shadow-sm shadow-rose-500/5"
+                : "bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
+            )}
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className={cn("text-[9px] font-black uppercase tracking-widest", inquiryPeriod === 'CUSTOM_DIA' ? "text-rose-600 dark:text-rose-400" : "text-slate-400")}>
+                Dia Escolhido
+              </span>
+              <Calendar size={14} className={inquiryPeriod === 'CUSTOM_DIA' ? "text-rose-500" : "text-slate-400"} />
+            </div>
+            <div className="mt-2">
+              <input
+                type="date"
+                value={inquiryDate}
+                onChange={(e) => {
+                  setInquiryPeriod('CUSTOM_DIA');
+                  setInquiryDate(e.target.value);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg px-2 py-1 text-xs font-bold text-slate-850 dark:text-white outline-none cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Custom option: Mês Específico */}
+          <div
+            onClick={() => setInquiryPeriod('CUSTOM_MES')}
+            className={cn(
+              "p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-24 group relative overflow-hidden",
+              inquiryPeriod === 'CUSTOM_MES'
+                ? "bg-rose-500/10 border-rose-500/40 shadow-sm shadow-rose-500/5"
+                : "bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
+            )}
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className={cn("text-[9px] font-black uppercase tracking-widest", inquiryPeriod === 'CUSTOM_MES' ? "text-rose-600 dark:text-rose-400" : "text-slate-400")}>
+                Mês Escolhido
+              </span>
+              <Clock size={14} className={inquiryPeriod === 'CUSTOM_MES' ? "text-rose-500" : "text-slate-400"} />
+            </div>
+            <div className="mt-2">
+              <input
+                type="month"
+                value={inquiryMonth}
+                onChange={(e) => {
+                  setInquiryPeriod('CUSTOM_MES');
+                  setInquiryMonth(e.target.value);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg px-2 py-1 text-xs font-bold text-slate-850 dark:text-white outline-none cursor-pointer"
+              />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Detailed Results Display panel */}
+        <div className="bg-slate-50/55 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-5 space-y-4 animate-in fade-in duration-200">
+          
+          {/* Summary values badge */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                Valor Total de Duplicatas no Período
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-rose-500 tracking-tight">
+                  {formatCurrency(totalInquirySum)}
+                </span>
+                <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
+                  ({inquiryResults.length} duplicatas pendentes)
+                </span>
+              </div>
+            </div>
+
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+              Período: <span className="font-extrabold text-slate-700 dark:text-slate-300">
+                {inquiryPeriod === 'HOJE' && `Hoje (${formatDateBR(todayStr)})`}
+                {inquiryPeriod === 'MES' && `Este Mês (${todayStr ? todayStr.substring(5, 7) : ''}/${todayStr ? todayStr.substring(0, 4) : ''})`}
+                {inquiryPeriod === 'CUSTOM_DIA' && (inquiryDate ? `Dia ${formatDateBR(inquiryDate)}` : 'Nenhum dia selecionado')}
+                {inquiryPeriod === 'CUSTOM_MES' && (inquiryMonth ? `Mês ${inquiryMonth.split('-')[1]}/${inquiryMonth.split('-')[0]}` : 'Nenhum mês selecionado')}
+              </span>
+            </div>
+          </div>
+
+          {/* Quick list of matching duplicatas */}
+          <div className="border border-slate-150/70 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950 divide-y divide-slate-100 dark:divide-slate-850/65 max-h-[15rem] overflow-y-auto">
+            {inquiryResults.length > 0 ? (
+              inquiryResults.map((e, idx) => (
+                <div key={e.id || idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-all">
+                  
+                  {/* Left part: Details */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-black text-rose-500 bg-rose-50 dark:bg-rose-950/20 px-1.5 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/30">
+                        DUPLICATA
+                      </span>
+                      <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">{e.description}</h4>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-450 dark:text-slate-400 font-bold">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={11} /> Vencimento: <span className="font-extrabold text-slate-650 dark:text-slate-350">{formatDateBR(e.dueDate)}</span>
+                      </span>
+                      {e.supplier && (
+                        <>
+                          <span className="text-slate-200">•</span>
+                          <span>Fornecedor: <span className="font-extrabold text-slate-600 dark:text-slate-300">{e.supplier}</span></span>
+                        </>
+                      )}
+                      <span className="text-slate-200">•</span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-900 text-slate-550 dark:text-slate-400 text-[9px] uppercase font-bold tracking-wider">{e.category}</span>
+                    </div>
+                  </div>
+
+                  {/* Right part: Amount and Pay CTA */}
+                  <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-slate-50 dark:border-slate-850 pt-2 sm:pt-0">
+                    <div className="text-left sm:text-right">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Valor da Parcela</p>
+                      <span className="font-black text-sm text-slate-800 dark:text-slate-100 font-mono">
+                        {formatCurrency(e.amount)}
+                      </span>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setExpenseToPay(e)}
+                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 active:scale-95 cursor-pointer whitespace-nowrap"
+                    >
+                      💰 Pagar
+                    </button>
+                  </div>
+
+                </div>
+              ))
+            ) : (
+              <div className="py-8 text-center text-slate-450 dark:text-slate-500 text-xs font-bold">
+                ✨ Nenhuma duplicata pendente encontrada para o período selecionado!
+              </div>
+            )}
+          </div>
+
+        </div>
+
+      </div>
+
       {/* Structured Search, Filter and Actions Bar */}
       <div className="bg-white dark:bg-slate-800 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-center">
@@ -481,14 +785,25 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
                     </span>
                   </div>
                   
-                  {!isPaid && (
-                    <button 
-                      onClick={() => setExpenseToPay(e)} 
-                      className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[10px] font-black uppercase italic tracking-wide transition-all cursor-pointer active:scale-95"
-                    >
-                      💰 Pagar
-                    </button>
-                  )}
+                  <div className="flex gap-2">
+                    {onEdit && (
+                      <button 
+                        onClick={() => onEdit(e)} 
+                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                        title="Editar"
+                      >
+                        ✏️ Editar
+                      </button>
+                    )}
+                    {!isPaid && (
+                      <button 
+                        onClick={() => setExpenseToPay(e)} 
+                        className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[10px] font-black uppercase italic tracking-wide transition-all cursor-pointer active:scale-95"
+                      >
+                        💰 Pagar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -614,16 +929,27 @@ export function ContasPagar({ expenses, onAdd }: { expenses: Expense[], onAdd: (
 
                     {/* Action buttons */}
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {!isPaid ? (
-                        <button 
-                          onClick={() => setExpenseToPay(e)} 
-                          className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-xl text-xs font-black uppercase italic tracking-wider transition-all shadow-md shadow-brand-blue/15 active:scale-95 cursor-pointer"
-                        >
-                          💰 Pagar
-                        </button>
-                      ) : (
-                        <span className="text-xs font-extrabold text-emerald-500 uppercase">Quitada</span>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {onEdit && (
+                          <button 
+                            onClick={() => onEdit(e)} 
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-xl transition-all cursor-pointer flex items-center justify-center"
+                            title="Editar Parcela / Duplicata"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        )}
+                        {!isPaid ? (
+                          <button 
+                            onClick={() => setExpenseToPay(e)} 
+                            className="px-4 py-1.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-xl text-xs font-black uppercase italic tracking-wider transition-all shadow-md shadow-brand-blue/15 active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            💰 Pagar
+                          </button>
+                        ) : (
+                          <span className="text-xs font-extrabold text-emerald-500 uppercase whitespace-nowrap">Quitada</span>
+                        )}
+                      </div>
                     </td>
 
                   </tr>

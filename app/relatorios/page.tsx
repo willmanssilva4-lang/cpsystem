@@ -90,6 +90,7 @@ import { supabase } from '@/lib/supabase';
 import { cn, toLocalDateString, getLocalDateString } from '@/lib/utils';
 import { SalesByProductReport } from '@/components/reports/SalesByProductReport';
 import { SalesReport } from '@/components/reports/SalesReport';
+import { SalesMarginReport } from '@/components/reports/SalesMarginReport';
 import { SalesMoreLessReport } from '@/components/reports/SalesMoreLessReport';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -371,6 +372,7 @@ function ReportsContent() {
   const allReports = [
     { id: 'dash_exec', category: 'gerencial', title: 'Dashboard Executivo', description: 'Visão geral de desempenho, lucro e KPIs principais.', icon: Gauge },
     { id: 'vendas_periodo', category: 'vendas', title: 'Vendas por Período', description: 'Detalhamento de vendas brutas, líquidas e ticket médio.', icon: Calendar },
+    { id: 'margem_vendas', category: 'vendas', title: 'Margem nas Vendas', description: 'Análise de faturamento, custo de mercadoria (CMV) e margem de lucro por venda realizada.', icon: TrendingUp },
     { id: 'resumo_vendas_dia', category: 'vendas', title: 'Resumo de Vendas por Dia', description: 'Consolidado diário de faturamento bruto, descontos, transações de venda e ticket médio.', icon: Calendar },
     { id: 'vendas_produto', category: 'vendas', title: 'Vendas por Produto', description: 'Ranking de produtos mais vendidos por volume e receita.', icon: ShoppingCart },
     { id: 'produtos_mais_menos', category: 'vendas', title: 'Vendas Mais/Menos Produtos', description: 'Identificação rápida dos produtos com maior e menor volume de saída.', icon: TrendingUp },
@@ -818,6 +820,7 @@ function ReportsContent() {
                   selectedReportView === 'Dashboard Executivo' ? "p-0 bg-slate-50/50" : "p-6 md:p-10 bg-slate-50/40"
                 )}>
                   {selectedReportView === 'Vendas por Período' && <SalesReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Margem nas Vendas' && <SalesMarginReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Resumo de Vendas por Dia' && <SalesByDaySummaryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Fechamento de Caixa' && <CashClosingReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'DRE Gerencial' && <DreReport startDate={startDate} endDate={endDate} />}

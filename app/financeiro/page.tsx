@@ -121,6 +121,7 @@ export default function FinancePage() {
   }, []);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<any>(null);
+  const [expenseModalDefaultType, setExpenseModalDefaultType] = useState<'À vista' | 'A prazo'>('À vista');
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -637,7 +638,11 @@ export default function FinancePage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => setShowExpenseModal(true)}
+            onClick={() => {
+              setExpenseModalDefaultType('À vista');
+              setExpenseToEdit(null);
+              setShowExpenseModal(true);
+            }}
             className="flex items-center gap-2 px-6 py-3 bg-rose-500 text-white rounded-2xl font-black uppercase italic tracking-tight hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 active:scale-95 text-sm"
           >
             <Plus size={20} />
@@ -1114,7 +1119,18 @@ export default function FinancePage() {
       )}
 
       {activeTab === 'pagar' && (
-        <ContasPagar expenses={expenses} onAdd={() => setShowExpenseModal(true)} />
+        <ContasPagar 
+          expenses={expenses} 
+          onAdd={() => {
+            setExpenseModalDefaultType('A prazo');
+            setExpenseToEdit(null);
+            setShowExpenseModal(true);
+          }} 
+          onEdit={(exp) => {
+            setExpenseToEdit(exp);
+            setShowExpenseModal(true);
+          }}
+        />
       )}
 
       {activeTab === 'receber' && (
@@ -1167,6 +1183,7 @@ export default function FinancePage() {
       {showExpenseModal && (
         <ExpenseModal 
           expenseToEdit={expenseToEdit}
+          defaultPaymentType={expenseModalDefaultType}
           onClose={() => {
             setShowExpenseModal(false);
             setExpenseToEdit(null);
