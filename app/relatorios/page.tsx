@@ -92,6 +92,7 @@ import { SalesByProductReport } from '@/components/reports/SalesByProductReport'
 import { SalesReport } from '@/components/reports/SalesReport';
 import { SalesMarginReport } from '@/components/reports/SalesMarginReport';
 import { SalesMoreLessReport } from '@/components/reports/SalesMoreLessReport';
+import { NegativeStockReport } from '@/components/reports/NegativeStockReport';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -387,6 +388,7 @@ function ReportsContent() {
     { id: 'estoque_geral', category: 'estoque', title: 'Estoque Geral', description: 'Listagem completa de todos os produtos e suas quantidades em estoque.', icon: Package },
     { id: 'giro_estoque', category: 'estoque', title: 'Giro de Estoque', description: 'Velocidade de saída dos produtos e necessidade de reposição.', icon: RefreshCw },
     { id: 'estoque_critico', category: 'estoque', title: 'Estoque Crítico', description: 'Produtos abaixo do nível mínimo de segurança.', icon: AlertTriangle },
+    { id: 'estoque_negativo', category: 'estoque', title: 'Estoque Negativo', description: 'Produtos com saldo de estoque abaixo de zero (auditoria de divergências).', icon: AlertTriangle },
     { id: 'validade_lotes', category: 'estoque', title: 'Validade de Lotes', description: 'Acompanhamento de vencimentos e lotes próximos da validade.', icon: Calendar },
     { id: 'relatorio_perdas', category: 'estoque', title: 'Relatório de Perdas e Avarias', description: 'Acompanhamento de produtos vencidos, avariados ou com perdas registradas.', icon: AlertTriangle },
     { id: 'relatorio_consumo_interno', category: 'estoque', title: 'Relatório de Consumo Interno', description: 'Produtos retirados para uso próprio da empresa ou funcionários.', icon: UserCheck },
@@ -835,6 +837,7 @@ function ReportsContent() {
                   {selectedReportView === 'Vendas Mais/Menos Produtos' && <SalesMoreLessReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Vendas por Hora' && <SalesByHourReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Estoque Crítico' && <CriticalStockReport startDate={startDate} endDate={endDate} />}
+                  {selectedReportView === 'Estoque Negativo' && <NegativeStockReport />}
                   {selectedReportView === 'Validade de Lotes' && <ExpiryReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Perdas e Avarias' && <LossesReport startDate={startDate} endDate={endDate} />}
                   {selectedReportView === 'Relatório de Consumo Interno' && <InternalConsumptionReport startDate={startDate} endDate={endDate} />}
