@@ -521,7 +521,7 @@ function ReportsContent() {
             )}
           >
             {/* Modal Header */}
-            <div className="px-3 py-3 md:px-10 md:py-6 bg-white border-b border-slate-200/60 flex flex-col sm:flex-row gap-3 md:gap-4 items-stretch sm:items-center justify-between shrink-0 shadow-sm">
+            <div className="px-3 py-3 md:px-10 md:py-6 bg-[#1e40af] border-b border-blue-700 flex flex-col sm:flex-row gap-3 md:gap-4 items-stretch sm:items-center justify-between shrink-0 shadow-sm">
               <div className="flex items-center gap-2 md:gap-4">
                 {selectedReportView !== 'Catálogo' && (
                   <button 
@@ -531,23 +531,23 @@ function ReportsContent() {
                       setStartDate(today);
                       setEndDate(today);
                     }}
-                    className="p-2 md:p-3 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl md:rounded-2xl hover:bg-slate-100 transition-all flex items-center justify-center active:scale-95 shadow-xs shrink-0"
+                    className="p-2 md:p-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl md:rounded-2xl transition-all flex items-center justify-center active:scale-95 shadow-xs shrink-0 cursor-pointer"
                   >
                     <ChevronLeft className="size-4 md:size-[16px]" />
                   </button>
                 )}
-                <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-tr from-brand-blue to-blue-500 text-white flex items-center justify-center shadow-lg shadow-brand-blue/15 shrink-0">
+                <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white text-[#1e40af] flex items-center justify-center shadow-lg shadow-white/10 shrink-0">
                   <FileText className="size-4 md:size-[22px]" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-brand-blue font-black uppercase italic tracking-wider text-[8px] md:text-[10px] mb-0.5 animate-pulse">
+                  <div className="flex items-center gap-1.5 text-blue-200 font-black uppercase italic tracking-wider text-[8px] md:text-[10px] mb-0.5 animate-pulse">
                     <Activity size={9} />
                     Módulo Executivo BI
                   </div>
-                  <h3 className="text-xs xs:text-sm md:text-2xl font-black text-slate-800 tracking-tight italic uppercase leading-none truncate max-w-[120px] xs:max-w-[200px] sm:max-w-none">
+                  <h3 className="text-xs xs:text-sm md:text-2xl font-black text-white tracking-tight italic uppercase leading-none truncate max-w-[120px] xs:max-w-[200px] sm:max-w-none">
                     {selectedReportView === 'Catálogo' ? 'Catálogo' : selectedReportView}
                   </h3>
-                  <p className="text-[9px] md:text-xs font-semibold text-slate-400 mt-0.5 truncate max-w-[120px] xs:max-w-[200px] sm:max-w-none">
+                  <p className="text-[9px] md:text-xs font-semibold text-blue-100/80 mt-0.5 truncate max-w-[120px] xs:max-w-[200px] sm:max-w-none">
                     {selectedReportView === 'Catálogo' 
                       ? 'Selecione um relatório analítico para carregar.' 
                       : `Mapeamento analítico ativo`
@@ -558,32 +558,32 @@ function ReportsContent() {
               
               <div className="flex items-center justify-between sm:justify-end gap-1 md:gap-2.5 self-stretch sm:self-auto shrink-0 min-w-0">
                 {selectedReportView !== 'Catálogo' && (
-                  <div className="flex-1 sm:flex-initial flex items-center gap-0.5 xs:gap-1 md:gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-1.5 py-1 xs:px-2 md:px-2.5 md:py-1.5 shadow-xs select-none min-w-0">
-                    <Calendar size={11} className="hidden xs:block text-slate-400 shrink-0 md:size-3.5" />
+                  <div className="flex-1 sm:flex-initial flex items-center gap-0.5 xs:gap-1 md:gap-1.5 bg-white/10 border border-white/20 rounded-xl px-1.5 py-1 xs:px-2 md:px-2.5 md:py-1.5 shadow-xs select-none min-w-0">
+                    <Calendar size={11} className="hidden xs:block text-blue-200 shrink-0 md:size-3.5" />
                     <input 
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[110px] xs:max-w-[130px] md:max-w-[140px] text-center cursor-pointer"
+                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-white focus:ring-0 p-0 flex-1 min-w-0 max-w-[110px] xs:max-w-[130px] md:max-w-[140px] text-center cursor-pointer"
                     />
-                    <span className="text-slate-300 text-[9px] sm:text-[10px] font-black uppercase italic select-none shrink-0 px-0.5">-</span>
+                    <span className="text-blue-200 text-[9px] sm:text-[10px] font-black uppercase italic select-none shrink-0 px-0.5">-</span>
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-slate-600 focus:ring-0 p-0 flex-1 min-w-0 max-w-[110px] xs:max-w-[130px] md:max-w-[140px] text-center cursor-pointer"
+                      className="bg-transparent border-none text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase italic text-white focus:ring-0 p-0 flex-1 min-w-0 max-w-[110px] xs:max-w-[130px] md:max-w-[140px] text-center cursor-pointer"
                     />
                   </div>
                 )}
                 
                 {selectedReportView === 'Catálogo' && (
                   <>
-                    <span className="hidden lg:inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase italic shrink-0">
-                      <ClipboardList size={12} className="text-brand-blue" />
+                    <span className="hidden lg:inline-flex items-center gap-1.5 px-4 py-2.5 bg-white/10 border border-white/20 text-white rounded-2xl text-[10px] font-black uppercase italic shrink-0">
+                      <ClipboardList size={12} className="text-blue-200" />
                       {allReports.length} Relatórios Ativos
                     </span>
                     <div className="relative w-full max-w-[140px] xs:max-w-xs md:w-80 shrink-0">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-200 pointer-events-none">
                         <Search size={12} />
                       </span>
                       <input 
@@ -591,7 +591,7 @@ function ReportsContent() {
                         placeholder="Buscar..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8 pr-2 py-1.5 md:pl-11 md:pr-4 md:py-2.5 bg-slate-50 hover:bg-slate-100/60 transition-all border border-slate-200 rounded-xl text-[10px] md:text-xs font-bold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 w-full"
+                        className="pl-8 pr-2 py-1.5 md:pl-11 md:pr-4 md:py-2.5 bg-white/10 hover:bg-white/15 transition-all border border-white/20 rounded-xl text-[10px] md:text-xs font-bold text-white placeholder:text-blue-200/60 focus:outline-none focus:ring-2 focus:ring-white/10 w-full"
                       />
                     </div>
                   </>
@@ -602,7 +602,7 @@ function ReportsContent() {
                     <>
                       <button 
                         onClick={exportToExcel}
-                        className="p-1.5 md:p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 flex items-center gap-2 group"
+                        className="p-1.5 md:p-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 flex items-center gap-2 group cursor-pointer"
                         title="Baixar Excel"
                       >
                         <FileSpreadsheet className="size-3.5 md:size-[15px]" />
@@ -611,7 +611,7 @@ function ReportsContent() {
 
                       <button 
                         onClick={exportToPDF}
-                        className="p-1.5 md:p-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 flex items-center gap-2 group"
+                        className="p-1.5 md:p-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 flex items-center gap-2 group cursor-pointer"
                         title="Baixar PDF"
                       >
                         <FileText className="size-3.5 md:size-[15px]" />
@@ -622,7 +622,7 @@ function ReportsContent() {
 
                   <button 
                     onClick={() => setIsMaximized(!isMaximized)}
-                    className="p-1.5 md:p-3 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0"
+                    className="p-1.5 md:p-3 bg-white/10 hover:bg-white/20 text-white/85 hover:text-white border border-white/10 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
                     title={isMaximized ? "Restaurar tamanho" : "Maximizar"}
                   >
                     {isMaximized ? <Minimize2 className="size-3.5 md:size-[15px]" /> : <Maximize2 className="size-3.5 md:size-[15px]" />}
@@ -630,7 +630,7 @@ function ReportsContent() {
 
                   <button 
                     onClick={() => setSelectedReportView(null)}
-                    className="p-1.5 md:p-3 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0"
+                    className="p-1.5 md:p-3 bg-white/10 hover:bg-white/20 text-white/85 hover:text-white border border-white/10 rounded-xl md:rounded-2xl transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
                   >
                     <X className="size-3.5 md:size-[15px]" />
                   </button>

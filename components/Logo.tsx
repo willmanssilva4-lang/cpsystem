@@ -38,8 +38,7 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
   const s = sizes[size];
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-brand-blue';
-  const dotColor = theme === 'dark' ? '#ffffff' : '#1e40af';
-  const checkColor = theme === 'dark' ? '#ffffff' : '#1e40af';
+  const greenColor = '#10b981';
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
@@ -47,11 +46,11 @@ export function Logo({ className = '', size = 'md', hideText = false, theme = 'l
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>Cps</span>
         <svg viewBox="0 0 40 40" className={`${s.svg} ${s.spacing}`} style={{ overflow: 'visible', color: theme === 'dark' ? '#ffffff' : '#1e40af' }}>
           {/* Checkmark 'y' */}
-          <path d="M 12 16 L 20 28 L 36 4" fill="none" stroke={checkColor} strokeWidth={s.stroke} strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 12 16 L 20 28 L 36 4" fill="none" stroke={greenColor} strokeWidth={s.stroke} strokeLinecap="round" strokeLinejoin="round" />
           {/* Stem of 'y' */}
-          <path d="M 20 28 L 12 42" fill="none" stroke="currentColor" strokeWidth={s.stroke} strokeLinecap="round" />
+          <path d="M 20 28 L 12 42" fill="none" stroke={greenColor} strokeWidth={s.stroke} strokeLinecap="round" />
           {/* Dot */}
-          <circle cx="20" cy="28" r={s.dot} fill={dotColor} />
+          <circle cx="20" cy="28" r={s.dot} fill={greenColor} />
         </svg>
         <span className={`${textColor} font-black ${s.text} tracking-tight`}>stem</span>
       </div>
