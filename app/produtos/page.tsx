@@ -36,7 +36,8 @@ import {
   CheckCircle2,
   ArrowRight,
   RefreshCw,
-  Printer
+  Printer,
+  Barcode
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { cn, formatDateTimeBR, toLocalDateString } from '@/lib/utils';
@@ -44,6 +45,7 @@ import { ProductForm } from '@/components/ProductForm';
 import { ProductDetails } from '@/components/ProductDetails';
 import PricingSettingsModal from '@/components/PricingSettingsModal';
 import { InventorySessionModal } from '@/components/InventorySessionModal';
+import { LabelPrinting } from '@/components/LabelPrinting';
 import { Product } from '@/lib/types';
 
 export default function ProductsPage() {
@@ -74,6 +76,7 @@ function ProductsContent() {
   const [search, setSearch] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<string | null>(null);
+  const [productForLabel, setProductForLabel] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState('produtos');
   const [showInventorySession, setShowInventorySession] = useState(false);
   const [selectedDetailInventory, setSelectedDetailInventory] = useState<any | null>(null);
@@ -980,13 +983,14 @@ function ProductsContent() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="grid grid-cols-2 gap-3 max-w-3xl">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl">
         {[
           { id: 'produtos', label: 'Produtos', icon: Package, span: false },
           { id: 'movimentacoes', label: 'Movimentações', icon: History, span: false },
           { id: 'ajustes', label: 'Ajustes', icon: ArrowLeftRight, span: false },
           { id: 'inventario', label: 'Inventário', icon: ClipboardList, span: false },
-          { id: 'alterar-precos', label: 'Reajuste de Preços', icon: Coins, span: true },
+          { id: 'alterar-precos', label: 'Reajuste de Preços', icon: Coins, span: false },
+          { id: 'etiquetas', label: 'Imprimir Etiquetas', icon: Barcode, span: false },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1428,6 +1432,18 @@ function ProductsContent() {
                                 >
                                   <AlertTriangle size={16} className="text-orange-500" />
                                   Registrar Perda
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProductForLabel(product);
+                                    setActiveTab('etiquetas');
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors mt-1"
+                                >
+                                  <Barcode size={16} className="text-[#1e40af]" />
+                                  Imprimir Etiqueta
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -2984,6 +3000,13 @@ function ProductsContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'etiquetas' && (
+        <LabelPrinting 
+          initialProduct={productForLabel} 
+          onClearInitialProduct={() => setProductForLabel(null)} 
+        />
       )}
 
       {selectedProductForDetails && (
