@@ -1212,18 +1212,13 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
     const authResponse = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('[ERPProvider] Auth state change:', _event);
       if (session?.user) {
-        const companyId = session.user.user_metadata.companyId || session.user.user_metadata.company_id;
         setUser({
           id: session.user.id,
           name: session.user.user_metadata.name || session.user.email?.split('@')[0] || 'User',
           email: session.user.email || '',
           role: session.user.user_metadata.role || 'admin',
-          companyId: companyId
+          companyId: session.user.user_metadata.companyId || session.user.user_metadata.company_id
         });
-        if (_event === 'SIGNED_IN') {
-          console.log('[ERPProvider] SIGNED_IN event. Triggering fetchData.');
-          fetchData(companyId);
-        }
       } else {
         setUser(null);
       }

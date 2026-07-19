@@ -171,13 +171,6 @@ export default function PDVPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.id && fetchData) {
-      console.log('[PDV] Page mounted, refreshing cash registers and other data...');
-      fetchData().catch(err => console.warn('[PDV] Error refreshing data on mount:', err));
-    }
-  }, [user?.id, fetchData]);
-
-  useEffect(() => {
     if (typeof window !== 'undefined') {
       const loadInitialProducts = async () => {
         try {
