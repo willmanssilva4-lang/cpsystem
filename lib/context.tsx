@@ -2034,7 +2034,8 @@ export function ERPProvider({ children }: { children: React.ReactNode }) {
       let modifier = 1;
       const typeStr = (data.type || '').toString().toUpperCase();
       // Tipos que subtraem do estoque (se a quantidade for enviada positiva)
-      if (['SAIDA', 'SAÍDA', 'VENDA', 'PERDA'].includes(typeStr)) {
+      const outputTypes = ['SAIDA', 'SAÍDA', 'VENDA', 'PERDA', 'AJUSTE_SAIDA', 'ESTORNO_COMPRA', 'DEVOLUCAO_COMPRA', 'DEVOLUCAO_FORNECEDOR'];
+      if (outputTypes.includes(typeStr) || typeStr.includes('SAIDA') || typeStr.includes('SAÍDA')) {
         modifier = -1;
       }
       

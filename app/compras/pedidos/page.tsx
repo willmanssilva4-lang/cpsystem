@@ -16,7 +16,8 @@ import {
   Calendar,
   List,
   Sparkles,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, formatDateBR } from '@/lib/utils';
@@ -31,6 +32,8 @@ export default function TodosPedidosPage() {
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
 
   // Módulo de Conferência Física do Conferente (Sistemas de Grande Porte)
   const [isCheckingMode, setIsCheckingMode] = useState(false);
@@ -355,6 +358,72 @@ export default function TodosPedidosPage() {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+    setIsCanceling(true);
+    try {
+      const targetCompanyId = user?.companyId || null;
+      const supplierName = selectedOrder.suppliers?.name || 'Fornecedor';
+
+      // 1. Update purchase_orders table status to 'Cancelado'
+      let updateQuery = supabase
+        .from('purchase_orders')
+        .update({ status: 'Cancelado' })
+        .eq('id', selectedOrder.id);
+
+      if (targetCompanyId) {
+        updateQuery = updateQuery.or(`company_id.eq.${targetCompanyId},company_id.is.null`);
+      } else {
+        updateQuery = updateQuery.is('company_id', null);
+      }
+
+      const { error } = await updateQuery;
+      if (error) throw error;
+
+      // 2. If order was received, reverse stock for each item
+      if (selectedOrder.status === 'Recebido' || selectedOrder.status === 'Recebido com Divergência') {
+        for (const item of orderItems) {
+          const qtyToReverse = Number(item.quantity) || 0;
+          if (qtyToReverse > 0 && item.product_id) {
+            await addStockMovement({
+              productId: item.product_id,
+              type: 'AJUSTE_SAIDA',
+              quantity: qtyToReverse,
+              cost: Number(item.unit_price) || 0,
+              origin: `Estorno/Cancelamento Pedido Compra: ${selectedOrder.id.slice(0, 8)} - Fornecedor: ${supplierName}`,
+              date: new Date().toISOString(),
+              userId: user?.email || 'system',
+              userName: user?.name || 'Sistema',
+              companyId: targetCompanyId
+            }, true);
+          }
+        }
+      }
+
+      // 3. Update local state
+      setOrders((prev: any[]) => prev.map(o => o.id === selectedOrder.id ? { ...o, status: 'Cancelado' } : o));
+      setSelectedOrder((prev: any) => prev ? { ...prev, status: 'Cancelado' } : null);
+      setIsCancelModalOpen(false);
+
+      if (setCustomAlert) {
+        setCustomAlert({
+          message: 'Pedido de compra cancelado e estoque estornado com sucesso!',
+          type: 'success'
+        });
+      }
+    } catch (err: any) {
+      console.error('Erro ao cancelar pedido:', err);
+      if (setCustomAlert) {
+        setCustomAlert({
+          message: `Erro ao cancelar pedido: ${err.message || 'Erro desconhecido'}`,
+          type: 'error'
+        });
+      }
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
   const filteredOrders = orders.filter(order => 
     (order.suppliers?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -432,52 +501,57 @@ export default function TodosPedidosPage() {
 
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black uppercase italic">Detalhes do Pedido</h2>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 shrink-0">
+              <h2 className="text-xl font-black uppercase italic text-slate-800">Detalhes do Pedido</h2>
               <button onClick={() => { setSelectedOrder(null); setOrderItems([]); }} className="text-slate-400 hover:text-slate-600">
                 <XCircle size={24} />
               </button>
             </div>
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <p><strong>ID:</strong> {selectedOrder.id.slice(0, 8)}</p>
+            
+            <div className="space-y-5 overflow-y-auto pr-1 flex-1">
+              <div className="grid grid-cols-2 gap-3 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p><strong>ID:</strong> #{selectedOrder.id.slice(0, 8)}</p>
                 <p><strong>Fornecedor:</strong> {selectedOrder.suppliers?.name || 'Desconhecido'}</p>
                 <p><strong>Data:</strong> {formatDateBR(selectedOrder.order_date)}</p>
                 <p><strong>Status:</strong> {selectedOrder.status}</p>
               </div>
               
               <div>
-                <h3 className="font-bold mb-2">Produtos Comprados:</h3>
+                <h3 className="font-bold mb-2 text-slate-700">Produtos Comprados ({orderItems.length}):</h3>
                 {isItemsLoading ? (
-                  <p className="text-sm text-slate-500">Carregando produtos...</p>
+                  <p className="text-sm text-slate-500 py-4 text-center">Carregando produtos...</p>
                 ) : (
                   <div className="space-y-4">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2">Produto</th>
-                          <th className="text-right py-2">Qtd</th>
-                          <th className="text-right py-2">Custo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orderItems.map((item, i) => (
-                          <tr key={i} className="border-b">
-                            <td className="py-2">{item.products?.name || 'Produto'}</td>
-                            <td className="text-right py-2">{item.quantity}</td>
-                            <td className="text-right py-2">R$ {Number(item.unit_price).toFixed(2)}</td>
+                    <div className="max-h-[280px] overflow-y-auto border border-slate-200 rounded-xl">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-slate-100 z-10 shadow-sm">
+                          <tr className="border-b border-slate-200 text-slate-600 font-bold text-xs uppercase">
+                            <th className="text-left p-2.5">Produto</th>
+                            <th className="text-right p-2.5">Qtd</th>
+                            <th className="text-right p-2.5">Custo Unit.</th>
+                            <th className="text-right p-2.5">Subtotal</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {orderItems.map((item, i) => (
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-2.5 font-medium text-slate-800">{item.products?.name || 'Produto'}</td>
+                              <td className="text-right p-2.5 font-bold text-slate-700">{item.quantity}</td>
+                              <td className="text-right p-2.5 text-slate-600">R$ {Number(item.unit_price).toFixed(2)}</td>
+                              <td className="text-right p-2.5 font-semibold text-slate-800">R$ {(Number(item.quantity) * Number(item.unit_price)).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
                     {selectedOrder.status === 'Pendente' && (
                       <button
                         onClick={() => {
                           initChecking();
                         }}
-                        className="w-full mt-4 py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-brand-blue text-white rounded-xl font-black uppercase italic tracking-tight hover:bg-brand-blue-hover transition-all shadow-lg shadow-brand-blue/20 active:scale-95 flex items-center justify-center gap-2"
                       >
                         <Barcode size={18} />
                         Iniciar Conferência Física (Conferente)
@@ -486,10 +560,71 @@ export default function TodosPedidosPage() {
                   </div>
                 )}
               </div>
-              
-              <div className="text-right font-black text-lg">
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-4 shrink-0">
+              <div>
+                {selectedOrder.status !== 'Cancelado' ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(true)}
+                    className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl font-black uppercase italic tracking-wider text-xs transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Cancelar / Estornar Pedido
+                  </button>
+                ) : (
+                  <span className="text-xs font-black uppercase italic text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                    Pedido Cancelado / Estornado
+                  </span>
+                )}
+              </div>
+              <div className="text-right font-black text-lg text-brand-blue">
                 Total: R$ {Number(selectedOrder.total_amount).toFixed(2)}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Cancelamento do Pedido de Compra */}
+      {isCancelModalOpen && selectedOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-6">
+            <div className="flex items-center gap-3 text-rose-600">
+              <AlertTriangle size={28} />
+              <div>
+                <h3 className="text-lg font-black uppercase italic">Cancelar Pedido de Compra?</h3>
+                <p className="text-xs text-slate-500 font-semibold">ID: #{selectedOrder.id.slice(0, 8)}</p>
+              </div>
+            </div>
+            
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Ao confirmar o cancelamento, o status do pedido de compra será alterado para <strong className="text-rose-600 font-bold">CANCELADO</strong>.
+              {(selectedOrder.status === 'Recebido' || selectedOrder.status === 'Recebido com Divergência') && (
+                <span className="block mt-2 bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-amber-800 font-medium">
+                  ⚠️ Como esta mercadoria já havia sido recebida, as quantidades dos produtos serão estornadas (subtraídas) do estoque automaticamente.
+                </span>
+              )}
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                disabled={isCanceling}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-xs uppercase italic tracking-wider transition-all"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelOrder}
+                disabled={isCanceling}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase italic tracking-wider transition-all flex items-center justify-center gap-2"
+              >
+                {isCanceling ? 'Cancelando...' : 'Confirmar Cancelamento'}
+              </button>
             </div>
           </div>
         </div>
