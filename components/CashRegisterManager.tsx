@@ -1503,9 +1503,9 @@ export function CashRegisterManager({
                initial={{ opacity: 0, y: 15 }}
                animate={{ opacity: 1, y: 0 }}
                exit={{ opacity: 0, y: 15 }}
-               className="bg-white dark:bg-slate-900 rounded-2xl p-5 md:p-6 w-full max-w-3xl border border-slate-200 dark:border-slate-800 shadow-2xl my-4"
+               className="bg-white dark:bg-slate-900 rounded-2xl p-5 md:p-6 w-full max-w-3xl border border-slate-200 dark:border-slate-800 shadow-2xl my-auto max-h-[92vh] flex flex-col"
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white">Fechamento de Caixa</h2>
                   <div className="flex items-center gap-3 mt-1 flex-wrap sm:flex-nowrap">
@@ -1527,7 +1527,8 @@ export function CashRegisterManager({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className="overflow-y-auto pr-1 flex-1">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-2 space-y-4">
                   <div className="flex justify-between items-center p-3 bg-brand-blue/5 dark:bg-slate-800/40 rounded-xl border border-brand-blue/10 dark:border-slate-800">
                     <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Copiar valores esperados do sistema?</span>
@@ -1774,6 +1775,7 @@ export function CashRegisterManager({
                     Ao confirmar, o caixa será bloqueado e os dados enviados para auditoria.
                   </p>
                 </div>
+              </div>
               </div>
             </motion.div>
           </div>
